@@ -38,7 +38,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-950 flex">
 
       {/* KIRI — Panel Logo */}
-      <div className="hidden lg:flex w-[55%] bg-slate-900 border-r border-slate-800 flex-col items-center justify-center px-16 relative overflow-hidden">
+      <div className="hidden lg:flex w-[55%] bg-slate-950 border-r border-slate-800 flex-col items-center justify-center px-16 relative overflow-hidden">
 
         {/* Dekorasi background */}
         <div className="absolute top-[-100px] left-[-100px] w-80 h-80 rounded-full bg-blue-600/5" />
