@@ -10,7 +10,9 @@ export function middleware(req: NextRequest) {
   const isKonida = pathname.startsWith('/konida')
   const isOperator = pathname.startsWith('/operator')
   const isPublik = pathname.startsWith('/publik')
+  const isPresentasi = pathname.startsWith('/presentasi')
 
+if (isApi || isPublik || isPresentasi) return NextResponse.next()
   // Publik & API bebas akses tanpa login
   if (isApi || isPublik) return NextResponse.next()
 

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORPROV XV — Sistem Informasi Atlet</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css" />
+  <style>
+    :root {
+      --r-background-color: #0f172a;
+      --r-main-color: #f1f5f9;
+      --r-heading-color: #ffffff;
+      --r-link-color: #3b82f6;
+    }
+    .reveal .slides { text-align: left; }
+    .reveal h1 { font-size: 2.2em; font-weight: 700; line-height: 1.2; margin-bottom: 0; }
+    .reveal h2 { font-size: 1.5em; color: #94a3b8; margin-bottom: 0.5em; }
+    .reveal h3 { font-size: 0.9em; color: #3b82f6; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
+    .reveal p { font-size: 0.8em; color: #94a3b8; line-height: 1.6; }
+    .reveal section { padding: 0 40px; }
+    .badge { display: inline-block; font-size: 0.45em; padding: 4px 14px; border-radius: 20px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+    .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+    .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+    .badge-amber { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-red { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .accent-line { width: 60px; height: 4px; background: #3b82f6; border-radius: 2px; margin: 14px 0 20px; }
+    .kpi-row { display: flex; gap: 14px; margin-top: 20px; }
+    .kpi { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 18px; text-align: center; }
+    .kpi-val { font-size: 2em; font-weight: 700; color: #fff; display: block; }
+    .kpi-lbl { font-size: 0.5em; color: #64748b; margin-top: 4px; display: block; }
+    .feat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .feat { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 16px; }
+    .feat-title { font-size: 0.6em; font-weight: 600; color: #e2e8f0; margin-bottom: 5px; }
+    .feat-desc { font-size: 0.5em; color: #64748b; line-height: 1.5; margin: 0; }
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .role-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 18px 14px; text-align: center; }
+    .role-icon { font-size: 1.6em; margin-bottom: 8px; }
+    .role-title { font-size: 0.6em; font-weight: 600; margin-bottom: 6px; }
+    .role-desc { font-size: 0.48em; color: #64748b; line-height: 1.5; margin: 0; }
+    .flow-row { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
+    .flow-step { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 10px; text-align: center; }
+    .flow-step.final { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.05); }
+    .flow-num { font-size: 0.4em; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
+    .flow-name { font-size: 0.58em; font-weight: 600; color: #e2e8f0; margin: 3px 0; }
+    .flow-role { font-size: 0.42em; color: #64748b; }
+    .flow-arrow { color: #334155; font-size: 1em; flex-shrink: 0; }
+    .pill-row { display: flex; gap: 6px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
+    .pill { font-size: 0.42em; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,0.06); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); }
+    .pill.verified { background: rgba(34,197,94,0.1); color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    .pill.posted { background: rgba(59,130,246,0.1); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
+    .pill-arrow { color: #334155; font-size: 0.7em; }
+    .stack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .stack-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+    .stack-icon { font-size: 1.3em; flex-shrink: 0; }
+    .stack-name { font-size: 0.58em; font-weight: 600; color: #e2e8f0; }
+    .stack-desc { font-size: 0.45em; color: #64748b; margin-top: 2px; }
+    .road-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+    .road-item { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 14px; }
+    .road-phase { font-size: 0.42em; font-weight: 600; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
+    .road-title { font-size: 0.58em; font-weight: 600; color: #e2e8f0; }
+    .road-desc { font-size: 0.45em; color: #64748b; margin-top: 2px; }
+    .prob-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    .prob-item { display: flex; align-items: flex-start; gap: 12px; background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.12); border-radius: 10px; padding: 12px 14px; }
+    .prob-icon { font-size: 1.1em; flex-shrink: 0; }
+    .prob-title { font-size: 0.58em; font-weight: 600; color: #fca5a5; }
+    .prob-desc { font-size: 0.47em; color: #64748b; margin-top: 2px; line-height: 1.4; }
+    .cta-box { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 14px; padding: 24px 28px; margin-top: 16px; text-align: center; }
+    .cta-url { font-family: monospace; font-size: 0.7em; color: #60a5fa; margin-top: 6px; }
+    .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 14px 0; }
+    .slide-footer { position: absolute; bottom: 14px; left: 40px; right: 40px; font-size: 0.38em; color: #334155; display: flex; justify-content: space-between; }
+    .hl-blue { color: #60a5fa; }
+    .hl-green { color: #4ade80; }
+    .hl-amber { color: #fbbf24; }
+  </style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- SLIDE 1: COVER -->
+    <section>
+      <div class="badge badge-blue">Paparan Teknis 2026</div>
+      <h1>Sistem Informasi<br>Manajemen Atlet</h1>
+      <div class="accent-line"></div>
+      <p>Platform terintegrasi untuk registrasi, verifikasi, dan klasemen atlet<br><span class="hl-blue">PORPROV XV Jawa Barat 2026</span> secara real-time</p>
+      <div class="kpi-row">
+        <div class="kpi"><span class="kpi-val">27</span><span class="kpi-lbl">Kontingen</span></div>
+        <div class="kpi"><span class="kpi-val">65+</span><span class="kpi-lbl">Cabang Olahraga</span></div>
+        <div class="kpi"><span class="kpi-val">24K+</span><span class="kpi-lbl">Atlet Terdaftar</span></div>
+        <div class="kpi"><span class="kpi-val">3</span><span class="kpi-lbl">Tahap Verifikasi</span></div>
+      </div>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>porprov-xv.vercel.app</span></div>
+    </section>
+
+    <!-- SLIDE 2: PROBLEM -->
+    <section>
+      <div class="badge badge-red">Latar Belakang</div>
+      <h1>Permasalahan<br>sistem lama</h1>
+      <div class="prob-list">
+        <div class="prob-item">
+          <div class="prob-icon">📁</div>
+          <div><div class="prob-title">Data tidak terpusat</div><div class="prob-desc">Data atlet tersebar di file Excel tiap kontingen — sulit dikonsolidasi dan rawan duplikasi</div></div>
+        </div>
+        <div class="prob-item">
+          <div class="prob-icon">⏳</div>
+          <div><div class="prob-title">Verifikasi lambat dan manual</div><div class="prob-desc">Proses approval dokumen memakan waktu lama dan sangat rawan human error</div></div>
+        </div>
+        <div class="prob-item">
+          <div class="prob-icon">📊</div>
+          <div><div class="prob-title">Tidak ada visibilitas real-time</div><div class="prob-desc">Klasemen medali tidak bisa dipantau langsung — harus menunggu laporan manual</div></div>
+        </div>
+        <div class="prob-item">
+          <div class="prob-icon">📄</div>
+          <div><div class="prob-title">Dokumen tidak terkelola</div><div class="prob-desc">KTP, KK, Akta, Ijazah atlet sulit dilacak dan sering tidak lengkap saat dibutuhkan</div></div>
+        </div>
+      </div>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>2 / 8</span></div>
+    </section>
+
+    <!-- SLIDE 3: SOLUTION -->
+    <section>
+      <div class="badge badge-green">Solusi</div>
+      <h1>Fitur unggulan<br>sistem</h1>
+      <div class="feat-grid">
+        <div class="feat"><div class="feat-title">🔐 Multi-role access</div><div class="feat-desc">Admin, KONIDA, Operator Cabor — dashboard dan hak akses terpisah per role</div></div>
+        <div class="feat"><div class="feat-title">✅ Verifikasi 3 tahap</div><div class="feat-desc">KONIDA → Operator Cabor → Admin — alur approval yang terstruktur dan transparan</div></div>
+        <div class="feat"><div class="feat-title">📎 Upload dokumen digital</div><div class="feat-desc">KTP, KK, Akta, Ijazah, BPJS tersimpan cloud — mudah diakses kapanpun</div></div>
+        <div class="feat"><div class="feat-title">🏆 Klasemen live publik</div><div class="feat-desc">Perolehan medali real-time — tanpa login, bisa dibuka siapapun dari HP</div></div>
+        <div class="feat"><div class="feat-title">📱 Responsive & mobile-friendly</div><div class="feat-desc">Bisa diakses dari HP, tablet, atau laptop — tidak perlu install aplikasi</div></div>
+        <div class="feat"><div class="feat-title">🔄 Auto-update klasemen</div><div class="feat-desc">PostgreSQL trigger — klasemen berubah otomatis saat medali diinput operator</div></div>
+      </div>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>3 / 8</span></div>
+    </section>
+
+    <!-- SLIDE 4: ROLES -->
+    <section>
+      <div class="badge badge-blue">Struktur Akses</div>
+      <h1>Tiga level<br>pengguna sistem</h1>
+      <div class="role-grid">
+        <div class="role-card">
+          <div class="role-icon">🛡️</div>
+          <div class="role-title" style="color:#60a5fa">Admin PORPROV</div>
+          <div class="role-desc">Akses penuh — verifikasi final, posting atlet, pantau semua kontingen dan cabang olahraga</div>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">🏘️</div>
+          <div class="role-title" style="color:#fbbf24">KONIDA</div>
+          <div class="role-desc">Input dan kelola atlet kontingen sendiri — upload dokumen dan submit ke operator cabor</div>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">🏃</div>
+          <div class="role-title" style="color:#4ade80">Operator Cabor</div>
+          <div class="role-desc">Review atlet per cabor — input hasil pertandingan dan tetapkan medali emas/perak/perunggu</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <p style="text-align:center;font-size:0.55em">
+        Ditambah akses <span class="hl-blue">publik</span> — klasemen live tanpa login untuk wartawan, penonton, dan official kontingen
+      </p>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>4 / 8</span></div>
+    </section>
+
+    <!-- SLIDE 5: FLOW -->
+    <section>
+      <div class="badge badge-blue">Alur Proses</div>
+      <h1>Registrasi atlet<br>3 tahap approval</h1>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="flow-num">Tahap 1</div>
+          <div class="flow-name">Input & Submit</div>
+          <div class="flow-role">oleh KONIDA</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-num">Tahap 2</div>
+          <div class="flow-name">Review Cabor</div>
+          <div class="flow-role">oleh Operator</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="flow-num">Tahap 3</div>
+          <div class="flow-name">Verifikasi Final</div>
+          <div class="flow-role">oleh Admin</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step final">
+          <div class="flow-num">Selesai</div>
+          <div class="flow-name" style="color:#4ade80">Posted</div>
+          <div class="flow-role" style="color:#4ade80">Data final</div>
+        </div>
+      </div>
+      <div class="pill-row">
+        <span class="pill">Draft</span>
+        <span class="pill-arrow">→</span>
+        <span class="pill">Menunggu Cabor</span>
+        <span class="pill-arrow">→</span>
+        <span class="pill">Menunggu Admin</span>
+        <span class="pill-arrow">→</span>
+        <span class="pill verified">Verified</span>
+        <span class="pill-arrow">→</span>
+        <span class="pill posted">Posted</span>
+      </div>
+      <div class="divider"></div>
+      <p style="font-size:0.52em">Reject di tahap manapun → atlet kembali ke <span class="hl-amber">Draft</span> dan KONIDA bisa revisi sebelum submit ulang</p>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>5 / 8</span></div>
+    </section>
+
+    <!-- SLIDE 6: TECH STACK -->
+    <section>
+      <div class="badge badge-blue">Teknologi</div>
+      <h1>Tech stack<br>yang digunakan</h1>
+      <div class="stack-grid">
+        <div class="stack-item"><div class="stack-icon">⚡</div><div><div class="stack-name">Next.js 14</div><div class="stack-desc">Framework React — frontend + backend dalam satu project</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🗄️</div><div><div class="stack-name">Supabase (PostgreSQL)</div><div class="stack-desc">Database cloud — auth, storage dokumen, realtime trigger</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🚀</div><div><div class="stack-name">Vercel</div><div class="stack-desc">Hosting & auto-deploy — CDN global, uptime 99.99%</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🔷</div><div><div class="stack-name">TypeScript</div><div class="stack-desc">Type-safe — minim bug, lebih mudah dikembangkan tim</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🎨</div><div><div class="stack-name">Tailwind CSS</div><div class="stack-desc">UI modern dan konsisten — responsive di semua device</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🔐</div><div><div class="stack-name">Cookie Auth + Middleware</div><div class="stack-desc">Session httpOnly — aman dari XSS, role-based access control</div></div></div>
+      </div>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>6 / 8</span></div>
+    </section>
+
+    <!-- SLIDE 7: ROADMAP -->
+    <section>
+      <div class="badge badge-amber">Pengembangan</div>
+      <h1>Roadmap<br>selanjutnya</h1>
+      <div class="road-list">
+        <div class="road-item">
+          <span class="road-phase" style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3)">Segera</span>
+          <div><div class="road-title">Keamanan password (bcrypt)</div><div class="road-desc">Enkripsi password database agar lebih aman sebelum go-live</div></div>
+        </div>
+        <div class="road-item">
+          <span class="road-phase" style="background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)">Fase 2</span>
+          <div><div class="road-title">Manajemen user oleh Admin</div><div class="road-desc">Tambah/edit/nonaktifkan akun KONIDA & Operator dari dashboard</div></div>
+        </div>
+        <div class="road-item">
+          <span class="road-phase" style="background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)">Fase 2</span>
+          <div><div class="road-title">Export PDF & cetak kartu atlet</div><div class="road-desc">Laporan per kontingen + kartu atlet dengan foto & QR code</div></div>
+        </div>
+        <div class="road-item">
+          <span class="road-phase" style="background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3)">Fase 3</span>
+          <div><div class="road-title">Jadwal & hasil pertandingan lengkap</div><div class="road-desc">Drawing, bracket, input hasil live per nomor pertandingan</div></div>
+        </div>
+      </div>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>7 / 8</span></div>
+    </section>
+
+    <!-- SLIDE 8: CTA -->
+    <section>
+      <div class="badge badge-green">Demo Live</div>
+      <h1>Sistem sudah live<br>dan bisa dicoba</h1>
+      <div class="cta-box">
+        <p style="color:#60a5fa;font-weight:600;margin:0 0 4px;font-size:0.65em">URL Sistem</p>
+        <div class="cta-url">https://porprov-xv.vercel.app</div>
+        <div class="divider"></div>
+        <p style="color:#60a5fa;font-weight:600;margin:0 0 4px;font-size:0.65em">Klasemen Medali Live (tanpa login)</p>
+        <div class="cta-url">https://porprov-xv.vercel.app/publik/klasemen</div>
+      </div>
+      <div class="divider"></div>
+      <div class="kpi-row" style="margin-top:0">
+        <div class="kpi"><span class="kpi-val" style="font-size:1.3em;color:#4ade80">✓</span><span class="kpi-lbl">Login 3 role</span></div>
+        <div class="kpi"><span class="kpi-val" style="font-size:1.3em;color:#4ade80">✓</span><span class="kpi-lbl">Flow registrasi</span></div>
+        <div class="kpi"><span class="kpi-val" style="font-size:1.3em;color:#4ade80">✓</span><span class="kpi-lbl">Klasemen live</span></div>
+        <div class="kpi"><span class="kpi-val" style="font-size:1.3em;color:#4ade80">✓</span><span class="kpi-lbl">Deploy Vercel</span></div>
+      </div>
+      <div class="slide-footer"><span>PORPROV XV · Jawa Barat 2026</span><span>8 / 8</span></div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    transition: 'slide',
+    transitionSpeed: 'fast',
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    center: false,
+    width: '100%',
+    height: '100%',
+    margin: 0.04,
+  });
+</script>
+</body>
+</html>
