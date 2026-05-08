@@ -193,6 +193,12 @@ export default function LoginPage() {
             </div>
             <p className="text-slate-700 text-[10px] mt-1.5">* Klik untuk autofill</p>
           </div>
+          <div className="mt-3 text-center">
+            <span className="text-slate-600 text-xs">Kamu atlet? </span>
+            <a href="/atlet/login" className="text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-colors">
+              Masuk ke Portal Atlet →
+            </a>
+          </div>
 
           {/* Link klasemen — mobile (panel kiri tidak keliatan) */}
           <a href="/publik/klasemen"

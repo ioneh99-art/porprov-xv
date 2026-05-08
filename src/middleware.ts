@@ -2,21 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export function middleware(req: NextRequest) {
   const session = req.cookies.get('porprov_session')?.value
+  const atletSession = req.cookies.get('porprov_atlet_session')?.value
   const { pathname } = req.nextUrl
 
   const isLoginPage = pathname === '/login'
+  const isAtletLogin = pathname === '/atlet/login' || pathname === '/atlet/daftar'
   const isApi = pathname.startsWith('/api')
   const isDashboard = pathname.startsWith('/dashboard')
   const isKonida = pathname.startsWith('/konida')
   const isOperator = pathname.startsWith('/operator')
+  const isAtlet = pathname.startsWith('/atlet')
   const isPublik = pathname.startsWith('/publik')
   const isPresentasi = pathname.startsWith('/presentasi')
 
-if (isApi || isPublik || isPresentasi) return NextResponse.next()
-  // Publik & API bebas akses tanpa login
-  if (isApi || isPublik) return NextResponse.next()
+  // Bebas akses
+  if (isApi || isPublik || isPresentasi) return NextResponse.next()
 
-  // Belum login
+  // ── PORTAL ATLET ──
+  if (isAtlet) {
+    if (isAtletLogin) {
+      if (atletSession) return NextResponse.redirect(new URL('/atlet/dashboard', req.url))
+      return NextResponse.next()
+    }
+    if (!atletSession) return NextResponse.redirect(new URL('/atlet/login', req.url))
+    return NextResponse.next()
+  }
+
+  // ── PORTAL STAFF (Admin/KONIDA/Operator) ──
   if (!session) {
     if (isLoginPage) return NextResponse.next()
     return NextResponse.redirect(new URL('/login', req.url))
@@ -31,14 +43,12 @@ if (isApi || isPublik || isPresentasi) return NextResponse.next()
     return res
   }
 
-  // Sudah login → redirect dari login page
   if (isLoginPage) {
     if (user?.role === 'admin') return NextResponse.redirect(new URL('/dashboard', req.url))
     if (user?.role === 'konida') return NextResponse.redirect(new URL('/konida/dashboard', req.url))
     if (user?.role === 'operator_cabor') return NextResponse.redirect(new URL('/operator/dashboard', req.url))
   }
 
-  // Proteksi per role
   if (isDashboard && user?.role !== 'admin') {
     if (user?.role === 'konida') return NextResponse.redirect(new URL('/konida/dashboard', req.url))
     if (user?.role === 'operator_cabor') return NextResponse.redirect(new URL('/operator/dashboard', req.url))

@@ -9,6 +9,7 @@ import {
 const navItems = [
   { label: 'Dashboard', href: '/operator/dashboard', icon: LayoutDashboard },
   { label: 'Verifikasi Atlet', href: '/operator/verifikasi', icon: ShieldCheck },
+  { label: 'Kejuaraan Atlet', href: '/operator/kejuaraan', icon: Trophy },
   { label: 'Nomor Pertandingan', href: '/operator/nomor', icon: ClipboardList },
   { label: 'Input Hasil', href: '/operator/hasil', icon: Trophy },
 ]
