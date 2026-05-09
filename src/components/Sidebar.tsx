@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Trophy, UserSquare2,
   Database, BarChart2, Settings, ChevronRight,
   LogOut, ShieldCheck, Medal, ClipboardCheck,
-  UserCog, FileUp
+  UserCog, FileUp, CreditCard
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -31,6 +31,7 @@ export default function Sidebar() {
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Manajemen User', href: '/dashboard/users', icon: UserCog },
+    { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
     { label: 'Import Data', href: '/dashboard/import', icon: FileUp },
     { label: 'Atlet', href: '/dashboard/atlet', icon: Users, badge: '24K' },
     {
@@ -49,6 +50,7 @@ export default function Sidebar() {
   const dataItems = [
     { label: 'Master', href: '/dashboard/master', icon: Database },
     { label: 'Laporan', href: '/dashboard/laporan', icon: BarChart2 },
+    { label: 'Kartu Atlet', href: '/dashboard/kartu', icon: CreditCard },
   ]
 
   const handleLogout = async () => {

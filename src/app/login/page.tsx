@@ -44,12 +44,12 @@ export default function LoginPage() {
         <div className="absolute top-[-100px] left-[-100px] w-80 h-80 rounded-full bg-blue-600/5" />
         <div className="absolute bottom-[-80px] right-[-80px] w-64 h-64 rounded-full bg-blue-600/5" />
 
-        {/* Logo pakai img biasa — paling reliable */}
+        {/* Logo */}
         <div className="relative z-10 mb-8">
           <img
             src="/logo-porprov.png"
             alt="Logo PORPROV XV Jawa Barat 2026"
-            className="w-64 h-64 object-contain"
+            className="w-64 h-64 object-contain mix-blend-lighten"
           />
         </div>
 
@@ -65,10 +65,10 @@ export default function LoginPage() {
         </div>
 
         {/* Stats */}
-        <div className="relative z-10 flex gap-10">
+        <div className="relative z-10 flex gap-10 mb-10">
           {[
             { label: 'Kontingen', value: '27' },
-            { label: 'Cabang Olahraga', value: '65+' },
+            { label: 'Cabang Olahraga', value: '92' },
             { label: 'Atlet', value: '24K+' },
           ].map(({ label, value }) => (
             <div key={label} className="text-center">
@@ -78,13 +78,31 @@ export default function LoginPage() {
           ))}
         </div>
 
-        {/* Live klasemen link */}
-        <a href="/publik/klasemen"
-          className="relative z-10 mt-10 flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 text-xs px-4 py-2.5 rounded-full transition-all">
-          <span>🏆</span>
-          <span>Lihat Klasemen Medali Live</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-        </a>
+        {/* Link publik */}
+        <div className="relative z-10 flex flex-col items-center gap-3 w-full max-w-xs">
+          <a href="/publik/klasemen"
+            className="w-full flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 text-xs px-4 py-2.5 rounded-full transition-all">
+            <span>🏆</span>
+            <span>Lihat Klasemen Medali Live</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          </a>
+          <div className="flex items-center gap-4">
+            <a href="/publik/jadwal"
+              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">
+              📅 Jadwal
+            </a>
+            <span className="text-slate-700">·</span>
+            <a href="/publik/hasil"
+              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">
+              🏅 Hasil
+            </a>
+            <span className="text-slate-700">·</span>
+            <a href="/publik/atlet"
+              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">
+              🔍 Cari Atlet
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* KANAN — Form */}
@@ -178,21 +196,23 @@ export default function LoginPage() {
             <div className="space-y-1">
               {[
                 { role: 'Admin', user: 'admin', pass: 'admin123' },
-                { role: 'KONIDA Bogor', user: 'bogor', pass: 'bogor123' },
-                { role: 'KONIDA Bandung', user: 'bandung', pass: 'bandung123' },
-                { role: 'Operator Atletik', user: 'atletik', pass: 'atletik123' },
-                { role: 'Operator Renang', user: 'renang', pass: 'renang123' },
+                { role: 'KONIDA Kab. Bogor', user: 'kab.bogor', pass: 'admin123' },
+                { role: 'KONIDA Kota Bandung', user: 'kota.bandung', pass: 'admin123' },
+                { role: 'Operator Atletik', user: 'op.atletik', pass: 'admin123' },
+                { role: 'Operator Renang', user: 'op.akuatikrn', pass: 'admin123' },
               ].map(a => (
                 <button key={a.role} type="button"
                   onClick={() => { setUsername(a.user); setPassword(a.pass) }}
                   className="w-full flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-slate-800 transition-colors text-xs">
                   <span className="text-slate-500">{a.role}</span>
-                  <span className="text-slate-400 font-mono">{a.user} / {a.pass}</span>
+                  <span className="text-slate-400 font-mono text-[10px]">{a.user}</span>
                 </button>
               ))}
             </div>
-            <p className="text-slate-700 text-[10px] mt-1.5">* Klik untuk autofill</p>
+            <p className="text-slate-700 text-[10px] mt-1.5">* Klik untuk autofill · password: admin123</p>
           </div>
+
+          {/* Link atlet */}
           <div className="mt-3 text-center">
             <span className="text-slate-600 text-xs">Kamu atlet? </span>
             <a href="/atlet/login" className="text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-colors">
@@ -200,15 +220,30 @@ export default function LoginPage() {
             </a>
           </div>
 
-          {/* Link klasemen — mobile (panel kiri tidak keliatan) */}
-          <a href="/publik/klasemen"
-            className="lg:hidden mt-4 flex items-center justify-center gap-2 text-amber-400 hover:text-amber-300 text-xs transition-colors">
-            <span>🏆</span>
-            <span>Lihat Klasemen Medali Live</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          </a>
+          {/* Link publik — mobile only */}
+          <div className="lg:hidden mt-4 flex flex-col items-center gap-2">
+            <a href="/publik/klasemen"
+              className="flex items-center justify-center gap-2 text-amber-400 hover:text-amber-300 text-xs transition-colors">
+              <span>🏆</span>
+              <span>Lihat Klasemen Medali Live</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </a>
+            <div className="flex items-center gap-4">
+              <a href="/publik/jadwal" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                📅 Jadwal
+              </a>
+              <span className="text-slate-700">·</span>
+              <a href="/publik/hasil" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                🏅 Hasil
+              </a>
+              <span className="text-slate-700">·</span>
+              <a href="/publik/atlet" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                🔍 Cari Atlet
+              </a>
+            </div>
+          </div>
 
-          <p className="text-center text-slate-700 text-[10px] mt-4">
+          <p className="text-center text-slate-700 text-[10px] mt-5">
             © 2026 KONI Jawa Barat · v1.0.0
           </p>
         </div>
