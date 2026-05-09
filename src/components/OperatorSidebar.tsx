@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ClipboardList, Trophy,
-  LogOut, ChevronRight, ShieldCheck, ClipboardCheck
+  LogOut, ChevronRight, ShieldCheck, ClipboardCheck, Calendar 
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -50,6 +50,7 @@ export default function OperatorSidebar() {
       icon: Trophy, notif: counts.kejuaraan ?? 0
     },
     { label: 'Nomor Pertandingan', href: '/operator/nomor', icon: ClipboardList },
+    { label: 'Jadwal', href: '/operator/jadwal', icon: Calendar },
     { label: 'Input Hasil', href: '/operator/hasil', icon: Trophy },
   ]
 
