@@ -6,11 +6,13 @@ import {
   Database, BarChart2, Settings, ChevronRight,
   LogOut, ShieldCheck,
   Medal,
-  ClipboardCheck
+  ClipboardCheck,
+  UserCog
 } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Manajemen User', href: '/dashboard/users', icon: UserCog },
   { label: 'Atlet', href: '/dashboard/atlet', icon: Users, badge: '24K' },
   { label: 'Verifikasi', href: '/dashboard/verifikasi', icon: ShieldCheck },
   { label: 'Kualifikasi', href: '/dashboard/kualifikasi', icon: ClipboardCheck },

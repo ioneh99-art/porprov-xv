@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { loginUser } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -12,48 +12,31 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  )
+  const user = await loginUser(username, password)
 
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, username, nama, role, kontingen_id, cabor_id, is_active')
-    .eq('username', username.trim().toLowerCase())
-    .eq('password_hash', password)
-    .single()
-
-  if (error || !data) {
+  if (!user) {
     return NextResponse.json(
       { error: 'Username atau password salah' },
       { status: 401 }
     )
   }
 
-  if (!data.is_active) {
-    return NextResponse.json(
-      { error: 'Akun tidak aktif, hubungi admin' },
-      { status: 403 }
-    )
-  }
+  const redirect =
+    user.role === 'admin' ? '/dashboard' :
+    user.role === 'konida' ? '/konida/dashboard' :
+    user.role === 'operator_cabor' ? '/operator/dashboard' :
+    '/login'
 
   const sessionData = JSON.stringify({
-    id: data.id,
-    username: data.username,
-    nama: data.nama,
-    role: data.role,
-    kontingen_id: data.kontingen_id ?? null,
-    cabor_id: data.cabor_id ?? null,
+    id: user.id,
+    username: user.username,
+    nama: user.nama,
+    role: user.role,
+    kontingen_id: user.kontingen_id,
+    cabor_id: user.cabor_id,
   })
 
-  const redirect =
-    data.role === 'admin' ? '/dashboard' :
-    data.role === 'konida' ? '/konida/dashboard' :
-    '/operator/dashboard'
-
-  const res = NextResponse.json({ ok: true, role: data.role, redirect })
-
+  const res = NextResponse.json({ ok: true, redirect })
   res.cookies.set('porprov_session', sessionData, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
