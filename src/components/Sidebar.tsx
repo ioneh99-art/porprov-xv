@@ -7,12 +7,14 @@ import {
   LogOut, ShieldCheck,
   Medal,
   ClipboardCheck,
-  UserCog
+  UserCog,
+  FileUp
 } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Manajemen User', href: '/dashboard/users', icon: UserCog },
+  { label: 'Import Data', href: '/dashboard/import', icon: FileUp },
   { label: 'Atlet', href: '/dashboard/atlet', icon: Users, badge: '24K' },
   { label: 'Verifikasi', href: '/dashboard/verifikasi', icon: ShieldCheck },
   { label: 'Kualifikasi', href: '/dashboard/kualifikasi', icon: ClipboardCheck },
