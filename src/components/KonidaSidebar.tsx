@@ -1,11 +1,12 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, BarChart2, LogOut, ChevronRight, Trophy } from 'lucide-react'
+import { LayoutDashboard, Users, BarChart2, LogOut, ChevronRight, Trophy, ClipboardCheck } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/konida/dashboard', icon: LayoutDashboard },
   { label: 'Atlet', href: '/konida/atlet', icon: Users },
+  { label: 'Kualifikasi', href: '/konida/kualifikasi', icon: ClipboardCheck },
   { label: 'Kejuaraan Atlet', href: '/konida/kejuaraan', icon: Trophy },
   { label: 'Laporan', href: '/konida/laporan', icon: BarChart2 },
 ]

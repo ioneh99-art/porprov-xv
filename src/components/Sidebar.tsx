@@ -5,13 +5,15 @@ import {
   LayoutDashboard, Users, Trophy, UserSquare2,
   Database, BarChart2, Settings, ChevronRight,
   LogOut, ShieldCheck,
-  Medal
+  Medal,
+  ClipboardCheck
 } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Atlet', href: '/dashboard/atlet', icon: Users, badge: '24K' },
   { label: 'Verifikasi', href: '/dashboard/verifikasi', icon: ShieldCheck },
+  { label: 'Kualifikasi', href: '/dashboard/kualifikasi', icon: ClipboardCheck },
   { label: 'Kejuaraan', href: '/dashboard/kejuaraan', icon: Trophy },
   { label: 'Disiplin', href: '/dashboard/disiplin', icon: Medal },
   { label: 'Kontingen', href: '/dashboard/kontingen', icon: UserSquare2 },
