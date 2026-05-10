@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Search, CheckCircle, XCircle, Send } from 'lucide-react'
+import { Search, CheckCircle, XCircle, Send, Mail } from 'lucide-react'
 
 export default function VerifikasiPage() {
   const [atlet, setAtlet] = useState<any[]>([])
@@ -9,8 +9,14 @@ export default function VerifikasiPage() {
   const [search, setSearch] = useState('')
   const [processing, setProcessing] = useState<number | null>(null)
   const [me, setMe] = useState<any>(null)
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
   useEffect(() => { loadData() }, [])
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3000)
+  }
 
   const loadData = async () => {
     const meData = await fetch('/api/auth/me').then(r => r.json())
@@ -29,7 +35,7 @@ export default function VerifikasiPage() {
         status_registrasi, status_verifikasi,
         catatan_verifikasi, catatan_cabor,
         approved_cabor_at, approved_admin_at,
-        is_posted,
+        is_posted, kontingen_id, cabor_id,
         cabang_olahraga(nama),
         kontingen(nama)
       `)
@@ -39,66 +45,56 @@ export default function VerifikasiPage() {
     setLoading(false)
   }
 
-  const handleApprove = async (atletId: number) => {
+  const handleAction = async (
+    atletId: number,
+    action: 'approve_admin' | 'reject_admin' | 'posting',
+    alasan?: string
+  ) => {
     setProcessing(atletId)
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      await supabase.rpc('approve_admin', {
-        atlet_id: atletId,
-        user_id: me.id,
-        catatan: 'Diverifikasi oleh Admin PORPROV'
+      // Update status via API verifikasi (includes email)
+      const res = await fetch('/api/verifikasi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ atlet_id: atletId, action, alasan }),
       })
+      const data = await res.json()
+
+      if (!res.ok) throw new Error(data.error)
+
+      showToast(
+        action === 'approve_admin' ? '✅ Atlet berhasil diverifikasi! Email notifikasi terkirim.' :
+        action === 'reject_admin' ? '❌ Atlet ditolak. Email notifikasi terkirim.' :
+        '🚀 Atlet berhasil diposting! Email notifikasi terkirim.',
+        'success'
+      )
+
       await loadData()
+    } catch (e: any) {
+      showToast(e.message, 'error')
     } finally {
       setProcessing(null)
     }
   }
 
+  const handleApprove = async (atletId: number) => {
+    if (!confirm('Verifikasi atlet ini?')) return
+    await handleAction(atletId, 'approve_admin')
+  }
+
   const handleReject = async (atletId: number) => {
-    const catatan = prompt('Alasan penolakan (wajib diisi):')
-    if (!catatan) return
-    setProcessing(atletId)
-    try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      await supabase.rpc('reject_admin', {
-        atlet_id: atletId,
-        user_id: me.id,
-        catatan
-      })
-      await loadData()
-    } finally {
-      setProcessing(null)
-    }
+    const alasan = prompt('Alasan penolakan (wajib diisi):')
+    if (!alasan) return
+    await handleAction(atletId, 'reject_admin', alasan)
   }
 
   const handlePosting = async (atletId: number) => {
     if (!confirm('Posting atlet ini? Data tidak bisa diubah setelah posted.')) return
-    setProcessing(atletId)
-    try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      await supabase.rpc('posting_atlet', {
-        atlet_id: atletId,
-        user_id: me.id
-      })
-      await loadData()
-    } finally {
-      setProcessing(null)
-    }
+    await handleAction(atletId, 'posting')
   }
 
   const pending = atlet.filter(a => a.status_registrasi === 'Menunggu Admin').length
+
   const filtered = atlet.filter(a => {
     const matchSearch =
       a.nama_lengkap?.toLowerCase().includes(search.toLowerCase()) ||
@@ -116,6 +112,16 @@ export default function VerifikasiPage() {
 
   return (
     <div>
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-5 right-5 z-50 px-5 py-3 rounded-2xl text-sm font-medium shadow-xl transition-all
+          ${toast.type === 'success'
+            ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+            : 'bg-red-500/10 border border-red-500/30 text-red-400'}`}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-7">
         <div>
           <h1 className="text-lg font-semibold text-white">Verifikasi Final Atlet</h1>
@@ -123,17 +129,24 @@ export default function VerifikasiPage() {
             Atlet yang sudah diapprove Operator Cabor menunggu verifikasi Admin
           </p>
         </div>
-        {pending > 0 && (
-          <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-xl px-4 py-2">
-            <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-            <span className="text-purple-400 text-xs font-medium">
-              {pending} atlet menunggu verifikasi final
-            </span>
+        <div className="flex items-center gap-3">
+          {pending > 0 && (
+            <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-xl px-4 py-2">
+              <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              <span className="text-purple-400 text-xs font-medium">
+                {pending} atlet menunggu verifikasi
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+            <Mail size={11} />
+            <span>Email aktif</span>
           </div>
-        )}
+        </div>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        {/* Toolbar */}
         <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-xs">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -160,6 +173,7 @@ export default function VerifikasiPage() {
           <div className="ml-auto text-slate-500 text-xs">{filtered.length} atlet</div>
         </div>
 
+        {/* Tabel */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -182,7 +196,10 @@ export default function VerifikasiPage() {
                 </tr>
               ) : filtered.map(a => (
                 <tr key={a.id} className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
-                  <td className="px-5 py-3 text-slate-200 text-xs font-medium">{a.nama_lengkap}</td>
+                  <td className="px-5 py-3">
+                    <div className="text-slate-200 text-xs font-medium">{a.nama_lengkap}</div>
+                    <div className="text-slate-600 text-[10px] font-mono mt-0.5">{a.no_ktp}</div>
+                  </td>
                   <td className="px-4 py-3 text-slate-400 text-xs">{a.kontingen?.nama}</td>
                   <td className="px-4 py-3 text-slate-400 text-xs">{a.cabang_olahraga?.nama}</td>
                   <td className="px-4 py-3">
@@ -211,13 +228,16 @@ export default function VerifikasiPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 items-center">
                       {a.status_registrasi === 'Menunggu Admin' && (
                         <>
                           <button onClick={() => handleApprove(a.id)}
                             disabled={processing === a.id}
                             className="flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50">
-                            <CheckCircle size={11} /> Verify
+                            {processing === a.id
+                              ? <div className="w-3 h-3 border border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+                              : <CheckCircle size={11} />}
+                            Verify
                           </button>
                           <button onClick={() => handleReject(a.id)}
                             disabled={processing === a.id}
@@ -230,14 +250,21 @@ export default function VerifikasiPage() {
                         <button onClick={() => handlePosting(a.id)}
                           disabled={processing === a.id}
                           className="flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50">
-                          <Send size={11} /> Posting
+                          {processing === a.id
+                            ? <div className="w-3 h-3 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                            : <Send size={11} />}
+                          Posting
                         </button>
                       )}
                       {a.is_posted && (
-                        <span className="text-blue-400 text-[10px]">✓ Posted</span>
+                        <span className="text-blue-400 text-[10px] flex items-center gap-1">
+                          <CheckCircle size={10} /> Posted
+                        </span>
                       )}
                       {a.status_registrasi === 'Ditolak Admin' && (
-                        <span className="text-red-400 text-[10px]">✗ Ditolak</span>
+                        <span className="text-red-400 text-[10px] flex items-center gap-1">
+                          <XCircle size={10} /> Ditolak
+                        </span>
                       )}
                     </div>
                   </td>
