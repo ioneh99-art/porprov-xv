@@ -36,8 +36,7 @@ export default function LaporanPage() {
     setExporting(true)
     try {
       const jsPDFModule = await import('jspdf')
-      const jsPDF = jsPDFModule.jsPDF ?? jsPDFModule.default
-      const autoTable = (await import('jspdf-autotable')).default
+      const jsPDF = (jsPDFModule as any).jsPDF ?? jsPDFModule.default
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
