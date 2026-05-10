@@ -1,10 +1,18 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Eye, EyeOff, Save, User, Shield, Key, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, Save, User, Shield, Key, CheckCircle, Mail } from 'lucide-react'
 
 export default function ProfilPage({ accentColor = 'blue' }: { accentColor?: string }) {
   const [me, setMe] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+
+  // Email state
+  const [email, setEmail] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
+  const [successEmail, setSuccessEmail] = useState('')
+  const [errorEmail, setErrorEmail] = useState('')
+
+  // Password state
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
@@ -17,18 +25,44 @@ export default function ProfilPage({ accentColor = 'blue' }: { accentColor?: str
     konfirmasi: '',
   })
 
-  const accent = {
-    blue: { btn: 'bg-blue-600 hover:bg-blue-500', badge: 'bg-blue-600', ring: 'focus:border-blue-500' },
-    amber: { btn: 'bg-amber-600 hover:bg-amber-500', badge: 'bg-amber-500/20 text-amber-400', ring: 'focus:border-amber-500' },
-    emerald: { btn: 'bg-emerald-600 hover:bg-emerald-500', badge: 'bg-emerald-500/20 text-emerald-400', ring: 'focus:border-emerald-500' },
-  }[accentColor] ?? { btn: 'bg-blue-600 hover:bg-blue-500', badge: 'bg-blue-600', ring: 'focus:border-blue-500' }
+  const accent = (
+    accentColor === 'amber'
+      ? { btn: 'bg-amber-600 hover:bg-amber-500', ring: 'focus:border-amber-500' }
+      : accentColor === 'emerald'
+      ? { btn: 'bg-emerald-600 hover:bg-emerald-500', ring: 'focus:border-emerald-500' }
+      : { btn: 'bg-blue-600 hover:bg-blue-500', ring: 'focus:border-blue-500' }
+  )
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(data => {
-      setMe(data)
-      setLoading(false)
-    })
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(data => {
+        setMe(data)
+        setEmail(data?.email ?? '')
+        setLoading(false)
+      })
   }, [])
+
+  const handleSaveEmail = async () => {
+    setSavingEmail(true)
+    setSuccessEmail('')
+    setErrorEmail('')
+    try {
+      const res = await fetch('/api/auth/update-profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Gagal update email')
+      setSuccessEmail('Email berhasil disimpan!')
+      setTimeout(() => setSuccessEmail(''), 3000)
+    } catch (e: any) {
+      setErrorEmail(e.message)
+    } finally {
+      setSavingEmail(false)
+    }
+  }
 
   const handleGantiPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,6 +92,7 @@ export default function ProfilPage({ accentColor = 'blue' }: { accentColor?: str
       if (!res.ok) throw new Error(data.error)
       setSuccess('Password berhasil diubah!')
       setForm({ password_lama: '', password_baru: '', konfirmasi: '' })
+      setTimeout(() => setSuccess(''), 4000)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -103,7 +138,7 @@ export default function ProfilPage({ accentColor = 'blue' }: { accentColor?: str
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Username', value: me?.username, icon: User },
             { label: 'Role', value: roleLabel(me?.role), icon: Shield },
@@ -118,6 +153,56 @@ export default function ProfilPage({ accentColor = 'blue' }: { accentColor?: str
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Email Notifikasi */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-5">
+        <div className="flex items-center gap-2 mb-2">
+          <Mail size={15} className="text-slate-400" />
+          <div className="text-white text-sm font-medium">Email Notifikasi</div>
+        </div>
+        <p className="text-slate-500 text-xs mb-4">
+          Email untuk menerima notifikasi perubahan status atlet secara otomatis.
+          Pastikan email aktif dan valid.
+        </p>
+
+        {successEmail && (
+          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
+            <CheckCircle size={13} className="text-emerald-400 flex-shrink-0" />
+            <span className="text-emerald-400 text-xs">{successEmail}</span>
+          </div>
+        )}
+
+        {errorEmail && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4 text-red-400 text-xs">
+            {errorEmail}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="contoh: konida.bogor@gmail.com"
+            className={`flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none ${accent.ring} transition-all`}
+          />
+          <button
+            onClick={handleSaveEmail}
+            disabled={savingEmail}
+            className={`flex items-center gap-2 ${accent.btn} disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all`}>
+            {savingEmail
+              ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              : <Save size={13} />}
+            Simpan
+          </button>
+        </div>
+
+        {me?.email && (
+          <div className="mt-2 text-slate-600 text-[10px]">
+            Email saat ini: <span className="text-slate-400">{me.email}</span>
+          </div>
+        )}
       </div>
 
       {/* Ganti Password */}
@@ -142,9 +227,24 @@ export default function ProfilPage({ accentColor = 'blue' }: { accentColor?: str
 
         <form onSubmit={handleGantiPassword} className="space-y-4">
           {[
-            { label: 'Password Lama', key: 'password_lama', show: showLama, toggle: () => setShowLama(!showLama) },
-            { label: 'Password Baru', key: 'password_baru', show: showBaru, toggle: () => setShowBaru(!showBaru) },
-            { label: 'Konfirmasi Password Baru', key: 'konfirmasi', show: showKonfirmasi, toggle: () => setShowKonfirmasi(!showKonfirmasi) },
+            {
+              label: 'Password Lama',
+              key: 'password_lama',
+              show: showLama,
+              toggle: () => setShowLama(!showLama)
+            },
+            {
+              label: 'Password Baru',
+              key: 'password_baru',
+              show: showBaru,
+              toggle: () => setShowBaru(!showBaru)
+            },
+            {
+              label: 'Konfirmasi Password Baru',
+              key: 'konfirmasi',
+              show: showKonfirmasi,
+              toggle: () => setShowKonfirmasi(!showKonfirmasi)
+            },
           ].map(({ label, key, show, toggle }) => (
             <div key={key}>
               <label className="block text-slate-400 text-[10px] uppercase tracking-wider font-medium mb-1.5">
@@ -160,7 +260,7 @@ export default function ProfilPage({ accentColor = 'blue' }: { accentColor?: str
                   className={`w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pr-10 text-sm text-slate-200 placeholder-slate-600 focus:outline-none ${accent.ring} transition-all`}
                 />
                 <button type="button" onClick={toggle}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
                   {show ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
