@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import autoTable from 'jspdf-autotable'
 import { Download, FileText, Users, Filter, Loader2 } from 'lucide-react'
 
 export default function LaporanPage() {
