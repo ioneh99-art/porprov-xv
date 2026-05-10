@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ClipboardList, Trophy,
-  LogOut, ChevronRight, ShieldCheck, ClipboardCheck, Calendar 
+  LogOut, ChevronRight, ShieldCheck, ClipboardCheck, Calendar, 
+  User
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -103,6 +104,12 @@ export default function OperatorSidebar() {
           )
         })}
       </nav>
+
+      <Link href="/operator/profil"
+        className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all mb-1">
+        <User size={16} />
+        <span>Profil</span>
+      </Link>
 
       <div className="px-3 pb-3 border-t border-slate-800 pt-3">
         <button onClick={handleLogout}

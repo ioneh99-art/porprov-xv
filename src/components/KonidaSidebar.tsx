@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, BarChart2, LogOut, ChevronRight, Trophy, ClipboardCheck } from 'lucide-react'
+import { LayoutDashboard, Users, BarChart2, LogOut, ChevronRight, Trophy, ClipboardCheck, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 export default function KonidaSidebar() {
@@ -99,6 +99,12 @@ export default function KonidaSidebar() {
           )
         })}
       </nav>
+
+      <Link href="/konida/profil"
+        className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all mb-1">
+        <User size={16} />
+        <span>Profil</span>
+      </Link>
 
       <div className="px-3 pb-3 border-t border-slate-800 pt-3">
         <button onClick={handleLogout}

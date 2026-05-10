@@ -5,7 +5,9 @@ import {
   LayoutDashboard, Users, Trophy, UserSquare2,
   Database, BarChart2, Settings, ChevronRight,
   LogOut, ShieldCheck, Medal, ClipboardCheck,
-  UserCog, FileUp, CreditCard
+  UserCog, FileUp, CreditCard,
+  User,
+  MapPin
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -45,6 +47,7 @@ export default function Sidebar() {
     },
     { label: 'Disiplin', href: '/dashboard/disiplin', icon: Medal },
     { label: 'Kontingen', href: '/dashboard/kontingen', icon: UserSquare2 },
+    { label: 'Venue', href: '/dashboard/venue', icon: MapPin },
   ]
 
   const dataItems = [
@@ -126,6 +129,12 @@ export default function Sidebar() {
           <span>Pengaturan</span>
         </Link>
       </nav>
+
+      <Link href="/dashboard/profil"
+        className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all">
+        <User size={16} />
+        <span>Profil</span>
+      </Link>
 
       <div className="px-3 pb-1">
         <button onClick={handleLogout}
