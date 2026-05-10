@@ -7,7 +7,8 @@ import {
   LogOut, ShieldCheck, Medal, ClipboardCheck,
   UserCog, FileUp, CreditCard,
   User,
-  MapPin
+  MapPin,
+  Sparkles
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -33,6 +34,7 @@ export default function Sidebar() {
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Manajemen User', href: '/dashboard/users', icon: UserCog },
+    { label: 'SIPA Intelligence', href: '/dashboard/ai', icon: Sparkles },
     { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
     { label: 'Import Data', href: '/dashboard/import', icon: FileUp },
     { label: 'Atlet', href: '/dashboard/atlet', icon: Users, badge: '24K' },
