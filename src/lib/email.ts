@@ -1,6 +1,5 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.EMAIL_FROM ?? 'PORPROV XV <onboarding@resend.dev>'
 
 interface EmailAtletStatusProps {
@@ -37,7 +36,6 @@ const baseTemplate = (content: string) => `
 <body style="margin:0;padding:0;background:#020617;font-family:Arial,sans-serif;">
   <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
 
-    <!-- Header -->
     <div style="background:#1B3A6B;border-radius:16px 16px 0 0;padding:24px 32px;text-align:center;">
       <div style="color:#93C5FD;font-size:11px;font-weight:bold;letter-spacing:3px;margin-bottom:8px;">
         PORPROV XV · JAWA BARAT 2026
@@ -50,11 +48,9 @@ const baseTemplate = (content: string) => `
       </div>
     </div>
 
-    <!-- Content -->
     <div style="background:#0F172A;border:1px solid #1E293B;border-top:none;border-radius:0 0 16px 16px;padding:32px;">
       ${content}
 
-      <!-- Footer -->
       <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1E293B;text-align:center;">
         <div style="color:#475569;font-size:11px;">
           Email ini dikirim otomatis oleh Sistem Informasi Atlet PORPROV XV<br/>
@@ -79,6 +75,7 @@ export async function emailAtletBaru(props: {
   jumlahAtlet: number
   namaKontingen: string
 }) {
+  const resend = new Resend(process.env.RESEND_API_KEY) // ✅ Diinisialisasi di sini
   const { to, namaOperator, namaCabor, jumlahAtlet, namaKontingen } = props
 
   const content = `
@@ -137,6 +134,7 @@ export async function emailStatusAtlet(props: {
   namaOperator: string
   namaCabor: string
 }) {
+  const resend = new Resend(process.env.RESEND_API_KEY) // ✅ Diinisialisasi di sini
   const { to, namaKonida, namaAtlet, status, alasan, namaOperator, namaCabor } = props
   const color = getStatusColor(status)
   const emoji = getStatusEmoji(status)
@@ -213,6 +211,7 @@ export async function emailVerifikasiAdmin(props: {
   status: string
   alasan?: string
 }) {
+  const resend = new Resend(process.env.RESEND_API_KEY) // ✅ Diinisialisasi di sini
   const { to, namaKonida, namaAtlet, status, alasan } = props
   const color = getStatusColor(status)
   const emoji = getStatusEmoji(status)
@@ -266,6 +265,7 @@ export async function emailDailyDigest(props: {
   totalPosted: number
   topKontingen: Array<{ nama: string; pending: number }>
 }) {
+  const resend = new Resend(process.env.RESEND_API_KEY) // ✅ Diinisialisasi di sini
   const { to, totalPending, totalVerified, totalPosted, topKontingen } = props
 
   const content = `
