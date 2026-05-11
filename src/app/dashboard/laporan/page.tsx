@@ -36,9 +36,7 @@ export default function LaporanPage() {
   const exportPDF = async () => {
     setExporting(true)
     try {
-      const jsPDFModule = await import('jspdf')
-      const jsPDF = (jsPDFModule as any).jsPDF ?? jsPDFModule.default
-
+      const jsPDF = (await import('jspdf')).default
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
       // Header
