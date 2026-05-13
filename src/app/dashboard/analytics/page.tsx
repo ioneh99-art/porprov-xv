@@ -459,10 +459,21 @@ export default function AnalyticsPage() {
             <div className="text-white text-sm font-medium mb-3">Ringkasan Kebutuhan Logistik</div>
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'Total Kemeja', value: Object.values(ukuranKemeja).reduce((a:any,b:any)=>a+b,0), color: 'text-amber-400' },
-                { label: 'Total Celana', value: Object.values(ukuranCelana).reduce((a:any,b:any)=>a+b,0), color: 'text-emerald-400' },
-                { label: 'Total Sepatu', value: Object.values(ukuranSepatu).reduce((a:any,b:any)=>a+b,0), color: 'text-blue-400' },
-              ].map(({ label, value, color }) => (
+                { 
+                  label: 'Total Kemeja', 
+                  value: (Object.values(ukuranKemeja) as number[]).reduce((a, b) => a + b, 0), 
+                  color: 'text-amber-400' 
+                },
+                { 
+                  label: 'Total Celana', 
+                  value: (Object.values(ukuranCelana) as number[]).reduce((a, b) => a + b, 0), 
+                  color: 'text-emerald-400' 
+                },
+                { 
+                  label: 'Total Sepatu', 
+                  value: (Object.values(ukuranSepatu) as number[]).reduce((a, b) => a + b, 0), 
+                  color: 'text-blue-400' 
+                },              ].map(({ label, value, color }) => (
                 <div key={label} className="bg-slate-800/50 rounded-xl p-4 text-center">
                   <div className={`text-2xl font-bold ${color}`}>{value}</div>
                   <div className="text-slate-400 text-xs mt-1">{label}</div>
