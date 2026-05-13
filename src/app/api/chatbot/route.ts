@@ -1,236 +1,77 @@
+// src/app/api/chatbot/route.ts
+// ChatbotWidget backend — Groq auto-rotation
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
-const sb = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+async function callGroq(messages: any[]): Promise<string> {
+  const providers = [
+    { url: 'https://api.groq.com/openai/v1/chat/completions', key: process.env.GROQ_API_KEY,    model: 'llama-3.3-70b-versatile' },
+    { url: 'https://api.groq.com/openai/v1/chat/completions', key: process.env.GROQ_API_KEY_2,  model: 'llama-3.3-70b-versatile' },
+    { url: 'https://api.cerebras.ai/v1/chat/completions',     key: process.env.CEREBRAS_API_KEY, model: 'llama-3.3-70b' },
+    { url: 'https://api.cerebras.ai/v1/chat/completions',     key: process.env.CEREBRAS_API_KEY_2, model: 'llama-3.3-70b' },
+  ].filter(p => p.key)
 
-// System prompt per role
-const getSystemPrompt = (role: string, nama: string, kontingen?: string, cabor?: string) => {
-  const base = `Kamu adalah Asisten AI resmi Sistem Informasi Atlet PORPROV XV Jawa Barat 2026.
-Nama kamu adalah "SIPA" (Sistem Informasi PORPROV Asisten).
-Kamu membantu pengguna menggunakan sistem dengan ramah, jelas, dan dalam Bahasa Indonesia.
-Jawab singkat dan to the point. Gunakan emoji secukupnya.
-Jika tidak tahu jawaban pasti, arahkan ke Admin KONI.
-
-INFORMASI EVENT:
-- Nama: PORPROV XV Jawa Barat 2026
-- Tanggal: 7–20 November 2026
-- Lokasi: Jawa Barat (3 klaster: Bekasi, Bogor, Depok)
-- Total Cabor: 92 cabang olahraga
-- Total Nomor: 1.156+ nomor pertandingan
-- Total Kontingen: 27 (26 Kab/Kota + 1 KONI Jabar)
-`
-
-  if (role === 'admin') {
-    return base + `
-PENGGUNA: ${nama} (Admin PORPROV XV)
-AKSES: Penuh — semua fitur tersedia
-
-FITUR YANG TERSEDIA UNTUK ADMIN:
-1. Dashboard — statistik keseluruhan sistem
-2. Data Atlet — lihat, verifikasi, posting semua atlet
-3. Verifikasi — approve/reject atlet dari semua kontingen
-4. Kejuaraan — verifikasi final riwayat kejuaraan atlet
-5. Kualifikasi — setup kuota per kontingen per nomor
-6. Manajemen User — tambah/edit/nonaktif akun KONIDA & Operator
-7. Import Data — upload Excel atlet massal per kontingen
-8. Disiplin — kelola nomor pertandingan
-9. Kontingen — lihat semua kontingen
-
-ALUR KERJA ADMIN:
-- Atlet masuk dari KONIDA → diverifikasi Operator Cabor → Admin verifikasi final → Posting
-- Setup kuota kualifikasi sebelum KONIDA mendaftarkan atlet ke nomor
-- Manajemen user untuk buat akun KONIDA baru dan Operator Cabor baru
-`
+  let lastErr = ''
+  for (const p of providers) {
+    try {
+      const res = await fetch(p.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${p.key}` },
+        body: JSON.stringify({ model: p.model, max_tokens: 1024, temperature: 0.4, messages }),
+      })
+      if (res.status === 429) { lastErr = 'rate limit'; continue }
+      if (!res.ok) { const e = await res.json(); lastErr = e?.error?.message ?? 'error'; continue }
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content ?? 'Maaf, tidak ada jawaban.'
+    } catch (e: any) { lastErr = e.message; continue }
   }
+  throw new Error(`AI tidak tersedia: ${lastErr}`)
+}
 
-  if (role === 'konida') {
-    return base + `
-PENGGUNA: ${nama} (KONIDA ${kontingen || ''})
-AKSES: Terbatas hanya untuk kontingen ${kontingen || 'sendiri'}
+const SYSTEM_PROMPTS: Record<string, string> = {
+  admin: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk Admin.
+Bantu admin mengoperasikan sistem: manajemen user, import data, konfigurasi kuota kualifikasi, verifikasi atlet, laporan sistem.
+Jawab singkat, jelas, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
 
-FITUR YANG TERSEDIA UNTUK KONIDA:
-1. Dashboard KONIDA — statistik atlet kontingen sendiri
-2. Data Atlet — input, edit, submit atlet kontingen sendiri
-3. Kejuaraan Atlet — review riwayat kejuaraan yang diajukan atlet
-4. Kualifikasi — daftarkan atlet ke nomor pertandingan (dalam batas kuota)
+  konida: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk KONIDA (Kontingen Daerah).
+Bantu pengguna: input atlet, submit ke operator, daftar nomor pertandingan, cek status registrasi, upload dokumen.
+Jawab singkat, ramah, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
 
-ALUR KERJA KONIDA:
-1. Input data atlet → Upload dokumen → Submit ke Operator Cabor
-2. Review kejuaraan yang diajukan atlet → Approve atau tolak
-3. Daftarkan atlet yang sudah Verified ke nomor pertandingan
-4. Pantau status atlet di dashboard
+  operator_cabor: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk Operator Cabor.
+Bantu operator: verifikasi atlet, input hasil pertandingan, konfirmasi lineup, validasi kejuaraan, kelola nomor pertandingan.
+Jawab singkat, teknis, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
 
-PENTING:
-- Hanya bisa akses data kontingen ${kontingen || 'sendiri'}
-- Atlet harus berstatus Verified sebelum bisa dikualifikasikan
-- Kuota per nomor ditentukan oleh Admin KONI
-`
-  }
+  atlet: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk Atlet.
+Bantu atlet: cek status registrasi, input riwayat kejuaraan, upload bukti prestasi, cek jadwal bertanding, info dokumen.
+Jawab ramah, suportif, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
 
-  if (role === 'operator_cabor') {
-    return base + `
-PENGGUNA: ${nama} (Operator ${cabor || 'Cabor'})
-AKSES: Terbatas hanya untuk cabor ${cabor || 'sendiri'}
-
-FITUR YANG TERSEDIA UNTUK OPERATOR:
-1. Dashboard Operator — statistik atlet cabor sendiri
-2. Verifikasi Atlet — approve/reject atlet yang disubmit KONIDA
-3. Kejuaraan Atlet — validasi teknis riwayat kejuaraan
-4. Lineup/Kualifikasi — konfirmasi atlet yang siap bertanding
-5. Nomor Pertandingan — kelola nomor di cabor sendiri
-6. Input Hasil — input hasil pertandingan dan medali
-
-ALUR KERJA OPERATOR:
-1. Terima atlet dari KONIDA → Review → Approve atau Reject (dengan catatan)
-2. Validasi riwayat kejuaraan atlet → Teruskan ke Admin
-3. Konfirmasi lineup atlet per nomor pertandingan
-4. Input hasil pertandingan setelah selesai → Medali otomatis update klasemen
-
-PENTING:
-- Hanya bisa akses atlet dan nomor di cabor ${cabor || 'sendiri'}
-- Hasil pertandingan yang diinput akan langsung update klasemen publik
-`
-  }
-
-  if (role === 'atlet') {
-    return base + `
-PENGGUNA: ${nama} (Atlet)
-AKSES: Portal atlet pribadi
-
-FITUR YANG TERSEDIA UNTUK ATLET:
-1. Dashboard Atlet — profil dan status registrasi
-2. Riwayat Kejuaraan — input prestasi pribadi + upload bukti
-3. Pantau status verifikasi kejuaraan
-
-ALUR KERJA ATLET:
-1. Login dengan email dan password yang didaftarkan
-2. Input riwayat kejuaraan → Upload bukti (sertifikat/foto)
-3. Tunggu verifikasi dari KONIDA → Operator → Admin
-4. Setelah Verified → masuk ke Performance Passport resmi
-
-PENTING:
-- Kejuaraan yang diajukan akan diverifikasi 3 tahap
-- Data yang belum verified belum masuk ke profil resmi
-- Hubungi KONIDA kontingen jika ada kendala
-`
-  }
-
-  return base
+  default: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026.
+Bantu pengguna menggunakan sistem manajemen atlet dan pertandingan PORPROV XV.
+Jawab singkat, jelas, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
 }
 
 export async function POST(req: NextRequest) {
+  const session = req.cookies.get('porprov_session')?.value
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { messages, role, nama, kontingen, cabor, kontingen_id } = await req.json()
+  if (!messages?.length) return NextResponse.json({ error: 'Messages kosong' }, { status: 400 })
+
+  const systemContent = (SYSTEM_PROMPTS[role] ?? SYSTEM_PROMPTS.default)
+    + (nama ? `\nNama pengguna: ${nama}.` : '')
+    + (kontingen ? `\nKontingen: ${kontingen}.` : '')
+    + (cabor ? `\nCabang olahraga: ${cabor}.` : '')
+
   try {
-    const body = await req.json()
-    const { messages, role, nama, kontingen, cabor, kontingen_id } = body
+    const groqMessages = [
+      { role: 'system', content: systemContent },
+      ...messages.slice(-8).map((m: any) => ({ role: m.role, content: m.content })),
+    ]
 
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ error: 'Messages diperlukan' }, { status: 400 })
-    }
-
-    // Ambil konteks data real dari database untuk pertanyaan spesifik
-    let dbContext = ''
-    const lastMessage = messages[messages.length - 1]?.content?.toLowerCase() || ''
-
-    // Deteksi pertanyaan yang butuh data real
-    const butuhData =
-      lastMessage.includes('berapa') ||
-      lastMessage.includes('total') ||
-      lastMessage.includes('jumlah') ||
-      lastMessage.includes('status') ||
-      lastMessage.includes('atlet') ||
-      lastMessage.includes('belum') ||
-      lastMessage.includes('sudah')
-
-    if (butuhData && kontingen_id) {
-      // Ambil statistik kontingen untuk KONIDA
-      const { data: stats } = await sb()
-        .from('atlet')
-        .select('status_registrasi, gender')
-        .eq('kontingen_id', kontingen_id)
-
-      if (stats) {
-        const total = stats.length
-        const draft = stats.filter((a: any) => a.status_registrasi === 'Draft').length
-        const menungguCabor = stats.filter((a: any) => a.status_registrasi === 'Menunggu Cabor').length
-        const menungguAdmin = stats.filter((a: any) => a.status_registrasi === 'Menunggu Admin').length
-        const verified = stats.filter((a: any) => a.status_registrasi === 'Verified').length
-        const posted = stats.filter((a: any) => a.status_registrasi === 'Posted').length
-        const putra = stats.filter((a: any) => a.gender === 'L').length
-        const putri = stats.filter((a: any) => a.gender === 'P').length
-
-        dbContext = `
-DATA REAL KONTINGEN ${kontingen || ''} (saat ini):
-- Total atlet terdaftar: ${total}
-- Draft (belum disubmit): ${draft}
-- Menunggu review Cabor: ${menungguCabor}
-- Menunggu verifikasi Admin: ${menungguAdmin}
-- Verified: ${verified}
-- Posted: ${posted}
-- Putra: ${putra} | Putri: ${putri}
-`
-      }
-    }
-
-    if (butuhData && role === 'admin') {
-      // Statistik global untuk admin
-      const { data: globalStats } = await sb()
-        .from('atlet')
-        .select('status_registrasi, gender, kontingen_id')
-
-      if (globalStats) {
-        const total = globalStats.length
-        const draft = globalStats.filter((a: any) => a.status_registrasi === 'Draft').length
-        const menunggu = globalStats.filter((a: any) =>
-          a.status_registrasi?.includes('Menunggu')).length
-        const verified = globalStats.filter((a: any) => a.status_registrasi === 'Verified').length
-        const posted = globalStats.filter((a: any) => a.status_registrasi === 'Posted').length
-
-        dbContext = `
-DATA REAL SISTEM PORPROV XV (saat ini):
-- Total atlet terdaftar: ${total}
-- Draft: ${draft}
-- Menunggu review: ${menunggu}
-- Verified: ${verified}
-- Posted: ${posted}
-`
-      }
-    }
-
-    const systemPrompt = getSystemPrompt(role, nama, kontingen, cabor) +
-      (dbContext ? `\nDATA TERKINI:\n${dbContext}` : '')
-
-    // Panggil Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: messages.slice(-10), // max 10 pesan terakhir
-      }),
-    })
-
-    if (!response.ok) {
-      const err = await response.text()
-      console.error('Claude API error:', err)
-      return NextResponse.json({ error: 'Gagal menghubungi AI' }, { status: 500 })
-    }
-
-    const data = await response.json()
-    const reply = data.content?.[0]?.text || 'Maaf, tidak ada respons dari AI.'
-
+    const reply = await callGroq(groqMessages)
     return NextResponse.json({ reply })
 
   } catch (e: any) {
     console.error('Chatbot error:', e)
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return NextResponse.json({ reply: 'Maaf, SIPA AI sedang tidak tersedia. Coba lagi dalam beberapa saat! 🙏' })
   }
 }

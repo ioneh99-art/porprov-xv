@@ -33,10 +33,10 @@ export default function Sidebar() {
 
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Manajemen User', href: '/dashboard/users', icon: UserCog },
+    
     { label: 'SIPA Intelligence', href: '/dashboard/ai', icon: Sparkles },
     { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
-    { label: 'Import Data', href: '/dashboard/import', icon: FileUp },
+    
     { label: 'Atlet', href: '/dashboard/atlet', icon: Users, badge: '24K' },
     {
       label: 'Verifikasi', href: '/dashboard/verifikasi', icon: ShieldCheck,
@@ -52,9 +52,10 @@ export default function Sidebar() {
   ]
 
   const dataItems = [
-    { label: 'Master', href: '/dashboard/master', icon: Database },
+    { label: 'Manajemen User', href: '/dashboard/users', icon: UserCog },
     { label: 'Laporan', href: '/dashboard/laporan', icon: BarChart2 },
     { label: 'Kartu Atlet', href: '/dashboard/kartu', icon: CreditCard },
+    { label: 'Import Data', href: '/dashboard/import', icon: FileUp },
   ]
 
   const handleLogout = async () => {
@@ -125,17 +126,20 @@ export default function Sidebar() {
 
         <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mt-4 mb-2">Sistem</div>
         <Link href="/dashboard/settings"
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm text-slateate-400 hover:bg-slate-800 hover:text-slate-200 transition-all">
+          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all">
           <Settings size={16} />
           <span>Pengaturan</span>
         </Link>
-      </nav>
 
-      <Link href="/dashboard/profil"
+        <Link href="/dashboard/profil"
         className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all">
         <User size={16} />
         <span>Profil</span>
       </Link>
+
+      </nav>
+
+      
 
       <div className="px-3 pb-1">
         <button onClick={handleLogout}
