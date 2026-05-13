@@ -47,7 +47,6 @@ export default function Sidebar() {
       label: 'Kejuaraan', href: '/dashboard/kejuaraan', icon: Trophy,
       notif: counts.kejuaraan ?? 0
     },
-    { label: 'Disiplin', href: '/dashboard/disiplin', icon: Medal },
     { label: 'Kontingen', href: '/dashboard/kontingen', icon: UserSquare2 },
     { label: 'Venue', href: '/dashboard/venue', icon: MapPin },
   ]
