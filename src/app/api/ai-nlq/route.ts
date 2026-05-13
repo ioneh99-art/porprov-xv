@@ -6,7 +6,6 @@ const sb = () => createClient(
   process.env.SUPABASE_SERVICE_KEY!
 )
 
-// Ambil konteks data untuk AI
 async function getDataContext() {
   const [
     { data: atletStats },
@@ -16,7 +15,7 @@ async function getDataContext() {
   ] = await Promise.all([
     sb().from('atlet').select('gender, status_registrasi, kontingen_id, cabor_id, kontingen(nama), cabang_olahraga(nama)'),
     sb().from('kontingen').select('id, nama').order('nama'),
-    sb().from('cabang_olahraga').select('id, nama, kode').eq('is_active', true).order('nama'),
+    sb().from('cabang_olahraga').select('id, nama, kode').order('nama'),
     sb().from('klasemen_medali').select('*, kontingen(nama)').order('emas', { ascending: false }).limit(10),
   ])
 
@@ -30,7 +29,6 @@ async function getDataContext() {
   const posted = atlet.filter((a: any) => a.status_registrasi === 'Posted').length
   const ditolak = atlet.filter((a: any) => a.status_registrasi?.includes('Ditolak')).length
 
-  // Per kontingen
   const perKontingen = (kontingenList ?? []).map((k: any) => {
     const atletK = atlet.filter((a: any) => a.kontingen_id === k.id)
     return {
@@ -43,9 +41,8 @@ async function getDataContext() {
       menunggu: atletK.filter((a: any) => a.status_registrasi?.includes('Menunggu')).length,
       ditolak: atletK.filter((a: any) => a.status_registrasi?.includes('Ditolak')).length,
     }
-  }).filter(k => k.total > 0).sort((a, b) => b.total - a.total)
+  }).filter((k: any) => k.total > 0).sort((a: any, b: any) => b.total - a.total)
 
-  // Per cabor
   const perCabor = (caborList ?? []).map((c: any) => {
     const atletC = atlet.filter((a: any) => a.cabor_id === c.id)
     return {
@@ -55,7 +52,7 @@ async function getDataContext() {
       putra: atletC.filter((a: any) => a.gender === 'L').length,
       putri: atletC.filter((a: any) => a.gender === 'P').length,
     }
-  }).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
+  }).filter((c: any) => c.total > 0).sort((a: any, b: any) => b.total - a.total)
 
   return {
     ringkasan: { total, putra, putri, draft, menunggu, verified, posted, ditolak },
@@ -71,17 +68,46 @@ async function getDataContext() {
   }
 }
 
+// Auto-rotation: Groq key1 → Groq key2 → Cerebras key1 → Cerebras key2
+async function callAI(systemPrompt: string, messages: any[]): Promise<string> {
+  const providers = [
+    { url: 'https://api.groq.com/openai/v1/chat/completions', key: process.env.GROQ_API_KEY, model: 'llama-3.3-70b-versatile' },
+    { url: 'https://api.groq.com/openai/v1/chat/completions', key: process.env.GROQ_API_KEY_2, model: 'llama-3.3-70b-versatile' },
+    { url: 'https://api.cerebras.ai/v1/chat/completions', key: process.env.CEREBRAS_API_KEY, model: 'llama-3.3-70b' },
+    { url: 'https://api.cerebras.ai/v1/chat/completions', key: process.env.CEREBRAS_API_KEY_2, model: 'llama-3.3-70b' },
+  ].filter(p => p.key)
+
+  let lastErr = ''
+  for (const p of providers) {
+    try {
+      const res = await fetch(p.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${p.key}` },
+        body: JSON.stringify({
+          model: p.model,
+          max_tokens: 2048,
+          temperature: 0.3,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        }),
+      })
+      if (res.status === 429) { lastErr = 'rate limit'; continue }
+      if (!res.ok) { const e = await res.json(); lastErr = e?.error?.message ?? 'error'; continue }
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content ?? 'Maaf, tidak ada jawaban.'
+    } catch (e: any) { lastErr = e.message; continue }
+  }
+  throw new Error(`Semua AI provider gagal: ${lastErr}`)
+}
+
 export async function POST(req: NextRequest) {
   const session = req.cookies.get('porprov_session')?.value
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const user = JSON.parse(session)
   const { question, history } = await req.json()
-
   if (!question) return NextResponse.json({ error: 'Pertanyaan kosong' }, { status: 400 })
 
   try {
-    // Ambil data real dari database
     const ctx = await getDataContext()
 
     const systemPrompt = `Kamu adalah SIPA Intelligence — Asisten AI Analitik resmi PORPROV XV Jawa Barat 2026.
@@ -110,44 +136,11 @@ CATATAN PENTING:
 - Jika ditanya tentang hal yang tidak ada di data, arahkan ke fitur sistem yang relevan`
 
     const messages = [
-      ...(history ?? []).slice(-6).map((h: any) => ({
-        role: h.role,
-        content: h.content,
-      })),
-      { role: 'user', content: question },
+      ...(history ?? []).slice(-6).map((h: any) => ({ role: h.role, content: h.content })),
+      { role: 'user' as const, content: question },
     ]
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages,
-      }),
-    })
-
-    if (!response.ok) {
-      const err = await response.json()
-      // Cek apakah error karena credit habis
-      if (err?.error?.type === 'invalid_request_error' &&
-          err?.error?.message?.includes('credit')) {
-        return NextResponse.json({
-          error: 'credit_insufficient',
-          message: 'Anthropic API credit habis. Silakan top up di console.anthropic.com'
-        }, { status: 402 })
-      }
-      throw new Error(err?.error?.message ?? 'AI error')
-    }
-
-    const data = await response.json()
-    const answer = data.content?.[0]?.text ?? 'Maaf, tidak ada jawaban.'
-
+    const answer = await callAI(systemPrompt, messages)
     return NextResponse.json({ answer, context: ctx.ringkasan })
 
   } catch (e: any) {
