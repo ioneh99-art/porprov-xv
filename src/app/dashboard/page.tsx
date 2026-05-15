@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import {
   Users, Trophy, CheckCircle, Clock, AlertTriangle,
   ChevronRight, Zap, Shield, Target, BarChart3,
@@ -24,7 +25,207 @@ interface KontingenStat {
   progress: number
 }
 
-// ── SVG Pie Chart ─────────────────────────────────────────────────────────────
+// ── Koordinat per kontingen ───────────────────────────────────────────────────
+const KONTINGEN_COORDS: Record<string, [number, number]> = {
+  'KAB. BOGOR':          [-6.595, 106.816],
+  'KAB. SUKABUMI':       [-6.927, 106.630],
+  'KAB. CIANJUR':        [-6.820, 107.140],
+  'KAB. BANDUNG':        [-7.083, 107.550],
+  'KAB. GARUT':          [-7.212, 107.905],
+  'KAB. TASIKMALAYA':    [-7.350, 108.107],
+  'KAB. CIAMIS':         [-7.330, 108.350],
+  'KAB. KUNINGAN':       [-6.976, 108.485],
+  'KAB. CIREBON':        [-6.760, 108.548],
+  'KAB. MAJALENGKA':     [-6.836, 108.228],
+  'KAB. SUMEDANG':       [-6.857, 107.919],
+  'KAB. INDRAMAYU':      [-6.327, 108.320],
+  'KAB. SUBANG':         [-6.571, 107.759],
+  'KAB. PURWAKARTA':     [-6.556, 107.443],
+  'KAB. KARAWANG':       [-6.321, 107.338],
+  'KAB. BEKASI':         [-6.375, 107.038],
+  'KAB. BANDUNG BARAT':  [-6.840, 107.421],
+  'KAB. PANGANDARAN':    [-7.600, 108.490],
+  'KOTA BOGOR':          [-6.597, 106.806],
+  'KOTA SUKABUMI':       [-6.921, 106.930],
+  'KOTA BANDUNG':        [-6.914, 107.609],
+  'KOTA CIREBON':        [-6.706, 108.557],
+  'KOTA BEKASI':         [-6.238, 106.975],
+  'KOTA DEPOK':          [-6.402, 106.794],
+  'KOTA TASIKMALAYA':    [-7.327, 108.220],
+  'KOTA BANJAR':         [-7.368, 108.538],
+  'KOTA CIMAHI':         [-6.872, 107.542],
+}
+
+function getMarkerColor(progress: number, total: number) {
+  if (total === 0) return '#475569'
+  if (progress >= 80) return '#10b981'
+  if (progress >= 50) return '#f59e0b'
+  if (progress > 0)   return '#3b82f6'
+  return '#ef4444'
+}
+
+function getStatusLabel(progress: number, total: number) {
+  if (total === 0) return 'Belum ada data'
+  if (progress >= 80) return '✅ On Track'
+  if (progress >= 50) return '⚡ Perlu Akselerasi'
+  if (progress > 0)   return '⚠️ Tertinggal'
+  return '🔴 Belum Mulai'
+}
+
+// ── Leaflet Map Component ─────────────────────────────────────────────────────
+function PetaLeaflet({ perKontingen }: { perKontingen: KontingenStat[] }) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    // Fix React StrictMode double-invoke & "Map container already initialized"
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove()
+      mapInstanceRef.current = null
+    }
+    const container = mapRef.current as any
+    if (container._leaflet_id) {
+      container._leaflet_id = null
+    }
+
+    let cancelled = false
+
+    const initMap = async () => {
+      if (cancelled || !mapRef.current) return
+      const L = (await import('leaflet')).default
+      await import('leaflet/dist/leaflet.css' as any)
+      if (cancelled || !mapRef.current) return
+
+      delete (L.Icon.Default.prototype as any)._getIconUrl
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      })
+
+      const map = L.map(mapRef.current!, {
+        center: [-6.9, 107.6],
+        zoom: 8,
+        zoomControl: true,
+        scrollWheelZoom: false,
+        attributionControl: false,
+      })
+
+      mapInstanceRef.current = map
+
+      // Dark tile - CartoDB
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+      }).addTo(map)
+
+      // Plot semua kontingen
+      perKontingen.forEach(k => {
+        const coords = KONTINGEN_COORDS[k.nama]
+        if (!coords) return
+        const color = getMarkerColor(k.progress, k.total)
+        const status = getStatusLabel(k.progress, k.total)
+        const radius = k.total > 50 ? 12 : k.total > 20 ? 9 : 7
+
+        const marker = L.circleMarker(coords, {
+          radius,
+          fillColor: color,
+          color: 'rgba(0,0,0,0.5)',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.85,
+        }).addTo(map)
+
+        marker.bindPopup(`
+          <div style="font-family:system-ui,sans-serif;min-width:190px;background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;color:white;">
+            <div style="font-weight:700;font-size:13px;margin-bottom:8px;">${k.nama}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;">
+              <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:6px;text-align:center;">
+                <div style="font-size:18px;font-weight:700;color:white;">${k.total}</div>
+                <div style="font-size:9px;color:#94a3b8;">Total Atlet</div>
+              </div>
+              <div style="background:rgba(16,185,129,0.1);border-radius:6px;padding:6px;text-align:center;">
+                <div style="font-size:18px;font-weight:700;color:#10b981;">${k.siap}</div>
+                <div style="font-size:9px;color:#94a3b8;">Siap Tanding</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;font-size:10px;color:#94a3b8;margin-bottom:8px;">
+              <span>🔵 ${k.putra}L / ${k.putri}P</span>
+              <span>⏳ ${k.menunggu} tunggu</span>
+              <span style="color:${k.ditolak>0?'#ef4444':'#94a3b8'}">✗ ${k.ditolak} tolak</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:6px;padding:8px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:10px;color:#94a3b8;">Kesiapan</span>
+                <span style="font-size:12px;font-weight:700;color:${color};">${k.progress}%</span>
+              </div>
+              <div style="background:#1e293b;border-radius:4px;height:5px;">
+                <div style="height:100%;width:${k.progress}%;background:${color};border-radius:4px;"></div>
+              </div>
+              <div style="font-size:10px;margin-top:5px;color:${color};">${status}</div>
+            </div>
+          </div>
+        `, { className: 'sipa-popup', maxWidth: 220 })
+
+        marker.on('mouseover', () => {
+          marker.setStyle({ fillOpacity: 1, radius: radius + 2 })
+          marker.openPopup()
+        })
+        marker.on('mouseout', () => {
+          marker.setStyle({ fillOpacity: 0.85, radius })
+          marker.closePopup()
+        })
+      })
+
+      map.fitBounds([[-7.85, 105.7], [-5.75, 109.1]], { padding: [15, 15] })
+    }
+
+    initMap()
+    return () => {
+      cancelled = true
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+    }
+  }, [perKontingen])
+
+  return (
+    <div className="relative w-full rounded-xl overflow-hidden" style={{ height:'280px' }}>
+      <style>{`
+        .sipa-popup .leaflet-popup-content-wrapper{background:transparent!important;box-shadow:0 10px 40px rgba(0,0,0,0.7)!important;border-radius:12px!important;padding:0!important;}
+        .sipa-popup .leaflet-popup-content{margin:0!important;}
+        .sipa-popup .leaflet-popup-tip{background:#0f172a!important;}
+        .leaflet-control-zoom{border:1px solid rgba(255,255,255,0.1)!important;border-radius:8px!important;overflow:hidden!important;}
+        .leaflet-control-zoom a{background:#1e293b!important;color:#94a3b8!important;border-bottom:1px solid rgba(255,255,255,0.08)!important;}
+        .leaflet-control-zoom a:hover{background:#334155!important;color:white!important;}
+        .leaflet-container{background:#0f172a;}
+      `}</style>
+      <div ref={mapRef} className="w-full h-full" />
+      {/* Legend */}
+      <div className="absolute bottom-3 right-3 z-[1000] flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm border border-slate-700/50 rounded-lg px-3 py-1.5">
+        {[
+          { color:'#10b981', label:'≥80%' },
+          { color:'#f59e0b', label:'50-79%' },
+          { color:'#3b82f6', label:'<50%' },
+          { color:'#ef4444', label:'Belum' },
+          { color:'#475569', label:'No data' },
+        ].map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full" style={{ background:color }} />
+            <span className="text-[9px] text-slate-400">{label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="absolute top-2 left-2 z-[1000] bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 rounded-lg px-2.5 py-1.5">
+        <span className="text-[10px] text-slate-400">Hover dot untuk detail kontingen</span>
+      </div>
+    </div>
+  )
+}
+
+// ── SVG Charts ────────────────────────────────────────────────────────────────
 function PieChart({ segments, size = 90, label, sublabel }: {
   segments: { value: number; color: string }[]
   size?: number; label?: string; sublabel?: string
@@ -69,7 +270,6 @@ function PieChart({ segments, size = 90, label, sublabel }: {
   )
 }
 
-// ── Donut Ring ────────────────────────────────────────────────────────────────
 function DonutChart({ value, total, color, size = 52 }: {
   value: number; total: number; color: string; size?: number
 }) {
@@ -84,7 +284,6 @@ function DonutChart({ value, total, color, size = 52 }: {
   )
 }
 
-// ── Sparkline ─────────────────────────────────────────────────────────────────
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   if (data.length < 2) return null
   const max = Math.max(...data); const min = Math.min(...data); const range = max-min||1
@@ -98,141 +297,10 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   )
 }
 
-// ── HBar ──────────────────────────────────────────────────────────────────────
 function HBar({ value, max, color }: { value: number; max: number; color: string }) {
   return (
     <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
       <div className="h-full rounded-full" style={{ width:`${max>0?(value/max)*100:0}%`, background:color, transition:'width 0.7s ease' }} />
-    </div>
-  )
-}
-
-// ── Peta Jawa Barat SVG ───────────────────────────────────────────────────────
-// Koordinat estimasi posisi 27 kabupaten/kota Jawa Barat di peta
-const JABAR_DOTS: { nama: string; x: number; y: number }[] = [
-  { nama:'KAB. BOGOR',         x:88,  y:138 },
-  { nama:'KAB. SUKABUMI',      x:55,  y:168 },
-  { nama:'KAB. CIANJUR',       x:95,  y:160 },
-  { nama:'KAB. BANDUNG',       x:130, y:145 },
-  { nama:'KAB. GARUT',         x:148, y:162 },
-  { nama:'KAB. TASIKMALAYA',   x:178, y:162 },
-  { nama:'KAB. CIAMIS',        x:198, y:155 },
-  { nama:'KAB. KUNINGAN',      x:222, y:140 },
-  { nama:'KAB. CIREBON',       x:238, y:128 },
-  { nama:'KAB. MAJALENGKA',    x:210, y:128 },
-  { nama:'KAB. SUMEDANG',      x:165, y:132 },
-  { nama:'KAB. INDRAMAYU',     x:220, y:105 },
-  { nama:'KAB. SUBANG',        x:178, y:108 },
-  { nama:'KAB. PURWAKARTA',    x:148, y:112 },
-  { nama:'KAB. KARAWANG',      x:120, y:105 },
-  { nama:'KAB. BEKASI',        x:98,  y:108 },
-  { nama:'KAB. BANDUNG BARAT', x:118, y:138 },
-  { nama:'KAB. PANGANDARAN',   x:200, y:178 },
-  { nama:'KOTA BOGOR',         x:82,  y:128 },
-  { nama:'KOTA SUKABUMI',      x:62,  y:158 },
-  { nama:'KOTA BANDUNG',       x:132, y:135 },
-  { nama:'KOTA CIREBON',       x:242, y:118 },
-  { nama:'KOTA BEKASI',        x:92,  y:100 },
-  { nama:'KOTA DEPOK',         x:82,  y:112 },
-  { nama:'KOTA TASIKMALAYA',   x:180, y:155 },
-  { nama:'KOTA BANJAR',        x:205, y:165 },
-  { nama:'KOTA CIMAHI',        x:122, y:130 },
-]
-
-function PetaJabar({ perKontingen }: { perKontingen: KontingenStat[] }) {
-  const [hovered, setHovered] = useState<string | null>(null)
-
-  const getColor = (progress: number) => {
-    if (progress >= 80) return '#10b981'
-    if (progress >= 50) return '#f59e0b'
-    if (progress > 0)   return '#3b82f6'
-    return '#334155'
-  }
-
-  const getKontingenData = (nama: string) =>
-    perKontingen.find(k => k.nama === nama)
-
-  return (
-    <div className="relative w-full" style={{ aspectRatio:'3/1.8' }}>
-      {/* Background map outline — simplified Jabar shape */}
-      <svg viewBox="0 0 320 220" className="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid meet">
-        {/* Simplified Jabar outline path */}
-        <path
-          d="M 20 80 C 30 60 50 55 70 58 L 100 52 C 120 48 145 45 170 48 L 200 50 C 220 48 240 55 255 65 L 268 75 C 275 85 272 95 265 105 L 260 115 C 255 125 245 130 235 135 L 220 145 C 205 155 195 165 185 172 L 170 178 C 150 182 130 178 115 170 L 95 162 C 75 155 55 160 42 165 L 28 158 C 18 148 14 135 16 120 L 18 105 C 18 95 19 87 20 80 Z"
-          fill="rgba(30,41,59,0.5)"
-          stroke="rgba(148,163,184,0.15)"
-          strokeWidth="1.5"
-        />
-
-        {/* Laut/border labels */}
-        <text x="10" y="48" fill="rgba(100,116,139,0.4)" fontSize="7" fontFamily="sans-serif">Laut Jawa</text>
-        <text x="30" y="200" fill="rgba(100,116,139,0.4)" fontSize="7" fontFamily="sans-serif">Samudra Hindia</text>
-
-        {/* Grid lines */}
-        {[80,100,120,140,160].map(y => (
-          <line key={y} x1="15" y1={y} x2="275" y2={y} stroke="rgba(148,163,184,0.04)" strokeWidth="1" />
-        ))}
-
-        {/* Dots per kontingen */}
-        {JABAR_DOTS.map(dot => {
-          const k = getKontingenData(dot.nama)
-          if (!k) return null
-          const color = getColor(k.progress)
-          const isHovered = hovered === dot.nama
-          const r = isHovered ? 7 : 5
-          return (
-            <g key={dot.nama}
-              onMouseEnter={() => setHovered(dot.nama)}
-              onMouseLeave={() => setHovered(null)}
-              style={{ cursor:'pointer' }}>
-              {/* Pulse ring untuk yang bermasalah */}
-              {k.progress < 30 && k.total > 0 && (
-                <circle cx={dot.x} cy={dot.y} r="9" fill="none" stroke={color} strokeWidth="1" opacity="0.3" />
-              )}
-              <circle cx={dot.x} cy={dot.y} r={r} fill={color} opacity={isHovered ? 1 : 0.85} />
-              <circle cx={dot.x} cy={dot.y} r={r} fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth="0.5" />
-            </g>
-          )
-        })}
-
-        {/* Tooltip */}
-        {hovered && (() => {
-          const dot = JABAR_DOTS.find(d => d.nama === hovered)
-          const k = getKontingenData(hovered)
-          if (!dot || !k) return null
-          const tx = dot.x > 200 ? dot.x - 90 : dot.x + 10
-          const ty = dot.y > 160 ? dot.y - 50 : dot.y + 10
-          return (
-            <g>
-              <rect x={tx} y={ty} width="88" height="42" rx="5" fill="#0f172a" stroke="rgba(148,163,184,0.2)" strokeWidth="1" />
-              <text x={tx+6} y={ty+12} fill="white" fontSize="7.5" fontWeight="600" fontFamily="sans-serif">
-                {k.nama.replace('KAB. ','').replace('KOTA ','')}
-              </text>
-              <text x={tx+6} y={ty+23} fill="#94a3b8" fontSize="6.5" fontFamily="sans-serif">
-                {k.total} atlet · {k.siap} siap
-              </text>
-              <text x={tx+6} y={ty+34} fill={getColor(k.progress)} fontSize="6.5" fontWeight="600" fontFamily="sans-serif">
-                Progress: {k.progress}%
-              </text>
-            </g>
-          )
-        })()}
-      </svg>
-
-      {/* Legend */}
-      <div className="absolute bottom-1 right-2 flex items-center gap-3">
-        {[
-          { color:'#10b981', label:'≥80%' },
-          { color:'#f59e0b', label:'50-79%' },
-          { color:'#3b82f6', label:'<50%' },
-          { color:'#334155', label:'Belum' },
-        ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full" style={{ background:color }} />
-            <span className="text-[9px] text-slate-500">{label}</span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
@@ -301,8 +369,7 @@ export default function DashboardKONI() {
         a.status_registrasi === 'Verified' || a.status_registrasi === 'Posted'
       ).length
       return {
-        nama: k.nama,
-        total: atletK.length,
+        nama: k.nama, total: atletK.length,
         putra: atletK.filter((a: any) => a.gender === 'L').length,
         putri: atletK.filter((a: any) => a.gender === 'P').length,
         siap: siapK,
@@ -314,20 +381,20 @@ export default function DashboardKONI() {
 
     const perCabor = (caborList ?? []).map((c: any) => {
       const n = atlet.filter((a: any) => a.cabor_id === c.id).length
-      return { nama:c.nama, total:n }
+      return { nama: c.nama, total: n }
     }).filter((c: any) => c.total > 0).sort((a: any, b: any) => b.total - a.total).slice(0, 6)
 
-    // Issues detection
+    // Issues
     const issues: Issue[] = []
     const pctSiapVal = total > 0 ? (siap/total)*100 : 0
     if (pctSiapVal < 30 && total > 0) issues.push({ level:'critical', msg:`Kesiapan atlet hanya ${Math.round(pctSiapVal)}% — butuh kebijakan percepatan registrasi`, link:'/dashboard/verifikasi' })
     if (menunggu > 50) issues.push({ level:'critical', msg:`${menunggu} atlet menumpuk di antrian — pertimbangkan tambah operator`, link:'/dashboard/verifikasi' })
     else if (menunggu > 0) issues.push({ level:'warning', msg:`${menunggu} atlet menunggu verifikasi`, link:'/dashboard/verifikasi' })
-    if (ditolak > 20) issues.push({ level:'critical', msg:`${ditolak} atlet ditolak — perlu evaluasi persyaratan kualifikasi`, link:'/dashboard/verifikasi' })
+    if (ditolak > 20) issues.push({ level:'critical', msg:`${ditolak} atlet ditolak — perlu evaluasi persyaratan`, link:'/dashboard/verifikasi' })
     else if (ditolak > 0) issues.push({ level:'warning', msg:`${ditolak} atlet ditolak — perlu review`, link:'/dashboard/verifikasi' })
-    if (kjPending > 0) issues.push({ level:'warning', msg:`${kjPending} riwayat kejuaraan menunggu verifikasi final Admin`, link:'/dashboard/kejuaraan' })
+    if (kjPending > 0) issues.push({ level:'warning', msg:`${kjPending} kejuaraan menunggu verifikasi final Admin`, link:'/dashboard/kejuaraan' })
     const laggardCount = perKontingen.filter(k => k.total > 0 && k.progress === 0).length
-    if (laggardCount > 3) issues.push({ level:'warning', msg:`${laggardCount} kontingen belum ada atlet siap — perlu koordinasi KONIDA`, link:'/dashboard/atlet' })
+    if (laggardCount > 3) issues.push({ level:'warning', msg:`${laggardCount} kontingen belum ada atlet siap — perlu koordinasi`, link:'/dashboard/atlet' })
 
     const leaders = [...perKontingen].sort((a, b) => b.progress - a.progress).slice(0, 3)
     const lagList = perKontingen.filter(k => k.total > 0 && k.progress < 30).sort((a, b) => a.progress - b.progress).slice(0, 4)
@@ -358,22 +425,21 @@ export default function DashboardKONI() {
 
   const { kpi, perCabor, perKontingen, medali, kejuaraan, nomorTotal, kontingenAktif, caborTotal, trend7, issues, leaders, lagList } = data
   const PIE_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4']
-  const fade = (delay: number) => `transition-all duration-700 ${animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}`
+  const ani = `transition-all duration-700 ${animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}`
 
   return (
     <div className="space-y-4">
 
-      {/* ══ 1. TOP ROW: SIPA + ALERT (belah 2) ═══════════════════════════════ */}
-      <div className={`grid gap-4 ${issues.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} ${fade(0)}`}>
+      {/* ══ 1. SIPA + ALERT ══════════════════════════════════════════════════ */}
+      <div className={`grid gap-4 ${issues.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} ${ani}`}>
 
-        {/* SIPA Intelligence — selalu tampil */}
+        {/* SIPA Intelligence */}
         <div className="relative overflow-hidden rounded-2xl border border-emerald-800/30"
           style={{ background:'linear-gradient(135deg, #022c22 0%, #0f172a 50%, #0c1a2e 100%)' }}>
           <div className="absolute top-0 left-0 right-0 h-px"
             style={{ background:'linear-gradient(90deg, transparent, #10b981, transparent)' }} />
           <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full"
             style={{ background:'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)' }} />
-
           <div className="relative p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
               style={{ background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)' }}>
@@ -387,17 +453,11 @@ export default function DashboardKONI() {
                   ● Groq AI · Online
                 </span>
               </div>
-              <p className="text-slate-400 text-xs mb-3">
-                AI Analitik PORPROV XV — jawaban strategis untuk pimpinan KONI
-              </p>
+              <p className="text-slate-400 text-xs mb-3">AI Analitik PORPROV XV — jawaban strategis untuk pimpinan KONI</p>
               <div className="flex flex-wrap gap-2">
-                {[
-                  'Kontingen paling tertinggal?',
-                  'Prediksi potensi medali?',
-                  'Analisa kesiapan keseluruhan',
-                ].map(q => (
+                {['Kontingen paling tertinggal?','Prediksi potensi medali?','Analisa kesiapan keseluruhan'].map(q => (
                   <a key={q} href="/dashboard/ai"
-                    className="text-[11px] text-slate-400 hover:text-emerald-400 px-2.5 py-1 rounded-lg transition-all flex-shrink-0"
+                    className="text-[11px] text-slate-400 hover:text-emerald-400 px-2.5 py-1 rounded-lg transition-all"
                     style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
                     → {q}
                   </a>
@@ -405,20 +465,20 @@ export default function DashboardKONI() {
               </div>
             </div>
             <a href="/dashboard/ai"
-              className="flex items-center gap-1.5 text-xs font-semibold text-white px-4 py-2 rounded-xl flex-shrink-0 transition-all hover:opacity-90"
+              className="flex items-center gap-1.5 text-xs font-semibold text-white px-4 py-2 rounded-xl flex-shrink-0 hover:opacity-90 transition-all"
               style={{ background:'linear-gradient(135deg, #10b981, #059669)' }}>
               Buka SIPA <ChevronRight size={13} />
             </a>
           </div>
         </div>
 
-        {/* Alert — hanya muncul kalau ada isu */}
+        {/* Alert — hanya kalau ada isu */}
         {issues.length > 0 && (
           <div className="rounded-2xl overflow-hidden border border-red-500/20 bg-red-500/5">
             <div className="px-4 py-2.5 border-b border-red-500/15 flex items-center gap-2">
               <AlertCircle size={13} className="text-red-400" />
               <span className="text-red-400 text-xs font-semibold uppercase tracking-wider">
-                Perhatian Pimpinan · {issues.length} isu
+                Perhatian Pimpinan · {issues.length} isu aktif
               </span>
             </div>
             <div className="p-3 space-y-2">
@@ -443,9 +503,7 @@ export default function DashboardKONI() {
                 </a>
               ))}
               {issues.length > 3 && (
-                <div className="text-center text-slate-600 text-[10px] pt-1">
-                  +{issues.length-3} isu lainnya
-                </div>
+                <div className="text-center text-slate-600 text-[10px] pt-1">+{issues.length-3} isu lainnya</div>
               )}
             </div>
           </div>
@@ -453,13 +511,11 @@ export default function DashboardKONI() {
       </div>
 
       {/* ══ 2. HERO HEADER ══════════════════════════════════════════════════ */}
-      <div className={fade(50)}>
+      <div className={ani} style={{ transitionDelay:'50ms' }}>
         <div className="relative overflow-hidden rounded-2xl border border-slate-800"
           style={{ background:'linear-gradient(135deg, #0c1a2e 0%, #0f172a 60%, #0c1a2e 100%)' }}>
           <div className="absolute top-0 left-0 right-0 h-px"
             style={{ background:'linear-gradient(90deg, transparent, #3b82f6, #10b981, transparent)' }} />
-          <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full"
-            style={{ background:'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)' }} />
           <div className="relative px-6 py-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -500,7 +556,7 @@ export default function DashboardKONI() {
       </div>
 
       {/* ══ 3. KPI CARDS ════════════════════════════════════════════════════ */}
-      <div className={`grid grid-cols-4 gap-3 ${fade(100)}`}>
+      <div className={`grid grid-cols-4 gap-3 ${ani}`} style={{ transitionDelay:'100ms' }}>
         {[
           { label:'Putra', value:kpi.putra, sub:`${kpi.pctPutra}% dari total`, color:'#3b82f6', bg:'bg-blue-500/10', border:'border-blue-500/20' },
           { label:'Putri', value:kpi.putri, sub:`${100-kpi.pctPutra}% dari total`, color:'#ec4899', bg:'bg-pink-500/10', border:'border-pink-500/20' },
@@ -521,7 +577,7 @@ export default function DashboardKONI() {
       </div>
 
       {/* ══ 4. PIE CHARTS ═══════════════════════════════════════════════════ */}
-      <div className={`grid grid-cols-3 gap-4 ${fade(150)}`}>
+      <div className={`grid grid-cols-3 gap-4 ${ani}`} style={{ transitionDelay:'150ms' }}>
         {/* Status Registrasi */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div className="text-white text-sm font-medium mb-4 flex items-center gap-2">
@@ -625,18 +681,17 @@ export default function DashboardKONI() {
         </div>
       </div>
 
-      {/* ══ 5. PETA JABAR + TOP CABOR ═══════════════════════════════════════ */}
-      <div className={`grid grid-cols-5 gap-4 ${fade(200)}`}>
-
-        {/* Peta Jabar */}
+      {/* ══ 5. PETA LEAFLET + TOP CABOR ═════════════════════════════════════ */}
+      <div className={`grid grid-cols-5 gap-4 ${ani}`} style={{ transitionDelay:'200ms' }}>
+        {/* Peta Leaflet */}
         <div className="col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div className="text-white text-sm font-medium mb-3 flex items-center gap-2">
             <MapPin size={13} className="text-blue-400" /> Peta Kesiapan Kontingen Jawa Barat
           </div>
-          <PetaJabar perKontingen={perKontingen} />
+          <PetaLeaflet perKontingen={perKontingen} />
         </div>
 
-        {/* Top Cabor Pie */}
+        {/* Top Cabor */}
         <div className="col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div className="text-white text-sm font-medium mb-4 flex items-center gap-2">
             <Target size={13} className="text-amber-400" /> Distribusi per Cabor
@@ -657,9 +712,8 @@ export default function DashboardKONI() {
         </div>
       </div>
 
-      {/* ══ 6. KONTINGEN TABLE + SOROTAN ════════════════════════════════════ */}
-      <div className={`grid grid-cols-3 gap-4 ${fade(250)}`}>
-
+      {/* ══ 6. SOROTAN + TABEL KONTINGEN ════════════════════════════════════ */}
+      <div className={`grid grid-cols-3 gap-4 ${ani}`} style={{ transitionDelay:'250ms' }}>
         {/* Leaders & Laggards */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
           <div className="text-slate-400 text-xs uppercase tracking-wider font-medium">Sorotan Kontingen</div>
@@ -710,7 +764,7 @@ export default function DashboardKONI() {
           </div>
         </div>
 
-        {/* Full kontingen table */}
+        {/* Full Tabel Kontingen */}
         <div className="col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
             <div className="text-white text-sm font-medium flex items-center gap-2">
@@ -739,12 +793,8 @@ export default function DashboardKONI() {
                       <span className="text-pink-400">{k.putri}</span>
                     </td>
                     <td className="px-3 py-2 text-emerald-400 font-medium">{k.siap}</td>
-                    <td className="px-3 py-2">
-                      <span className={k.menunggu>0?'text-amber-400':'text-slate-700'}>{k.menunggu}</span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={k.ditolak>0?'text-red-400':'text-slate-700'}>{k.ditolak}</span>
-                    </td>
+                    <td className="px-3 py-2"><span className={k.menunggu>0?'text-amber-400':'text-slate-700'}>{k.menunggu}</span></td>
+                    <td className="px-3 py-2"><span className={k.ditolak>0?'text-red-400':'text-slate-700'}>{k.ditolak}</span></td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <HBar value={k.siap} max={k.total}
