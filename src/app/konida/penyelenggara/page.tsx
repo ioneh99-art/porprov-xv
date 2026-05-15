@@ -86,7 +86,7 @@ export default function CommandCenter() {
       sb.from('jadwal_pertandingan')
         .select('id,nama_pertandingan,jam_mulai,jam_selesai,venue_id,venue(nama),cabang_olahraga(nama)')
         .order('jam_mulai').limit(30)
-        .then(r => ({ data: r.data ?? [] })).catch(() => ({ data: [] })),
+        .then(r => ({ data: r.data ?? [] }), () => ({ data: [] })),
     ])
 
     setVenues(venueData ?? [])

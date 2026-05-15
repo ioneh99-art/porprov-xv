@@ -113,7 +113,8 @@ export default function LaporanPage() {
       })
 
       // Footer
-      const pageCount = doc.getNumberOfPages()
+      // Mengakses method dari object internal jsPDF dan bypass TS dengan 'any'
+      const pageCount = (doc as any).internal.getNumberOfPages()  
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i)
         doc.setFontSize(7)
