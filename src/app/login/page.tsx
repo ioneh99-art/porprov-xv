@@ -1,254 +1,28 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTenant } from '@/hooks/useTenant'
+
+// Lazy import per tenant
+import dynamic from 'next/dynamic'
+
+const LoginJabar  = dynamic(() => import('@/components/login/LoginJabar'))
+const LoginBekasi = dynamic(() => import('@/components/login/LoginBekasi'))
+const LoginBogor  = dynamic(() => import('@/components/login/LoginBogor'))
+const LoginDepok  = dynamic(() => import('@/components/login/LoginDepok'))
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Terjadi kesalahan')
-        setLoading(false)
-        return
-      }
-      router.push(data.redirect)
-    } catch {
-      setError('Tidak dapat terhubung ke server')
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-950 flex">
-
-      {/* KIRI — Panel Logo */}
-      <div className="hidden lg:flex w-[55%] bg-slate-950 border-r border-slate-800 flex-col items-center justify-center px-16 relative overflow-hidden">
-
-        {/* Dekorasi background */}
-        <div className="absolute top-[-100px] left-[-100px] w-80 h-80 rounded-full bg-blue-600/5" />
-        <div className="absolute bottom-[-80px] right-[-80px] w-64 h-64 rounded-full bg-blue-600/5" />
-
-        {/* Logo */}
-        <div className="relative z-10 mb-8">
-          <img
-            src="/logo-porprov.png"
-            alt="Logo PORPROV XV Jawa Barat 2026"
-            className="w-64 h-64 object-contain mix-blend-lighten"
-          />
-        </div>
-
-        {/* Teks */}
-        <div className="relative z-10 text-center mb-8">
-          <div className="text-white text-lg font-semibold mb-2">
-            Sistem Informasi Atlet
-          </div>
-          <div className="text-slate-500 text-sm leading-relaxed">
-            Platform resmi pendaftaran dan manajemen<br />
-            atlet PORPROV XV Jawa Barat 2026
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="relative z-10 flex gap-10 mb-10">
-          {[
-            { label: 'Kontingen', value: '27' },
-            { label: 'Cabang Olahraga', value: '92' },
-            { label: 'Atlet', value: '24K+' },
-          ].map(({ label, value }) => (
-            <div key={label} className="text-center">
-              <div className="text-white text-2xl font-bold">{value}</div>
-              <div className="text-slate-600 text-xs mt-0.5">{label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Link publik */}
-        <div className="relative z-10 flex flex-col items-center gap-3 w-full max-w-xs">
-          <a href="/publik/klasemen"
-            className="w-full flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 text-xs px-4 py-2.5 rounded-full transition-all">
-            <span>🏆</span>
-            <span>Lihat Klasemen Medali Live</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          </a>
-          <div className="flex items-center gap-4">
-            <a href="/publik/jadwal"
-              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">
-              📅 Jadwal
-            </a>
-            <span className="text-slate-700">·</span>
-            <a href="/publik/hasil"
-              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">
-              🏅 Hasil
-            </a>
-            <span className="text-slate-700">·</span>
-            <a href="/publik/atlet"
-              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">
-              🔍 Cari Atlet
-            </a>
-          </div>
-        </div>
-      </div>
-
-      {/* KANAN — Form */}
-      <div className="flex-1 flex items-center justify-center px-8 py-12">
-        <div className="w-full max-w-sm">
-
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-full px-3 py-1.5 mb-8">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            <span className="text-blue-400 text-[10px] font-semibold tracking-wider">
-              PORPROV XV · 2026
-            </span>
-          </div>
-
-          <h1 className="text-white text-2xl font-semibold mb-1">Selamat datang</h1>
-          <p className="text-slate-500 text-sm mb-8">Masuk ke sistem manajemen atlet</p>
-
-          {/* Form Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-7">
-            <form onSubmit={handleSubmit} className="space-y-4">
-
-              {error && (
-                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
-                  <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
-                  <span className="text-red-400 text-xs">{error}</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-slate-500 text-[10px] font-medium mb-1.5 uppercase tracking-wider">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="Masukkan username"
-                  autoComplete="username"
-                  required
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-500 text-[10px] font-medium mb-1.5 uppercase tracking-wider">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPass ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Masukkan password"
-                    autoComplete="current-password"
-                    required
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pr-10 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
-                    {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="text-right">
-                <button type="button" className="text-blue-500 hover:text-blue-400 text-xs transition-colors">
-                  Lupa password?
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !username || !password}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed">
-                {loading
-                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <LogIn size={14} />}
-                {loading ? 'Memeriksa...' : 'Masuk'}
-              </button>
-
-            </form>
-          </div>
-
-          {/* Demo accounts */}
-          <div className="mt-5 bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <p className="text-slate-600 text-[10px] font-medium mb-2">
-              Akun demo — klik untuk autofill:
-            </p>
-            <div className="space-y-1">
-              {[
-                { role: 'Admin', user: 'admin', pass: 'admin123' },
-                { role: 'KONIDA Kab. Bogor', user: 'kab.bogor', pass: 'admin123' },
-                { role: 'KONIDA Kota Bandung', user: 'kota.bandung', pass: 'admin123' },
-                { role: 'Operator Atletik', user: 'op.atletik', pass: 'admin123' },
-                { role: 'Operator Renang', user: 'op.akuatikrn', pass: 'admin123' },
-              ].map(a => (
-                <button key={a.role} type="button"
-                  onClick={() => { setUsername(a.user); setPassword(a.pass) }}
-                  className="w-full flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-slate-800 transition-colors text-xs">
-                  <span className="text-slate-500">{a.role}</span>
-                  <span className="text-slate-400 font-mono text-[10px]">{a.user}</span>
-                </button>
-              ))}
-            </div>
-            <p className="text-slate-700 text-[10px] mt-1.5">* Klik untuk autofill · password: admin123</p>
-          </div>
-
-          {/* Link atlet */}
-          <div className="mt-3 text-center">
-            <span className="text-slate-600 text-xs">Kamu atlet? </span>
-            <a href="/atlet/login" className="text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-colors">
-              Masuk ke Portal Atlet →
-            </a>
-          </div>
-
-          {/* Link publik — mobile only */}
-          <div className="lg:hidden mt-4 flex flex-col items-center gap-2">
-            <a href="/publik/klasemen"
-              className="flex items-center justify-center gap-2 text-amber-400 hover:text-amber-300 text-xs transition-colors">
-              <span>🏆</span>
-              <span>Lihat Klasemen Medali Live</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            </a>
-            <div className="flex items-center gap-4">
-              <a href="/publik/jadwal" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
-                📅 Jadwal
-              </a>
-              <span className="text-slate-700">·</span>
-              <a href="/publik/hasil" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
-                🏅 Hasil
-              </a>
-              <span className="text-slate-700">·</span>
-              <a href="/publik/atlet" className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
-                🔍 Cari Atlet
-              </a>
-            </div>
-          </div>
-
-          <p className="text-center text-slate-700 text-[10px] mt-5">
-            © 2026 KONI Jawa Barat · v1.0.0
-          </p>
-        </div>
-      </div>
-
+  const tenant = useTenant()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted) return (
+    <div style={{ minHeight:'100vh', background:'#080f1a', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ width:32, height:32, border:'2px solid rgba(255,255,255,0.1)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
+
+  if (tenant.id === 'bekasi') return <LoginBekasi />
+  if (tenant.id === 'bogor')  return <LoginBogor />
+  if (tenant.id === 'depok')  return <LoginDepok />
+  return <LoginJabar />
 }
