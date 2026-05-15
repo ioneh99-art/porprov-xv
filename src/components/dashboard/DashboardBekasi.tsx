@@ -2,18 +2,35 @@
 import { useEffect, useState } from 'react'
 import {
   Monitor, MapPin, Users, CheckCircle, Clock,
-  AlertTriangle, ChevronRight, Zap, Activity,
-  Target, Building2, TrendingUp, Calendar
+  AlertTriangle, ChevronRight, Zap, Target,
+  Building2, TrendingUp, Calendar, Shield,
+  Activity, Trophy, PhoneCall
 } from 'lucide-react'
 
-interface AtletItem { gender: string; status_registrasi: string; cabor_id: number; cabang_olahraga: any }
-interface VenueItem { id: number; nama: string; alamat: string; klaster_id: number }
+// Palet warna dari logo Kota Bekasi:
+// Primary:   #E84E0F (oranye api)
+// Secondary: #1B6EC2 (biru pita)
+// Accent:    #3AAA35 (hijau gedung)
+// Highlight: #F5C518 (kuning emas)
+// Base:      #FFFFFF light mode
+
+interface AtletItem { gender:string; status_registrasi:string; cabor_id:number; cabang_olahraga:any }
+interface VenueItem { id:number; nama:string; alamat:string; klaster_id:number }
 
 function PieChart({ segments, size=80, label, sublabel }: {
   segments:{value:number;color:string}[]; size?:number; label?:string; sublabel?:string
 }) {
   const total = segments.reduce((a,b)=>a+b.value,0)
-  if(total===0) return <svg width={size} height={size} viewBox="0 0 80 80"><circle cx="40" cy="40" r="28" fill="none" stroke="#1e1e1e" strokeWidth="12"/></svg>
+  if(total===0) return (
+    <div style={{position:'relative',width:size,height:size}}>
+      <svg width={size} height={size} viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="28" fill="none" stroke="#f1f5f9" strokeWidth="12"/>
+      </svg>
+      {label&&<div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+        <span style={{color:'#94a3b8',fontWeight:700,fontSize:13}}>0</span>
+      </div>}
+    </div>
+  )
   let cum=0
   const paths = segments.filter(s=>s.value>0).map((seg,i)=>{
     const pct=seg.value/total
@@ -26,27 +43,29 @@ function PieChart({ segments, size=80, label, sublabel }: {
   })
   return (
     <div style={{position:'relative',width:size,height:size}}>
-      <svg width={size} height={size} viewBox="0 0 80 80">{paths}<circle cx="40" cy="40" r="17" fill="#0a0a0a"/></svg>
+      <svg width={size} height={size} viewBox="0 0 80 80">
+        {paths}<circle cx="40" cy="40" r="17" fill="white"/>
+      </svg>
       {label&&<div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-        <span style={{color:'white',fontWeight:700,fontSize:12,lineHeight:1}}>{label}</span>
-        {sublabel&&<span style={{color:'#4b5563',fontSize:9,marginTop:1}}>{sublabel}</span>}
+        <span style={{color:'#1e293b',fontWeight:700,fontSize:size>80?13:11,lineHeight:1}}>{label}</span>
+        {sublabel&&<span style={{color:'#94a3b8',fontSize:9,marginTop:1}}>{sublabel}</span>}
       </div>}
     </div>
   )
 }
 
-// Ticker komponen
-function LiveTicker({ items }: { items: string[] }) {
+function LiveTicker({ items }: { items:string[] }) {
   const [idx, setIdx] = useState(0)
   useEffect(()=>{
-    const t = setInterval(()=>setIdx(i=>(i+1)%items.length), 3000)
+    if(!items.length) return
+    const t = setInterval(()=>setIdx(i=>(i+1)%items.length),3500)
     return ()=>clearInterval(t)
   },[items.length])
   if(!items.length) return null
   return (
-    <div className="flex items-center gap-2 overflow-hidden">
-      <div className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" style={{background:'#dc2626'}}/>
-      <span style={{color:'#9ca3af',fontSize:11,transition:'all 0.3s'}}>{items[idx]}</span>
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <div style={{width:6,height:6,borderRadius:'50%',background:'#E84E0F',animation:'pulse 1.5s infinite',flexShrink:0}}/>
+      <span style={{color:'#64748b',fontSize:12}}>{items[idx]}</span>
     </div>
   )
 }
@@ -65,12 +84,24 @@ export default function DashboardBekasi() {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
     const kontingen_id = me?.kontingen_id
 
-    const [{data:atletAll},{data:venueList},{data:medali},{data:jadwal}] = await Promise.all([
+    // Fetch jadwal dengan try-catch terpisah
+    let jadwalData: any[] = []
+    try {
+      const { data: jd } = await sb.from('jadwal_pertandingan')
+        .select('id,nama_pertandingan,jam_mulai,venue_id,venue(nama)')
+        .order('jam_mulai').limit(20)
+      jadwalData = jd ?? []
+    } catch {}
+
+    const [
+      {data:atletAll},
+      {data:venueList},
+      {data:medali},
+    ] = await Promise.all([
       sb.from('atlet').select('id,gender,status_registrasi,cabor_id,cabang_olahraga(nama)')
         .eq('kontingen_id', kontingen_id ?? 0),
       sb.from('venue').select('id,nama,alamat,klaster_id').eq('klaster_id',1),
       sb.from('klasemen_medali').select('*,kontingen(nama)').order('emas',{ascending:false}).limit(5),
-      sb.from('jadwal_pertandingan').select('id,nama_pertandingan,jam_mulai,venue_id,venue(nama)').order('jam_mulai').limit(20),
     ])
 
     const atlet = atletAll??[]
@@ -92,87 +123,74 @@ export default function DashboardBekasi() {
     const perCabor=Object.entries(caborMap).map(([nama,total])=>({nama,total})).sort((a,b)=>b.total-a.total).slice(0,5)
 
     const tickerItems = [
-      `${total} atlet terdaftar dari Kontingen Bekasi`,
-      `${(venueList??[]).length} venue aktif Klaster I`,
+      `${total} atlet terdaftar · Kontingen Kota Bekasi`,
+      `${(venueList??[]).length} venue aktif · Klaster I`,
       `${siap} atlet siap tanding (${pctSiap}%)`,
       ...(menunggu>0?[`${menunggu} atlet menunggu verifikasi`]:[]),
     ]
 
-    setData({
-      kpi:{total,putra,putri,menunggu,siap,ditolak,pctSiap},
-      venue:venueList??[],
-      medali:medali??[],
-      jadwal:jadwal??[],
-      perCabor,
-      tickerItems,
-      me,
-    })
+    setData({ kpi:{total,putra,putri,menunggu,siap,ditolak,pctSiap}, venue:venueList??[], medali:medali??[], jadwal:jadwalData, perCabor, tickerItems, me })
     setLoading(false)
   }
 
   if(loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div style={{width:32,height:32,border:'2px solid #1a1a1a',borderTopColor:'#dc2626',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:256}}>
+      <div style={{width:32,height:32,border:'3px solid #fed7aa',borderTopColor:'#E84E0F',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
     </div>
   )
 
   const {kpi,venue,medali,jadwal,perCabor,tickerItems,me} = data
-  const PIE_COLORS=['#dc2626','#ef4444','#f87171','#374151','#1f2937']
-  const ani=(d=0)=>({
-    style:{transitionDelay:`${d}ms`},
-    className:`transition-all duration-700 ${animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}`
+  const PIE_COLORS = ['#E84E0F','#1B6EC2','#3AAA35','#F5C518','#94a3b8']
+  const ani = (d=0) => ({
+    className: `transition-all duration-700 ${animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}`,
+    style: {transitionDelay:`${d}ms`}
   })
 
   return (
-    <div className="space-y-4" style={{background:'transparent'}}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div className="space-y-4 pb-6" style={{fontFamily:'system-ui,sans-serif'}}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
 
-      {/* ══ HERO — Split + Ticker ══════════════════════════════════════════ */}
+      {/* ══ HERO — Light Mode ════════════════════════════════════════════ */}
       <div {...ani(0)}>
-        <div className="rounded-2xl overflow-hidden" style={{background:'#0f0f0f',border:'1px solid #1a1a1a'}}>
-          {/* Red top bar */}
-          <div style={{height:3,background:'linear-gradient(90deg,#dc2626,#ef4444,#dc2626)'}}/>
+        <div className="rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+          {/* Gradient bar logo Bekasi */}
+          <div style={{height:4,background:'linear-gradient(90deg,#E84E0F,#F5C518,#3AAA35,#1B6EC2)'}}/>
           <div className="grid grid-cols-2">
-            {/* Kiri — command info */}
-            <div className="p-5 border-r" style={{borderColor:'#1a1a1a',background:'#0a0a0a'}}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{background:'rgba(220,38,38,0.15)',border:'1px solid rgba(220,38,38,0.3)'}}>
-                  <Monitor size={16} style={{color:'#dc2626'}}/>
+            {/* Kiri — identity */}
+            <div className="p-5 border-r border-gray-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+                  style={{background:'#fff7ed',border:'1.5px solid #fed7aa'}}>
+                  <img src="/logos/bekasi.png" alt="Kota Bekasi"
+                    style={{width:44,height:44,objectFit:'contain'}}
+                    onError={e=>{const el=e.target as HTMLImageElement;el.style.display='none';const p=el.parentElement!;p.innerHTML='<span style="font-size:14px;font-weight:900;color:#E84E0F;">BKS</span>'}}/>
                 </div>
                 <div>
-                  <div style={{color:'#dc2626',fontSize:9,fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase'}}>Command Center</div>
-                  <div style={{color:'white',fontSize:13,fontWeight:700}}>Kota Bekasi · Klaster I</div>
-                </div>
-                <div className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{background:'rgba(220,38,38,0.08)',border:'1px solid rgba(220,38,38,0.2)'}}>
-                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:'#dc2626'}}/>
-                  <span style={{color:'#dc2626',fontSize:9,fontWeight:700}}>LIVE</span>
+                  <div style={{color:'#E84E0F',fontSize:9,fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase'}}>Tuan Rumah · Klaster I</div>
+                  <div style={{color:'#1e293b',fontSize:16,fontWeight:800,lineHeight:1.2}}>Kota Bekasi</div>
+                  <div style={{color:'#94a3b8',fontSize:10,marginTop:1}}>Inovatif · Kreatif · Terdepan</div>
                 </div>
               </div>
-              <div style={{color:'#4b5563',fontSize:11,marginBottom:8}}>
-                {new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
-              </div>
-              {/* Ticker */}
-              <div className="px-3 py-2 rounded-lg" style={{background:'#111',border:'1px solid #1a1a1a'}}>
+              <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,padding:'8px 12px'}}>
                 <LiveTicker items={tickerItems}/>
               </div>
             </div>
-            {/* Kanan — quick stats */}
+            {/* Kanan — quick KPI */}
             <div className="p-5">
-              <div style={{color:'#374151',fontSize:9,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:10}}>Ringkasan Kontingen</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div style={{color:'#94a3b8',fontSize:9,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>Ringkasan Hari Ini</div>
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  {label:'Total Atlet',value:kpi.total,color:'#e5e7eb'},
-                  {label:'Siap Tanding',value:`${kpi.siap}`,color:'#dc2626'},
-                  {label:'Kesiapan',value:`${kpi.pctSiap}%`,color:'#dc2626'},
-                  {label:'Putra',value:kpi.putra,color:'#9ca3af'},
-                  {label:'Putri',value:kpi.putri,color:'#9ca3af'},
-                  {label:'Menunggu',value:kpi.menunggu,color:kpi.menunggu>0?'#f59e0b':'#374151'},
-                ].map(({label,value,color})=>(
-                  <div key={label} className="text-center p-2.5 rounded-xl" style={{background:'#111',border:'1px solid #1a1a1a'}}>
+                  {label:'Total Atlet',value:kpi.total,color:'#1e293b',bg:'#f8fafc',border:'#e2e8f0'},
+                  {label:'Siap Tanding',value:kpi.siap,color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0'},
+                  {label:'Kesiapan',value:`${kpi.pctSiap}%`,color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa'},
+                  {label:'Putra',value:kpi.putra,color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe'},
+                  {label:'Putri',value:kpi.putri,color:'#7c3aed',bg:'#f5f3ff',border:'#ddd6fe'},
+                  {label:'Menunggu',value:kpi.menunggu,color:kpi.menunggu>0?'#d97706':'#94a3b8',bg:kpi.menunggu>0?'#fffbeb':'#f8fafc',border:kpi.menunggu>0?'#fde68a':'#e2e8f0'},
+                ].map(({label,value,color,bg,border})=>(
+                  <div key={label} className="text-center p-2.5 rounded-xl" style={{background:bg,border:`1px solid ${border}`}}>
                     <div style={{color,fontSize:20,fontWeight:800,lineHeight:1}}>{value}</div>
-                    <div style={{color:'#374151',fontSize:9,marginTop:3,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
+                    <div style={{color:'#94a3b8',fontSize:9,marginTop:3,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
                   </div>
                 ))}
               </div>
@@ -184,124 +202,128 @@ export default function DashboardBekasi() {
       {/* Alert ditolak */}
       {kpi.ditolak>0&&(
         <div {...ani(50)}>
-          <a href="/konida/atlet" className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group"
-            style={{background:'rgba(220,38,38,0.06)',border:'1px solid rgba(220,38,38,0.2)'}}>
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{background:'rgba(220,38,38,0.15)'}}>
-              <AlertTriangle size={13} style={{color:'#dc2626'}}/>
+          <a href="/konida/atlet" className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
+            style={{background:'#fef2f2',border:'1px solid #fecaca'}}>
+            <div style={{width:30,height:30,borderRadius:8,background:'#fee2e2',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <AlertTriangle size={14} style={{color:'#ef4444'}}/>
             </div>
-            <span style={{color:'#fca5a5',fontSize:12,flex:1}}>{kpi.ditolak} atlet ditolak — perlu direvisi segera</span>
-            <ChevronRight size={13} style={{color:'rgba(220,38,38,0.4)'}}/>
+            <span style={{color:'#b91c1c',fontSize:13,flex:1,fontWeight:500}}>{kpi.ditolak} atlet ditolak — perlu direvisi segera</span>
+            <ChevronRight size={14} style={{color:'#fca5a5'}}/>
           </a>
         </div>
       )}
 
-      {/* ══ KPI CARDS — 5 bold ══════════════════════════════════════════════ */}
+      {/* ══ 5 KPI CARDS ═══════════════════════════════════════════════════ */}
       <div {...ani(100)} className="grid grid-cols-5 gap-3">
         {[
-          {label:'Total Atlet',value:kpi.total,icon:Users,color:'#dc2626',border:'rgba(220,38,38,0.2)'},
-          {label:'Siap Tanding',value:kpi.siap,icon:CheckCircle,color:'#10b981',border:'rgba(16,185,129,0.2)'},
-          {label:'Menunggu',value:kpi.menunggu,icon:Clock,color:kpi.menunggu>0?'#f59e0b':'#374151',border:kpi.menunggu>0?'rgba(245,158,11,0.2)':'rgba(55,65,81,0.3)'},
-          {label:'Venue Aktif',value:venue.length,icon:Building2,color:'#dc2626',border:'rgba(220,38,38,0.2)'},
-          {label:'Ditolak',value:kpi.ditolak,icon:AlertTriangle,color:kpi.ditolak>0?'#ef4444':'#374151',border:kpi.ditolak>0?'rgba(239,68,68,0.2)':'rgba(55,65,81,0.3)'},
-        ].map(({label,value,icon:Icon,color,border})=>(
-          <div key={label} className="p-4 rounded-2xl" style={{background:'#0f0f0f',border:`1px solid ${border}`}}>
-            <Icon size={14} style={{color,marginBottom:8}}/>
-            <div style={{color:'white',fontSize:24,fontWeight:800,lineHeight:1}}>{value}</div>
-            <div style={{color:'#374151',fontSize:9,marginTop:4,textTransform:'uppercase',letterSpacing:'0.08em'}}>{label}</div>
+          {label:'Total Atlet',value:kpi.total,icon:Users,color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa',iconBg:'#ffedd5'},
+          {label:'Siap Tanding',value:kpi.siap,icon:CheckCircle,color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0',iconBg:'#dcfce7'},
+          {label:'Menunggu',value:kpi.menunggu,icon:Clock,color:kpi.menunggu>0?'#d97706':'#94a3b8',bg:kpi.menunggu>0?'#fffbeb':'#f8fafc',border:kpi.menunggu>0?'#fde68a':'#e2e8f0',iconBg:kpi.menunggu>0?'#fef9c3':'#f1f5f9'},
+          {label:'Venue Aktif',value:venue.length,icon:Building2,color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe',iconBg:'#dbeafe'},
+          {label:'Ditolak',value:kpi.ditolak,icon:AlertTriangle,color:kpi.ditolak>0?'#ef4444':'#94a3b8',bg:kpi.ditolak>0?'#fef2f2':'#f8fafc',border:kpi.ditolak>0?'#fecaca':'#e2e8f0',iconBg:kpi.ditolak>0?'#fee2e2':'#f1f5f9'},
+        ].map(({label,value,icon:Icon,color,bg,border,iconBg})=>(
+          <div key={label} className="rounded-2xl p-4" style={{background:bg,border:`1px solid ${border}`,boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
+            <div style={{width:32,height:32,borderRadius:8,background:iconBg,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10}}>
+              <Icon size={16} style={{color}}/>
+            </div>
+            <div style={{color:'#1e293b',fontSize:24,fontWeight:800,lineHeight:1}}>{value}</div>
+            <div style={{color:'#94a3b8',fontSize:10,marginTop:4,textTransform:'uppercase',letterSpacing:'0.08em'}}>{label}</div>
           </div>
         ))}
       </div>
 
-      {/* ══ VENUE GRID + PIE ════════════════════════════════════════════════ */}
+      {/* ══ VENUE GRID + CHARTS ════════════════════════════════════════════ */}
       <div {...ani(150)} className="grid grid-cols-3 gap-4">
 
-        {/* Venue Grid — 25 venue */}
-        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'#0f0f0f',border:'1px solid #1a1a1a'}}>
-          <div className="px-5 py-3.5 flex items-center justify-between" style={{borderBottom:'1px solid #1a1a1a'}}>
+        {/* Venue grid */}
+        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+          <div className="px-5 py-3.5 flex items-center justify-between" style={{borderBottom:'1px solid #f1f5f9'}}>
             <div className="flex items-center gap-2">
-              <Building2 size={13} style={{color:'#dc2626'}}/>
-              <span style={{color:'white',fontSize:13,fontWeight:600}}>Venue Monitor Klaster I</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{background:'rgba(220,38,38,0.15)',color:'#dc2626',fontSize:10}}>
-                {venue.length} venue
+              <div style={{width:28,height:28,borderRadius:8,background:'#fff7ed',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Building2 size={14} style={{color:'#E84E0F'}}/>
+              </div>
+              <span style={{color:'#1e293b',fontSize:13,fontWeight:600}}>Venue Monitor · Klaster I</span>
+              <span style={{background:'#fff7ed',color:'#E84E0F',border:'1px solid #fed7aa',borderRadius:20,padding:'1px 8px',fontSize:10,fontWeight:600}}>
+                {venue.length}
               </span>
             </div>
-            <a href="/konida/penyelenggara/venue" style={{color:'#dc2626',fontSize:11}} className="flex items-center gap-1">
-              Semua <ChevronRight size={11}/>
+            <a href="/konida/penyelenggara/venue" style={{color:'#E84E0F',fontSize:11,display:'flex',alignItems:'center',gap:3,textDecoration:'none'}}>
+              Lihat semua <ChevronRight size={11}/>
             </a>
           </div>
           <div className="p-4">
             <div className="grid grid-cols-4 gap-2">
               {venue.slice(0,16).map((v:VenueItem,i:number)=>(
-                <div key={v.id} className="p-2.5 rounded-xl transition-all cursor-pointer"
+                <div key={v.id} className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-sm"
                   style={{
-                    background: i<3?'rgba(220,38,38,0.08)':'#111',
-                    border: i<3?'1px solid rgba(220,38,38,0.25)':'1px solid #1a1a1a',
+                    background:i<3?'#fff7ed':'#f8fafc',
+                    border:i<3?'1px solid #fed7aa':'1px solid #e2e8f0',
                   }}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      style={{background:i<3?'#dc2626':'#374151'}}/>
-                    <span style={{color:i<3?'#fca5a5':'#4b5563',fontSize:8,fontWeight:700,textTransform:'uppercase'}}>
-                      {i<3?'Aktif':'Standby'}
+                  <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                    <div style={{width:5,height:5,borderRadius:'50%',background:i<3?'#E84E0F':i<6?'#3AAA35':'#cbd5e1',flexShrink:0}}/>
+                    <span style={{color:i<3?'#E84E0F':i<6?'#3AAA35':'#94a3b8',fontSize:8,fontWeight:700,textTransform:'uppercase'}}>
+                      {i<3?'Aktif':i<6?'Siap':'Standby'}
                     </span>
                   </div>
-                  <div style={{color:i<3?'#e5e7eb':'#6b7280',fontSize:10,fontWeight:600,lineHeight:1.3}}>
+                  <div style={{color:i<3?'#1e293b':'#64748b',fontSize:10,fontWeight:i<3?600:400,lineHeight:1.3}}>
                     {v.nama.replace('GOR ','').replace('Lapangan ','').replace('Kolam ','').slice(0,18)}
                   </div>
                 </div>
               ))}
               {venue.length>16&&(
-                <div className="p-2.5 rounded-xl flex items-center justify-center col-span-1"
-                  style={{background:'#111',border:'1px solid #1a1a1a'}}>
-                  <span style={{color:'#374151',fontSize:10}}>+{venue.length-16}</span>
+                <div className="p-2.5 rounded-xl flex items-center justify-center"
+                  style={{background:'#f8fafc',border:'1px dashed #cbd5e1'}}>
+                  <span style={{color:'#94a3b8',fontSize:10}}>+{venue.length-16}</span>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Pie Status + Cabor */}
+        {/* Charts */}
         <div className="space-y-3">
-          <div className="rounded-2xl p-4" style={{background:'#0f0f0f',border:'1px solid #1a1a1a'}}>
-            <div style={{color:'#6b7280',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>
-              Status Registrasi
-            </div>
-            <div className="flex items-center gap-3">
+          {/* Pie registrasi */}
+          <div className="rounded-2xl p-4" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
+            <div style={{color:'#64748b',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>Status Registrasi</div>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
               <PieChart size={72} label={`${kpi.pctSiap}%`} sublabel="Siap"
                 segments={[
-                  {value:kpi.siap,color:'#dc2626'},
-                  {value:kpi.menunggu,color:'#f59e0b'},
-                  {value:kpi.kpi?.draft??0,color:'#1f2937'},
-                  {value:kpi.ditolak,color:'#374151'},
+                  {value:kpi.siap,color:'#3AAA35'},
+                  {value:kpi.menunggu,color:'#F5C518'},
+                  {value:kpi.kpi?.draft??0,color:'#e2e8f0'},
+                  {value:kpi.ditolak,color:'#fca5a5'},
                 ]}/>
-              <div className="flex-1 space-y-1.5">
+              <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}>
                 {[
-                  {label:'Siap',value:kpi.siap,color:'#dc2626'},
-                  {label:'Menunggu',value:kpi.menunggu,color:'#f59e0b'},
-                  {label:'Ditolak',value:kpi.ditolak,color:'#374151'},
+                  {label:'Siap',value:kpi.siap,color:'#3AAA35'},
+                  {label:'Menunggu',value:kpi.menunggu,color:'#F5C518'},
+                  {label:'Ditolak',value:kpi.ditolak,color:'#ef4444'},
                 ].map(({label,value,color})=>(
-                  <div key={label} className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{background:color}}/>
-                      <span style={{color:'#4b5563',fontSize:10}}>{label}</span>
+                  <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <div style={{width:6,height:6,borderRadius:'50%',background:color}}/>
+                      <span style={{color:'#64748b',fontSize:11}}>{label}</span>
                     </div>
-                    <span style={{color:'white',fontSize:10,fontWeight:700}}>{value}</span>
+                    <span style={{color:'#1e293b',fontSize:11,fontWeight:700}}>{value}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl p-4" style={{background:'#0f0f0f',border:'1px solid #1a1a1a'}}>
-            <div style={{color:'#6b7280',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>
-              Top Cabor
-            </div>
-            <div className="space-y-2">
+          {/* Top cabor */}
+          <div className="rounded-2xl p-4" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
+            <div style={{color:'#64748b',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>Top Cabor</div>
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
               {perCabor.map((c:any,i:number)=>(
-                <div key={c.nama} className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background:['#dc2626','#ef4444','#f87171','#374151','#1f2937'][i]}}/>
-                  <span style={{color:'#6b7280',fontSize:10,flex:1}} className="truncate">{c.nama}</span>
-                  <span style={{color:'white',fontSize:10,fontWeight:700}}>{c.total}</span>
+                <div key={c.nama}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                    <span style={{color:'#64748b',fontSize:10,flex:1}} className="truncate">{c.nama}</span>
+                    <span style={{color:PIE_COLORS[i%5],fontSize:10,fontWeight:700,marginLeft:4}}>{c.total}</span>
+                  </div>
+                  <div style={{height:3,background:'#f1f5f9',borderRadius:2,overflow:'hidden'}}>
+                    <div style={{height:'100%',width:`${(c.total/perCabor[0].total)*100}%`,background:PIE_COLORS[i%5],borderRadius:2}}/>
+                  </div>
                 </div>
               ))}
             </div>
@@ -309,65 +331,70 @@ export default function DashboardBekasi() {
         </div>
       </div>
 
-      {/* ══ TIMELINE JADWAL + MEDALI ════════════════════════════════════════ */}
+      {/* ══ JADWAL + MEDALI ════════════════════════════════════════════════ */}
       <div {...ani(200)} className="grid grid-cols-3 gap-4">
 
-        {/* Timeline hari ini */}
-        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'#0f0f0f',border:'1px solid #1a1a1a'}}>
-          <div className="px-5 py-3.5 flex items-center gap-2" style={{borderBottom:'1px solid #1a1a1a'}}>
-            <Calendar size={13} style={{color:'#dc2626'}}/>
-            <span style={{color:'white',fontSize:13,fontWeight:600}}>Jadwal Pertandingan Hari Ini</span>
-            <span style={{color:'#374151',fontSize:10,marginLeft:'auto'}}>
+        {/* Jadwal */}
+        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+          <div className="px-5 py-3.5 flex items-center gap-2" style={{borderBottom:'1px solid #f1f5f9'}}>
+            <div style={{width:28,height:28,borderRadius:8,background:'#eff6ff',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <Calendar size={14} style={{color:'#1B6EC2'}}/>
+            </div>
+            <span style={{color:'#1e293b',fontSize:13,fontWeight:600}}>Jadwal Pertandingan Hari Ini</span>
+            <span style={{color:'#94a3b8',fontSize:10,marginLeft:'auto'}}>
               {new Date().toLocaleDateString('id-ID',{day:'numeric',month:'short'})}
             </span>
           </div>
           {jadwal.length===0?(
-            <div className="text-center py-10">
-              <Calendar size={24} style={{color:'#1f2937',margin:'0 auto 8px'}}/>
-              <div style={{color:'#374151',fontSize:11}}>Belum ada jadwal pertandingan</div>
+            <div style={{textAlign:'center',padding:'40px 0'}}>
+              <Calendar size={28} style={{color:'#e2e8f0',margin:'0 auto 8px'}}/>
+              <div style={{color:'#94a3b8',fontSize:12}}>Belum ada jadwal pertandingan</div>
             </div>
           ):(
-            <div className="divide-y" >
+            <div>
               {jadwal.slice(0,6).map((j:any,i:number)=>(
-                <div key={j.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="flex-shrink-0 text-center w-12">
-                    <div style={{color:'#dc2626',fontSize:13,fontWeight:800}}>{j.jam_mulai?.slice(0,5)??'--:--'}</div>
+                <div key={j.id} className="flex items-center gap-3 px-5 py-3"
+                  style={{borderBottom:i<5?'1px solid #f8fafc':'none',background:i===0?'#fff7ed':'transparent'}}>
+                  <div style={{flexShrink:0,textAlign:'center',width:40}}>
+                    <div style={{color:i===0?'#E84E0F':'#64748b',fontSize:13,fontWeight:700}}>{j.jam_mulai?.slice(0,5)??'--:--'}</div>
                   </div>
-                  <div className="w-px h-8 flex-shrink-0" style={{background:'#1a1a1a'}}/>
-                  <div className="flex-1 min-w-0">
-                    <div style={{color:'#e5e7eb',fontSize:12,fontWeight:500}} className="truncate">{j.nama_pertandingan??'Pertandingan'}</div>
-                    <div style={{color:'#374151',fontSize:10}} className="truncate">{j.venue?.nama??'-'}</div>
+                  <div style={{width:1,height:30,background:'#f1f5f9',flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:'#1e293b',fontSize:12,fontWeight:500}} className="truncate">{j.nama_pertandingan??'Pertandingan'}</div>
+                    <div style={{color:'#94a3b8',fontSize:10}} className="truncate">{j.venue?.nama??'-'}</div>
                   </div>
-                  <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full" style={{background:i===0?'#dc2626':'#1f2937'}}/>
+                  {i===0&&<div style={{width:6,height:6,borderRadius:'50%',background:'#E84E0F',animation:'pulse 1.5s infinite',flexShrink:0}}/>}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Klasemen Medali */}
-        <div className="rounded-2xl overflow-hidden" style={{background:'#0f0f0f',border:'1px solid #1a1a1a'}}>
-          <div className="px-5 py-3.5 flex items-center gap-2" style={{borderBottom:'1px solid #1a1a1a'}}>
-            <Target size={13} style={{color:'#f59e0b'}}/>
-            <span style={{color:'white',fontSize:13,fontWeight:600}}>Klasemen Medali</span>
+        {/* Medali */}
+        <div className="rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+          <div className="px-5 py-3.5 flex items-center gap-2" style={{borderBottom:'1px solid #f1f5f9'}}>
+            <div style={{width:28,height:28,borderRadius:8,background:'#fffbeb',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <Trophy size={14} style={{color:'#F5C518'}}/>
+            </div>
+            <span style={{color:'#1e293b',fontSize:13,fontWeight:600}}>Klasemen Medali</span>
           </div>
           {medali.filter((m:any)=>m.total>0).length===0?(
-            <div className="text-center py-10">
-              <Target size={24} style={{color:'#1f2937',margin:'0 auto 8px'}}/>
-              <div style={{color:'#374151',fontSize:11}}>Belum ada data</div>
+            <div style={{textAlign:'center',padding:'40px 0'}}>
+              <Trophy size={24} style={{color:'#e2e8f0',margin:'0 auto 8px'}}/>
+              <div style={{color:'#94a3b8',fontSize:12}}>Belum ada data</div>
             </div>
           ):(
-            <div className="divide-y" >
-              {medali.filter((m:any)=>m.total>0).slice(0,6).map((m:any,i:number)=>(
-                <div key={m.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                  <span style={{fontSize:12,width:18,textAlign:'center',flexShrink:0}}>
-                    {i===0?'🥇':i===1?'🥈':i===2?'🥉':<span style={{color:'#374151',fontSize:11}}>{i+1}</span>}
+            <div>
+              {medali.filter((m:any)=>m.total>0).slice(0,5).map((m:any,i:number)=>(
+                <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',borderBottom:i<4?'1px solid #f8fafc':'none'}}>
+                  <span style={{fontSize:14,width:20,textAlign:'center',flexShrink:0}}>
+                    {i===0?'🥇':i===1?'🥈':i===2?'🥉':<span style={{color:'#94a3b8',fontSize:11}}>{i+1}</span>}
                   </span>
-                  <span style={{color:'#9ca3af',fontSize:11,flex:1}} className="truncate">{m.kontingen?.nama}</span>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <span style={{color:'#f59e0b',fontSize:10,fontWeight:700}}>{m.emas}</span>
-                    <span style={{color:'#6b7280',fontSize:10}}>{m.perak}</span>
-                    <span style={{color:'#78350f',fontSize:10}}>{m.perunggu}</span>
+                  <span style={{color:'#475569',fontSize:11,flex:1}} className="truncate">{m.kontingen?.nama}</span>
+                  <div style={{display:'flex',gap:4,flexShrink:0}}>
+                    <span style={{color:'#F5C518',fontSize:10,fontWeight:700}}>{m.emas}</span>
+                    <span style={{color:'#94a3b8',fontSize:10}}>{m.perak}</span>
+                    <span style={{color:'#b45309',fontSize:10}}>{m.perunggu}</span>
                   </div>
                 </div>
               ))}
@@ -376,64 +403,88 @@ export default function DashboardBekasi() {
         </div>
       </div>
 
-      {/* ══ SIPA + QUICK ACTIONS ════════════════════════════════════════════ */}
+      {/* ══ SIPA + QUICK ACTIONS PENYELENGGARA ════════════════════════════ */}
       <div {...ani(250)} className="grid grid-cols-3 gap-4">
 
         {/* SIPA */}
-        <div className="col-span-2 relative rounded-2xl overflow-hidden"
-          style={{background:'#080f0a',border:'1px solid rgba(16,185,129,0.2)'}}>
-          <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,transparent,#10b981,transparent)'}}/>
+        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+          <div style={{height:3,background:'linear-gradient(90deg,#3AAA35,#1B6EC2)'}}/>
           <div className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{background:'rgba(16,185,129,0.15)',border:'1px solid rgba(16,185,129,0.3)'}}>
-              <Zap size={18} style={{color:'#10b981'}}/>
+            <div style={{width:44,height:44,borderRadius:14,background:'#f0fdf4',border:'1.5px solid #bbf7d0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <Zap size={20} style={{color:'#3AAA35'}}/>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span style={{color:'white',fontWeight:700,fontSize:13}}>SIPA Intelligence</span>
-                <span style={{fontSize:9,padding:'2px 8px',borderRadius:20,background:'rgba(16,185,129,0.15)',color:'#10b981',border:'1px solid rgba(16,185,129,0.3)'}}>
-                  ● Online
-                </span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                <span style={{color:'#1e293b',fontWeight:700,fontSize:13}}>SIPA Intelligence</span>
+                <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:'#f0fdf4',color:'#3AAA35',border:'1px solid #bbf7d0',fontWeight:500}}>● Online</span>
               </div>
-              <p style={{color:'#4b5563',fontSize:11,marginBottom:8}}>AI analitik khusus operasional Bekasi</p>
-              <div className="flex gap-2 flex-wrap">
-                {['Venue mana yang paling sibuk hari ini?','Berapa atlet Bekasi siap tanding?','Status kesiapan teknis venue?'].map(q=>(
+              <p style={{color:'#64748b',fontSize:11,marginBottom:8}}>AI analitik operasional Kota Bekasi · tanya dalam bahasa natural</p>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                {['Venue mana paling sibuk hari ini?','Atlet Bekasi siap berapa?','Status kesiapan teknis venue?'].map(q=>(
                   <a key={q} href="/konida/sipa"
-                    style={{fontSize:10,padding:'4px 10px',borderRadius:8,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',color:'#6b7280',cursor:'pointer',textDecoration:'none'}}>
+                    style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'#f8fafc',border:'1px solid #e2e8f0',color:'#64748b',textDecoration:'none'}}>
                     → {q}
                   </a>
                 ))}
               </div>
             </div>
             <a href="/konida/sipa"
-              className="flex items-center gap-1.5 text-xs font-semibold text-white px-4 py-2 rounded-xl flex-shrink-0"
-              style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
-              Buka <ChevronRight size={12}/>
+              style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,color:'white',padding:'8px 16px',borderRadius:10,background:'linear-gradient(135deg,#3AAA35,#2d8a29)',flexShrink:0,textDecoration:'none'}}>
+              Buka <ChevronRight size={13}/>
             </a>
           </div>
         </div>
 
         {/* Quick actions penyelenggara */}
-        <div className="space-y-2">
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {[
-            {label:'Command Center',desc:'Monitor semua venue',href:'/konida/penyelenggara',icon:Monitor,color:'#dc2626'},
-            {label:'Kesiapan Teknis',desc:'Checklist per venue',href:'/konida/penyelenggara/kesiapan',icon:CheckCircle,color:'#f59e0b'},
-            {label:'Laporan Harian',desc:'Generate & kirim',href:'/konida/penyelenggara/laporan',icon:TrendingUp,color:'#10b981'},
-          ].map(({label,desc,href,icon:Icon,color})=>(
-            <a key={href} href={href}
-              className="flex items-center gap-3 p-3 rounded-xl transition-all group"
-              style={{background:'#0f0f0f',border:'1px solid #1a1a1a'}}>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{background:`${color}15`}}>
-                <Icon size={14} style={{color}}/>
+            {label:'Command Center',desc:'Monitor 25 venue live',href:'/konida/penyelenggara',icon:Monitor,color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa'},
+            {label:'Kesiapan Teknis',desc:'Checklist per venue',href:'/konida/penyelenggara/kesiapan',icon:CheckCircle,color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe'},
+            {label:'Laporan Harian',desc:'Generate & kirim ke KONI',href:'/konida/penyelenggara/laporan',icon:TrendingUp,color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0'},
+          ].map(({label,desc,href,icon:Icon,color,bg,border})=>(
+            <a key={href} href={href} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:14,background:bg,border:`1px solid ${border}`,textDecoration:'none',transition:'all 0.15s'}}>
+              <div style={{width:34,height:34,borderRadius:10,background:'white',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+                <Icon size={16} style={{color}}/>
               </div>
-              <div className="min-w-0">
-                <div style={{color:'white',fontSize:12,fontWeight:600}}>{label}</div>
-                <div style={{color:'#374151',fontSize:10}}>{desc}</div>
+              <div style={{minWidth:0}}>
+                <div style={{color:'#1e293b',fontSize:12,fontWeight:600}}>{label}</div>
+                <div style={{color:'#94a3b8',fontSize:10}}>{desc}</div>
               </div>
-              <ChevronRight size={12} style={{color:'#1f2937',marginLeft:'auto'}}/>
+              <ChevronRight size={13} style={{color:'#cbd5e1',marginLeft:'auto'}}/>
             </a>
           ))}
+        </div>
+      </div>
+
+      {/* ══ PREVIEW MENU PENYELENGGARA ══════════════════════════════════════ */}
+      <div {...ani(300)}>
+        <div className="rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+          <div style={{height:3,background:'linear-gradient(90deg,#E84E0F,#F5C518,#3AAA35,#1B6EC2)'}}/>
+          <div className="px-5 py-4">
+            <div style={{color:'#94a3b8',fontSize:9,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:14}}>
+              Menu Penyelenggara Klaster I
+            </div>
+            <div className="grid grid-cols-5 gap-3">
+              {[
+                {label:'Command Center',icon:Monitor,href:'/konida/penyelenggara',color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa',desc:'Monitor live venue'},
+                {label:'Venue & Jadwal',icon:MapPin,href:'/konida/penyelenggara/venue',color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe',desc:'25 venue · jadwal'},
+                {label:'Kesiapan Teknis',icon:CheckCircle,href:'/konida/penyelenggara/kesiapan',color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0',desc:'Checklist · issues'},
+                {label:'Akomodasi Tamu',icon:Users,href:'/konida/penyelenggara/akomodasi',color:'#F5C518',bg:'#fffbeb',border:'#fde68a',desc:'Check-in · shuttle'},
+                {label:'Laporan Harian',icon:TrendingUp,href:'/konida/penyelenggara/laporan',color:'#7c3aed',bg:'#f5f3ff',border:'#ddd6fe',desc:'PDF otomatis'},
+              ].map(({label,icon:Icon,href,color,bg,border,desc})=>(
+                <a key={href} href={href}
+                  style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,padding:'14px 8px',borderRadius:14,background:bg,border:`1px solid ${border}`,textDecoration:'none',textAlign:'center'}}>
+                  <div style={{width:38,height:38,borderRadius:12,background:'white',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+                    <Icon size={18} style={{color}}/>
+                  </div>
+                  <div>
+                    <div style={{color:'#1e293b',fontSize:11,fontWeight:600,lineHeight:1.3}}>{label}</div>
+                    <div style={{color:'#94a3b8',fontSize:10,marginTop:2}}>{desc}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
