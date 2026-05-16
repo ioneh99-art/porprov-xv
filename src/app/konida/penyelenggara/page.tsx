@@ -121,6 +121,7 @@ function PetaCommandCenter({ venues }: { venues: Venue[] }) {
       if (!mapRef.current) return
 
       const L = (await import('leaflet')).default
+      // @ts-ignore: leaflet CSS import has no module declarations in this project
       await import('leaflet/dist/leaflet.css')
 
       if (cancelled || !mapRef.current) return
