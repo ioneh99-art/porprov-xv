@@ -1,22 +1,16 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Monitor, MapPin, Users, CheckCircle, Clock,
   AlertTriangle, ChevronRight, Zap, Target,
-  Building2, TrendingUp, Calendar, Shield,
-  Activity, Trophy, PhoneCall
+  Building2, TrendingUp, Calendar, Trophy
 } from 'lucide-react'
 
-// Palet warna dari logo Kota Bekasi:
-// Primary:   #E84E0F (oranye api)
-// Secondary: #1B6EC2 (biru pita)
-// Accent:    #3AAA35 (hijau gedung)
-// Highlight: #F5C518 (kuning emas)
-// Base:      #FFFFFF light mode
-
+// ── Types ─────────────────────────────────────────────────────────────────
 interface AtletItem { gender:string; status_registrasi:string; cabor_id:number; cabang_olahraga:any }
-interface VenueItem { id:number; nama:string; alamat:string; klaster_id:number }
+interface VenueItem { id:number; nama:string; alamat:string; klaster_id:number; lat?:number; lng?:number }
 
+// ── Components ────────────────────────────────────────────────────────────
 function PieChart({ segments, size=80, label, sublabel }: {
   segments:{value:number;color:string}[]; size?:number; label?:string; sublabel?:string
 }) {
@@ -44,11 +38,11 @@ function PieChart({ segments, size=80, label, sublabel }: {
   return (
     <div style={{position:'relative',width:size,height:size}}>
       <svg width={size} height={size} viewBox="0 0 80 80">
-        {paths}<circle cx="40" cy="40" r="17" fill="white"/>
+        {paths}<circle cx="40" cy="40" r="17" fill="#ffffff"/>
       </svg>
       {label&&<div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-        <span style={{color:'#1e293b',fontWeight:700,fontSize:size>80?13:11,lineHeight:1}}>{label}</span>
-        {sublabel&&<span style={{color:'#94a3b8',fontSize:9,marginTop:1}}>{sublabel}</span>}
+        <span style={{color:'#333333',fontWeight:700,fontSize:size>80?13:11,lineHeight:1}}>{label}</span>
+        {sublabel&&<span style={{color:'#999999',fontSize:9,marginTop:1}}>{sublabel}</span>}
       </div>}
     </div>
   )
@@ -63,13 +57,90 @@ function LiveTicker({ items }: { items:string[] }) {
   },[items.length])
   if(!items.length) return null
   return (
-    <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <div style={{width:6,height:6,borderRadius:'50%',background:'#E84E0F',animation:'pulse 1.5s infinite',flexShrink:0}}/>
-      <span style={{color:'#64748b',fontSize:12}}>{items[idx]}</span>
+    <div className="flex items-center gap-2">
+      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0"/>
+      <span className="text-gray-500 text-xs">{items[idx]}</span>
     </div>
   )
 }
 
+// ── Peta Leaflet Versi Terang ───────────────────────────────────────────
+function PetaVenue({ venues }: { venues: VenueItem[] }) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (!mapRef.current) return
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove()
+      mapInstanceRef.current = null
+    }
+
+    let cancelled = false
+    const initMap = async () => {
+      if (cancelled || !mapRef.current) return
+      const L = (await import('leaflet')).default
+      await import('leaflet/dist/leaflet.css' as any)
+      if (cancelled || !mapRef.current) return
+
+      const map = L.map(mapRef.current, {
+        center: [-6.238270, 106.975573],
+        zoom: 12,
+        zoomControl: true,
+        scrollWheelZoom: false,
+        attributionControl: false,
+      })
+      mapInstanceRef.current = map
+
+      // Tema Peta Terang (Light Mode) CartoDB
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+      }).addTo(map)
+
+      venues.forEach((v, i) => {
+        const lat = v.lat || (-6.238 + (Math.sin(i) * 0.05))
+        const lng = v.lng || (106.975 + (Math.cos(i) * 0.05))
+        const isActive = i < 3
+
+        const marker = L.circleMarker([lat, lng], {
+          radius: isActive ? 10 : 7,
+          fillColor: isActive ? '#4caf50' : '#ff9800',
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.9,
+        }).addTo(map)
+
+        marker.bindPopup(`
+          <div style="background:white; color:#333; padding:5px; min-width:180px;">
+            <div style="font-size:10px; color:${isActive ? '#4caf50' : '#ff9800'}; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">
+              ● ${isActive ? 'Sedang Digunakan' : 'Standby'}
+            </div>
+            <div style="font-weight:bold; font-size:13px; margin-bottom:4px; color:#3c4858;">${v.nama}</div>
+            <div style="font-size:11px; color:#999;">${v.alamat || 'Kota Bekasi, Jawa Barat'}</div>
+          </div>
+        `, { className: 'custom-popup-light' })
+      })
+    }
+
+    initMap()
+    return () => { cancelled = true; if(mapInstanceRef.current) mapInstanceRef.current.remove() }
+  }, [venues])
+
+  return (
+    <div className="w-full h-full relative rounded-lg overflow-hidden">
+      <style>{`
+        .custom-popup-light .leaflet-popup-content-wrapper { box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 8px; }
+        .custom-popup-light .leaflet-popup-tip { background: white; }
+        .leaflet-container { background: #f8f9fa; z-index: 10; }
+        .leaflet-control-zoom { border: none!important; box-shadow: 0 2px 5px rgba(0,0,0,0.1)!important; }
+      `}</style>
+      <div ref={mapRef} className="w-full h-full min-h-[220px]" />
+    </div>
+  )
+}
+
+// ── Main Dashboard ──────────────────────────────────────────────────────────
 export default function DashboardBekasi() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -84,7 +155,6 @@ export default function DashboardBekasi() {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
     const kontingen_id = me?.kontingen_id
 
-    // Fetch jadwal dengan try-catch terpisah
     let jadwalData: any[] = []
     try {
       const { data: jd } = await sb.from('jadwal_pertandingan')
@@ -134,357 +204,226 @@ export default function DashboardBekasi() {
   }
 
   if(loading) return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:256}}>
-      <div style={{width:32,height:32,border:'3px solid #fed7aa',borderTopColor:'#E84E0F',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+    <div className="flex items-center justify-center h-64 bg-[#f0f2f5] rounded-xl">
+      <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"/>
     </div>
   )
 
-  const {kpi,venue,medali,jadwal,perCabor,tickerItems,me} = data
-  const PIE_COLORS = ['#E84E0F','#1B6EC2','#3AAA35','#F5C518','#94a3b8']
+  const {kpi,venue,medali,jadwal,perCabor,tickerItems} = data
+  const PIE_COLORS = ['#ff9800','#4caf50','#f44336','#00bcd4','#9c27b0']
   const ani = (d=0) => ({
     className: `transition-all duration-700 ${animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}`,
     style: {transitionDelay:`${d}ms`}
   })
 
   return (
-    <div className="space-y-4 pb-6" style={{fontFamily:'system-ui,sans-serif'}}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
-
-      {/* ══ HERO — Light Mode ════════════════════════════════════════════ */}
-      <div {...ani(0)}>
-        <div className="rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          {/* Gradient bar logo Bekasi */}
-          <div style={{height:4,background:'linear-gradient(90deg,#E84E0F,#F5C518,#3AAA35,#1B6EC2)'}}/>
-          <div className="grid grid-cols-2">
-            {/* Kiri — identity */}
-            <div className="p-5 border-r border-gray-100">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                  style={{background:'#fff7ed',border:'1.5px solid #fed7aa'}}>
-                  <img src="/logos/bekasi.png" alt="Kota Bekasi"
-                    style={{width:44,height:44,objectFit:'contain'}}
-                    onError={e=>{const el=e.target as HTMLImageElement;el.style.display='none';const p=el.parentElement!;p.innerHTML='<span style="font-size:14px;font-weight:900;color:#E84E0F;">BKS</span>'}}/>
-                </div>
-                <div>
-                  <div style={{color:'#E84E0F',fontSize:9,fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase'}}>Tuan Rumah · Klaster I</div>
-                  <div style={{color:'#1e293b',fontSize:16,fontWeight:800,lineHeight:1.2}}>Kota Bekasi</div>
-                  <div style={{color:'#94a3b8',fontSize:10,marginTop:1}}>Inovatif · Kreatif · Terdepan</div>
-                </div>
-              </div>
-              <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,padding:'8px 12px'}}>
-                <LiveTicker items={tickerItems}/>
-              </div>
-            </div>
-            {/* Kanan — quick KPI */}
-            <div className="p-5">
-              <div style={{color:'#94a3b8',fontSize:9,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>Ringkasan Hari Ini</div>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  {label:'Total Atlet',value:kpi.total,color:'#1e293b',bg:'#f8fafc',border:'#e2e8f0'},
-                  {label:'Siap Tanding',value:kpi.siap,color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0'},
-                  {label:'Kesiapan',value:`${kpi.pctSiap}%`,color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa'},
-                  {label:'Putra',value:kpi.putra,color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe'},
-                  {label:'Putri',value:kpi.putri,color:'#7c3aed',bg:'#f5f3ff',border:'#ddd6fe'},
-                  {label:'Menunggu',value:kpi.menunggu,color:kpi.menunggu>0?'#d97706':'#94a3b8',bg:kpi.menunggu>0?'#fffbeb':'#f8fafc',border:kpi.menunggu>0?'#fde68a':'#e2e8f0'},
-                ].map(({label,value,color,bg,border})=>(
-                  <div key={label} className="text-center p-2.5 rounded-xl" style={{background:bg,border:`1px solid ${border}`}}>
-                    <div style={{color,fontSize:20,fontWeight:800,lineHeight:1}}>{value}</div>
-                    <div style={{color:'#94a3b8',fontSize:9,marginTop:3,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
-                  </div>
-                ))}
-              </div>
+    <div className="min-h-screen bg-[#eeeeee] p-8 space-y-10 font-sans">
+      
+      {/* ══ HEADER BEKASI ══════════════════════════════════════════════════ */}
+      <div {...ani(0)} className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-white shadow-md flex items-center justify-center">
+             <img src="/logos/bekasi.png" alt="Kota Bekasi" className="w-10 h-10 object-contain" 
+                  onError={e=>{const el=e.target as HTMLImageElement;el.style.display='none';const p=el.parentElement!;p.innerHTML='<span class="text-gray-800 font-bold text-xs">BKS</span>'}}/>
+          </div>
+          <div>
+            <h1 className="text-2xl font-light text-[#3c4858] tracking-wide">Command Center Klaster I</h1>
+            <div className="mt-1">
+              <LiveTicker items={tickerItems}/>
             </div>
           </div>
+        </div>
+        <div className="bg-white px-4 py-2 rounded-full shadow-sm text-sm text-gray-500 flex items-center gap-2 border border-gray-100">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"/> Tuan Rumah Bekasi
         </div>
       </div>
 
       {/* Alert ditolak */}
       {kpi.ditolak>0&&(
-        <div {...ani(50)}>
-          <a href="/konida/atlet" className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
-            style={{background:'#fef2f2',border:'1px solid #fecaca'}}>
-            <div style={{width:30,height:30,borderRadius:8,background:'#fee2e2',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <AlertTriangle size={14} style={{color:'#ef4444'}}/>
-            </div>
-            <span style={{color:'#b91c1c',fontSize:13,flex:1,fontWeight:500}}>{kpi.ditolak} atlet ditolak — perlu direvisi segera</span>
-            <ChevronRight size={14} style={{color:'#fca5a5'}}/>
-          </a>
+        <div {...ani(20)} className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4 flex items-center gap-3 shadow-sm">
+          <AlertTriangle className="text-red-500" size={20}/>
+          <span className="text-red-700 text-sm font-medium flex-1">{kpi.ditolak} atlet ditolak — perlu direvisi segera</span>
+          <a href="/konida/atlet" className="text-red-600 text-sm font-bold hover:underline">Review Sekarang</a>
         </div>
       )}
 
-      {/* ══ 5 KPI CARDS ═══════════════════════════════════════════════════ */}
-      <div {...ani(100)} className="grid grid-cols-5 gap-3">
+      {/* ══ 4 KARTU ATAS (Material Dashboard Floating Icons) ═══════════════ */}
+      <div {...ani(50)} className="grid grid-cols-4 gap-6 pt-6">
         {[
-          {label:'Total Atlet',value:kpi.total,icon:Users,color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa',iconBg:'#ffedd5'},
-          {label:'Siap Tanding',value:kpi.siap,icon:CheckCircle,color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0',iconBg:'#dcfce7'},
-          {label:'Menunggu',value:kpi.menunggu,icon:Clock,color:kpi.menunggu>0?'#d97706':'#94a3b8',bg:kpi.menunggu>0?'#fffbeb':'#f8fafc',border:kpi.menunggu>0?'#fde68a':'#e2e8f0',iconBg:kpi.menunggu>0?'#fef9c3':'#f1f5f9'},
-          {label:'Venue Aktif',value:venue.length,icon:Building2,color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe',iconBg:'#dbeafe'},
-          {label:'Ditolak',value:kpi.ditolak,icon:AlertTriangle,color:kpi.ditolak>0?'#ef4444':'#94a3b8',bg:kpi.ditolak>0?'#fef2f2':'#f8fafc',border:kpi.ditolak>0?'#fecaca':'#e2e8f0',iconBg:kpi.ditolak>0?'#fee2e2':'#f1f5f9'},
-        ].map(({label,value,icon:Icon,color,bg,border,iconBg})=>(
-          <div key={label} className="rounded-2xl p-4" style={{background:bg,border:`1px solid ${border}`,boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
-            <div style={{width:32,height:32,borderRadius:8,background:iconBg,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10}}>
-              <Icon size={16} style={{color}}/>
+          {label:'Total Atlet', value:kpi.total, icon:Users, color:'bg-gradient-to-tr from-orange-500 to-orange-400', shadow:'shadow-orange-500/40', sub:`${kpi.putra} L / ${kpi.putri} P`},
+          {label:'Siap Tanding', value:kpi.siap, icon:CheckCircle, color:'bg-gradient-to-tr from-green-500 to-green-400', shadow:'shadow-green-500/40', sub:`Kesiapan ${kpi.pctSiap}%`},
+          {label:kpi.menunggu>0?'Menunggu Review':'Isu Pendaftaran', value:kpi.menunggu, icon:AlertTriangle, color:'bg-gradient-to-tr from-red-500 to-red-400', shadow:'shadow-red-500/40', sub:kpi.menunggu>0?'Verifikasi pending':'Tidak ada antrian'},
+          {label:'Venue Aktif', value:venue.length, icon:Building2, color:'bg-gradient-to-tr from-cyan-500 to-cyan-400', shadow:'shadow-cyan-500/40', sub:'Klaster I Bekasi'},
+        ].map((card, i) => (
+          <div key={i} className="relative bg-white rounded-xl shadow-md p-4 pt-6">
+            <div className={`absolute -top-6 left-4 w-16 h-16 rounded-xl flex items-center justify-center shadow-lg ${card.color} ${card.shadow}`}>
+              <card.icon size={26} className="text-white" />
             </div>
-            <div style={{color:'#1e293b',fontSize:24,fontWeight:800,lineHeight:1}}>{value}</div>
-            <div style={{color:'#94a3b8',fontSize:10,marginTop:4,textTransform:'uppercase',letterSpacing:'0.08em'}}>{label}</div>
+            <div className="text-right">
+              <p className="text-sm font-light text-[#999999] mb-1">{card.label}</p>
+              <h4 className="text-2xl font-light text-[#3c4858]">{card.value}</h4>
+            </div>
+            <div className="border-t border-gray-100 mt-5 pt-3 flex items-center gap-2">
+              <Clock size={12} className="text-gray-400"/>
+              <p className="text-xs font-light text-[#999999]">{card.sub}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* ══ VENUE GRID + CHARTS ════════════════════════════════════════════ */}
-      <div {...ani(150)} className="grid grid-cols-3 gap-4">
-
-        {/* Venue grid */}
-        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-          <div className="px-5 py-3.5 flex items-center justify-between" style={{borderBottom:'1px solid #f1f5f9'}}>
-            <div className="flex items-center gap-2">
-              <div style={{width:28,height:28,borderRadius:8,background:'#fff7ed',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <Building2 size={14} style={{color:'#E84E0F'}}/>
-              </div>
-              <span style={{color:'#1e293b',fontSize:13,fontWeight:600}}>Venue Monitor · Klaster I</span>
-              <span style={{background:'#fff7ed',color:'#E84E0F',border:'1px solid #fed7aa',borderRadius:20,padding:'1px 8px',fontSize:10,fontWeight:600}}>
-                {venue.length}
-              </span>
-            </div>
-            <a href="/konida/penyelenggara/venue" style={{color:'#E84E0F',fontSize:11,display:'flex',alignItems:'center',gap:3,textDecoration:'none'}}>
-              Lihat semua <ChevronRight size={11}/>
-            </a>
+      {/* ══ GRAFIK TENGAH (Peta, Cabor, Status) ════════════════════════════ */}
+      <div {...ani(100)} className="grid grid-cols-3 gap-6 pt-8">
+        
+        {/* Peta Persebaran Venue (Kartu Hijau) */}
+        <div className="relative bg-white rounded-xl shadow-md p-4 pt-10">
+          <div className="absolute -top-8 left-4 right-4 h-40 rounded-xl bg-gradient-to-tr from-green-500 to-green-400 shadow-lg shadow-green-500/40 p-2 overflow-hidden">
+             <div className="w-full h-full rounded-lg overflow-hidden relative">
+               {/* Transparan overlay agar peta ga mengganggu scroll halaman secara ga sengaja */}
+               <div className="absolute inset-0 z-20 pointer-events-none border border-white/20 rounded-lg"></div>
+               <PetaVenue venues={venue} />
+             </div>
           </div>
-          <div className="p-4">
-            <div className="grid grid-cols-4 gap-2">
-              {venue.slice(0,16).map((v:VenueItem,i:number)=>(
-                <div key={v.id} className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-sm"
-                  style={{
-                    background:i<3?'#fff7ed':'#f8fafc',
-                    border:i<3?'1px solid #fed7aa':'1px solid #e2e8f0',
-                  }}>
-                  <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
-                    <div style={{width:5,height:5,borderRadius:'50%',background:i<3?'#E84E0F':i<6?'#3AAA35':'#cbd5e1',flexShrink:0}}/>
-                    <span style={{color:i<3?'#E84E0F':i<6?'#3AAA35':'#94a3b8',fontSize:8,fontWeight:700,textTransform:'uppercase'}}>
-                      {i<3?'Aktif':i<6?'Siap':'Standby'}
-                    </span>
-                  </div>
-                  <div style={{color:i<3?'#1e293b':'#64748b',fontSize:10,fontWeight:i<3?600:400,lineHeight:1.3}}>
-                    {v.nama.replace('GOR ','').replace('Lapangan ','').replace('Kolam ','').slice(0,18)}
-                  </div>
-                </div>
-              ))}
-              {venue.length>16&&(
-                <div className="p-2.5 rounded-xl flex items-center justify-center"
-                  style={{background:'#f8fafc',border:'1px dashed #cbd5e1'}}>
-                  <span style={{color:'#94a3b8',fontSize:10}}>+{venue.length-16}</span>
-                </div>
-              )}
+          <div className="mt-36">
+            <h6 className="text-[#3c4858] text-base font-normal">Peta Fasilitas Venue</h6>
+            <p className="text-sm text-[#999999] font-light mt-1">Distribusi arena di Kota Bekasi</p>
+            <div className="border-t border-gray-100 mt-3 pt-3 flex items-center gap-2">
+              <Clock size={12} className="text-gray-400"/>
+              <span className="text-xs font-light text-[#999999]">Update 4 menit yang lalu</span>
             </div>
           </div>
         </div>
 
-        {/* Charts */}
-        <div className="space-y-3">
-          {/* Pie registrasi */}
-          <div className="rounded-2xl p-4" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
-            <div style={{color:'#64748b',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>Status Registrasi</div>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <PieChart size={72} label={`${kpi.pctSiap}%`} sublabel="Siap"
+        {/* Top Cabor (Kartu Oranye) */}
+        <div className="relative bg-white rounded-xl shadow-md p-4 pt-10">
+          <div className="absolute -top-8 left-4 right-4 h-40 rounded-xl bg-gradient-to-tr from-orange-500 to-orange-400 shadow-lg shadow-orange-500/40 p-5 flex flex-col justify-end">
+             {perCabor.slice(0,4).map((c:any, i:number)=>(
+               <div key={i} className="mb-2">
+                 <div className="flex justify-between text-white text-xs mb-1 font-light opacity-90">
+                   <span className="truncate pr-2">{c.nama}</span>
+                   <span>{c.total}</span>
+                 </div>
+                 <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-white rounded-full" style={{width:`${(c.total/perCabor[0].total)*100}%`}}/>
+                 </div>
+               </div>
+             ))}
+          </div>
+          <div className="mt-36">
+            <h6 className="text-[#3c4858] text-base font-normal">Peminat Cabor Teratas</h6>
+            <p className="text-sm text-[#999999] font-light mt-1">Berdasarkan data registrasi atlet</p>
+            <div className="border-t border-gray-100 mt-3 pt-3 flex items-center gap-2">
+              <Clock size={12} className="text-gray-400"/>
+              <span className="text-xs font-light text-[#999999]">Data real-time Supabase</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Registrasi (Kartu Merah) */}
+        <div className="relative bg-white rounded-xl shadow-md p-4 pt-10">
+          <div className="absolute -top-8 left-4 right-4 h-40 rounded-xl bg-gradient-to-tr from-red-500 to-red-400 shadow-lg shadow-red-500/40 flex items-center justify-center">
+             <PieChart size={110} label={`${kpi.pctSiap}%`} sublabel="Siap"
                 segments={[
-                  {value:kpi.siap,color:'#3AAA35'},
-                  {value:kpi.menunggu,color:'#F5C518'},
-                  {value:kpi.kpi?.draft??0,color:'#e2e8f0'},
-                  {value:kpi.ditolak,color:'#fca5a5'},
+                  {value:kpi.siap,color:'#ffffff'},
+                  {value:kpi.menunggu,color:'rgba(255,255,255,0.6)'},
+                  {value:kpi.ditolak,color:'rgba(0,0,0,0.2)'},
+                  {value:kpi.kpi?.draft??0,color:'rgba(255,255,255,0.3)'},
                 ]}/>
-              <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}>
-                {[
-                  {label:'Siap',value:kpi.siap,color:'#3AAA35'},
-                  {label:'Menunggu',value:kpi.menunggu,color:'#F5C518'},
-                  {label:'Ditolak',value:kpi.ditolak,color:'#ef4444'},
-                ].map(({label,value,color})=>(
-                  <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <div style={{width:6,height:6,borderRadius:'50%',background:color}}/>
-                      <span style={{color:'#64748b',fontSize:11}}>{label}</span>
-                    </div>
-                    <span style={{color:'#1e293b',fontSize:11,fontWeight:700}}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
-
-          {/* Top cabor */}
-          <div className="rounded-2xl p-4" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
-            <div style={{color:'#64748b',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>Top Cabor</div>
-            <div style={{display:'flex',flexDirection:'column',gap:6}}>
-              {perCabor.map((c:any,i:number)=>(
-                <div key={c.nama}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
-                    <span style={{color:'#64748b',fontSize:10,flex:1}} className="truncate">{c.nama}</span>
-                    <span style={{color:PIE_COLORS[i%5],fontSize:10,fontWeight:700,marginLeft:4}}>{c.total}</span>
-                  </div>
-                  <div style={{height:3,background:'#f1f5f9',borderRadius:2,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:`${(c.total/perCabor[0].total)*100}%`,background:PIE_COLORS[i%5],borderRadius:2}}/>
-                  </div>
-                </div>
-              ))}
+          <div className="mt-36">
+            <h6 className="text-[#3c4858] text-base font-normal">Kesiapan Kontingen</h6>
+            <p className="text-sm text-[#999999] font-light mt-1">Persentase verifikasi admin</p>
+            <div className="border-t border-gray-100 mt-3 pt-3 flex items-center gap-2">
+              <Clock size={12} className="text-gray-400"/>
+              <span className="text-xs font-light text-[#999999] truncate">Siap: {kpi.siap} | Tunggu: {kpi.menunggu} | Tolak: {kpi.ditolak}</span>
             </div>
           </div>
         </div>
+
       </div>
 
-      {/* ══ JADWAL + MEDALI ════════════════════════════════════════════════ */}
-      <div {...ani(200)} className="grid grid-cols-3 gap-4">
-
-        {/* Jadwal */}
-        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-          <div className="px-5 py-3.5 flex items-center gap-2" style={{borderBottom:'1px solid #f1f5f9'}}>
-            <div style={{width:28,height:28,borderRadius:8,background:'#eff6ff',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <Calendar size={14} style={{color:'#1B6EC2'}}/>
-            </div>
-            <span style={{color:'#1e293b',fontSize:13,fontWeight:600}}>Jadwal Pertandingan Hari Ini</span>
-            <span style={{color:'#94a3b8',fontSize:10,marginLeft:'auto'}}>
-              {new Date().toLocaleDateString('id-ID',{day:'numeric',month:'short'})}
-            </span>
+      {/* ══ BAGIAN BAWAH (Tabel Jadwal & Menu) ═════════════════════════════ */}
+      <div {...ani(150)} className="grid grid-cols-3 gap-6">
+        
+        {/* Tabel Jadwal (Mirip "Employees Stats" di gambar) */}
+        <div className="col-span-2 bg-white rounded-xl shadow-md">
+          <div className="bg-gradient-to-tr from-purple-600 to-purple-500 p-4 rounded-t-xl shadow-[0_4px_20px_0px_rgba(0,0,0,0.14),0_7px_10px_-5px_rgba(156,39,176,0.4)] mx-4 -mt-4 relative z-10">
+             <h4 className="text-white text-lg font-normal mb-1">Jadwal Pertandingan Hari Ini</h4>
+             <p className="text-purple-100 text-sm font-light">Klaster I Kota Bekasi - {new Date().toLocaleDateString('id-ID',{day:'numeric', month:'long', year:'numeric'})}</p>
           </div>
-          {jadwal.length===0?(
-            <div style={{textAlign:'center',padding:'40px 0'}}>
-              <Calendar size={28} style={{color:'#e2e8f0',margin:'0 auto 8px'}}/>
-              <div style={{color:'#94a3b8',fontSize:12}}>Belum ada jadwal pertandingan</div>
-            </div>
-          ):(
-            <div>
-              {jadwal.slice(0,6).map((j:any,i:number)=>(
-                <div key={j.id} className="flex items-center gap-3 px-5 py-3"
-                  style={{borderBottom:i<5?'1px solid #f8fafc':'none',background:i===0?'#fff7ed':'transparent'}}>
-                  <div style={{flexShrink:0,textAlign:'center',width:40}}>
-                    <div style={{color:i===0?'#E84E0F':'#64748b',fontSize:13,fontWeight:700}}>{j.jam_mulai?.slice(0,5)??'--:--'}</div>
-                  </div>
-                  <div style={{width:1,height:30,background:'#f1f5f9',flexShrink:0}}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{color:'#1e293b',fontSize:12,fontWeight:500}} className="truncate">{j.nama_pertandingan??'Pertandingan'}</div>
-                    <div style={{color:'#94a3b8',fontSize:10}} className="truncate">{j.venue?.nama??'-'}</div>
-                  </div>
-                  {i===0&&<div style={{width:6,height:6,borderRadius:'50%',background:'#E84E0F',animation:'pulse 1.5s infinite',flexShrink:0}}/>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Medali */}
-        <div className="rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-          <div className="px-5 py-3.5 flex items-center gap-2" style={{borderBottom:'1px solid #f1f5f9'}}>
-            <div style={{width:28,height:28,borderRadius:8,background:'#fffbeb',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <Trophy size={14} style={{color:'#F5C518'}}/>
-            </div>
-            <span style={{color:'#1e293b',fontSize:13,fontWeight:600}}>Klasemen Medali</span>
-          </div>
-          {medali.filter((m:any)=>m.total>0).length===0?(
-            <div style={{textAlign:'center',padding:'40px 0'}}>
-              <Trophy size={24} style={{color:'#e2e8f0',margin:'0 auto 8px'}}/>
-              <div style={{color:'#94a3b8',fontSize:12}}>Belum ada data</div>
-            </div>
-          ):(
-            <div>
-              {medali.filter((m:any)=>m.total>0).slice(0,5).map((m:any,i:number)=>(
-                <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',borderBottom:i<4?'1px solid #f8fafc':'none'}}>
-                  <span style={{fontSize:14,width:20,textAlign:'center',flexShrink:0}}>
-                    {i===0?'🥇':i===1?'🥈':i===2?'🥉':<span style={{color:'#94a3b8',fontSize:11}}>{i+1}</span>}
-                  </span>
-                  <span style={{color:'#475569',fontSize:11,flex:1}} className="truncate">{m.kontingen?.nama}</span>
-                  <div style={{display:'flex',gap:4,flexShrink:0}}>
-                    <span style={{color:'#F5C518',fontSize:10,fontWeight:700}}>{m.emas}</span>
-                    <span style={{color:'#94a3b8',fontSize:10}}>{m.perak}</span>
-                    <span style={{color:'#b45309',fontSize:10}}>{m.perunggu}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ══ SIPA + QUICK ACTIONS PENYELENGGARA ════════════════════════════ */}
-      <div {...ani(250)} className="grid grid-cols-3 gap-4">
-
-        {/* SIPA */}
-        <div className="col-span-2 rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-          <div style={{height:3,background:'linear-gradient(90deg,#3AAA35,#1B6EC2)'}}/>
-          <div className="p-5 flex items-center gap-4">
-            <div style={{width:44,height:44,borderRadius:14,background:'#f0fdf4',border:'1.5px solid #bbf7d0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <Zap size={20} style={{color:'#3AAA35'}}/>
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                <span style={{color:'#1e293b',fontWeight:700,fontSize:13}}>SIPA Intelligence</span>
-                <span style={{fontSize:10,padding:'2px 8px',borderRadius:20,background:'#f0fdf4',color:'#3AAA35',border:'1px solid #bbf7d0',fontWeight:500}}>● Online</span>
-              </div>
-              <p style={{color:'#64748b',fontSize:11,marginBottom:8}}>AI analitik operasional Kota Bekasi · tanya dalam bahasa natural</p>
-              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                {['Venue mana paling sibuk hari ini?','Atlet Bekasi siap berapa?','Status kesiapan teknis venue?'].map(q=>(
-                  <a key={q} href="/konida/sipa"
-                    style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'#f8fafc',border:'1px solid #e2e8f0',color:'#64748b',textDecoration:'none'}}>
-                    → {q}
-                  </a>
-                ))}
-              </div>
-            </div>
-            <a href="/konida/sipa"
-              style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,color:'white',padding:'8px 16px',borderRadius:10,background:'linear-gradient(135deg,#3AAA35,#2d8a29)',flexShrink:0,textDecoration:'none'}}>
-              Buka <ChevronRight size={13}/>
-            </a>
+          <div className="p-5 pt-6 overflow-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-cyan-600 text-xs font-normal border-b border-gray-200">
+                  <th className="px-3 py-3 w-16">Waktu</th>
+                  <th className="px-3 py-3">Nama Pertandingan</th>
+                  <th className="px-3 py-3">Venue Fasilitas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jadwal.length===0?(
+                  <tr><td colSpan={3} className="text-center py-8 text-gray-500 text-sm">Tidak ada jadwal hari ini</td></tr>
+                ):(
+                  jadwal.slice(0,5).map((j:any, i:number)=>(
+                    <tr key={j.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="px-3 py-3 text-sm text-gray-700 font-medium">
+                        {j.jam_mulai?.slice(0,5)??'--:--'}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-gray-600">{j.nama_pertandingan??'Pertandingan'}</td>
+                      <td className="px-3 py-3 text-sm text-gray-500">{j.venue?.nama??'-'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Quick actions penyelenggara */}
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {[
-            {label:'Command Center',desc:'Monitor 25 venue live',href:'/konida/penyelenggara',icon:Monitor,color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa'},
-            {label:'Kesiapan Teknis',desc:'Checklist per venue',href:'/konida/penyelenggara/kesiapan',icon:CheckCircle,color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe'},
-            {label:'Laporan Harian',desc:'Generate & kirim ke KONI',href:'/konida/penyelenggara/laporan',icon:TrendingUp,color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0'},
-          ].map(({label,desc,href,icon:Icon,color,bg,border})=>(
-            <a key={href} href={href} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:14,background:bg,border:`1px solid ${border}`,textDecoration:'none',transition:'all 0.15s'}}>
-              <div style={{width:34,height:34,borderRadius:10,background:'white',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
-                <Icon size={16} style={{color}}/>
-              </div>
-              <div style={{minWidth:0}}>
-                <div style={{color:'#1e293b',fontSize:12,fontWeight:600}}>{label}</div>
-                <div style={{color:'#94a3b8',fontSize:10}}>{desc}</div>
-              </div>
-              <ChevronRight size={13} style={{color:'#cbd5e1',marginLeft:'auto'}}/>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* ══ PREVIEW MENU PENYELENGGARA ══════════════════════════════════════ */}
-      <div {...ani(300)}>
-        <div className="rounded-2xl overflow-hidden" style={{background:'white',border:'1px solid #e2e8f0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-          <div style={{height:3,background:'linear-gradient(90deg,#E84E0F,#F5C518,#3AAA35,#1B6EC2)'}}/>
-          <div className="px-5 py-4">
-            <div style={{color:'#94a3b8',fontSize:9,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:14}}>
-              Menu Penyelenggara Klaster I
+        {/* Klasemen & SIPA AI */}
+        <div className="flex flex-col gap-6">
+          
+          {/* Klasemen Medali (Mirip Tasks Card) */}
+          <div className="bg-white rounded-xl shadow-md pb-2">
+            <div className="bg-gradient-to-tr from-yellow-500 to-amber-500 p-4 rounded-t-xl shadow-[0_4px_20px_0px_rgba(0,0,0,0.14),0_7px_10px_-5px_rgba(245,152,24,0.4)] mx-4 -mt-4 relative z-10 flex items-center gap-3">
+               <Trophy className="text-white"/>
+               <div>
+                 <h4 className="text-white text-base font-normal">Top Klasemen</h4>
+                 <p className="text-amber-100 text-xs font-light">Perolehan Medali Sementara</p>
+               </div>
             </div>
-            <div className="grid grid-cols-5 gap-3">
-              {[
-                {label:'Command Center',icon:Monitor,href:'/konida/penyelenggara',color:'#E84E0F',bg:'#fff7ed',border:'#fed7aa',desc:'Monitor live venue'},
-                {label:'Venue & Jadwal',icon:MapPin,href:'/konida/penyelenggara/venue',color:'#1B6EC2',bg:'#eff6ff',border:'#bfdbfe',desc:'25 venue · jadwal'},
-                {label:'Kesiapan Teknis',icon:CheckCircle,href:'/konida/penyelenggara/kesiapan',color:'#3AAA35',bg:'#f0fdf4',border:'#bbf7d0',desc:'Checklist · issues'},
-                {label:'Akomodasi Tamu',icon:Users,href:'/konida/penyelenggara/akomodasi',color:'#F5C518',bg:'#fffbeb',border:'#fde68a',desc:'Check-in · shuttle'},
-                {label:'Laporan Harian',icon:TrendingUp,href:'/konida/penyelenggara/laporan',color:'#7c3aed',bg:'#f5f3ff',border:'#ddd6fe',desc:'PDF otomatis'},
-              ].map(({label,icon:Icon,href,color,bg,border,desc})=>(
-                <a key={href} href={href}
-                  style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,padding:'14px 8px',borderRadius:14,background:bg,border:`1px solid ${border}`,textDecoration:'none',textAlign:'center'}}>
-                  <div style={{width:38,height:38,borderRadius:12,background:'white',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
-                    <Icon size={18} style={{color}}/>
-                  </div>
-                  <div>
-                    <div style={{color:'#1e293b',fontSize:11,fontWeight:600,lineHeight:1.3}}>{label}</div>
-                    <div style={{color:'#94a3b8',fontSize:10,marginTop:2}}>{desc}</div>
-                  </div>
-                </a>
-              ))}
+            <div className="px-4 pt-4">
+               {medali.filter((m:any)=>m.total>0).length===0 ? (
+                  <div className="text-center py-6 text-gray-400 text-sm">Belum ada medali</div>
+               ):(
+                 medali.filter((m:any)=>m.total>0).slice(0,4).map((m:any,i:number)=>(
+                   <div key={m.id} className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
+                     <div className="flex items-center gap-3">
+                       <span className={`text-xs font-bold w-4 text-center ${i===0?'text-yellow-500':i===1?'text-gray-400':i===2?'text-amber-600':'text-gray-300'}`}>{i+1}</span>
+                       <span className="text-[#3c4858] text-sm">{m.kontingen?.nama}</span>
+                     </div>
+                     <div className="flex gap-2 text-xs font-bold">
+                       <span className="text-yellow-500 bg-yellow-50 px-1.5 rounded">{m.emas}</span>
+                       <span className="text-gray-400 bg-gray-50 px-1.5 rounded">{m.perak}</span>
+                       <span className="text-amber-600 bg-amber-50 px-1.5 rounded">{m.perunggu}</span>
+                     </div>
+                   </div>
+                 ))
+               )}
             </div>
           </div>
+
+          {/* Quick Menu */}
+          <div className="grid grid-cols-2 gap-3">
+             <a href="/konida/penyelenggara" className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-md transition-all group">
+                <Monitor className="mx-auto mb-2 text-cyan-500 group-hover:scale-110 transition-transform"/>
+                <span className="text-xs text-[#3c4858] font-medium uppercase">Command Center</span>
+             </a>
+             <a href="/konida/sipa" className="bg-gradient-to-tr from-blue-600 to-blue-500 p-4 rounded-xl shadow-md text-center hover:shadow-lg transition-all group relative overflow-hidden">
+                <Zap className="absolute -right-2 -bottom-2 text-white/20 w-16 h-16"/>
+                <Zap className="mx-auto mb-2 text-white group-hover:scale-110 transition-transform relative z-10"/>
+                <span className="text-xs text-white font-medium uppercase relative z-10">Tanya SIPA AI</span>
+             </a>
+          </div>
+
         </div>
       </div>
 
