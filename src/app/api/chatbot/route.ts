@@ -1,77 +1,140 @@
 // src/app/api/chatbot/route.ts
-// ChatbotWidget backend — Groq auto-rotation
+// Support payload lama: { messages, role, nama, kontingen } → reply
+// Support payload baru: { question, history, role }         → answer
+
 import { NextRequest, NextResponse } from 'next/server'
 
-async function callGroq(messages: any[]): Promise<string> {
-  const providers = [
-    { url: 'https://api.groq.com/openai/v1/chat/completions', key: process.env.GROQ_API_KEY,    model: 'llama-3.3-70b-versatile' },
-    { url: 'https://api.groq.com/openai/v1/chat/completions', key: process.env.GROQ_API_KEY_2,  model: 'llama-3.3-70b-versatile' },
-    { url: 'https://api.cerebras.ai/v1/chat/completions',     key: process.env.CEREBRAS_API_KEY, model: 'llama-3.3-70b' },
-    { url: 'https://api.cerebras.ai/v1/chat/completions',     key: process.env.CEREBRAS_API_KEY_2, model: 'llama-3.3-70b' },
-  ].filter(p => p.key)
+const GROQ_KEYS = [
+  process.env.GROQ_API_KEY_1,
+  process.env.GROQ_API_KEY_2,
+  process.env.GROQ_API_KEY_3,
+].filter(Boolean) as string[]
 
-  let lastErr = ''
-  for (const p of providers) {
-    try {
-      const res = await fetch(p.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${p.key}` },
-        body: JSON.stringify({ model: p.model, max_tokens: 1024, temperature: 0.4, messages }),
-      })
-      if (res.status === 429) { lastErr = 'rate limit'; continue }
-      if (!res.ok) { const e = await res.json(); lastErr = e?.error?.message ?? 'error'; continue }
-      const data = await res.json()
-      return data.choices?.[0]?.message?.content ?? 'Maaf, tidak ada jawaban.'
-    } catch (e: any) { lastErr = e.message; continue }
-  }
-  throw new Error(`AI tidak tersedia: ${lastErr}`)
+let idx = 0
+function nextKey() {
+  const k = GROQ_KEYS[idx % GROQ_KEYS.length]
+  idx++
+  return k
 }
 
-const SYSTEM_PROMPTS: Record<string, string> = {
-  admin: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk Admin.
-Bantu admin mengoperasikan sistem: manajemen user, import data, konfigurasi kuota kualifikasi, verifikasi atlet, laporan sistem.
-Jawab singkat, jelas, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
+async function callGroq(messages: any[]): Promise<string> {
+  for (let i = 0; i < 3; i++) {
+    const key = nextKey()
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages,
+          max_tokens: 512,
+          temperature: 0.5,
+        }),
+      })
+      if (res.status === 429) continue
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content ?? 'Maaf, tidak ada respons.'
+    } catch (e) {
+      if (i === 2) throw e
+    }
+  }
+  return 'Chatbot sedang sibuk, coba lagi nanti.'
+}
 
-  konida: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk KONIDA (Kontingen Daerah).
-Bantu pengguna: input atlet, submit ke operator, daftar nomor pertandingan, cek status registrasi, upload dokumen.
-Jawab singkat, ramah, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
+function getSystemPrompt(role: string, nama?: string, kontingen?: string, cabor?: string): string {
+  const base = `Kamu adalah SIPA — Asisten AI resmi PORPROV XV Jawa Barat 2026.
+Jawab dengan ramah, ringkas (maksimal 3-4 kalimat), dan langsung ke point.
+Gunakan Bahasa Indonesia yang natural. Boleh pakai emoji secukupnya.
+Jika tidak tahu, jujur saja dan arahkan ke contact panitia.`
 
-  operator_cabor: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk Operator Cabor.
-Bantu operator: verifikasi atlet, input hasil pertandingan, konfirmasi lineup, validasi kejuaraan, kelola nomor pertandingan.
-Jawab singkat, teknis, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
+  const userCtx = [
+    nama ? `Nama user: ${nama}` : '',
+    kontingen ? `Kontingen: ${kontingen}` : '',
+    cabor ? `Cabang olahraga: ${cabor}` : '',
+  ].filter(Boolean).join(' | ')
 
-  atlet: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026 untuk Atlet.
-Bantu atlet: cek status registrasi, input riwayat kejuaraan, upload bukti prestasi, cek jadwal bertanding, info dokumen.
-Jawab ramah, suportif, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
+  const rolePrompts: Record<string, string> = {
+    admin: `${base}
+Role: ADMINISTRATOR SISTEM PORPROV XV
+${userCtx}
+Bantu soal: manajemen user, konfigurasi sistem, data master, import/export data, troubleshooting, kuota kualifikasi.`,
 
-  default: `Kamu adalah SIPA — Asisten AI PORPROV XV Jawa Barat 2026.
-Bantu pengguna menggunakan sistem manajemen atlet dan pertandingan PORPROV XV.
-Jawab singkat, jelas, dalam Bahasa Indonesia. Maksimal 3-4 kalimat per jawaban.`,
+    konida: `${base}
+Role: KOORDINATOR KONIDA (Komite Olahraga Daerah)
+${userCtx}
+Bantu soal: input atlet baru, verifikasi data, submit ke operator, daftar nomor pertandingan, status registrasi kontingen.`,
+
+    operator_cabor: `${base}
+Role: OPERATOR CABANG OLAHRAGA
+${userCtx}
+Bantu soal: verifikasi atlet, input hasil pertandingan, konfirmasi lineup, validasi prestasi kejuaraan atlet.`,
+
+    penyelenggara: `${base}
+Role: PANITIA PENYELENGGARA KLASTER I BEKASI
+${userCtx}
+Bantu soal: status venue, jadwal operasional, incident report, akomodasi tamu VIP, koordinasi petugas lapangan.`,
+
+    atlet: `${base}
+Role: ATLET / PESERTA PORPROV XV
+${userCtx}
+Bantu soal: cara input prestasi kejuaraan, upload bukti, status registrasi, jadwal pertandingan, lokasi venue.`,
+
+    publik: `${base}
+Role: PENGUNJUNG / PUBLIK
+Bantu soal: jadwal pertandingan, lokasi venue, info tiket, update medali, informasi umum PORPROV XV.`,
+  }
+
+  return rolePrompts[role] ?? rolePrompts['publik']
 }
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { messages, role, nama, kontingen, cabor, kontingen_id } = await req.json()
-  if (!messages?.length) return NextResponse.json({ error: 'Messages kosong' }, { status: 400 })
-
-  const systemContent = (SYSTEM_PROMPTS[role] ?? SYSTEM_PROMPTS.default)
-    + (nama ? `\nNama pengguna: ${nama}.` : '')
-    + (kontingen ? `\nKontingen: ${kontingen}.` : '')
-    + (cabor ? `\nCabang olahraga: ${cabor}.` : '')
-
   try {
-    const groqMessages = [
-      { role: 'system', content: systemContent },
-      ...messages.slice(-8).map((m: any) => ({ role: m.role, content: m.content })),
+    const body = await req.json()
+
+    // ── Deteksi format payload ──
+    const role: string = body.role ?? 'publik'
+    const nama: string | undefined = body.nama
+    const kontingen: string | undefined = body.kontingen
+    const cabor: string | undefined = body.cabor
+
+    // Format lama: { messages: [{role, content}] }
+    // Format baru: { question: string, history: [{role, content}] }
+    let chatMessages: { role: string; content: string }[] = []
+
+    if (body.messages && Array.isArray(body.messages)) {
+      // payload lama dari ChatbotWidget asli
+      chatMessages = body.messages
+    } else if (body.question) {
+      // payload baru
+      const history = body.history ?? []
+      chatMessages = [
+        ...history.slice(-4),
+        { role: 'user', content: body.question },
+      ]
+    } else {
+      return NextResponse.json({ error: 'Payload tidak valid' }, { status: 400 })
+    }
+
+    if (!chatMessages.length) {
+      return NextResponse.json({ error: 'Pesan tidak boleh kosong' }, { status: 400 })
+    }
+
+    const systemPrompt = getSystemPrompt(role, nama, kontingen, cabor)
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...chatMessages.slice(-8), // max 8 pesan history
     ]
 
-    const reply = await callGroq(groqMessages)
-    return NextResponse.json({ reply })
+    const answer = await callGroq(messages)
 
-  } catch (e: any) {
-    console.error('Chatbot error:', e)
-    return NextResponse.json({ reply: 'Maaf, SIPA AI sedang tidak tersedia. Coba lagi dalam beberapa saat! 🙏' })
+    // Return kedua format sekaligus biar kompatibel
+    return NextResponse.json({ reply: answer, answer, role })
+  } catch (e) {
+    console.error('[Chatbot Error]', e)
+    return NextResponse.json(
+      { reply: 'Chatbot tidak tersedia saat ini. 🙏', answer: 'Chatbot tidak tersedia saat ini.' },
+      { status: 500 }
+    )
   }
 }
