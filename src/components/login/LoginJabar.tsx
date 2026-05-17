@@ -32,6 +32,9 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
+      // ✅ PATCH: set login_origin berdasarkan tenant aktif
+      const _origin = tenant.id === 'jabar' ? 'jabar' : tenant.id
+      document.cookie = `login_origin=${_origin}; path=/; max-age=${60*60*24*30}; samesite=lax`
       router.push(data.redirect)
     } catch {
       setError('Tidak dapat terhubung ke server')
