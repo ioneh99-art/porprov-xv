@@ -2,6 +2,15 @@
 // Sistem Level Akses PORPROV XV
 // Superadmin | Level 1 (Gold) | Level 2 (Silver) | Level 3 (Basic)
 
+import { PLAN_FEATURES } from "./features"
+import { createClient } from '@supabase/supabase-js'
+
+// Supabase client (sb)
+const sb = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+)
+
 export type UserLevel = 'superadmin' | 'level1' | 'level2' | 'level3'
 export type UserRole  = 'superadmin' | 'konida' | 'penyelenggara' | 'operator_cabor' | 'atlet' | 'publik'
 
@@ -360,3 +369,25 @@ export function getSidebarMenus(level: UserLevel) {
 // ─── Env Vars yang dibutuhkan ─────────────────────────────
 // NEXT_PUBLIC_LEVEL1_KONTINGEN_IDS=1          (ID kontingen Bekasi)
 // NEXT_PUBLIC_LEVEL2_KONTINGEN_IDS=2,3,4,5   (ID kontingen Level 2)
+
+// Tambah fungsi baru — cek dari subscription, bukan level hardcoded
+export async function getTenantFeatures(kontingenId: number): Promise<string[]> {
+  const { data } = await sb
+    .from('subscriptions')
+    .select('features, valid_until, is_active')
+    .eq('kontingen_id', kontingenId)
+    .eq('is_active', true)
+    .gte('valid_until', new Date().toISOString())  // belum expired
+    .single()
+
+  if (!data) return PLAN_FEATURES.basic  // default kalau tidak ada subscription
+
+  return data.features
+}
+
+export function canAccessFeature(
+  features: string[],
+  feature: string
+): boolean {
+  return features.includes(feature)
+}

@@ -362,6 +362,14 @@ export default function SuperadminDashboard() {
     return () => clearTimeout(t)
   }, [fetchData])
 
+  const handleLogout = useCallback(async () => {
+    try {
+      await sb.auth.signOut()
+    } finally {
+      window.location.href = '/login'
+    }
+  }, [])
+
   const filtered = useMemo(() => {
     let r = tenants
     if (search) r = r.filter(t => t.nama.toLowerCase().includes(search.toLowerCase()))
@@ -453,7 +461,11 @@ export default function SuperadminDashboard() {
               <div className="text-xs font-bold text-white truncate">Super Admin</div>
               <div className="text-[10px] truncate" style={{ color: C.muted }}>admin@porprov.id</div>
             </div>
-            <LogOut size={13} style={{ color: C.muted }} />
+            <button onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all">
+          <LogOut size={16} />
+          <span>Keluar</span>
+        </button>
           </div>
         </div>
       </aside>
