@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
-import { useTenant } from '@/hooks/useTenant'
+import { useTenant, clearTenant, setTenantPersist } from '@/hooks/useTenant'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -32,9 +32,11 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
-      // ✅ PATCH: set login_origin berdasarkan tenant aktif
+      // Set tenant dan login_origin berdasarkan response
+      clearTenant()
       const _origin = tenant.id === 'jabar' ? 'jabar' : tenant.id
       document.cookie = `login_origin=${_origin}; path=/; max-age=${60*60*24*30}; samesite=lax`
+      if (tenant.id !== 'jabar') setTenantPersist(tenant.id as any)
       router.push(data.redirect)
     } catch {
       setError('Tidak dapat terhubung ke server')

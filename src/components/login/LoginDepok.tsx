@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, Cpu, ChevronRight } from 'lucide-react'
-import { setTenantPersist } from '@/hooks/useTenant'
+import { setTenantPersist, clearTenant } from '@/hooks/useTenant'
 
 // DEPOK — Minimal Tech / Smart City Style
 // Layout: top-aligned, bukan split tapi stack vertikal di tengah
@@ -28,6 +28,7 @@ export default function LoginDepok() {
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Login gagal'); setLoading(false); return }
       // Set tenant persist SEBELUM redirect
+      clearTenant()
       setTenantPersist('depok')
       document.cookie = `login_origin=depok; path=/; max-age=${60*60*24*30}; samesite=lax`
       router.push(data.redirect)

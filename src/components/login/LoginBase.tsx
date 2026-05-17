@@ -3,6 +3,7 @@
 // Shared login component — dikustomisasi per tenant via props
 
 import { useState } from 'react'
+import { clearTenant } from '@/hooks/useTenant'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, Eye, EyeOff, Loader2, LogIn, Shield } from 'lucide-react'
 
@@ -58,7 +59,8 @@ export default function LoginBase({ config }: Props) {
         return
       }
 
-      // Simpan login_origin di cookie agar logout bisa redirect ke sini
+      // Clear tenant lama + simpan login_origin
+      clearTenant()
       document.cookie = `login_origin=${config.origin}; path=/; max-age=${60*60*24*30}; samesite=lax`
 
       // Redirect ke halaman yang sesuai

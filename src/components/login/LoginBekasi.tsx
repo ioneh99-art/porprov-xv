@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, Monitor } from 'lucide-react'
-import { setTenantPersist } from '@/hooks/useTenant'
+import { setTenantPersist, clearTenant } from '@/hooks/useTenant'
 
 // Warna dari logo Kota Bekasi:
 // #E84E0F — Oranye api (pita utama) → primary
@@ -29,8 +29,8 @@ export default function LoginBekasi() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Login gagal'); setLoading(false); return }
+      clearTenant()
       setTenantPersist('bekasi')
-      // set login_origin agar logout redirect kembali ke halaman ini
       document.cookie = `login_origin=bekasi; path=/; max-age=${60*60*24*30}; samesite=lax`
       router.push(data.redirect)
     } catch { setError('Tidak dapat terhubung ke server'); setLoading(false) }

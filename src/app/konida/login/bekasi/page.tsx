@@ -1,26 +1,25 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, AlertCircle, Monitor } from 'lucide-react'
-import { setTenantPersist } from '@/hooks/useTenant'
+import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
+import { useTenant, clearTenant } from '@/hooks/useTenant'
 
-// Warna dari logo Kota Bekasi:
-// #E84E0F — Oranye api (pita utama) → primary
-// #1B6EC2 — Biru kuat (pita biru) → secondary
-// #3AAA35 — Hijau gedung → accent/success
-// #F5C518 — Kuning emas (pita kuning) → highlight
-
-export default function LoginBekasi() {
+export default function LoginPage() {
   const router = useRouter()
+  const tenant = useTenant()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [imgError, setImgError] = useState(false)
+
+  const isJabar = tenant.id === 'jabar'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(''); setLoading(true)
+    setError('')
+    setLoading(true)
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -28,199 +27,296 @@ export default function LoginBekasi() {
         body: JSON.stringify({ username, password }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Login gagal'); setLoading(false); return }
-      setTenantPersist('bekasi')
-      // set login_origin agar logout redirect kembali ke halaman ini
-      document.cookie = `login_origin=bekasi; path=/; max-age=${60*60*24*30}; samesite=lax`
+      if (!res.ok) {
+        setError(data.error || 'Terjadi kesalahan')
+        setLoading(false)
+        return
+      }
+      clearTenant()
+      const _origin = tenant.id === 'jabar' ? 'jabar' : tenant.id
+      document.cookie = `login_origin=${_origin}; path=/; max-age=${60*60*24*30}; samesite=lax`
       router.push(data.redirect)
-    } catch { setError('Tidak dapat terhubung ke server'); setLoading(false) }
+    } catch {
+      setError('Tidak dapat terhubung ke server')
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#080806', fontFamily: 'system-ui, sans-serif' }}>
+    <div className="min-h-screen bg-slate-950 flex">
 
-      {/* ── KIRI: Panel Bekasi ──────────────────────────────────── */}
-      <div className="hidden lg:flex w-[52%] flex-col relative overflow-hidden"
-        style={{ background: '#0c0b08', borderRight: '1px solid #1a1a14' }}>
+      {/* ══ PANEL KIRI ══════════════════════════════════════════════════════ */}
+      <div className="hidden lg:flex w-[55%] border-r border-slate-800 flex-col items-center justify-center px-16 relative overflow-hidden"
+        style={{ background: isJabar ? '#020915' : tenant.gradient }}>
 
-        {/* Gradient bar — semua warna logo */}
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #E84E0F, #F5C518, #3AAA35, #1B6EC2)', flexShrink: 0 }} />
+        {/* Decorative glow */}
+        <div className="absolute top-[-100px] left-[-100px] w-80 h-80 rounded-full opacity-20"
+          style={{ background: `radial-gradient(circle, ${isJabar ? '#1d4ed8' : tenant.primary}, transparent)` }} />
+        <div className="absolute bottom-[-80px] right-[-80px] w-64 h-64 rounded-full opacity-10"
+          style={{ background: `radial-gradient(circle, ${isJabar ? '#1d4ed8' : tenant.primary}, transparent)` }} />
 
-        {/* Background grid warm */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'linear-gradient(rgba(232,78,15,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(232,78,15,0.04) 1px, transparent 1px)',
-          backgroundSize: '36px 36px',
-        }} />
-        {/* Warm glow kanan bawah */}
-        <div className="absolute pointer-events-none" style={{
-          bottom: -60, right: -60, width: 300, height: 300,
-          background: 'radial-gradient(circle, rgba(232,78,15,0.06) 0%, transparent 70%)',
-        }} />
-
-        <div className="relative flex flex-col flex-1 px-10 pt-10">
-          {/* Logo + nama */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              {/* Logo Bekasi */}
-              <img
-                src="/logos/bekasi.png"
-                alt="Logo Kota Bekasi"
-                className="w-14 h-14 object-contain"
-                onError={e => {
-                  // Fallback kalau logo belum ada
-                  const el = e.target as HTMLImageElement
-                  el.style.display = 'none'
-                  el.parentElement!.innerHTML = '<span style="font-size:22px;font-weight:900;color:#E84E0F;">BKS</span>'
-                }}
-              />
+        {/* ── JABAR: tampilan original ─────────────────────────────────── */}
+        {isJabar ? (
+          <>
+            <div className="relative z-10 mb-8">
+              <img src="/logo-porprov.png" alt="Logo PORPROV XV"
+                className="w-64 h-64 object-contain mix-blend-lighten" />
             </div>
-            <div>
-              <div style={{ color: '#E84E0F', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 2 }}>
-                Tuan Rumah Klaster I
+            <div className="relative z-10 text-center mb-8">
+              <div className="text-white text-lg font-semibold mb-2">Sistem Informasi Atlet</div>
+              <div className="text-slate-500 text-sm leading-relaxed">
+                Platform resmi pendaftaran dan manajemen<br />
+                atlet PORPROV XV Jawa Barat 2026
               </div>
-              <div style={{ color: 'white', fontSize: 18, fontWeight: 800, lineHeight: 1.1 }}>Kota Bekasi</div>
-              <div style={{ color: '#6b7280', fontSize: 11, marginTop: 2 }}>Inovatif · Kreatif · Terdepan</div>
             </div>
-          </div>
-
-          {/* Status bar */}
-          <div className="flex items-center gap-3 mb-8 px-4 py-2.5 rounded-xl"
-            style={{ background: 'rgba(232,78,15,0.08)', border: '1px solid rgba(232,78,15,0.2)' }}>
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#E84E0F', flexShrink: 0 }} />
-            <span style={{ color: '#E84E0F', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em' }}>PORPROV XV · SISTEM AKTIF</span>
-            <Monitor size={13} style={{ color: 'rgba(232,78,15,0.5)', marginLeft: 'auto' }} />
-          </div>
-
-          {/* Stats grid — 4 warna logo */}
-          <div className="grid grid-cols-2 gap-3 mb-8">
-            {[
-              { label: 'Total Venue', value: '25', color: '#E84E0F', bg: 'rgba(232,78,15,0.08)', border: 'rgba(232,78,15,0.2)' },
-              { label: 'Cabang Olahraga', value: '49', color: '#1B6EC2', bg: 'rgba(27,110,194,0.08)', border: 'rgba(27,110,194,0.2)' },
-              { label: 'Nomor Pertandingan', value: '200+', color: '#F5C518', bg: 'rgba(245,197,24,0.08)', border: 'rgba(245,197,24,0.2)' },
-              { label: 'Status Klaster', value: 'AKTIF', color: '#3AAA35', bg: 'rgba(58,170,53,0.08)', border: 'rgba(58,170,53,0.2)' },
-            ].map(({ label, value, color, bg, border }) => (
-              <div key={label} className="p-4 rounded-xl" style={{ background: bg, border: `1px solid ${border}` }}>
-                <div style={{ color: '#6b7280', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-                <div style={{ color, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{value}</div>
+            <div className="relative z-10 flex gap-10 mb-10">
+              {[
+                { label:'Kontingen', value:'27' },
+                { label:'Cabang Olahraga', value:'92' },
+                { label:'Atlet', value:'24K+' },
+              ].map(({ label, value }) => (
+                <div key={label} className="text-center">
+                  <div className="text-white text-2xl font-bold">{value}</div>
+                  <div className="text-slate-600 text-xs mt-0.5">{label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="relative z-10 flex flex-col items-center gap-3 w-full max-w-xs">
+              <a href="/publik/klasemen"
+                className="w-full flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 text-xs px-4 py-2.5 rounded-full transition-all">
+                <span>🏆</span><span>Lihat Klasemen Medali Live</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              </a>
+              <div className="flex items-center gap-4">
+                {[['📅 Jadwal','/publik/jadwal'],['🏅 Hasil','/publik/hasil'],['🔍 Cari Atlet','/publik/atlet']].map(([label, href]) => (
+                  <a key={href} href={href} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">{label}</a>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          </>
+        ) : (
+          /* ── TENANT KOTA: tampilan branding kota ──────────────────────── */
+          <>
+            {/* Logo kota */}
+            <div className="relative z-10 mb-6">
+              {!imgError ? (
+                <img src={tenant.logo} alt={tenant.nama}
+                  className="w-28 h-28 object-contain rounded-2xl p-3"
+                  style={{ background: tenant.logoBg, border: `2px solid ${tenant.primary}40` }}
+                  onError={() => setImgError(true)} />
+              ) : (
+                <div className="w-28 h-28 rounded-2xl flex items-center justify-center text-4xl font-bold text-white"
+                  style={{ background: tenant.logoBg, border: `2px solid ${tenant.primary}40` }}>
+                  {tenant.nama.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+              )}
+            </div>
 
-          {/* Divider — gradient logo */}
-          <div style={{ height: 1, background: 'linear-gradient(90deg, #E84E0F40, #F5C51840, transparent)', marginBottom: 20 }} />
+            {/* Nama kota */}
+            <div className="relative z-10 text-center mb-6">
+              <div className="text-white text-2xl font-bold mb-1">{tenant.nama}</div>
+              <div className="text-slate-400 text-sm">{tenant.namaLengkap}</div>
+              {tenant.badge && (
+                <span className="inline-flex items-center gap-1.5 mt-3 text-xs px-3 py-1.5 rounded-full font-medium"
+                  style={{ background:`${tenant.primary}20`, color:tenant.primary, border:`1px solid ${tenant.primary}40` }}>
+                  🏟️ {tenant.badge}
+                </span>
+              )}
+            </div>
 
-          {/* Venue list */}
-          <div style={{ color: '#4b5563', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Venue Unggulan
-          </div>
-          <div className="space-y-2">
-            {[
-              { nama: 'Stadion Patriot Candrabhaga', status: 'AKTIF', color: '#E84E0F' },
-              { nama: 'GOR Bekasi Cyber Park', status: 'AKTIF', color: '#1B6EC2' },
-              { nama: 'Kolam Renang Harapan Indah', status: 'SIAP', color: '#3AAA35' },
-              { nama: 'Lapangan Tenis Bekasi Barat', status: 'SIAP', color: '#F5C518' },
-            ].map(({ nama, status, color }, i) => (
-              <div key={nama} className="flex items-center gap-3 py-2 px-3 rounded-lg"
-                style={{ background: i < 2 ? `${color}10` : 'transparent', borderLeft: `2px solid ${i < 2 ? color : '#1a1a14'}` }}>
-                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-                <span style={{ color: i < 2 ? '#e5e7eb' : '#6b7280', fontSize: 11, flex: 1 }}>{nama}</span>
-                <span style={{ color, fontSize: 9, fontWeight: 700 }}>{status}</span>
+            {/* Divider */}
+            <div className="relative z-10 w-full max-w-xs h-px my-2 opacity-20"
+              style={{ background: tenant.primary }} />
+
+            {/* Event info */}
+            <div className="relative z-10 text-center mt-4">
+              <div className="text-white font-bold text-xl mb-1">PORPROV XV</div>
+              <div className="text-slate-400 text-sm">Jawa Barat 2026</div>
+              <div className="text-slate-500 text-xs mt-3 leading-relaxed max-w-xs">
+                Portal resmi manajemen kontingen<br />
+                dan penyelenggaraan event
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Bottom */}
-        <div className="relative px-10 py-6">
-          <div className="flex items-center gap-2">
-            <div className="h-px flex-1" style={{ background: 'rgba(232,78,15,0.15)' }} />
-            <span style={{ color: '#374151', fontSize: 10 }}>PORPROV XV Platform · KONI Jawa Barat 2026</span>
-            <div className="h-px flex-1" style={{ background: 'rgba(27,110,194,0.15)' }} />
-          </div>
-        </div>
+            {/* Powered by */}
+            <div className="relative z-10 absolute bottom-8 text-center">
+              <p className="text-slate-700 text-[11px]">
+                Powered by PORPROV XV Platform
+              </p>
+              <p className="text-slate-800 text-[10px] mt-0.5">© KONI Jawa Barat 2026</p>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* ── KANAN: Form Login ───────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center px-10">
-        <div className="w-full max-w-xs">
+      {/* ══ PANEL KANAN — Form Login ═════════════════════════════════════════ */}
+      <div className="flex-1 flex items-center justify-center px-8 py-12">
+        <div className="w-full max-w-sm">
 
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center mb-8">
-            <img src="/logos/bekasi.png" alt="Kota Bekasi" className="w-16 h-16 object-contain"
-              onError={e => { (e.target as HTMLElement).style.display = 'none' }} />
-            <div style={{ color: 'white', fontSize: 16, fontWeight: 800, marginTop: 8 }}>Kota Bekasi</div>
+            {isJabar ? (
+              <img src="/logo-porprov.png" alt="PORPROV XV" className="w-20 h-20 object-contain" />
+            ) : !imgError ? (
+              <img src={tenant.logo} alt={tenant.nama}
+                className="w-16 h-16 rounded-xl object-contain p-2"
+                style={{ background: tenant.logoBg }}
+                onError={() => setImgError(true)} />
+            ) : (
+              <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
+                style={{ background: tenant.logoBg }}>
+                {tenant.nama.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
+              </div>
+            )}
+            <p className="text-white text-sm font-semibold mt-3">{tenant.nama}</p>
           </div>
 
-          {/* Header form */}
-          <div className="mb-8">
-            <div style={{ color: '#E84E0F', fontSize: 9, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 6 }}>
-              Command Center · Klaster I
-            </div>
-            <h1 style={{ color: 'white', fontSize: 24, fontWeight: 800, lineHeight: 1.2, marginBottom: 6 }}>
-              Masuk ke Portal<br />
-              <span style={{ color: '#E84E0F' }}>Kota Bekasi</span>
-            </h1>
-            <p style={{ color: '#4b5563', fontSize: 13 }}>Sistem manajemen kontingen & penyelenggara</p>
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-full px-3 py-1.5 mb-8">
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ background: isJabar ? '#3b82f6' : tenant.primary }} />
+            <span className="text-[10px] font-semibold tracking-wider"
+              style={{ color: isJabar ? '#60a5fa' : tenant.primary }}>
+              {isJabar ? 'PORPROV XV · 2026' : `${tenant.nama.toUpperCase()} · PORPROV XV`}
+            </span>
           </div>
 
-          {error && (
-            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 mb-4"
-              style={{ background: 'rgba(232,78,15,0.08)', border: '1px solid rgba(232,78,15,0.25)' }}>
-              <AlertCircle size={13} style={{ color: '#E84E0F', flexShrink: 0 }} />
-              <span style={{ color: '#fca5a5', fontSize: 12 }}>{error}</span>
+          <h1 className="text-white text-2xl font-semibold mb-1">Selamat datang</h1>
+          <p className="text-slate-500 text-sm mb-8">
+            {isJabar
+              ? 'Masuk ke sistem manajemen atlet'
+              : tenant.subtitle}
+          </p>
+
+          {/* Form Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-7">
+            <form onSubmit={handleSubmit} className="space-y-4">
+
+              {error && (
+                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+                  <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
+                  <span className="text-red-400 text-xs">{error}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-500 text-[10px] font-medium mb-1.5 uppercase tracking-wider">
+                  Username
+                </label>
+                <input type="text" value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="Masukkan username" autoComplete="username" required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none transition-all"
+                  onFocus={e => e.target.style.borderColor = isJabar ? '#3b82f6' : tenant.primary}
+                  onBlur={e => e.target.style.borderColor = '#334155'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-500 text-[10px] font-medium mb-1.5 uppercase tracking-wider">
+                  Password
+                </label>
+                <div className="relative">
+                  <input type={showPass ? 'text' : 'password'} value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Masukkan password" autoComplete="current-password" required
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pr-10 text-sm text-slate-200 placeholder-slate-600 focus:outline-none transition-all"
+                    onFocus={e => e.target.style.borderColor = isJabar ? '#3b82f6' : tenant.primary}
+                    onBlur={e => e.target.style.borderColor = '#334155'}
+                  />
+                  <button type="button" onClick={() => setShowPass(!showPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <button type="button" className="text-xs transition-colors"
+                  style={{ color: isJabar ? '#3b82f6' : tenant.primary }}>
+                  Lupa password?
+                </button>
+              </div>
+
+              {/* Submit button — warna per tenant */}
+              <button type="submit"
+                disabled={loading || !username || !password}
+                className="w-full flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed"
+                style={{
+                  background: loading || !username || !password
+                    ? undefined
+                    : `linear-gradient(135deg, ${isJabar ? '#2563eb' : tenant.primary}, ${isJabar ? '#1d4ed8' : tenant.primaryDark})`,
+                }}>
+                {loading
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <LogIn size={14} />}
+                {loading ? 'Memeriksa...' : 'Masuk'}
+              </button>
+
+            </form>
+          </div>
+
+          {/* Demo accounts — HANYA tampil di KONI Jabar */}
+          {isJabar && (
+            <div className="mt-5 bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <p className="text-slate-600 text-[10px] font-medium mb-2">
+                Akun demo — klik untuk autofill:
+              </p>
+              <div className="space-y-1">
+                {[
+                  { role:'Admin', user:'admin', pass:'admin123' },
+                  { role:'KONIDA Kab. Bogor', user:'kab.bogor', pass:'admin123' },
+                  { role:'KONIDA Kota Bandung', user:'kota.bandung', pass:'admin123' },
+                  { role:'Operator Atletik', user:'op.atletik', pass:'admin123' },
+                  { role:'Operator Renang', user:'op.akuatikrn', pass:'admin123' },
+                ].map(a => (
+                  <button key={a.role} type="button"
+                    onClick={() => { setUsername(a.user); setPassword(a.pass) }}
+                    className="w-full flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-slate-800 transition-colors text-xs">
+                    <span className="text-slate-500">{a.role}</span>
+                    <span className="text-slate-400 font-mono text-[10px]">{a.user}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-slate-700 text-[10px] mt-1.5">* Klik untuk autofill · password: admin123</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label style={{ color: '#6b7280', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Username</label>
-              <input type="text" value={username} onChange={e => setUsername(e.target.value)}
-                placeholder="Masukkan username" autoComplete="username" required
-                style={{ width: '100%', background: '#141210', border: '1px solid #242018', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: 'white', outline: 'none', boxSizing: 'border-box' }}
-                onFocus={e => e.target.style.borderColor = '#E84E0F'}
-                onBlur={e => e.target.style.borderColor = '#242018'} />
+          {/* Link atlet — HANYA di Jabar */}
+          {isJabar && (
+            <div className="mt-3 text-center">
+              <span className="text-slate-600 text-xs">Kamu atlet? </span>
+              <a href="/atlet/login" className="text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-colors">
+                Masuk ke Portal Atlet →
+              </a>
             </div>
-            <div>
-              <label style={{ color: '#6b7280', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Password</label>
-              <div style={{ position: 'relative' }}>
-                <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Masukkan password" autoComplete="current-password" required
-                  style={{ width: '100%', background: '#141210', border: '1px solid #242018', borderRadius: 10, padding: '10px 40px 10px 14px', fontSize: 13, color: 'white', outline: 'none', boxSizing: 'border-box' }}
-                  onFocus={e => e.target.style.borderColor = '#E84E0F'}
-                  onBlur={e => e.target.style.borderColor = '#242018'} />
-                <button type="button" onClick={() => setShowPass(s => !s)}
-                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563' }}>
-                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
+          )}
+
+          {/* Link publik — mobile, HANYA Jabar */}
+          {isJabar && (
+            <div className="lg:hidden mt-4 flex flex-col items-center gap-2">
+              <a href="/publik/klasemen"
+                className="flex items-center justify-center gap-2 text-amber-400 text-xs">
+                🏆 Lihat Klasemen Medali Live
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              </a>
+              <div className="flex items-center gap-4">
+                {[['📅 Jadwal','/publik/jadwal'],['🏅 Hasil','/publik/hasil'],['🔍 Cari Atlet','/publik/atlet']].map(([label, href]) => (
+                  <a key={href} href={href} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">{label}</a>
+                ))}
               </div>
             </div>
+          )}
 
-            <button type="submit" disabled={loading || !username || !password}
-              style={{
-                width: '100%', padding: '12px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-                color: 'white', border: 'none', cursor: loading || !username || !password ? 'not-allowed' : 'pointer',
-                background: loading || !username || !password
-                  ? '#1a1a14'
-                  : 'linear-gradient(135deg, #E84E0F, #c43d0a)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 8,
-                boxShadow: loading || !username || !password ? 'none' : '0 0 20px rgba(232,78,15,0.25)',
-              }}>
-              {loading
-                ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                : <Monitor size={14} />}
-              {loading ? 'Memverifikasi...' : 'Masuk ke Command Center'}
-            </button>
-          </form>
+          {/* Footer */}
+          <p className="text-center text-slate-700 text-[10px] mt-5">
+            {isJabar
+              ? '© 2026 KONI Jawa Barat · v1.0.0'
+              : `© 2026 ${tenant.nama} · Powered by PORPROV XV Platform`}
+          </p>
 
-          <div style={{ marginTop: 28, textAlign: 'center', color: '#374151', fontSize: 11 }}>
-            © 2026 Kota Bekasi · PORPROV XV Jawa Barat
-          </div>
         </div>
       </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
