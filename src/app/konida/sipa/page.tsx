@@ -259,7 +259,6 @@ export default function SIPAPage() {
       const res = await fetch('/api/sipa', {
         method: 'POST',
         credentials: 'include',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, history }),
       })
