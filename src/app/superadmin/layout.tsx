@@ -28,7 +28,7 @@ const NAV = [
   { icon: Server,      label: 'System Health',    path: '/superadmin/system'           },
   { icon: FileSearch,  label: 'Audit Logs',       path: '/superadmin/logs'             },
   { section: 'Quick Nav' },
-  { icon: Flame,       label: 'War Room Bekasi',  path: '/konida/dashboard/bekasi'     },
+  { icon: Flame,       label: 'Invoices',  path: '/superadmin/invoices'     },
   { icon: Sparkles,    label: 'SIPA Console',     path: '/konida/sipa'                 },
 ]
 
