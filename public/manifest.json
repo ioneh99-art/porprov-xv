@@ -1,0 +1,22 @@
+{
+  "name": "PORPROV XV Jawa Barat 2026",
+  "short_name": "PORPROV XV",
+  "description": "Sistem Informasi Manajemen Atlet PORPROV XV Jawa Barat 2026",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo-porprov.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo-porprov.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

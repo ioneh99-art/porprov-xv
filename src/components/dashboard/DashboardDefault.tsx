@@ -5,9 +5,15 @@ import {
   MapPin, Monitor, Trophy, TrendingUp, Zap, Building2,
   Activity, Target, Shield
 } from 'lucide-react'
-import { useTenant } from '@/hooks/useTenant'
 
-// ── Pie Chart SVG ─────────────────────────────────────────────────────────────
+// Tenant config dari kontingen_id — tidak perlu useTenant
+const TENANT_MAP: Record<number, { id:string; primary:string; gradient:string; nama:string; badge:string }> = {
+  23: { id:'bekasi', primary:'#E84E0F', gradient:'linear-gradient(135deg,#1a0a05 0%,#0f172a 60%)', nama:'Kota Bekasi', badge:'Klaster I' },
+  19: { id:'bogor',  primary:'#16a34a', gradient:'linear-gradient(135deg,#052010 0%,#0f172a 60%)', nama:'Kota Bogor',  badge:'Klaster II' },
+  24: { id:'depok',  primary:'#7c3aed', gradient:'linear-gradient(135deg,#0d0520 0%,#0f172a 60%)', nama:'Kota Depok',  badge:'Klaster III' },
+}
+const DEFAULT_TENANT = { id:'jabar', primary:'#2563eb', gradient:'linear-gradient(135deg,#030820 0%,#0f172a 60%)', nama:'KONI Jabar', badge:'' }
+
 function PieChart({ segments, size = 80, label, sublabel }: {
   segments: { value: number; color: string }[]
   size?: number; label?: string; sublabel?: string
@@ -46,13 +52,11 @@ function PieChart({ segments, size = 80, label, sublabel }: {
 }
 
 export default function KonidaDashboard() {
-  const tenant = useTenant()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [animIn, setAnimIn] = useState(false)
-
-  const isPenyelenggara = ['bekasi', 'bogor', 'depok'].includes(tenant.id)
+  const [tenant, setTenant] = useState(DEFAULT_TENANT)
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { if (!loading) setTimeout(() => setAnimIn(true), 50) }, [loading])
@@ -60,6 +64,10 @@ export default function KonidaDashboard() {
   const loadData = async () => {
     const meRes = await fetch('/api/auth/me').then(r => r.json()).catch(() => null)
     setUser(meRes)
+
+    // Tentukan tenant dari kontingen_id — bukan dari cookie
+    const tc = TENANT_MAP[meRes?.kontingen_id] ?? DEFAULT_TENANT
+    setTenant(tc)
 
     const { createClient } = await import('@supabase/supabase-js')
     const sb = createClient(
@@ -94,7 +102,6 @@ export default function KonidaDashboard() {
     const siap = verified + posted
     const pctSiap = total > 0 ? Math.round((siap / total) * 100) : 0
 
-    // Per cabor kontingen ini
     const caborMap: Record<string, number> = {}
     atlet.forEach((a: any) => {
       const nama = (a.cabang_olahraga as any)?.nama ?? 'Lainnya'
@@ -104,19 +111,15 @@ export default function KonidaDashboard() {
       .map(([nama, total]) => ({ nama, total }))
       .sort((a, b) => b.total - a.total).slice(0, 6)
 
-    // Venue klaster penyelenggara
+    const isPenyelenggara = ['bekasi','bogor','depok'].includes(tc.id)
+    const klasterMap: Record<string, number> = { bekasi:1, bogor:2, depok:3 }
     const myVenue = isPenyelenggara
-      ? (venueList ?? []).filter((v: any) => {
-          const klasterMap: Record<string, number> = { bekasi:1, bogor:2, depok:3 }
-          return v.klaster_id === klasterMap[tenant.id]
-        })
+      ? (venueList ?? []).filter((v: any) => v.klaster_id === klasterMap[tc.id])
       : []
 
     setData({
       kpi: { total, putra, putri, draft, menunggu, verified, posted, ditolak, siap, pctSiap },
-      perCabor,
-      venue: myVenue,
-      medali: medali ?? [],
+      perCabor, venue: myVenue, medali: medali ?? [],
     })
     setLoading(false)
   }
@@ -126,27 +129,20 @@ export default function KonidaDashboard() {
       <div className="w-8 h-8 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
     </div>
   )
-
-  if (!data) return (
-    <div className="text-center py-16 text-slate-600">Gagal memuat data</div>
-  )
+  if (!data) return <div className="text-center py-16 text-slate-600">Gagal memuat data</div>
 
   const { kpi, perCabor, venue, medali } = data
+  const isPenyelenggara = ['bekasi','bogor','depok'].includes(tenant.id)
   const PIE_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4']
   const ani = `transition-all duration-700 ${animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`
 
   return (
     <div className="space-y-5">
-
-      {/* ── Hero Header ── */}
       <div className={ani}>
         <div className="relative overflow-hidden rounded-2xl border border-slate-800"
           style={{ background: tenant.gradient }}>
           <div className="absolute top-0 left-0 right-0 h-px"
             style={{ background: `linear-gradient(90deg, transparent, ${tenant.primary}, transparent)` }} />
-          <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full"
-            style={{ background: `radial-gradient(circle, ${tenant.primary}15, transparent)` }} />
-
           <div className="relative px-6 py-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -156,12 +152,10 @@ export default function KonidaDashboard() {
                     Live · Sistem Aktif
                   </span>
                 </div>
-                <h1 className="text-xl font-bold text-white mb-0.5">
-                  Dashboard {tenant.nama}
-                </h1>
+                <h1 className="text-xl font-bold text-white mb-0.5">Dashboard {tenant.nama}</h1>
                 <p className="text-slate-400 text-sm">
                   PORPROV XV Jawa Barat 2026
-                  {isPenyelenggara && (
+                  {isPenyelenggara && tenant.badge && (
                     <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium"
                       style={{ background:`${tenant.primary}20`, color:tenant.primary, border:`1px solid ${tenant.primary}40` }}>
                       🏟️ {tenant.badge}
@@ -174,8 +168,6 @@ export default function KonidaDashboard() {
                 <div className="text-slate-400 text-xs">Total Atlet Kontingen</div>
               </div>
             </div>
-
-            {/* Quick stats */}
             <div className="mt-4 pt-4 border-t border-slate-800/60 grid grid-cols-5 gap-3">
               {[
                 { label:'Putra', value:kpi.putra, Icon:Users, color:'text-blue-400' },
@@ -195,7 +187,6 @@ export default function KonidaDashboard() {
         </div>
       </div>
 
-      {/* ── Alert ditolak ── */}
       {kpi.ditolak > 0 && (
         <div className={ani} style={{ transitionDelay:'50ms' }}>
           <a href="/konida/atlet"
@@ -214,10 +205,7 @@ export default function KonidaDashboard() {
         </div>
       )}
 
-      {/* ── Pie Charts ── */}
       <div className={`grid grid-cols-3 gap-4 ${ani}`} style={{ transitionDelay:'100ms' }}>
-
-        {/* Status registrasi */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div className="text-white text-sm font-medium mb-4 flex items-center gap-2">
             <Activity size={13} style={{ color: tenant.primary }} /> Status Registrasi
@@ -249,7 +237,6 @@ export default function KonidaDashboard() {
           </div>
         </div>
 
-        {/* Top Cabor */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div className="text-white text-sm font-medium mb-4 flex items-center gap-2">
             <Target size={13} className="text-amber-400" /> Cabor Terdaftar
@@ -269,7 +256,6 @@ export default function KonidaDashboard() {
           </div>
         </div>
 
-        {/* Klasemen / Medali */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div className="text-white text-sm font-medium mb-4 flex items-center gap-2">
             <Trophy size={13} className="text-yellow-400" /> Klasemen Medali
@@ -286,10 +272,9 @@ export default function KonidaDashboard() {
                   <span className="text-xs w-5 text-center flex-shrink-0">
                     {i===0?'🥇':i===1?'🥈':i===2?'🥉':<span className="text-slate-600">{i+1}</span>}
                   </span>
-                  <span className={`text-xs truncate flex-1 ${
-                    m.kontingen?.nama === user?.kontingen_nama
-                      ? 'text-white font-bold' : 'text-slate-400'
-                  }`}>{m.kontingen?.nama}</span>
+                  <span className={`text-xs truncate flex-1 ${m.kontingen?.nama === user?.kontingen_nama ? 'text-white font-bold' : 'text-slate-400'}`}>
+                    {m.kontingen?.nama}
+                  </span>
                   <div className="flex gap-1 flex-shrink-0 text-[10px]">
                     <span className="text-yellow-400 font-bold">{m.emas}</span>
                     <span className="text-slate-400">{m.perak}</span>
@@ -302,7 +287,6 @@ export default function KonidaDashboard() {
         </div>
       </div>
 
-      {/* ── SIPA Intelligence ── */}
       <div className={ani} style={{ transitionDelay:'150ms' }}>
         <div className="relative overflow-hidden rounded-2xl border"
           style={{ background:'linear-gradient(135deg, #022c22 0%, #0f172a 50%)', borderColor:'rgba(16,185,129,0.25)' }}>
@@ -324,15 +308,8 @@ export default function KonidaDashboard() {
               <p className="text-slate-400 text-xs">Tanya data kontingen {tenant.nama} dalam bahasa natural</p>
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              {['Atlet saya belum verified?','Cabor terbanyak?'].map(q => (
-                <a key={q} href="/konida/sipa"
-                  className="text-[11px] text-slate-400 hover:text-emerald-400 px-2.5 py-1 rounded-lg transition-all"
-                  style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
-                  → {q}
-                </a>
-              ))}
               <a href="/konida/sipa"
-                className="flex items-center gap-1.5 text-xs font-semibold text-white px-4 py-2 rounded-xl hover:opacity-90 transition-all"
+                className="flex items-center gap-1.5 text-xs font-semibold text-white px-4 py-2 rounded-xl hover:opacity-90"
                 style={{ background:'linear-gradient(135deg, #10b981, #059669)' }}>
                 Buka <ChevronRight size={12} />
               </a>
@@ -341,59 +318,33 @@ export default function KonidaDashboard() {
         </div>
       </div>
 
-      {/* ── VENUE SECTION — hanya untuk penyelenggara ── */}
       {isPenyelenggara && venue.length > 0 && (
         <div className={ani} style={{ transitionDelay:'200ms' }}>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 size={14} style={{ color: tenant.primary }} />
-                <div className="text-white text-sm font-medium">
-                  Venue Klaster {tenant.nama}
-                </div>
-                <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{ background:`${tenant.primary}15`, color:tenant.primary, border:`1px solid ${tenant.primary}30` }}>
-                  {venue.length} venue
-                </span>
+                <div className="text-white text-sm font-medium">Venue Klaster {tenant.nama}</div>
               </div>
-              <a href="/konida/penyelenggara/venue"
-                className="text-xs flex items-center gap-1 transition-colors hover:opacity-80"
-                style={{ color: tenant.primary }}>
-                Lihat semua <ChevronRight size={12} />
+              <a href="/konida/penyelenggara/venue" className="text-xs" style={{ color: tenant.primary }}>
+                Lihat semua <ChevronRight size={12} className="inline" />
               </a>
             </div>
             <div className="divide-y divide-slate-800/50">
               {venue.slice(0, 6).map((v: any) => (
-                <div key={v.id} className="px-5 py-3 flex items-center gap-3 hover:bg-slate-800/20 transition-colors">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background:`${tenant.primary}15` }}>
-                    <MapPin size={12} style={{ color: tenant.primary }} />
-                  </div>
+                <div key={v.id} className="px-5 py-3 flex items-center gap-3">
+                  <MapPin size={12} style={{ color: tenant.primary }} />
                   <div className="flex-1 min-w-0">
                     <div className="text-slate-200 text-xs font-medium truncate">{v.nama}</div>
                     <div className="text-slate-500 text-[10px]">{v.alamat}</div>
                   </div>
-                  <a href="/konida/penyelenggara/venue"
-                    className="text-[10px] px-2.5 py-1 rounded-lg transition-all"
-                    style={{ background:`${tenant.primary}15`, color:tenant.primary }}>
-                    Detail
-                  </a>
                 </div>
               ))}
             </div>
-            {venue.length > 6 && (
-              <div className="px-5 py-3 border-t border-slate-800 text-center">
-                <a href="/konida/penyelenggara/venue"
-                  className="text-xs transition-colors" style={{ color: tenant.primary }}>
-                  +{venue.length - 6} venue lainnya
-                </a>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* Quick actions penyelenggara */}
       {isPenyelenggara && (
         <div className={`grid grid-cols-3 gap-3 ${ani}`} style={{ transitionDelay:'250ms' }}>
           {[
@@ -411,12 +362,11 @@ export default function KonidaDashboard() {
                 <div className="text-white text-xs font-medium">{label}</div>
                 <div className="text-slate-500 text-[10px]">{desc}</div>
               </div>
-              <ChevronRight size={12} className="text-slate-700 group-hover:text-slate-400 ml-auto transition-colors" />
+              <ChevronRight size={12} className="text-slate-700 group-hover:text-slate-400 ml-auto" />
             </a>
           ))}
         </div>
       )}
-
     </div>
   )
 }

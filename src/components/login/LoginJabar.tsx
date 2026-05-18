@@ -34,9 +34,9 @@ export default function LoginPage() {
       }
       // Set tenant dan login_origin berdasarkan response
       clearTenant()
-      const _origin = tenant.id === 'jabar' ? 'jabar' : tenant.id
+      const _origin = data.login_origin ?? 'jabar'
       document.cookie = `login_origin=${_origin}; path=/; max-age=${60*60*24*30}; samesite=lax`
-      if (tenant.id !== 'jabar') setTenantPersist(tenant.id as any)
+      if (data.login_origin && data.login_origin !== 'jabar') setTenantPersist(data.login_origin)
       router.push(data.redirect)
     } catch {
       setError('Tidak dapat terhubung ke server')

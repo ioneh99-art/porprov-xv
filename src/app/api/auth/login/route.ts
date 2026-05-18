@@ -148,11 +148,11 @@ export async function POST(req: NextRequest) {
   const client   = { secure, sameSite: 'lax' as const, maxAge: 60*60*8, path: '/' }
   const persist  = { secure, sameSite: 'lax' as const, maxAge: 60*60*24*30, path: '/' }
 
-  const res = NextResponse.json({ ok: true, redirect, level: userLevel })
+  const res = NextResponse.json({ ok: true, redirect, level: userLevel, login_origin: loginOrigin })
 
   // httpOnly cookies (tidak bisa dibaca JS)
   res.cookies.set('porprov_session', sessionData, httpOnly)
-  res.cookies.set('user_level',      userLevel,   httpOnly)
+  res.cookies.set('user_level',      userLevel,   client)
 
   // Client-readable cookies (dibaca useTenant & getLoginFromCookie)
   res.cookies.set('tenant_id',    tenantId,    client)   // ← sidebar branding

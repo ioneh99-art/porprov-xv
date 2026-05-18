@@ -1,10 +1,9 @@
 // src/app/api/auth/me/route.ts
 // Update: tambah features dari subscription ke response
-// Komponen bisa langsung cek features tanpa query subscription lagi
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getSubscription, F } from '../../../../lib/subscriptions'
+import { getSubscription, F } from '@/lib/subscriptions'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,7 +19,6 @@ export async function GET(req: NextRequest) {
   try {
     const session = JSON.parse(sessionCookie)
 
-    // Ambil data user fresh dari DB
     const { data: user, error } = await sb
       .from('users')
       .select(`
@@ -36,16 +34,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
     }
 
-    // ── Ambil features dari subscription ──────────────────
+    // Ambil features dari subscription
     let features: string[] = [F.DASHBOARD_BASIC]
     let plan_id = 'basic'
     let subscription_valid_until = null
     let is_trial = false
 
     if (user.role === 'superadmin') {
-      // Superadmin dapat semua fitur
       features = Object.values(F)
       plan_id  = 'enterprise'
+    } else if (user.role === 'koni_jabar') {
+      features = [
+        F.WAR_ROOM, F.DASHBOARD_FULL, F.LAPORAN,
+        F.EXPORT_PDF, F.EXPORT_EXCEL, F.SIPA_FULL,
+        F.AI_ANALYTICS, F.AI_NLQ, F.COMMAND_CENTER,
+        F.UNLIMITED_ATLET, F.UNLIMITED_USERS,
+      ]
+      plan_id = 'enterprise'
     } else if (user.kontingen_id) {
       const sub = await getSubscription(user.kontingen_id)
       if (sub && !sub.is_expired) {
@@ -57,7 +62,6 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      // User data
       id:            user.id,
       username:      user.username,
       nama:          user.nama,
@@ -68,8 +72,6 @@ export async function GET(req: NextRequest) {
       kontingen_nama:(user.kontingen as any)?.nama ?? null,
       cabor_id:      user.cabor_id,
       cabor_nama:    (user.cabang_olahraga as any)?.nama ?? null,
-
-      // Subscription
       plan_id,
       features,
       subscription_valid_until,
