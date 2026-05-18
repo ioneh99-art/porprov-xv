@@ -56,7 +56,6 @@ export default function AINLQPage() {
       const res = await fetch('/api/ai-nlq', {
         method: 'POST',
         credentials: 'include',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question,
