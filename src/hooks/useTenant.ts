@@ -1,101 +1,85 @@
-// hooks/useTenant.ts
 'use client'
 import { useState, useEffect } from 'react'
-import { TenantConfig, TenantId, TENANTS, getTenantConfig } from '@/lib/tenants'
 
-const VALID_TENANTS: TenantId[] = ['jabar', 'bekasi', 'bogor', 'depok']
+export type TenantId = string
 
-// Cek apakah user sedang logged in (ada session cookie)
-function isLoggedIn(): boolean {
-  if (typeof window === 'undefined') return false
-  return document.cookie
-    .split('; ')
-    .some(c => c.trim().startsWith('porprov_session='))
+export interface TenantShape {
+  id:          string
+  tenantId:    string
+  setTenantId: (id: string) => void
+  nama:        string
+  namaLengkap: string
+  primary:     string
+  primaryDark: string
+  gradient:    string
+  logoBg:      string
+  logo:        string
+  badge:       string
+  subtitle:    string
 }
 
-function detectTenant(): TenantId {
+const FALLBACK = {
+  nama:        'PORPROV XV',
+  namaLengkap: 'PORPROV XV Jawa Barat 2026',
+  primary:     '#2563eb',
+  primaryDark: '#1d4ed8',
+  gradient:    'linear-gradient(135deg, #020915, #0f172a)',
+  logoBg:      'rgba(37,99,235,0.15)',
+  logo:        '/logos/porprov.png',
+  badge:       '',
+  subtitle:    'Masuk ke portal PORPROV XV',
+}
+
+function getSlug(): string {
   if (typeof window === 'undefined') return 'jabar'
-
-  // 1. Query param — SELALU prioritas tertinggi
   const params = new URLSearchParams(window.location.search)
-  const q = params.get('tenant') as TenantId | null
-  if (q && VALID_TENANTS.includes(q)) {
-    try { localStorage.setItem('tenant_id', q) } catch {}
-    document.cookie = `tenant_id=${q}; path=/; max-age=86400; samesite=lax`
-    return q
-  }
-
-  // ── KUNCI FIX: kalau tidak ada session, jangan baca localStorage ──
-  // Ini mencegah branding tenant lama muncul di halaman login setelah logout
-  if (!isLoggedIn()) {
-    // Bersihkan tenant_id cookie yang mungkin masih tersisa
-    try { localStorage.removeItem('tenant_id') } catch {}
-    document.cookie = 'tenant_id=; path=/; max-age=0; samesite=lax'
-
-    // Baca login_origin untuk tahu halaman login mana yang aktif
-    const loginOrigin = document.cookie
-      .split('; ')
-      .find(c => c.trim().startsWith('login_origin='))
-      ?.split('=')[1]
-
-    // Map login_origin ke tenant
-    const originToTenant: Record<string, TenantId> = {
-      bekasi: 'bekasi',
-      bogor:  'bogor',
-      depok:  'depok',
-      jabar:  'jabar',
-      konida: 'jabar',
-      koni_jabar: 'jabar',
-      superadmin: 'jabar',
-    }
-
-    if (loginOrigin && originToTenant[loginOrigin]) {
-      return originToTenant[loginOrigin]
-    }
-
-    // Tidak ada hint apapun → default jabar
-    return 'jabar'
-  }
-
-  // ── User sedang login → baca tenant dari storage ──────────────
-  // 2. localStorage
-  try {
-    const ls = localStorage.getItem('tenant_id') as TenantId | null
-    if (ls && VALID_TENANTS.includes(ls)) return ls
-  } catch {}
-
-  // 3. Cookie tenant_id
-  const tc = document.cookie
-    .split(';')
-    .find(c => c.trim().startsWith('tenant_id='))
-  if (tc) {
-    const raw = tc.split('=')[1]?.trim() as TenantId
-    if (VALID_TENANTS.includes(raw)) return raw
-  }
-
-  // 4. Hostname
-  return getTenantConfig(window.location.host).id
+  if (params.get('tenant')) return params.get('tenant')!
+  const fromLS = localStorage.getItem('tenant_id')
+  if (fromLS) return fromLS
+  const fromCookie = document.cookie.split('; ')
+    .find(c => c.startsWith('tenant_id='))?.split('=')[1]
+  if (fromCookie) return fromCookie
+  return 'jabar'
 }
 
-export function useTenant(): TenantConfig {
-  const [tenant, setTenant] = useState<TenantConfig>(TENANTS['jabar'])
+export function useTenant(): TenantShape {
+  const [tenantId, setTenantId] = useState<string>('jabar')
+  const [data, setData] = useState(FALLBACK)
 
   useEffect(() => {
-    const id = detectTenant()
-    setTenant(TENANTS[id])
+    const slug = getSlug()
+    setTenantId(slug)
+    if (slug === 'jabar') return
+    fetch(`/api/tenant?slug=${slug}`)
+      .then(r => r.json())
+      .then(t => {
+        if (!t?.id) return
+        setData({
+          nama:        t.nama ?? FALLBACK.nama,
+          namaLengkap: t.tagline ?? t.nama ?? FALLBACK.namaLengkap,
+          primary:     `#${t.color_primary}`,
+          primaryDark: `#${t.color_secondary}`,
+          gradient:    `linear-gradient(135deg, #${t.color_primary}15, #0f172a)`,
+          logoBg:      'rgba(0,0,0,0.2)',
+          logo:        t.logo_url ?? FALLBACK.logo,
+          badge:       t.login_stats?.[0] ? `${t.login_stats[0].value} ${t.login_stats[0].label}` : '',
+          subtitle:    t.login_subtitle ?? FALLBACK.subtitle,
+        })
+      })
+      .catch(() => {})
   }, [])
 
-  return tenant
+  return { id:tenantId, tenantId, setTenantId, ...data }
 }
 
-// Dipanggil saat login berhasil — set tenant untuk sesi ini
-export function setTenantPersist(tenantId: TenantId) {
-  try { localStorage.setItem('tenant_id', tenantId) } catch {}
-  document.cookie = `tenant_id=${tenantId}; path=/; max-age=86400; samesite=lax`
+export function setTenantPersist(id: TenantId) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('tenant_id', id)
+  document.cookie = `tenant_id=${id}; path=/; max-age=${60*60*8}; samesite=lax`
 }
 
-// Dipanggil saat logout — clear semua tenant data
 export function clearTenant() {
-  try { localStorage.removeItem('tenant_id') } catch {}
-  document.cookie = 'tenant_id=; path=/; max-age=0; samesite=lax'
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('tenant_id')
+  document.cookie = 'tenant_id=; path=/; max-age=0'
 }

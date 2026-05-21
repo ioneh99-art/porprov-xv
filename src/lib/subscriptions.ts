@@ -99,7 +99,7 @@ export async function getSubscription(kontingenId: number): Promise<Subscription
 
   // Gabung: pakai subFeatures kalau ada, fallback ke planFeatures
   const baseFeatures = subFeatures.length > 0 ? subFeatures : planFeatures
-  const resolvedFeatures = [...new Set([...baseFeatures, ...featuresAdd])]
+  const resolvedFeatures = Array.from(new Set(baseFeatures.concat(featuresAdd)))
     .filter(f => !featuresRemove.includes(f))
 
   const sub: Subscription = {
@@ -162,7 +162,7 @@ export async function assignPlan(params: {
   const planFeatures = planData?.features ?? []
   const featuresAdd  = params.features_add ?? []
   const featuresRemove = params.features_remove ?? []
-  const resolvedFeatures = [...new Set([...planFeatures, ...featuresAdd])]
+  const resolvedFeatures = Array.from(new Set((planFeatures as string[]).concat(featuresAdd as string[])))
     .filter(f => !featuresRemove.includes(f))
 
   const { error } = await sb.from('subscriptions').insert({

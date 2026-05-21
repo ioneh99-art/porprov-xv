@@ -28,9 +28,9 @@ function recordFail(key: string) {
 function clearAttempts(key: string) { loginAttempts.delete(key) }
 setInterval(() => {
   const now = Date.now()
-  for (const [k, r] of loginAttempts.entries()) {
-    if (now - r.lastAttempt > BLOCK_MS) loginAttempts.delete(k)
-  }
+  loginAttempts.forEach((r, k) => {
+  if (now - r.lastAttempt > BLOCK_MS) loginAttempts.delete(k)
+})
 }, 60 * 60 * 1000)
 
 // ─── Resolve Level ────────────────────────────────────────
