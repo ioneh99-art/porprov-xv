@@ -1,3 +1,5 @@
+//app/konida/layout.tsx
+
 import KonidaSidebar from '@/components/KonidaSidebar'
 import ChatbotWidget from '@/components/ChatbotWidget'
 import { cookies } from 'next/headers'

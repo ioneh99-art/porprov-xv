@@ -1,5 +1,5 @@
 // src/app/api/auth/me/route.ts
-// Update: tambah features dari subscription ke response
+// Fix: tambah plan_id dari enterprise hardcode + session fallback
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -9,6 +9,42 @@ const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
 )
+
+// 10 Enterprise tenant — hardcode premium (subscription superadmin belum jalan)
+const ENTERPRISE_PLAN: Record<string, string> = {
+  'kabbogor':         'premium',
+  'kotabekasi':       'premium',
+  'kabbekasi':        'premium',
+  'kotabandung':      'premium',
+  'kabbandung':       'premium',
+  'kotadepok':        'premium',
+  'kotabogor':        'premium',
+  'kabkarawang':      'premium',
+  'kabbandungbarat':  'premium',
+  'kotacirebon':      'premium',
+}
+
+const KONTINGEN_TO_TENANT: Record<number, string> = {
+  1:  'kabbogor',         2:  'kabsukabumi',      3:  'kabcianjur',
+  4:  'kabbandung',       5:  'kabgarut',          6:  'kabtasikmalaya',
+  7:  'kabciamis',        8:  'kabkuningan',       9:  'kabcirebon',
+  10: 'kabmajalengka',    11: 'kabsumedang',       12: 'kabindramayu',
+  13: 'kabsubang',        14: 'kabpurwakarta',     15: 'kabkarawang',
+  16: 'kabbekasi',        17: 'kabbandungbarat',   18: 'kabpangandaran',
+  19: 'kotabogor',        20: 'kotasukabumi',      21: 'kotabandung',
+  22: 'kotacirebon',      23: 'kotabekasi',        24: 'kotadepok',
+  25: 'kotatasikmalaya',  26: 'kotabanjar',        27: 'kotacimahi',
+}
+
+// Enterprise features set
+const ENTERPRISE_FEATURES = [
+  F.DASHBOARD_BASIC, F.WAR_ROOM, F.DASHBOARD_FULL,
+  F.LAPORAN, F.EXPORT_PDF, F.EXPORT_EXCEL,
+  F.SIPA_FULL, F.AI_ANALYTICS, F.AI_NLQ,
+  F.UNLIMITED_ATLET, 'kualifikasi', 'laporan', 'export_pdf',
+  'sipa_full', 'command_center', 'venue_jadwal',
+  'kesiapan_teknis', 'akomodasi', 'laporan_harian',
+]
 
 export async function GET(req: NextRequest) {
   const sessionCookie = req.cookies.get('porprov_session')?.value
@@ -34,15 +70,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
     }
 
-    // Ambil features dari subscription
-    let features: string[] = [F.DASHBOARD_BASIC]
-    let plan_id = 'basic'
-    let subscription_valid_until = null
-    let is_trial = false
+    // Resolve tenant slug
+    const tenantId = user.kontingen_id
+      ? (KONTINGEN_TO_TENANT[user.kontingen_id] ?? 'jabar')
+      : (user.role === 'superadmin' ? 'superadmin' : 'jabar')
+
+    let features: string[]           = [F.DASHBOARD_BASIC]
+    let plan_id                       = 'basic'
+    let subscription_valid_until: any = null
+    let is_trial                      = false
 
     if (user.role === 'superadmin') {
       features = Object.values(F)
       plan_id  = 'enterprise'
+
     } else if (user.role === 'koni_jabar') {
       features = [
         F.WAR_ROOM, F.DASHBOARD_FULL, F.LAPORAN,
@@ -51,27 +92,37 @@ export async function GET(req: NextRequest) {
         F.UNLIMITED_ATLET, F.UNLIMITED_USERS,
       ]
       plan_id = 'enterprise'
+
+    } else if (ENTERPRISE_PLAN[tenantId]) {
+      // ── Enterprise hardcode — tidak perlu query DB ──
+      plan_id  = ENTERPRISE_PLAN[tenantId]
+      features = ENTERPRISE_FEATURES
+
     } else if (user.kontingen_id) {
-      const sub = await getSubscription(user.kontingen_id)
-      if (sub && !sub.is_expired) {
-        features                 = sub.features
-        plan_id                  = sub.plan_id
-        subscription_valid_until = sub.valid_until
-        is_trial                 = sub.is_trial
-      }
+      // ── Standard/Basic — ambil dari DB subscription ──
+      try {
+        const sub = await getSubscription(user.kontingen_id)
+        if (sub && !sub.is_expired) {
+          features                 = sub.features
+          plan_id                  = sub.plan_id
+          subscription_valid_until = sub.valid_until
+          is_trial                 = sub.is_trial
+        }
+      } catch { /* fallback basic */ }
     }
 
     return NextResponse.json({
-      id:            user.id,
-      username:      user.username,
-      nama:          user.nama,
-      email:         user.email,
-      role:          user.role,
-      level:         user.level,
-      kontingen_id:  user.kontingen_id,
-      kontingen_nama:(user.kontingen as any)?.nama ?? null,
-      cabor_id:      user.cabor_id,
-      cabor_nama:    (user.cabang_olahraga as any)?.nama ?? null,
+      id:                      user.id,
+      username:                user.username,
+      nama:                    user.nama,
+      email:                   user.email,
+      role:                    user.role,
+      level:                   user.level,
+      kontingen_id:            user.kontingen_id,
+      kontingen_nama:          (user.kontingen as any)?.nama ?? null,
+      cabor_id:                user.cabor_id,
+      cabor_nama:              (user.cabang_olahraga as any)?.nama ?? null,
+      tenant_id:               tenantId,
       plan_id,
       features,
       subscription_valid_until,

@@ -1,7 +1,11 @@
-// src/app/api/auth/login/route.ts — FINAL FIXED
+// src/app/api/auth/login/route.ts — FINAL
+// Fix: naming convention kotabekasi/kotabogor/kotadepok
+// Fix: 10 enterprise tenant hardcode premium
+// Fix: getRedirect duplikat case
 
 import { NextRequest, NextResponse } from 'next/server'
 import { loginUser } from '@/lib/auth'
+import { getSubscription } from '@/lib/subscriptions'
 
 // ─── Rate Limiter ─────────────────────────────────────────
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>()
@@ -29,9 +33,51 @@ function clearAttempts(key: string) { loginAttempts.delete(key) }
 setInterval(() => {
   const now = Date.now()
   loginAttempts.forEach((r, k) => {
-  if (now - r.lastAttempt > BLOCK_MS) loginAttempts.delete(k)
-})
+    if (now - r.lastAttempt > BLOCK_MS) loginAttempts.delete(k)
+  })
 }, 60 * 60 * 1000)
+
+// ─── Kontingen ID → Tenant slug (naming FINAL) ────────────
+const KONTINGEN_TO_TENANT: Record<number, string> = {
+  1:  'kabbogor',         2:  'kabsukabumi',      3:  'kabcianjur',
+  4:  'kabbandung',       5:  'kabgarut',          6:  'kabtasikmalaya',
+  7:  'kabciamis',        8:  'kabkuningan',       9:  'kabcirebon',
+  10: 'kabmajalengka',    11: 'kabsumedang',       12: 'kabindramayu',
+  13: 'kabsubang',        14: 'kabpurwakarta',     15: 'kabkarawang',
+  16: 'kabbekasi',        17: 'kabbandungbarat',   18: 'kabpangandaran',
+  19: 'kotabogor',        20: 'kotasukabumi',      21: 'kotabandung',
+  22: 'kotacirebon',      23: 'kotabekasi',        24: 'kotadepok',
+  25: 'kotatasikmalaya',  26: 'kotabanjar',        27: 'kotacimahi',
+}
+
+// ─── 10 Enterprise Tenant — selalu premium ────────────────
+// Subscription superadmin belum jalan → hardcode dulu
+const ENTERPRISE_TENANTS: Record<string, boolean> = {
+  'kabbogor':         true,
+  'kotabekasi':       true,
+  'kabbekasi':        true,
+  'kotabandung':      true,
+  'kabbandung':       true,
+  'kotadepok':        true,
+  'kotabogor':        true,
+  'kabkarawang':      true,
+  'kabbandungbarat':  true,
+  'kotacirebon':      true,
+}
+
+// ─── Dashboard redirect per kontingen (enterprise) ────────
+const ENTERPRISE_DASHBOARD: Record<string, string> = {
+  'kabbogor':         '/konida/dashboard/kabbogor',
+  'kotabekasi':       '/konida/dashboard/kotabekasi',
+  'kabbekasi':        '/konida/dashboard/kabbekasi',
+  'kotabandung':      '/konida/dashboard/kotabandung',
+  'kabbandung':       '/konida/dashboard/kabbandung',
+  'kotadepok':        '/konida/dashboard/kotadepok',
+  'kotabogor':        '/konida/dashboard/kotabogor',
+  'kabkarawang':      '/konida/dashboard/kabkarawang',
+  'kabbandungbarat':  '/konida/dashboard/kabbandungbarat',
+  'kotacirebon':      '/konida/dashboard/kotacirebon',
+}
 
 // ─── Resolve Level ────────────────────────────────────────
 function resolveLevel(user: {
@@ -54,45 +100,67 @@ function resolveLevel(user: {
   return 'level3'
 }
 
-// ─── Redirect per level ───────────────────────────────────
-function getRedirect(level: string, role: string): string {
-  switch (level) {
-    case 'superadmin': return '/superadmin'
-    case 'koni_jabar': return '/dashboard'
-    case 'level1':     return role === 'penyelenggara' ? '/konida/penyelenggara' : '/konida/dashboard/bekasi'
-    case 'level2':     return '/konida/dashboard'          // ← FIX: bukan /konida/dashboard/bogor
-    case 'level3':     return '/konida/dashboard/basic'
-    default:           return '/konida/dashboard/basic'
+// ─── Resolve Plan ─────────────────────────────────────────
+// Hardcode enterprise dulu, fallback ke DB subscription
+async function resolvePlan(
+  kontingenId: number | null | undefined,
+  tenantId: string
+): Promise<string> {
+  // 10 enterprise tenant → selalu premium
+  if (ENTERPRISE_TENANTS[tenantId]) return 'premium'
+
+  // Coba ambil dari DB
+  if (kontingenId) {
+    try {
+      const sub = await getSubscription(kontingenId)
+      if (sub?.plan_id) return sub.plan_id
+    } catch { /* fallback */ }
   }
+
+  return 'basic'
 }
 
-// ─── Login origin → untuk redirect logout ke login yang benar ───
-// Ini menentukan tampilan /login page setelah logout
-function resolveLoginOrigin(level: string, kontingenId?: number | null): string {
+// ─── Redirect ─────────────────────────────────────────────
+function getRedirect(
+  level: string,
+  role: string,
+  tenantId: string,
+  planId: string
+): string {
+  // Superadmin & KONI
+  if (level === 'superadmin') return '/superadmin'
+  if (level === 'koni_jabar') return '/dashboard'
+
+  // Penyelenggara (level1 = kotabekasi)
+  if (level === 'level1') {
+    return role === 'penyelenggara'
+      ? '/konida/penyelenggara'
+      : (ENTERPRISE_DASHBOARD[tenantId] ?? '/konida/dashboard/kotabekasi')
+  }
+
+  // Level2 (kotabogor, kotadepok sebelum jadi enterprise)
+  if (level === 'level2') {
+    return ENTERPRISE_DASHBOARD[tenantId] ?? '/konida/dashboard'
+  }
+
+  // Level3 — cek enterprise dulu
+  if (ENTERPRISE_DASHBOARD[tenantId]) {
+    return ENTERPRISE_DASHBOARD[tenantId]
+  }
+
+  // Premium generic
+  if (planId === 'premium' || planId === 'enterprise') {
+    return '/konida/dashboard/premium'
+  }
+
+  return '/konida/dashboard/basic'
+}
+
+// ─── Login origin ─────────────────────────────────────────
+function resolveLoginOrigin(tenantId: string, level: string): string {
   if (level === 'superadmin') return 'superadmin'
   if (level === 'koni_jabar') return 'jabar'
-
-  if (kontingenId) {
-    // Bekasi = 23 → login/bekasi
-    if (kontingenId === 23) return 'bekasi'
-    // Bogor = 19 → login/bogor (ada foldernya)
-    if (kontingenId === 19) return 'bogor'
-    // Depok = 24 → login/depok (ada foldernya)
-    if (kontingenId === 24) return 'depok'
-  }
-
-  // Semua lainnya → /login (LoginJabar default)
-  return 'jabar'
-}
-
-// ─── Tenant ID untuk sidebar branding ─────────────────────
-// useTenant di sidebar baca ini untuk tampilan warna/logo
-function resolveTenantId(kontingenId?: number | null, role?: string): string {
-  if (role === 'superadmin' || role === 'koni_jabar') return 'jabar'
-  if (kontingenId === 23) return 'bekasi'
-  if (kontingenId === 19) return 'bogor'
-  if (kontingenId === 24) return 'depok'
-  return 'jabar'
+  return tenantId || 'jabar'
 }
 
 // ─── POST ─────────────────────────────────────────────────
@@ -123,40 +191,60 @@ export async function POST(req: NextRequest) {
   }
   clearAttempts(key)
 
-  const userLevel   = resolveLevel({ role: user.role, level: user.level, kontingen_id: user.kontingen_id })
-  const loginOrigin = resolveLoginOrigin(userLevel, user.kontingen_id)
-  const tenantId    = resolveTenantId(user.kontingen_id, user.role)
-  const redirect    = getRedirect(userLevel, user.role)
+  const userLevel = resolveLevel({
+    role: user.role, level: user.level, kontingen_id: user.kontingen_id
+  })
+
+  const tenantId = (() => {
+    if (user.role === 'superadmin') return 'superadmin'
+    if (user.role === 'koni_jabar') return 'jabar'
+    return (user.kontingen_id ? KONTINGEN_TO_TENANT[user.kontingen_id] : null) ?? 'jabar'
+  })()
+
+  // Resolve plan — enterprise hardcode premium
+  const planId = await resolvePlan(user.kontingen_id, tenantId)
+
+  const loginOrigin = resolveLoginOrigin(tenantId, userLevel)
+  const redirect    = getRedirect(userLevel, user.role, tenantId, planId)
 
   if (process.env.NODE_ENV === 'development') {
     console.log('[login]', {
-      username: user.username, role: user.role,
-      level_db: user.level, kontingen_id: user.kontingen_id,
-      resolved_level: userLevel, redirect,
-      login_origin: loginOrigin, tenant_id: tenantId,
+      username:       user.username,
+      role:           user.role,
+      kontingen_id:   user.kontingen_id,
+      tenant_id:      tenantId,
+      plan_id:        planId,
+      level:          userLevel,
+      redirect,
+      login_origin:   loginOrigin,
+      is_enterprise:  ENTERPRISE_TENANTS[tenantId] ?? false,
     })
   }
 
   const sessionData = JSON.stringify({
-    id: user.id, username: user.username, nama: user.nama,
-    role: user.role, kontingen_id: user.kontingen_id,
-    cabor_id: user.cabor_id, level: userLevel,
+    id:           user.id,
+    username:     user.username,
+    nama:         user.nama,
+    role:         user.role,
+    kontingen_id: user.kontingen_id,
+    cabor_id:     user.cabor_id,
+    level:        userLevel,
+    plan_id:      planId,
   })
 
   const secure   = process.env.NODE_ENV === 'production'
-  const httpOnly = { httpOnly: true, secure, sameSite: 'lax' as const, maxAge: 60*60*8, path: '/' }
-  const client   = { secure, sameSite: 'lax' as const, maxAge: 60*60*8, path: '/' }
-  const persist  = { secure, sameSite: 'lax' as const, maxAge: 60*60*24*30, path: '/' }
+  const httpOnly = { httpOnly: true, secure, sameSite: 'lax' as const, maxAge: 60*60*8,      path: '/' }
+  const client   = {               secure, sameSite: 'lax' as const, maxAge: 60*60*8,      path: '/' }
+  const persist  = {               secure, sameSite: 'lax' as const, maxAge: 60*60*24*30,  path: '/' }
 
-  const res = NextResponse.json({ ok: true, redirect, level: userLevel, login_origin: loginOrigin })
+  const res = NextResponse.json({
+    ok: true, redirect, level: userLevel, login_origin: loginOrigin, plan_id: planId
+  })
 
-  // httpOnly cookies (tidak bisa dibaca JS)
-  res.cookies.set('porprov_session', sessionData, httpOnly)
-  res.cookies.set('user_level',      userLevel,   client)
-
-  // Client-readable cookies (dibaca useTenant & getLoginFromCookie)
-  res.cookies.set('tenant_id',    tenantId,    client)   // ← sidebar branding
-  res.cookies.set('login_origin', loginOrigin, persist)  // ← logout redirect
+  res.cookies.set('porprov_session', sessionData,   httpOnly)
+  res.cookies.set('user_level',      userLevel,     client)
+  res.cookies.set('tenant_id',       tenantId,      client)
+  res.cookies.set('login_origin',    loginOrigin,   persist)
 
   return res
 }

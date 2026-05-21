@@ -10,51 +10,67 @@ import {
 import { useEffect, useState } from 'react'
 
 const TENANT_COLORS: Record<string, { primary: string; dark: string; nama: string }> = {
-  // Penyelenggara & Standard/Premium
-  bekasi:          { primary: '#E84E0F', dark: '#c43d0a', nama: 'Kota Bekasi'        },
-  bogor:           { primary: '#16a34a', dark: '#15803d', nama: 'Kota Bogor'          },
-  depok:           { primary: '#7c3aed', dark: '#6d28d9', nama: 'Kota Depok'          },
-  kabbogor:        { primary: '#065f46', dark: '#047857', nama: 'Kab. Bogor'          },
-  kabbekasi:       { primary: '#1B6EC2', dark: '#0F4F8F', nama: 'Kab. Bekasi'         },
-  bandung:         { primary: '#2563eb', dark: '#1d4ed8', nama: 'Kota Bandung'        },
-  kabbandung:      { primary: '#0369a1', dark: '#075985', nama: 'Kab. Bandung'        },
-  // Basic
-  kabsukabumi:     { primary: '#b45309', dark: '#92400e', nama: 'Kab. Sukabumi'       },
-  sukabumi:        { primary: '#dc2626', dark: '#b91c1c', nama: 'Kota Sukabumi'       },
-  kabcianjur:      { primary: '#0891b2', dark: '#0e7490', nama: 'Kab. Cianjur'        },
-  kabgarut:        { primary: '#15803d', dark: '#166534', nama: 'Kab. Garut'          },
-  kabtasikmalaya:  { primary: '#7e22ce', dark: '#6b21a8', nama: 'Kab. Tasikmalaya'    },
-  kabciamis:       { primary: '#9a3412', dark: '#7c2d12', nama: 'Kab. Ciamis'         },
-  kabkuningan:     { primary: '#166534', dark: '#14532d', nama: 'Kab. Kuningan'       },
-  kabcirebon:      { primary: '#b45309', dark: '#92400e', nama: 'Kab. Cirebon'        },
-  kabmajalengka:   { primary: '#0f766e', dark: '#0d9488', nama: 'Kab. Majalengka'     },
-  kabsumedang:     { primary: '#1d4ed8', dark: '#1e40af', nama: 'Kab. Sumedang'       },
-  kabindramayu:    { primary: '#b45309', dark: '#92400e', nama: 'Kab. Indramayu'      },
-  kabsubang:       { primary: '#0369a1', dark: '#075985', nama: 'Kab. Subang'         },
-  kabpurwakarta:   { primary: '#7c3aed', dark: '#6d28d9', nama: 'Kab. Purwakarta'     },
-  kabkarawang:     { primary: '#dc2626', dark: '#b91c1c', nama: 'Kab. Karawang'       },
-  kabbandungbarat: { primary: '#0891b2', dark: '#0e7490', nama: 'Kab. Bandung Barat'  },
-  kabpangandaran:  { primary: '#065f46', dark: '#047857', nama: 'Kab. Pangandaran'    },
-  cirebon:         { primary: '#ca8a04', dark: '#a16207', nama: 'Kota Cirebon'        },
-  tasikmalaya:     { primary: '#9333ea', dark: '#7e22ce', nama: 'Kota Tasikmalaya'    },
-  cimahi:          { primary: '#0369a1', dark: '#075985', nama: 'Kota Cimahi'         },
-  banjar:          { primary: '#15803d', dark: '#166534', nama: 'Kota Banjar'         },
-  // KONI & Admin
-  jabar:           { primary: '#2563eb', dark: '#1d4ed8', nama: 'KONI Jabar'          },
-  superadmin:      { primary: '#ef4444', dark: '#dc2626', nama: 'Super Admin'         },
+  kabbogor:       { primary: '#065f46', dark: '#047857', nama: 'Kab. Bogor'          },
+  kotabekasi:     { primary: '#E84E0F', dark: '#c43d0a', nama: 'Kota Bekasi'         },
+  kabbekasi:      { primary: '#1B6EC2', dark: '#0F4F8F', nama: 'Kab. Bekasi'         },
+  kotabandung:    { primary: '#2563eb', dark: '#1d4ed8', nama: 'Kota Bandung'        },
+  kabbandung:     { primary: '#0369a1', dark: '#075985', nama: 'Kab. Bandung'        },
+  kotadepok:      { primary: '#7c3aed', dark: '#6d28d9', nama: 'Kota Depok'          },
+  kotabogor:      { primary: '#16a34a', dark: '#15803d', nama: 'Kota Bogor'          },
+  kabkarawang:    { primary: '#dc2626', dark: '#b91c1c', nama: 'Kab. Karawang'       },
+  kabbandungbarat:{ primary: '#0891b2', dark: '#0e7490', nama: 'Kab. Bandung Barat'  },
+  kotacirebon:    { primary: '#ca8a04', dark: '#a16207', nama: 'Kota Cirebon'        },
+  kabsukabumi:    { primary: '#b45309', dark: '#92400e', nama: 'Kab. Sukabumi'       },
+  kotasukabumi:   { primary: '#dc2626', dark: '#b91c1c', nama: 'Kota Sukabumi'       },
+  kabcianjur:     { primary: '#0891b2', dark: '#0e7490', nama: 'Kab. Cianjur'        },
+  kabgarut:       { primary: '#15803d', dark: '#166534', nama: 'Kab. Garut'          },
+  kabtasikmalaya: { primary: '#7e22ce', dark: '#6b21a8', nama: 'Kab. Tasikmalaya'    },
+  kabciamis:      { primary: '#9a3412', dark: '#7c2d12', nama: 'Kab. Ciamis'         },
+  kabkuningan:    { primary: '#166534', dark: '#14532d', nama: 'Kab. Kuningan'       },
+  kabcirebon:     { primary: '#b45309', dark: '#92400e', nama: 'Kab. Cirebon'        },
+  kabmajalengka:  { primary: '#0f766e', dark: '#0d9488', nama: 'Kab. Majalengka'     },
+  kabsumedang:    { primary: '#1d4ed8', dark: '#1e40af', nama: 'Kab. Sumedang'       },
+  kabindramayu:   { primary: '#b45309', dark: '#92400e', nama: 'Kab. Indramayu'      },
+  kabsubang:      { primary: '#0369a1', dark: '#075985', nama: 'Kab. Subang'         },
+  kabpurwakarta:  { primary: '#7c3aed', dark: '#6d28d9', nama: 'Kab. Purwakarta'     },
+  kabpangandaran: { primary: '#065f46', dark: '#047857', nama: 'Kab. Pangandaran'    },
+  kotatasikmalaya:{ primary: '#9333ea', dark: '#7e22ce', nama: 'Kota Tasikmalaya'    },
+  kotacimahi:     { primary: '#0369a1', dark: '#075985', nama: 'Kota Cimahi'         },
+  kotabanjar:     { primary: '#15803d', dark: '#166534', nama: 'Kota Banjar'         },
+  jabar:          { primary: '#2563eb', dark: '#1d4ed8', nama: 'KONI Jabar'          },
+  superadmin:     { primary: '#ef4444', dark: '#dc2626', nama: 'Super Admin'         },
 }
 
-// Map kontingen_id → tenant slug
 const KONTINGEN_TO_TENANT: Record<number, string> = {
-  1:  'kabbogor',       2:  'kabsukabumi',    3:  'kabcianjur',
-  4:  'kabbandung',     5:  'kabgarut',       6:  'kabtasikmalaya',
-  7:  'kabciamis',      8:  'kabkuningan',    9:  'kabcirebon',
-  10: 'kabmajalengka',  11: 'kabsumedang',    12: 'kabindramayu',
-  13: 'kabsubang',      14: 'kabpurwakarta',  15: 'kabkarawang',
-  16: 'kabbekasi',      17: 'kabbandungbarat',18: 'kabpangandaran',
-  19: 'bogor',          20: 'sukabumi',       21: 'bandung',
-  22: 'cirebon',        23: 'bekasi',         24: 'depok',
-  25: 'tasikmalaya',    26: 'banjar',         27: 'cimahi',
+  1:  'kabbogor',        2:  'kabsukabumi',     3:  'kabcianjur',
+  4:  'kabbandung',      5:  'kabgarut',        6:  'kabtasikmalaya',
+  7:  'kabciamis',       8:  'kabkuningan',     9:  'kabcirebon',
+  10: 'kabmajalengka',   11: 'kabsumedang',     12: 'kabindramayu',
+  13: 'kabsubang',       14: 'kabpurwakarta',   15: 'kabkarawang',
+  16: 'kabbekasi',       17: 'kabbandungbarat', 18: 'kabpangandaran',
+  19: 'kotabogor',       20: 'kotasukabumi',    21: 'kotabandung',
+  22: 'kotacirebon',     23: 'kotabekasi',      24: 'kotadepok',
+  25: 'kotatasikmalaya', 26: 'kotabanjar',      27: 'kotacimahi',
+}
+
+const ENTERPRISE_TENANTS = [
+  'kabbogor', 'kotabekasi', 'kabbekasi', 'kotabandung', 'kabbandung',
+  'kotadepok', 'kotabogor', 'kabkarawang', 'kabbandungbarat', 'kotacirebon',
+]
+
+// ── Halaman yang TIDAK pakai subfolder (universal) ────────
+const UNIVERSAL_PAGES = [
+  '/konida/sipa',      // ← SIPA selalu universal, cegah double mount
+  '/konida/profil',    // ← profil universal
+]
+
+function tp(base: string, tenantId: string): string {
+  // Halaman universal → tidak pakai subfolder
+  if (UNIVERSAL_PAGES.includes(base)) return base
+  // Enterprise → custom subfolder
+  return ENTERPRISE_TENANTS.includes(tenantId)
+    ? `${base}/${tenantId}`
+    : base
 }
 
 function getCookieVal(name: string): string {
@@ -62,25 +78,18 @@ function getCookieVal(name: string): string {
   return document.cookie.split('; ').find(c => c.startsWith(`${name}=`))?.split('=')[1] ?? ''
 }
 
-function getLoginTarget(): string {
+function getLoginTarget(tenantId: string): string {
   if (typeof window === 'undefined') return '/login'
   const map: Record<string, string> = {
-    bekasi:     '/login/bekasi',
-    bogor:      '/login/bogor',
-    depok:      '/login/depok',
-    kabbogor:   '/login/kabbogor',
-    kabbekasi:  '/login/kabbekasi',
+    kotabekasi: '/login/kotabekasi', kabbogor:    '/login/kabbogor',
+    kabbekasi:  '/login/kabbekasi',  kotabandung: '/login/kotabandung',
+    kotadepok:  '/login/kotadepok',  kotabogor:   '/login/kotabogor',
     superadmin: '/login/superadmin',
-    jabar:      '/login',
-    konida:     '/login',
-    koni_jabar: '/login',
   }
-  return map[getCookieVal('login_origin')] ?? '/login'
+  return map[tenantId] ?? '/login'
 }
 
-function LockedNavItem({ label, icon: Icon, plan }: {
-  label: string; icon: any; plan: string
-}) {
+function LockedNavItem({ label, icon: Icon, plan }: { label: string; icon: any; plan: string }) {
   return (
     <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 cursor-not-allowed opacity-40 relative group">
       <Icon size={16} className="text-slate-600"/>
@@ -98,13 +107,13 @@ function LockedNavItem({ label, icon: Icon, plan }: {
 export default function KonidaSidebar() {
   const pathname = usePathname()
   const router   = useRouter()
-  const [user, setUser]           = useState<any>(null)
-  const [features, setFeatures]   = useState<string[]>([])
-  const [planId, setPlanId]       = useState<string>('basic')
-  const [counts, setCounts]       = useState<Record<string, number>>({})
+  const [user,      setUser]      = useState<any>(null)
+  const [features,  setFeatures]  = useState<string[]>([])
+  const [planId,    setPlanId]    = useState<string>('basic')
+  const [counts,    setCounts]    = useState<Record<string, number>>({})
   const [userLevel, setUserLevel] = useState<string>('level3')
-  const [tenantId, setTenantId]   = useState<string>('jabar')
-  const [mounted, setMounted]     = useState(false)
+  const [tenantId,  setTenantId]  = useState<string>('jabar')
+  const [mounted,   setMounted]   = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -123,8 +132,6 @@ export default function KonidaSidebar() {
         const cookieLvl = getCookieVal('user_level')
         const cookieTid = getCookieVal('tenant_id')
         setUserLevel(cookieLvl || data?.level || 'level3')
-
-        // ── Resolve tenant dari kontingen_id jika cookie tidak ada ──
         const resolvedTenant =
           cookieTid ||
           (data?.kontingen_id ? KONTINGEN_TO_TENANT[data.kontingen_id as number] : null) ||
@@ -132,7 +139,6 @@ export default function KonidaSidebar() {
           (data?.role === 'superadmin' ? 'superadmin' : null) ||
           'jabar'
         setTenantId(resolvedTenant)
-
         if (data?.kontingen_id) {
           fetch(`/api/notifications?role=konida&kontingen_id=${data.kontingen_id}`)
             .then(r => r.json()).then(setCounts).catch(() => {})
@@ -152,37 +158,38 @@ export default function KonidaSidebar() {
   const can = (f: string) => features.includes(f)
   const tc  = TENANT_COLORS[tenantId] ?? TENANT_COLORS.jabar
 
-  // Penyelenggara = bekasi, bogor, depok (hardcoded 3 kota)
-  // Premium non-penyelenggara = punya fitur war_room tapi bukan 3 kota di atas
-  const isPenyelenggara     = ['bekasi', 'bogor', 'depok'].includes(tenantId)
-  const isPremiumNonPenye   = !isPenyelenggara && (planId === 'premium' || planId === 'enterprise')
-
-  const planLabel: Record<string, string> = {
-    basic:'Basic', standard:'Standard', premium:'Premium', enterprise:'Enterprise'
-  }
+  const isPenyelenggara   = ['kotabekasi', 'kotabogor', 'kotadepok'].includes(tenantId)
+  const isPremiumNonPenye = !isPenyelenggara && (planId === 'premium' || planId === 'enterprise')
+  const isEnterprise      = ENTERPRISE_TENANTS.includes(tenantId)
 
   const handleLogout = async () => {
     try {
       document.cookie = 'tenant_id=; path=/; max-age=0'
       document.cookie = 'user_level=; path=/; max-age=0'
       localStorage.removeItem('tenant_id')
-      const res  = await fetch('/api/auth/logout', { method:'POST' })
+      const res  = await fetch('/api/auth/logout', { method: 'POST' })
       const data = await res.json()
-      router.push(data?.redirect ?? getLoginTarget())
+      router.push(data?.redirect ?? getLoginTarget(tenantId))
       router.refresh()
-    } catch { router.push(getLoginTarget()) }
+    } catch { router.push(getLoginTarget(tenantId)) }
   }
 
   const dashboardHref =
-    tenantId === 'bekasi'        ? '/konida/dashboard/bekasi'
-    : tenantId === 'kabbogor'    ? '/konida/dashboard/kabbogor'
-    : tenantId === 'kabbekasi'   ? '/konida/dashboard/kabbekasi'
-    : tenantId === 'bandung'     ? '/konida/dashboard/premium'
-    : isPremiumNonPenye          ? '/konida/dashboard/premium'
-    : userLevel === 'level1'     ? '/konida/dashboard/bekasi'
-    : userLevel === 'level2'     ? '/konida/dashboard'
-    : userLevel === 'koni_jabar' ? '/dashboard'
-    : userLevel === 'superadmin' ? '/superadmin'
+    tenantId === 'kotabekasi'       ? '/konida/dashboard/kotabekasi'
+    : tenantId === 'kabbogor'       ? '/konida/dashboard/kabbogor'
+    : tenantId === 'kabbekasi'      ? '/konida/dashboard/kabbekasi'
+    : tenantId === 'kotabandung'    ? '/konida/dashboard/kotabandung'
+    : tenantId === 'kabbandung'     ? '/konida/dashboard/kabbandung'
+    : tenantId === 'kotadepok'      ? '/konida/dashboard/kotadepok'
+    : tenantId === 'kotabogor'      ? '/konida/dashboard/kotabogor'
+    : tenantId === 'kabkarawang'    ? '/konida/dashboard/kabkarawang'
+    : tenantId === 'kabbandungbarat'? '/konida/dashboard/kabbandungbarat'
+    : tenantId === 'kotacirebon'    ? '/konida/dashboard/kotacirebon'
+    : userLevel === 'level1'        ? '/konida/dashboard/kotabekasi'
+    : isPremiumNonPenye             ? '/konida/dashboard/premium'
+    : userLevel === 'level2'        ? '/konida/dashboard'
+    : userLevel === 'koni_jabar'    ? '/dashboard'
+    : userLevel === 'superadmin'    ? '/superadmin'
     : '/konida/dashboard/basic'
 
   const NavItem = ({ label, href, icon: Icon, notif }: {
@@ -194,7 +201,7 @@ export default function KonidaSidebar() {
         className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
           active ? 'text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
         }`}
-        style={active ? { background:`${tc.primary}20`, color:tc.primary } : {}}>
+        style={active ? { background: `${tc.primary}20`, color: tc.primary } : {}}>
         <Icon size={16}/>
         <span className="flex-1">{label}</span>
         {(notif ?? 0) > 0 && (
@@ -218,8 +225,8 @@ export default function KonidaSidebar() {
       <div className="px-5 py-4 border-b border-slate-800">
         <div className="flex items-center gap-2.5 mb-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-            style={{ background:`linear-gradient(135deg,${tc.primary},${tc.dark})` }}>
-            {tc.nama.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+            style={{ background: `linear-gradient(135deg,${tc.primary},${tc.dark})` }}>
+            {tc.nama.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0">
             <div suppressHydrationWarning className="text-white font-semibold text-xs truncate">
@@ -232,21 +239,28 @@ export default function KonidaSidebar() {
         <div className="flex items-center gap-2 flex-wrap">
           <span suppressHydrationWarning
             className="inline-block text-[9px] px-2 py-0.5 rounded font-semibold tracking-wider border"
-            style={{ background:`${tc.primary}20`, color:tc.primary, borderColor:`${tc.primary}40` }}>
+            style={{ background: `${tc.primary}20`, color: tc.primary, borderColor: `${tc.primary}40` }}>
             {!mounted ? 'KONIDA'
-              : userLevel === 'superadmin'   ? '⚡ SA'
-              : userLevel === 'koni_jabar'   ? '🏛️ KONI Jabar'
-              : userLevel === 'level1'       ? '🥇 Gold'
-              : userLevel === 'level2'       ? '🥈 Silver'
+              : userLevel === 'superadmin' ? '⚡ SA'
+              : userLevel === 'koni_jabar' ? '🏛️ KONI Jabar'
+              : userLevel === 'level1'     ? '🥇 Gold'
+              : userLevel === 'level2'     ? '🥈 Silver'
               : 'KONIDA'}
           </span>
           {mounted && planId && (
             <span className="inline-block text-[9px] px-2 py-0.5 rounded font-semibold"
               style={{
-                background: planId==='premium'||planId==='enterprise' ? 'rgba(245,197,24,0.15)' : 'rgba(100,116,139,0.15)',
-                color: planId==='premium'||planId==='enterprise' ? '#F5C518' : '#64748b',
+                background: planId === 'premium' || planId === 'enterprise'
+                  ? 'rgba(245,197,24,0.15)' : 'rgba(100,116,139,0.15)',
+                color: planId === 'premium' || planId === 'enterprise' ? '#F5C518' : '#64748b',
               }}>
-              {planId==='basic'?'🏅':planId==='standard'?'🥈':planId==='premium'?'🥇':'⚡'} {planId}
+              {planId === 'basic' ? '🏅' : planId === 'standard' ? '🥈' : planId === 'premium' ? '🥇' : '⚡'} {planId}
+            </span>
+          )}
+          {mounted && isEnterprise && (
+            <span className="inline-block text-[9px] px-2 py-0.5 rounded font-semibold"
+              style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
+              ◆ Enterprise
             </span>
           )}
           {(counts.total ?? 0) > 0 && (
@@ -274,26 +288,26 @@ export default function KonidaSidebar() {
       <nav className="flex-1 px-3 pt-3 overflow-y-auto space-y-0.5">
         <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
 
-        <NavItem label="Dashboard" href={dashboardHref} icon={LayoutDashboard}/>
-        <NavItem label="Atlet" href="/konida/atlet" icon={Users}/>
+        <NavItem label="Dashboard"       href={dashboardHref}                      icon={LayoutDashboard}/>
+        <NavItem label="Atlet"           href={tp('/konida/atlet', tenantId)}       icon={Users}/>
 
         {can('kualifikasi')
-          ? <NavItem label="Kualifikasi" href="/konida/kualifikasi" icon={ClipboardCheck}/>
+          ? <NavItem label="Kualifikasi" href={tp('/konida/kualifikasi', tenantId)} icon={ClipboardCheck}/>
           : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
         }
 
-        <NavItem label="Kejuaraan Atlet" href="/konida/kejuaraan" icon={Trophy} notif={counts.kejuaraan ?? 0}/>
+        <NavItem label="Kejuaraan Atlet" href={tp('/konida/kejuaraan', tenantId)}   icon={Trophy} notif={counts.kejuaraan ?? 0}/>
 
         {can('laporan')
-          ? <NavItem label="Laporan" href="/konida/laporan" icon={BarChart2}/>
+          ? <NavItem label="Laporan"     href={tp('/konida/laporan', tenantId)}     icon={BarChart2}/>
           : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
         }
 
         {can('export_pdf') && (
-          <NavItem label="Export PDF" href="/konida/export" icon={Download}/>
+          <NavItem label="Export PDF"    href={tp('/konida/export', tenantId)}      icon={Download}/>
         )}
 
-        {/* SIPA — premium+ */}
+        {/* SIPA — selalu /konida/sipa (universal) */}
         <>
           <div className="h-px bg-slate-800 my-3"/>
           <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">AI</div>
@@ -303,22 +317,22 @@ export default function KonidaSidebar() {
           }
         </>
 
-        {/* Penyelenggara — khusus 3 kota (bekasi/bogor/depok) */}
+        {/* Penyelenggara */}
         {isPenyelenggara && (
           <>
             <div className="h-px bg-slate-800 my-3"/>
             <div className="flex items-center gap-1.5 px-2 mb-2">
-              <Building2 size={10} style={{ color:tc.primary }}/>
-              <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color:tc.primary }}>
+              <Building2 size={10} style={{ color: tc.primary }}/>
+              <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: tc.primary }}>
                 Penyelenggara
               </span>
             </div>
             {can('command_center')
-              ? <NavItem label="Command Center"  href="/konida/penyelenggara"           icon={Monitor}    />
+              ? <NavItem label="Command Center"  href="/konida/penyelenggara"           icon={Monitor}/>
               : <LockedNavItem label="Command Center" icon={Monitor} plan="Premium"/>
             }
             {can('venue_jadwal')
-              ? <NavItem label="Venue & Jadwal"  href="/konida/penyelenggara/venue"     icon={MapPin}     />
+              ? <NavItem label="Venue & Jadwal"  href="/konida/penyelenggara/venue"     icon={MapPin}/>
               : <LockedNavItem label="Venue & Jadwal" icon={MapPin} plan="Premium"/>
             }
             {can('kesiapan_teknis')
@@ -326,17 +340,17 @@ export default function KonidaSidebar() {
               : <LockedNavItem label="Kesiapan Teknis" icon={CheckSquare} plan="Premium"/>
             }
             {can('akomodasi')
-              ? <NavItem label="Akomodasi Tamu"  href="/konida/penyelenggara/akomodasi" icon={Hotel}      />
+              ? <NavItem label="Akomodasi Tamu"  href="/konida/penyelenggara/akomodasi" icon={Hotel}/>
               : <LockedNavItem label="Akomodasi Tamu" icon={Hotel} plan="Premium"/>
             }
             {can('laporan_harian')
-              ? <NavItem label="Laporan Harian"  href="/konida/penyelenggara/laporan"   icon={FileText}   />
+              ? <NavItem label="Laporan Harian"  href="/konida/penyelenggara/laporan"   icon={FileText}/>
               : <LockedNavItem label="Laporan Harian" icon={FileText} plan="Premium"/>
             }
           </>
         )}
 
-        {/* Premium non-penyelenggara — section khusus */}
+        {/* Premium non-penyelenggara */}
         {isPremiumNonPenye && (
           <>
             <div className="h-px bg-slate-800 my-3"/>
@@ -346,13 +360,13 @@ export default function KonidaSidebar() {
                 Premium
               </span>
             </div>
-            <NavItem label="War Room"       href="/konida/dashboard/premium"    icon={Monitor}   />
-            <NavItem label="Laporan Harian" href="/konida/laporan/harian"       icon={FileText}  />
-            <NavItem label="Export PDF"     href="/konida/export"               icon={Download}  />
+            <NavItem label="War Room"       href="/konida/dashboard/premium" icon={Monitor}/>
+            <NavItem label="Laporan Harian" href="/konida/laporan/harian"    icon={FileText}/>
+            <NavItem label="Export PDF"     href="/konida/export"            icon={Download}/>
           </>
         )}
 
-        {/* Superadmin shortcut */}
+        {/* Superadmin */}
         {userLevel === 'superadmin' && (
           <>
             <div className="h-px bg-slate-800 my-3"/>

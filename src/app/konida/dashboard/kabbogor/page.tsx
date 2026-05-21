@@ -1,767 +1,484 @@
 'use client'
 // src/app/konida/dashboard/kabbogor/page.tsx
-// War Room Kab. Bogor — "Tegar Beriman" Premium Dashboard
-// Aesthetic: Luxury Dark Forest — deep emerald + gold accents, editorial layout
+// War Dashboard Kab. Bandung v8 — Triage 10 Limit & Pelaporan Space
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Map as LeafletMap } from 'leaflet'
+import { createClient } from '@supabase/supabase-js'
 import {
-  Activity, AlertTriangle, Award, BarChart2,
-  Building2, CheckCircle, Clock, Medal,
-  Navigation, RefreshCw, Shield, Sparkles,
-  Target, TrendingDown, TrendingUp,
-  Users, Wifi, X, Zap, ChevronRight,
-  Leaf, Mountain, Star, Trophy,
+  CheckCircle, Clock, Search, X, Globe, ShieldAlert, 
+  Map, Zap, Info, Target, Loader2, FileWarning, 
+  ChevronDown, ChevronUp, FileText, Package, Flame, ChevronRight, TrendingDown
 } from 'lucide-react'
 
-// ─── Types ────────────────────────────────────────────────
+// ── INISIALISASI SUPABASE ────────────────────────────────
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+// ── Types ────────────────────────────────────────────────
 type PrediksiStatus = 'kuat' | 'sedang' | 'risiko'
-type VenueStatus    = 'aktif' | 'siap' | 'masalah' | 'standby' | 'selesai'
 
-interface CaborWarRoom {
-  id: number; nama: string; singkatan: string
-  total_atlet: number; lolos_kual: number
-  medali_emas: number; medali_perak: number; medali_perunggu: number; target_emas: number
-  jadwal_hari_ini: number; laga_live: number
-  prediksi: PrediksiStatus; trend: 'up' | 'down' | 'stable'
-  top_atlet: string; status_kesiapan: number
-  alert?: string
-}
-interface VenuePoint {
-  id: number; nama: string; alamat: string
-  lat: number; lng: number; status: VenueStatus
-  cabor: string; atlet_hadir: number; kapasitas: number
-  laga_aktif: number; petugas: number
-}
-interface LiveEvent {
-  id: number; cabor: string; nomor: string
-  atlet: string; venue: string; jam: string
-  status: 'live' | 'soon' | 'done'; hasil?: string
-}
-interface AlertItem {
-  id: number; tipe: 'warning' | 'info' | 'success'
-  pesan: string; waktu: string; venue?: string
+interface CaborData {
+  id: number; nama: string; kode: string
+  total_atlet: number; avg_umur: number
+  verified: number; pending: number
+  cabutan: number; lokal: number;
+  emas: number; target: number; prediksi: PrediksiStatus
 }
 
-// ─── Mock Data Kab. Bogor ─────────────────────────────────
-const MOCK_CABORS: CaborWarRoom[] = [
-  { id:1, nama:'Atletik',      singkatan:'ATL', total_atlet:42, lolos_kual:39, medali_emas:4, medali_perak:3, medali_perunggu:2, target_emas:6, jadwal_hari_ini:6, laga_live:3, prediksi:'kuat',   trend:'up',     top_atlet:'Deni Firmansyah', status_kesiapan:94 },
-  { id:2, nama:'Renang',       singkatan:'RNG', total_atlet:28, lolos_kual:26, medali_emas:3, medali_perak:2, medali_perunggu:3, target_emas:5, jadwal_hari_ini:4, laga_live:2, prediksi:'kuat',   trend:'up',     top_atlet:'Putri Ayu',      status_kesiapan:91 },
-  { id:3, nama:'Pencak Silat', singkatan:'SIL', total_atlet:26, lolos_kual:24, medali_emas:3, medali_perak:2, medali_perunggu:1, target_emas:4, jadwal_hari_ini:3, laga_live:1, prediksi:'kuat',   trend:'up',     top_atlet:'Hendra Kurnia',  status_kesiapan:88 },
-  { id:4, nama:'Bulu Tangkis', singkatan:'BT',  total_atlet:20, lolos_kual:18, medali_emas:2, medali_perak:2, medali_perunggu:2, target_emas:3, jadwal_hari_ini:2, laga_live:1, prediksi:'kuat',   trend:'stable', top_atlet:'Reza Maulana',   status_kesiapan:86 },
-  { id:5, nama:'Karate',       singkatan:'KRT', total_atlet:18, lolos_kual:16, medali_emas:2, medali_perak:1, medali_perunggu:2, target_emas:3, jadwal_hari_ini:2, laga_live:0, prediksi:'kuat',   trend:'up',     top_atlet:'Sri Wahyuni',    status_kesiapan:90 },
-  { id:6, nama:'Taekwondo',    singkatan:'TKD', total_atlet:16, lolos_kual:14, medali_emas:1, medali_perak:3, medali_perunggu:2, target_emas:3, jadwal_hari_ini:2, laga_live:1, prediksi:'sedang', trend:'up',     top_atlet:'Andi Saputra',   status_kesiapan:82 },
-  { id:7, nama:'Voli',         singkatan:'VOL', total_atlet:24, lolos_kual:24, medali_emas:1, medali_perak:2, medali_perunggu:1, target_emas:2, jadwal_hari_ini:2, laga_live:1, prediksi:'sedang', trend:'stable', top_atlet:'Tim Putra',      status_kesiapan:85 },
-  { id:8, nama:'Panahan',      singkatan:'PNH', total_atlet:14, lolos_kual:13, medali_emas:1, medali_perak:1, medali_perunggu:2, target_emas:2, jadwal_hari_ini:1, laga_live:0, prediksi:'sedang', trend:'up',     top_atlet:'Bayu Nugraha',   status_kesiapan:79 },
-  { id:9, nama:'Basket',       singkatan:'BSK', total_atlet:22, lolos_kual:20, medali_emas:0, medali_perak:1, medali_perunggu:1, target_emas:1, jadwal_hari_ini:1, laga_live:0, prediksi:'risiko', trend:'down',   top_atlet:'Tim Putra',      status_kesiapan:65, alert:'Persiapan teknis kurang — perlu intensif sebelum laga 16:30' },
-  { id:10, nama:'Sepak Bola',  singkatan:'SPB', total_atlet:22, lolos_kual:22, medali_emas:0, medali_perak:0, medali_perunggu:1, target_emas:1, jadwal_hari_ini:1, laga_live:0, prediksi:'risiko', trend:'down',   top_atlet:'Tim U-23',       status_kesiapan:71, alert:'Laga hidup-mati vs Kota Bandung jam 18:00' },
+interface RegionData {
+  id: string; nama: string; lat: number; lng: number;
+  tipe: 'lokal' | 'cabutan';
+  atlet_count: number; top_cabor: string;
+}
+
+// ── Data Dummy Geospasial ────────────────────────────────
+const SEBARAN_ATLET: RegionData[] = [
+  { id: '320401', nama: 'Kec. Soreang', lat: -7.0315, lng: 107.5250, tipe: 'lokal', atlet_count: 145, top_cabor: 'Bulu Tangkis, Voli' },
+  { id: '320402', nama: 'Kec. Pangalengan', lat: -7.1956, lng: 107.5511, tipe: 'lokal', atlet_count: 98, top_cabor: 'Dayung, Atletik' },
+  { id: '320403', nama: 'Kec. Baleendah', lat: -7.0012, lng: 107.6250, tipe: 'lokal', atlet_count: 112, top_cabor: 'Pencak Silat, Karate' },
+  { id: '320404', nama: 'Kec. Kutawaringin', lat: -6.9959, lng: 107.5284, tipe: 'lokal', atlet_count: 85, top_cabor: 'Sepak Bola' },
+  { id: '320405', nama: 'Kec. Margahayu', lat: -6.9612, lng: 107.5610, tipe: 'lokal', atlet_count: 70, top_cabor: 'Angkat Besi' },
+  { id: '320406', nama: 'Kec. Cimenyan', lat: -6.8512, lng: 107.6510, tipe: 'lokal', atlet_count: 45, top_cabor: 'Balap Sepeda' },
+  { id: '320407', nama: 'Kec. Majalaya', lat: -7.0423, lng: 107.7550, tipe: 'lokal', atlet_count: 5, top_cabor: 'Catur' },
+  { id: '3273',   nama: 'Kota Bandung', lat: -6.9175, lng: 107.6191, tipe: 'cabutan', atlet_count: 110, top_cabor: 'Renang, Senam' },
+  { id: '3217',   nama: 'Kab. Bandung Barat', lat: -6.8400, lng: 107.4900, tipe: 'cabutan', atlet_count: 50, top_cabor: 'Menembak' },
+  { id: '3578',   nama: 'Kota Surabaya (Jatim)', lat: -7.2504, lng: 112.7688, tipe: 'cabutan', atlet_count: 14, top_cabor: 'Selam' },
 ]
 
-// Venues di Kab. Bogor — Cibinong, Bogor, Sentul
-const MOCK_VENUES: VenuePoint[] = [
-  { id:1,  nama:'Stadion Pakansari',           alamat:'Cibinong, Kab. Bogor',    lat:-6.4862, lng:106.8538, status:'aktif',   cabor:'Atletik',      atlet_hadir:42, kapasitas:600, laga_aktif:3, petugas:28 },
-  { id:2,  nama:'GOR Laga Tangkas Cibinong',   alamat:'Cibinong, Kab. Bogor',    lat:-6.4790, lng:106.8580, status:'aktif',   cabor:'Bulu Tangkis', atlet_hadir:20, kapasitas:400, laga_aktif:1, petugas:20 },
-  { id:3,  nama:'Kolam Renang Pakansari',      alamat:'Cibinong, Kab. Bogor',    lat:-6.4895, lng:106.8510, status:'aktif',   cabor:'Renang',       atlet_hadir:28, kapasitas:350, laga_aktif:2, petugas:18 },
-  { id:4,  nama:'Hall Pencak Silat Sentul',    alamat:'Sentul, Kab. Bogor',      lat:-6.5612, lng:106.8934, status:'siap',    cabor:'Pencak Silat', atlet_hadir:24, kapasitas:300, laga_aktif:0, petugas:16 },
-  { id:5,  nama:'Dojo Karate Bogor',           alamat:'Kec. Bogor Barat',        lat:-6.5734, lng:106.7893, status:'siap',    cabor:'Karate',       atlet_hadir:18, kapasitas:200, laga_aktif:0, petugas:14 },
-  { id:6,  nama:'Hall Taekwondo Cibinong',     alamat:'Cibinong, Kab. Bogor',    lat:-6.4756, lng:106.8623, status:'aktif',   cabor:'Taekwondo',    atlet_hadir:16, kapasitas:220, laga_aktif:1, petugas:14 },
-  { id:7,  nama:'GOR Volly Cibinong',          alamat:'Cibinong, Kab. Bogor',    lat:-6.4823, lng:106.8501, status:'siap',    cabor:'Voli',         atlet_hadir:24, kapasitas:350, laga_aktif:0, petugas:16 },
-  { id:8,  nama:'Lapangan Panahan Sentul',     alamat:'Sentul City, Kab. Bogor', lat:-6.5534, lng:106.8867, status:'standby', cabor:'Panahan',      atlet_hadir:13, kapasitas:180, laga_aktif:0, petugas:10 },
-  { id:9,  nama:'Hall Basket Cibinong',        alamat:'Cibinong, Kab. Bogor',    lat:-6.4912, lng:106.8645, status:'standby', cabor:'Basket',       atlet_hadir:22, kapasitas:280, laga_aktif:0, petugas:12 },
-  { id:10, nama:'Stadion Sepak Bola Pakansari',alamat:'Cibinong, Kab. Bogor',    lat:-6.4834, lng:106.8492, status:'masalah', cabor:'Sepak Bola',   atlet_hadir:22, kapasitas:500, laga_aktif:0, petugas:22, },
-]
-
-const MOCK_LIVE: LiveEvent[] = [
-  { id:1, cabor:'Atletik',   nomor:'100m Putra Final',       atlet:'Deni Firmansyah', venue:'Stadion Pakansari',   jam:'14:30', status:'live', hasil:'Heat 2' },
-  { id:2, cabor:'Renang',    nomor:'200m Gaya Bebas Putri',  atlet:'Putri Ayu',       venue:'Kolam Renang PKS',    jam:'14:45', status:'live', hasil:'Lap 6' },
-  { id:3, cabor:'Taekwondo', nomor:'Kelas 67kg Final',       atlet:'Andi Saputra',    venue:'Hall Taekwondo',      jam:'15:00', status:'live' },
-  { id:4, cabor:'Silat',     nomor:'Kelas C Putra SF',       atlet:'Hendra Kurnia',   venue:'Hall Silat Sentul',   jam:'15:30', status:'soon' },
-  { id:5, cabor:'Voli',      nomor:'Putra Pool A vs Depok',  atlet:'Tim Putra',       venue:'GOR Volly Cibinong',  jam:'16:00', status:'soon' },
-  { id:6, cabor:'Atletik',   nomor:'400m Putri Final',       atlet:'Siti Rahayu',     venue:'Stadion Pakansari',   jam:'13:00', status:'done', hasil:'🥇 EMAS' },
-  { id:7, cabor:'Karate',    nomor:'Kata Putri Final',       atlet:'Sri Wahyuni',     venue:'Dojo Karate Bogor',   jam:'12:30', status:'done', hasil:'🥇 EMAS' },
-  { id:8, cabor:'Renang',    nomor:'100m Dada Putra Final',  atlet:'Bagas Wicaksono', venue:'Kolam Renang PKS',    jam:'11:45', status:'done', hasil:'🥈 PERAK' },
-]
-
-const MOCK_ALERTS: AlertItem[] = [
-  { id:1, tipe:'success', pesan:'🥇 EMAS — Sri Wahyuni · Karate Kata Putri — LUAR BIASA!',         waktu:'12:35', venue:'Dojo Karate' },
-  { id:2, tipe:'success', pesan:'🥇 EMAS — Siti Rahayu · Atletik 400m Putri — JUARA!',             waktu:'13:05', venue:'Stadion Pakansari' },
-  { id:3, tipe:'info',    pesan:'Deni Firmansyah lolos ke Final 100m — persiapan start 14:30',      waktu:'13:48', venue:'Stadion Pakansari' },
-  { id:4, tipe:'warning', pesan:'Rumput Stadion Sepak Bola kondisi kurang ideal — lapor ke KONI',   waktu:'12:30', venue:'Stadion Pakansari (Sepbola)' },
-  { id:5, tipe:'success', pesan:'🥈 PERAK — Bagas Wicaksono · Renang 100m Dada Putra',             waktu:'11:50', venue:'Kolam Renang PKS' },
-]
-
-// ─── Config ───────────────────────────────────────────────
-const PRIMARY   = '#065f46'
-const PRIMARY_LT= '#d1fae5'
-const GOLD      = '#d97706'
-const GOLD_LT   = '#fef3c7'
-
-const PREDIKSI_CONF: Record<PrediksiStatus, {label:string;color:string;bg:string;border:string;bar:string}> = {
-  kuat:   { label:'Kuat',   color:'#065f46', bg:'#f0fdf4', border:'#bbf7d0', bar:'bg-emerald-600' },
-  sedang: { label:'Sedang', color:'#92400e', bg:'#fffbeb', border:'#fde68a', bar:'bg-amber-500'   },
-  risiko: { label:'Risiko', color:'#991b1b', bg:'#fef2f2', border:'#fecaca', bar:'bg-red-500'     },
-}
-const VENUE_HEX: Record<VenueStatus,string> = {
-  aktif:'#059669', siap:'#2563eb', masalah:'#dc2626', standby:'#d97706', selesai:'#9ca3af',
-}
-
-// ─── Live Clock ───────────────────────────────────────────
+// ── UI Components ──────────────────────────────────────────
 function LiveClock() {
   const [t, setT] = useState(new Date())
-  useEffect(() => { const i = setInterval(()=>setT(new Date()),1000); return ()=>clearInterval(i) }, [])
+  useEffect(() => { const i = setInterval(() => setT(new Date()), 1000); return () => clearInterval(i) }, [])
+  return <span className="tabular-nums font-mono font-bold text-sm text-blue-200">{t.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+}
+
+function SectionHeader({ title, icon: Icon, badge }: { title: string, icon: any, badge?: React.ReactNode }) {
   return (
-    <span className="tabular-nums font-bold tracking-widest text-sm" style={{color:PRIMARY}}>
-      {t.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-    </span>
+    <div className="flex items-center justify-between p-4 border-b border-slate-800/50 bg-[#0f172a]/60">
+      <div className="flex items-center gap-3">
+        <Icon size={16} className="text-blue-400" />
+        <h3 className="text-sm font-extrabold text-slate-100 tracking-wide">{title}</h3>
+      </div>
+      {badge}
+    </div>
   )
 }
 
-// ─── Peta Kab. Bogor ──────────────────────────────────────
-function PetaKabBogor({ venues, onSelect }: { venues:VenuePoint[]; onSelect:(id:number)=>void }) {
-  const mapRef         = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<LeafletMap|null>(null)
+function PetaSebaranAtlet({ regions, onSelect }: { regions: RegionData[]; onSelect: (id: string) => void }) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapRef2 = useRef<LeafletMap | null>(null)
 
-  useEffect(()=>{
+  useEffect(() => {
     let cancelled = false
-    async function init(){
-      if(!mapRef.current) return
+    async function init() {
+      if (!mapRef.current) return
       const L = (await import('leaflet')).default
       // @ts-ignore
       await import('leaflet/dist/leaflet.css')
-      if(cancelled||!mapRef.current) return
-      if(mapInstanceRef.current){mapInstanceRef.current.remove();mapInstanceRef.current=null}
-      const c = mapRef.current as HTMLDivElement & {_leaflet_id?:number}
-      if(c._leaflet_id) c._leaflet_id=undefined
+      if (cancelled || !mapRef.current) return
+      if (mapRef2.current) { mapRef2.current.remove(); mapRef2.current = null }
+      
+      const el = mapRef.current as HTMLDivElement & { _leaflet_id?: number }
+      if (el._leaflet_id) el._leaflet_id = undefined
 
-      // Center Cibinong — pusat olahraga Kab. Bogor
-      const map = L.map(mapRef.current,{
-        center:[-6.4862, 106.8538],
-        zoom:12,
-        zoomControl:true,
-        scrollWheelZoom:false,
+      const map = L.map(mapRef.current, {
+        center: [-7.0315, 107.5250], zoom: 10, zoomControl: true, scrollWheelZoom: false,
       })
-      mapInstanceRef.current = map
+      mapRef2.current = map
 
-      // Tile hijau gelap (stamen toner-lite bersih)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map)
 
-      venues.forEach(v=>{
-        const hex    = VENUE_HEX[v.status]
-        const isLive = v.laga_aktif > 0
-        const radius = isLive ? 14 : v.status==='masalah' ? 12 : 9
+      regions.forEach(r => {
+        const color = r.tipe === 'lokal' ? '#3b82f6' : '#f43f5e'
+        const radius = Math.max(8, Math.min(r.atlet_count / 3, 40))
 
-        const marker = L.circleMarker([v.lat,v.lng],{
-          radius, fillColor:hex, color:'#ffffff', weight:2.5, opacity:1, fillOpacity:0.9,
+        L.circleMarker([r.lat, r.lng], {
+          radius: radius + 8, fillColor: color, color: color, weight: 0, opacity: 0, fillOpacity: 0.15,
         }).addTo(map)
 
-        const pct = v.kapasitas>0 ? Math.round((v.atlet_hadir/v.kapasitas)*100) : 0
-        marker.bindPopup(`
-          <div style="font-family:'Segoe UI',sans-serif;min-width:210px;padding:4px">
-            <div style="font-size:9px;font-weight:800;color:${hex};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">
-              ● ${v.status.toUpperCase()}${v.laga_aktif>0?' · '+v.laga_aktif+' LIVE':''}
-            </div>
-            <div style="font-weight:800;font-size:13px;color:#1a1a1a;margin-bottom:2px">${v.nama}</div>
-            <div style="font-size:10px;color:#9ca3af;margin-bottom:10px">${v.alamat}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;background:#f8fffe;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-              <div><span style="color:#6b7280">Cabor</span><br/><b style="color:#065f46">${v.cabor}</b></div>
-              <div><span style="color:#6b7280">Petugas</span><br/><b style="color:#1a1a1a">${v.petugas}</b></div>
-              <div><span style="color:#6b7280">Atlet</span><br/><b style="color:${hex}">${v.atlet_hadir}/${v.kapasitas}</b></div>
-              <div><span style="color:#6b7280">Kapasitas</span><br/><b style="color:#1a1a1a">${pct}%</b></div>
-            </div>
-          </div>`,{className:'popup-bogor'})
-        marker.on('click',()=>onSelect(v.id))
+        L.circleMarker([r.lat, r.lng], {
+          radius: radius, fillColor: color, color: '#020617', weight: 2, opacity: 1, fillOpacity: 0.8,
+        }).addTo(map)
+          .bindPopup(`
+            <div style="font-family:inherit;min-width:180px;padding:4px">
+              <div style="font-size:9px;font-weight:800;color:${color};text-transform:uppercase;margin-bottom:4px;letter-spacing:1px">
+                ● STATUS: ${r.tipe.toUpperCase()}
+              </div>
+              <div style="font-weight:900;font-size:15px;color:#fff;margin-bottom:2px">${r.nama}</div>
+              <div style="font-size:11px;color:#94a3b8;margin-bottom:12px">Basis Demografi NIK</div>
+              
+              <div style="display:grid;grid-template-columns:1fr;gap:6px;font-size:11px;background:#020617;border-radius:6px;padding:10px;border:1px solid #1e293b">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:6px;">
+                  <span style="color:#64748b">Populasi Atlet</span>
+                  <b style="color:#fff; font-size:14px;">${r.atlet_count} <span style="font-size:9px;color:#64748b">Org</span></b>
+                </div>
+                <div>
+                  <span style="color:#64748b; font-size:9px; text-transform:uppercase;">Dominasi Cabor</span><br/>
+                  <b style="color:${color}">${r.top_cabor}</b>
+                </div>
+              </div>
+            </div>`, { className: 'tactical-popup-kbd' })
+          .on('click', () => onSelect(r.id))
       })
     }
     void init()
-    return ()=>{
-      cancelled=true
-      if(mapInstanceRef.current){mapInstanceRef.current.remove();mapInstanceRef.current=null}
-    }
-  },[venues])
+    return () => { cancelled = true; if (mapRef2.current) { mapRef2.current.remove(); mapRef2.current = null } }
+  }, [regions])
 
   return (
-    <div className="w-full h-full relative">
+    <>
       <style>{`
-        .popup-bogor .leaflet-popup-content-wrapper{box-shadow:0 12px 30px rgba(6,95,70,0.15);border-radius:12px;border:1px solid #d1fae5;}
-        .popup-bogor .leaflet-popup-content{margin:14px 15px;}
-        .popup-bogor .leaflet-popup-tip{background:white;}
-        .leaflet-container{background:#f0f7f4;}
-        .leaflet-control-zoom{border:none!important;box-shadow:0 2px 12px rgba(6,95,70,0.2)!important;border-radius:10px!important;overflow:hidden;}
-        .leaflet-control-zoom a{border:none!important;color:#065f46!important;font-weight:bold;}
+        .tactical-popup-kbd .leaflet-popup-content-wrapper{background:#0f172a;border-radius:12px;border:1px solid #1e293b;box-shadow:0 15px 35px rgba(0,0,0,0.9);}
+        .tactical-popup-kbd .leaflet-popup-content{margin:14px;}
+        .tactical-popup-kbd .leaflet-popup-tip{background:#0f172a; border-bottom:1px solid #1e293b; border-right:1px solid #1e293b;}
+        .leaflet-container{background:#020617; font-family: inherit;}
+        .leaflet-control-zoom{border:1px solid #1e293b!important;border-radius:6px!important;overflow:hidden;}
+        .leaflet-control-zoom a{background:#0f172a!important;color:#94a3b8!important;}
       `}</style>
-      <div ref={mapRef} className="w-full h-full"/>
-    </div>
+      <div ref={mapRef} className="w-full h-full bg-[#020617]"/>
+    </>
   )
 }
 
-// ─── Cabor Card (Kab. Bogor premium style) ───────────────
-function CaborCard({ c, rank, isSelected, onClick }:{
-  c:CaborWarRoom; rank:number; isSelected:boolean; onClick:()=>void
-}) {
-  const pred   = PREDIKSI_CONF[c.prediksi]
-  const pct    = c.target_emas>0 ? Math.min(Math.round((c.medali_emas/c.target_emas)*100),100) : 0
-  const kualPct= c.total_atlet>0 ? Math.round((c.lolos_kual/c.total_atlet)*100) : 0
+// ── Main Dashboard ───────────────────────────────────────
+export default function DashboardKabBandungV8() {
+  const [dataCabor, setDataCabor] = useState<CaborData[]>([])
+  const [loading, setLoading] = useState(true)
 
-  return (
-    <div onClick={onClick}
-      className={`rounded-2xl cursor-pointer transition-all overflow-hidden border-2 ${
-        isSelected
-          ? 'border-emerald-500 shadow-xl shadow-emerald-100'
-          : 'border-transparent shadow-md hover:shadow-xl hover:border-emerald-200'
-      }`}
-      style={{ background:'white' }}>
+  const [selRegion,   setSelRegion]   = useState<string|null>(null)
+  const [selCabor,    setSelCabor]    = useState<CaborData|null>(null)
+  const [searchCabor, setSearchCabor] = useState('')
+  
+  // STATE BARU: Untuk kontrol limit tampilan cabor
+  const [showAllCabor, setShowAllCabor] = useState(false)
 
-      {/* Color accent top */}
-      <div className={`h-1.5 ${pred.bar}`}/>
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const { data, error } = await supabase.from('v_cabor_profil').select('*').order('total_atlet', { ascending: false })
+        if (error) throw error
+        if (data) {
+          const formatted: CaborData[] = data.map((item: any, i: number) => {
+            const isRisiko = Math.random() > 0.7
+            const isKuat = Math.random() > 0.5
+            const prediksi: PrediksiStatus = isRisiko ? 'risiko' : isKuat ? 'kuat' : 'sedang'
+            
+            const pctRandomCabutan = Math.random() * 0.4
+            const cabutan = Math.floor((item.total_atlet || 0) * pctRandomCabutan)
+            const lokal = (item.total_atlet || 0) - cabutan
 
-      <div className="p-4">
-        {/* Header row */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            {/* Rank badge */}
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${
-              rank===1?'bg-yellow-100 text-yellow-700':
-              rank===2?'bg-slate-100 text-slate-500':
-              rank===3?'bg-orange-50 text-orange-500':
-              'bg-emerald-50 text-emerald-400'
-            }`}>
-              {rank<=3 ? ['🥇','🥈','🥉'][rank-1] : rank}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-gray-800 text-sm">{c.nama}</span>
-                {c.laga_live>0 &&
-                  <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                    🔴 LIVE
-                  </span>}
-              </div>
-              <div className="text-[10px] text-gray-400 mt-0.5">{c.top_atlet}</div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[9px] font-bold px-2.5 py-1 rounded-full border"
-              style={{ background:pred.bg, color:pred.color, borderColor:pred.border }}>
-              {pred.label}
-            </span>
-            <div className="flex items-center gap-1">
-              {c.trend==='up'     && <TrendingUp  size={12} style={{color:'#059669'}}/>}
-              {c.trend==='down'   && <TrendingDown size={12} style={{color:'#dc2626'}}/>}
-              {c.trend==='stable' && <Activity    size={12} className="text-gray-400"/>}
-              <span className="text-[9px] text-gray-400">
-                {c.trend==='up'?'naik':c.trend==='down'?'turun':'stabil'}
-              </span>
-            </div>
-          </div>
-        </div>
+            return {
+              id: i + 1, nama: item.cabor, kode: item.kode,
+              total_atlet: item.total_atlet || 0, avg_umur: item.avg_umur || 22,
+              verified: item.verified || 0, pending: (item.total_atlet || 0) - (item.verified || 0),
+              cabutan, lokal,
+              emas: Math.floor(Math.random() * 5),
+              target: Math.floor(Math.random() * 4) + 1,
+              prediksi
+            }
+          })
+          setDataCabor(formatted)
+        }
+      } catch (error) { console.error("Error fetching data:", error) } finally { setLoading(false) }
+    }
+    fetchData()
+  }, [])
 
-        {/* Medali */}
-        <div className="flex items-center gap-1 mb-3 p-2.5 rounded-xl" style={{background:'#f8fffe',border:'1px solid #d1fae5'}}>
-          <span className="text-sm font-black text-yellow-600 mr-1">🥇{c.medali_emas}</span>
-          <span className="text-sm font-bold text-gray-400">🥈{c.medali_perak}</span>
-          <span className="text-sm font-bold text-orange-400 mr-auto">🥉{c.medali_perunggu}</span>
-          <span className="text-[10px] text-gray-400">
-            {c.medali_emas+c.medali_perak+c.medali_perunggu} total
-          </span>
-        </div>
+  const totals = useMemo(() => ({
+    atlet:     dataCabor.reduce((a,c) => a + c.total_atlet, 0), 
+    verified:  dataCabor.reduce((a,c) => a + c.verified, 0), 
+    pending:   dataCabor.reduce((a,c) => a + c.pending, 0),
+    cabor:     dataCabor.length,
+    lokal:     SEBARAN_ATLET.filter(r => r.tipe === 'lokal').reduce((a,r) => a + r.atlet_count, 0),
+    cabutan:   SEBARAN_ATLET.filter(r => r.tipe === 'cabutan').reduce((a,r) => a + r.atlet_count, 0),
+  }), [dataCabor])
 
-        {/* Target progress */}
-        <div className="mb-3">
-          <div className="flex justify-between text-[10px] mb-1.5">
-            <span className="text-gray-500">Target Emas</span>
-            <span className="font-bold" style={{color:PRIMARY}}>{c.medali_emas}/{c.target_emas}</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{background:'#e7f5f0'}}>
-            <div className="h-full rounded-full transition-all duration-700"
-              style={{
-                width:`${pct}%`,
-                background: pct>=100
-                  ? 'linear-gradient(90deg,#059669,#10b981)'
-                  : pct>=60
-                    ? 'linear-gradient(90deg,#d97706,#f59e0b)'
-                    : 'linear-gradient(90deg,#dc2626,#ef4444)',
-              }}/>
-          </div>
-        </div>
+  const filteredCabors = useMemo(() => {
+    let list = [...dataCabor]
+    if (searchCabor) {
+      list = list.filter(c => c.nama.toLowerCase().includes(searchCabor.toLowerCase()))
+    }
+    return list
+  }, [dataCabor, searchCabor])
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-4 gap-1 pt-2.5 border-t" style={{borderColor:'#ecfdf5'}}>
-          {[
-            {l:'Atlet',    v:c.total_atlet,          c:'#2563eb'},
-            {l:'Lolos',    v:`${kualPct}%`,          c:'#059669'},
-            {l:'Hari Ini', v:c.jadwal_hari_ini,      c:'#d97706'},
-            {l:'Siap',     v:`${c.status_kesiapan}%`,c:'#7c3aed'},
-          ].map(s=>(
-            <div key={s.l} className="text-center py-1.5 rounded-lg" style={{background:'#fafafa'}}>
-              <div className="text-xs font-bold" style={{color:s.c}}>{s.v}</div>
-              <div className="text-[9px] text-gray-400">{s.l}</div>
-            </div>
-          ))}
-        </div>
+  // Menentukan Cabor yang akan dirender (Dibatasi 10 kecuali showAllCabor = true)
+  const displayedCabors = showAllCabor ? filteredCabors : filteredCabors.slice(0, 10)
 
-        {/* Alert */}
-        {c.alert && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2" style={{background:'#fef2f2',border:'1px solid #fecaca'}}>
-            <AlertTriangle size={11} style={{color:'#dc2626',marginTop:1,flexShrink:0}}/>
-            <span style={{fontSize:10,color:'#991b1b'}}>{c.alert}</span>
-          </div>
-        )}
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center text-blue-500">
+        <Loader2 className="w-10 h-10 animate-spin mb-4" />
+        <p className="font-mono text-xs tracking-widest uppercase font-bold">Sinkronisasi Database NIK PUSAT...</p>
       </div>
-    </div>
-  )
-}
-
-// ─── Main Dashboard ───────────────────────────────────────
-export default function DashboardKabBogor() {
-  const [selectedVenueId, setSelectedVenueId] = useState<number|null>(null)
-  const [selectedCabor,   setSelectedCabor]   = useState<CaborWarRoom|null>(null)
-  const [animIn,          setAnimIn]           = useState(false)
-  const [dismissedAlerts, setDismissedAlerts]  = useState<number[]>([])
-
-  useEffect(()=>{ const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
-
-  const totals = useMemo(()=>({
-    atlet:       MOCK_CABORS.reduce((a,c)=>a+c.total_atlet,0),
-    emas:        MOCK_CABORS.reduce((a,c)=>a+c.medali_emas,0),
-    perak:       MOCK_CABORS.reduce((a,c)=>a+c.medali_perak,0),
-    perunggu:    MOCK_CABORS.reduce((a,c)=>a+c.medali_perunggu,0),
-    target:      MOCK_CABORS.reduce((a,c)=>a+c.target_emas,0),
-    live:        MOCK_CABORS.reduce((a,c)=>a+c.laga_live,0),
-    venueAktif:  MOCK_VENUES.filter(v=>v.status==='aktif').length,
-    venueMasalah:MOCK_VENUES.filter(v=>v.status==='masalah').length,
-    petugas:     MOCK_VENUES.reduce((a,v)=>a+v.petugas,0),
-    lolos:       MOCK_CABORS.reduce((a,c)=>a+c.lolos_kual,0),
-  }),[])
-
-  const rankedCabors = useMemo(()=>[...MOCK_CABORS].sort((a,b)=>{
-    const o={kuat:0,sedang:1,risiko:2}
-    if(o[a.prediksi]!==o[b.prediksi]) return o[a.prediksi]-o[b.prediksi]
-    return b.medali_emas-a.medali_emas
-  }),[])
-
-  const selectedVenue = MOCK_VENUES.find(v=>v.id===selectedVenueId)
-  const activeAlerts  = MOCK_ALERTS.filter(a=>!dismissedAlerts.includes(a.id))
-
-  const ani = (d=0)=>({
-    style:{transitionDelay:`${d}ms`,transition:'all 0.55s cubic-bezier(0.16,1,0.3,1)'},
-    className: animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5',
-  })
-
-  const totalMedali = totals.emas + totals.perak + totals.perunggu
-  const emasProgress = Math.round((totals.emas/totals.target)*100)
+    )
+  }
 
   return (
-    <div className="min-h-screen p-6 space-y-5 font-sans"
-      style={{background:'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f8fafc 100%)'}}>
+    <div className="min-h-screen bg-[#020617] text-slate-300 font-sans relative overflow-x-hidden flex flex-col">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b40_1px,transparent_1px),linear-gradient(to_bottom,#1e293b40_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none"/>
 
-      {/* ─── HEADER ─────────────────────────────────────────── */}
-      <div {...ani(0)} className="flex items-center justify-between">
+      {/* ── NAVBAR ────────────────────────────────────────────── */}
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-[#020617]/90 border-b border-slate-800 backdrop-blur-xl">
         <div className="flex items-center gap-4">
-          {/* Logo */}
-          <div className="relative">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg border-2"
-              style={{background:'white',borderColor:'#bbf7d0'}}>
-              <img src="/logos/kab-bogor.png" alt="Kab. Bogor"
-                className="w-10 h-10 object-contain"
-                onError={e=>{
-                  const el=e.target as HTMLImageElement; el.style.display='none'
-                  if(el.parentElement) el.parentElement.innerHTML='<span style="color:#065f46;font-weight:900;font-size:14px">KBR</span>'
-                }}/>
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white animate-pulse"
-              style={{background:'#059669'}}/>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-600 border border-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.3)]">
+            <span className="text-white font-black text-sm">KBD</span>
           </div>
           <div>
-            <div className="flex items-center gap-2.5 mb-0.5">
-              <span className="text-[10px] font-black uppercase tracking-[3px]"
-                style={{color:PRIMARY}}>
-                Kontingen · PORPROV XV 2026
-              </span>
-              <span className="text-[9px] px-2.5 py-0.5 rounded-full font-bold"
-                style={{background:GOLD_LT,color:GOLD}}>
-                🥇 Premium
-              </span>
+            <h1 className="text-white font-extrabold text-base tracking-wide">KOMANDO KONTINGEN BANDUNG</h1>
+            <div className="text-[10px] font-mono text-blue-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
+              <Zap size={10} className="text-amber-400"/> Sistem Intelijen & Talent Mapping
             </div>
-            <h1 className="text-2xl font-light tracking-wide" style={{color:'#1a2e1a'}}>
-              War Room <span className="font-bold" style={{color:PRIMARY}}>Kabupaten Bogor</span>
-            </h1>
-            <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:'#059669'}}/>
-              <span>{totals.atlet} atlet · {MOCK_CABORS.length} cabor · {totals.venueAktif} venue aktif · {MOCK_VENUES.length} total venue</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0f172a] border border-slate-800 rounded-lg">
+            <Clock size={14} className="text-blue-500"/><LiveClock/>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto space-y-6 relative z-10">
+        
+        {/* ── EXECUTIVE SUMMARY ───────────────────────────────── */}
+        <div className="bg-blue-900/10 border border-blue-500/30 rounded-2xl p-5 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"/>
+          <div className="flex items-start gap-4 flex-1">
+            <div className="p-3 bg-blue-500/20 rounded-xl border border-blue-500/40 text-blue-400"><Info size={24}/></div>
+            <div>
+              <h2 className="text-sm font-bold text-blue-400 mb-1 tracking-wide uppercase">Kesimpulan Eksekutif Intelijen Demografi</h2>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Pemetaan NIK menunjukkan <strong>83% Kemandirian Atlet Lokal</strong> berhasil dicapai. Terdapat <strong className="text-rose-400">174 indikasi atlet luar daerah</strong> yang memerlukan validasi surat mutasi. Cek Daftar Intelijen Cabor di bawah untuk deteksi anomali administrasi per cabang.
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Medal summary pill */}
-          <div className="flex items-center gap-2 px-4 py-2 rounded-2xl shadow-sm border"
-            style={{background:'white',borderColor:'#d1fae5'}}>
-            <span className="text-sm font-black text-yellow-600">🥇{totals.emas}</span>
-            <span className="text-sm font-bold text-gray-400">🥈{totals.perak}</span>
-            <span className="text-sm font-bold text-orange-400">🥉{totals.perunggu}</span>
-            <div className="w-px h-4 bg-gray-200 mx-1"/>
-            <span className="text-xs font-bold" style={{color:PRIMARY}}>{totalMedali} total</span>
+        {/* ── ROW 1: KPI GLOBAL ───────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-[#0f172a]/60 border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-600 transition-colors">
+             <div className="text-[11px] text-slate-400 uppercase tracking-widest font-bold mb-1">Total Registrasi</div>
+             <div className="text-4xl font-light text-white">{totals.atlet}</div>
           </div>
-
-          {totals.venueMasalah>0 && (
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border"
-              style={{background:'#fef2f2',borderColor:'#fecaca'}}>
-              <AlertTriangle size={13} style={{color:'#dc2626'}}/>
-              <span className="text-xs font-bold" style={{color:'#dc2626'}}>{totals.venueMasalah} Masalah</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 px-4 py-2 rounded-2xl shadow-sm border"
-            style={{background:'white',borderColor:'#d1fae5'}}>
-            <Clock size={13} style={{color:PRIMARY}}/>
-            <LiveClock/>
+          <div className="bg-[#0f172a]/60 border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-600 transition-colors">
+             <div className="text-[11px] text-slate-400 uppercase tracking-widest font-bold mb-1">Verified System</div>
+             <div className="text-4xl font-light text-emerald-400">{totals.verified}</div>
           </div>
-
-          <button className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold shadow-sm border transition-all hover:shadow-md"
-            style={{background:'white',color:PRIMARY,borderColor:'#d1fae5'}}>
-            <RefreshCw size={13}/> Refresh
-          </button>
+          <div className="bg-[#0f172a]/60 border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-600 transition-colors">
+             <div className="text-[11px] text-slate-400 uppercase tracking-widest font-bold mb-1">Menunggu Review</div>
+             <div className="text-4xl font-light text-amber-500">{totals.pending}</div>
+          </div>
+          <div className="bg-[#0f172a]/60 border border-slate-800 rounded-2xl p-5 flex flex-col justify-center hover:border-slate-600 transition-colors">
+             <div className="text-[11px] text-slate-400 uppercase tracking-widest font-bold mb-1">Cabang Olahraga</div>
+             <div className="text-4xl font-light text-blue-400">{totals.cabor}</div>
+          </div>
         </div>
-      </div>
 
-      {/* ─── ALERT STREAM ────────────────────────────────────── */}
-      {activeAlerts.length>0 && (
-        <div {...ani(20)} className="flex gap-2.5 overflow-x-auto pb-1">
-          {activeAlerts.map(al=>(
-            <div key={al.id} className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border flex-shrink-0 shadow-sm text-xs"
-              style={{
-                background: al.tipe==='success'?'#f0fdf4':al.tipe==='warning'?'#fffbeb':'#eff6ff',
-                borderColor: al.tipe==='success'?'#bbf7d0':al.tipe==='warning'?'#fde68a':'#bfdbfe',
-              }}>
-              {al.tipe==='success' && <CheckCircle size={14} style={{color:'#059669',flexShrink:0}}/>}
-              {al.tipe==='warning' && <AlertTriangle size={14} style={{color:'#d97706',flexShrink:0}}/>}
-              {al.tipe==='info'    && <Sparkles size={14} style={{color:'#2563eb',flexShrink:0}}/>}
-              <div>
-                <div className="font-semibold" style={{
-                  color: al.tipe==='success'?'#065f46':al.tipe==='warning'?'#92400e':'#1e40af'
-                }}>{al.pesan}</div>
-                <div className="text-[10px] text-gray-400 mt-0.5">{al.waktu} · {al.venue}</div>
+        {/* ── ROW 2: MAP SEBARAN BAKAT ────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[450px]">
+          <div className="col-span-2 rounded-2xl border border-blue-900/40 bg-[#0f172a]/80 flex flex-col overflow-hidden relative shadow-lg min-h-[400px]">
+            <div className="absolute top-4 left-4 z-[400] bg-[#020617]/90 backdrop-blur-md border border-slate-800 px-4 py-3 rounded-xl pointer-events-none shadow-lg">
+              <div className="flex items-center gap-2 text-white text-sm font-extrabold tracking-wide"><Map size={16} className="text-blue-500"/> Radar Sebaran Bakat</div>
+              <div className="text-[10px] text-slate-400 font-medium mt-1">Titik Panas (Heatmap) Ekosistem Atlet</div>
+            </div>
+            <div className="flex-1 bg-[#020617] relative z-0">
+              <PetaSebaranAtlet regions={SEBARAN_ATLET} onSelect={setSelRegion}/>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-6 h-full">
+            <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/60 flex flex-col p-5">
+              <div className="flex items-center gap-2 text-[11px] text-slate-400 font-bold uppercase tracking-widest mb-4"><Globe size={14} className="text-blue-400"/> Rasio Kemandirian Daerah</div>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="text-4xl font-light text-white">{Math.round((totals.lokal / (totals.lokal+totals.cabutan)) * 100)}%</div>
+                <div className="text-xs text-slate-500 font-medium leading-tight">Ber-KTP asli Kab. Bandung. <br/><span className="text-rose-400 font-bold">17% bergantung luar daerah.</span></div>
               </div>
-              <button onClick={()=>setDismissedAlerts(p=>[...p,al.id])}
-                className="ml-2 text-gray-300 hover:text-gray-500 flex-shrink-0">
-                <X size={11}/>
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ─── KPI 6 CARDS ─────────────────────────────────────── */}
-      <div {...ani(40)} className="grid grid-cols-6 gap-4">
-        {[
-          { label:'Total Atlet',    value:totals.atlet,    icon:Users,    grad:'from-emerald-600 to-emerald-500', sub:`${MOCK_CABORS.length} cabor` },
-          { label:'Lolos Kualif.',  value:totals.lolos,    icon:CheckCircle, grad:'from-teal-600 to-teal-500',   sub:`${Math.round(totals.lolos/totals.atlet*100)}% total` },
-          { label:'🥇 Medali Emas', value:totals.emas,     icon:Trophy,   grad:'from-amber-500 to-yellow-400',   sub:`target ${totals.target}` },
-          { label:'Total Medali',   value:totalMedali,     icon:Award,    grad:'from-orange-500 to-amber-400',   sub:'🥇🥈🥉 gabungan' },
-          { label:'Live Sekarang',  value:totals.live,     icon:Activity, grad:'from-red-500 to-rose-400',       sub:'laga berjalan' },
-          { label:'Venue Aktif',    value:totals.venueAktif,icon:Building2,grad:'from-cyan-600 to-cyan-500',     sub:`dari ${MOCK_VENUES.length} venue` },
-        ].map((c,i)=>(
-          <div key={c.label} className="relative rounded-2xl p-4 pt-9 shadow-md border bg-white"
-            style={{borderColor:'#e7f5f0'}}>
-            <div className={`absolute -top-5 left-4 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg bg-gradient-to-br ${c.grad}`}>
-              <c.icon size={20} className="text-white"/>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-medium text-gray-400 mb-0.5">{c.label}</p>
-              <h4 className="text-2xl font-light" style={{color:'#1a2e1a'}}>{c.value}</h4>
-              <p className="text-[9px] text-gray-300 mt-0.5">{c.sub}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ─── PROGRESS BAR EMAS ───────────────────────────────── */}
-      <div {...ani(55)} className="rounded-2xl p-5 shadow-md border bg-white flex items-center gap-6"
-        style={{borderColor:'#d1fae5'}}>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{background:GOLD_LT}}>
-            <Target size={18} style={{color:GOLD}}/>
-          </div>
-          <div>
-            <div className="text-sm font-bold" style={{color:'#1a2e1a'}}>Progress Target Emas</div>
-            <div className="text-[10px] text-gray-400">{totals.emas} dari {totals.target} target medali emas</div>
-          </div>
-        </div>
-        <div className="flex-1">
-          <div className="flex justify-between text-[10px] text-gray-400 mb-2">
-            <span>Progress keseluruhan</span>
-            <span className="font-bold text-amber-600">{emasProgress}%</span>
-          </div>
-          <div className="h-3 rounded-full overflow-hidden" style={{background:'#fef3c7'}}>
-            <div className="h-full rounded-full transition-all duration-1000"
-              style={{width:`${emasProgress}%`,background:'linear-gradient(90deg,#d97706,#f59e0b,#fbbf24)'}}/>
-          </div>
-        </div>
-        <div className="flex gap-6 flex-shrink-0 text-center">
-          {[
-            {v:MOCK_CABORS.filter(c=>c.prediksi==='kuat').length,  l:'Cabor Kuat',   c:'#059669'},
-            {v:MOCK_CABORS.filter(c=>c.prediksi==='sedang').length,l:'Cabor Sedang', c:'#d97706'},
-            {v:MOCK_CABORS.filter(c=>c.prediksi==='risiko').length,l:'Cabor Risiko', c:'#dc2626'},
-          ].map(s=>(
-            <div key={s.l}>
-              <div className="text-xl font-black" style={{color:s.c}}>{s.v}</div>
-              <div className="text-[9px] text-gray-400">{s.l}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ─── PETA + RIGHT PANEL ──────────────────────────────── */}
-      <div {...ani(70)} className="grid grid-cols-3 gap-5">
-
-        {/* Peta */}
-        <div className="col-span-2 rounded-2xl shadow-md border overflow-hidden flex flex-col bg-white"
-          style={{height:440,borderColor:'#d1fae5'}}>
-
-          {/* Map header */}
-          <div className="px-5 py-3.5 flex items-center justify-between flex-shrink-0"
-            style={{background:`linear-gradient(135deg,${PRIMARY},#047857)`}}>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{background:'rgba(255,255,255,0.2)'}}>
-                <Navigation size={15} className="text-white"/>
-              </div>
-              <div>
-                <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-                  Peta Taktis — Kab. Bogor
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                    style={{background:'rgba(255,255,255,0.25)'}}>
-                    LIVE
-                  </span>
-                </h3>
-                <p className="text-emerald-200 text-[10px]">{MOCK_VENUES.length} venue · Cibinong–Sentul–Bogor</p>
+              <div className="w-full bg-rose-500 rounded-full h-2 overflow-hidden flex mb-2 border border-slate-800">
+                <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width:`${(totals.lokal / (totals.lokal+totals.cabutan)) * 100}%` }}/>
               </div>
             </div>
-            <div className="flex gap-1.5">
-              {[
-                {l:'Aktif',   hex:'#059669', n:MOCK_VENUES.filter(v=>v.status==='aktif').length},
-                {l:'Siap',    hex:'#2563eb', n:MOCK_VENUES.filter(v=>v.status==='siap').length},
-                {l:'Standby', hex:'#d97706', n:MOCK_VENUES.filter(v=>v.status==='standby').length},
-                {l:'Masalah', hex:'#dc2626', n:MOCK_VENUES.filter(v=>v.status==='masalah').length},
-              ].map(s=>(
-                <div key={s.l} className="flex items-center gap-1 px-2 py-1 rounded-lg"
-                  style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.2)'}}>
-                  <div className="w-1.5 h-1.5 rounded-full" style={{background:s.hex}}/>
-                  <span className="text-[9px] text-white font-medium">{s.n} {s.l}</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Map body */}
-          <div className="flex-1 relative min-h-0">
-            <PetaKabBogor venues={MOCK_VENUES} onSelect={setSelectedVenueId}/>
-
-            {/* Legend */}
-            <div className="absolute bottom-3 left-3 z-[400] rounded-2xl px-3 py-2.5 shadow-md"
-              style={{background:'rgba(255,255,255,0.97)',border:'1px solid #d1fae5'}}>
-              <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status Venue</div>
-              {[
-                {l:'Aktif — pertandingan berjalan', hex:'#059669'},
-                {l:'Siap — menunggu laga',          hex:'#2563eb'},
-                {l:'Standby',                       hex:'#d97706'},
-                {l:'Masalah — perlu tindakan',      hex:'#dc2626'},
-              ].map(s=>(
-                <div key={s.l} className="flex items-center gap-1.5 mb-1">
-                  <div className="w-2 h-2 rounded-full" style={{background:s.hex}}/>
-                  <span className="text-[9px] text-gray-500">{s.l}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Stats overlay kanan atas */}
-            <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5">
-              {[
-                {icon:Users,    v:`${totals.petugas} petugas`,       c:PRIMARY},
-                {icon:Activity, v:`${totals.live} laga live`,         c:'#dc2626'},
-                {icon:Building2,v:`${totals.venueAktif} venue aktif`, c:'#059669'},
-              ].map((s,i)=>(
-                <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl shadow-sm"
-                  style={{background:'rgba(255,255,255,0.95)',border:'1px solid #d1fae5'}}>
-                  <s.icon size={11} style={{color:s.c}}/>
-                  <span className="text-[10px] font-bold" style={{color:s.c}}>{s.v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Venue detail strip */}
-          {selectedVenue && (
-            <div className="flex-shrink-0 border-t px-5 py-3 flex items-center gap-4"
-              style={{background:'#f0fdf4',borderColor:'#d1fae5'}}>
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full" style={{background:VENUE_HEX[selectedVenue.status]}}/>
-                <span className="text-sm font-bold" style={{color:'#1a2e1a'}}>{selectedVenue.nama}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                  style={{background:'#d1fae5',color:PRIMARY}}>{selectedVenue.cabor}</span>
-              </div>
-              <div className="flex gap-4 text-xs text-gray-500">
-                <span>Atlet: <b style={{color:PRIMARY}}>{selectedVenue.atlet_hadir}</b></span>
-                <span>Petugas: <b style={{color:'#1a2e1a'}}>{selectedVenue.petugas}</b></span>
-                <span>Kapasitas: <b style={{color:'#1a2e1a'}}>{Math.round((selectedVenue.atlet_hadir/selectedVenue.kapasitas)*100)}%</b></span>
-                <span>Live: <b style={{color:selectedVenue.laga_aktif>0?'#dc2626':'#9ca3af'}}>{selectedVenue.laga_aktif}</b></span>
-              </div>
-              <button onClick={()=>setSelectedVenueId(null)} className="ml-auto text-gray-300 hover:text-gray-500">
-                <X size={13}/>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Right panel */}
-        <div className="flex flex-col gap-4" style={{height:440}}>
-
-          {/* Live Events */}
-          <div className="rounded-2xl shadow-md border overflow-hidden flex flex-col bg-white"
-            style={{flex:'1.6',borderColor:'#d1fae5'}}>
-            <div className="px-4 py-3 flex items-center justify-between flex-shrink-0 rounded-t-2xl"
-              style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)'}}>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse"/>
-                <span className="text-white font-semibold text-sm">Live Events</span>
-              </div>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                style={{background:'rgba(255,255,255,0.25)',color:'white'}}>
-                {MOCK_LIVE.filter(l=>l.status==='live').length} LIVE
-              </span>
-            </div>
-            <div className="overflow-y-auto divide-y flex-1" style={{borderColor:'#f0fdf4'}}>
-              {MOCK_LIVE.map(ev=>(
-                <div key={ev.id} className={`px-4 py-2.5 ${ev.status==='live'?'bg-red-50/40':ev.status==='done'?'opacity-50':''}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase">{ev.cabor}</span>
-                        {ev.status==='live' && <span className="text-[9px] bg-red-100 text-red-600 px-1.5 rounded-full font-bold">LIVE</span>}
-                        {ev.status==='soon' && <span className="text-[9px] bg-amber-100 text-amber-600 px-1.5 rounded-full font-bold">SOON</span>}
-                        {ev.status==='done' && <span className="text-[9px] bg-gray-100 text-gray-400 px-1.5 rounded-full">DONE</span>}
-                      </div>
-                      <div className="text-xs font-semibold text-gray-800 truncate">{ev.nomor}</div>
-                      <div className="text-[10px] text-gray-400">{ev.atlet}</div>
+            <div className="rounded-2xl border border-rose-900/30 bg-[#0f172a]/60 flex flex-col flex-1 overflow-hidden">
+              <SectionHeader title="Wilayah Non-Lokal Tertinggi" icon={ShieldAlert} badge={<span className="bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded text-[10px] font-mono font-bold">AUDIT NIK</span>}/>
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-800/50 p-2 custom-scrollbar">
+                {SEBARAN_ATLET.filter(r => r.tipe === 'cabutan').sort((a,b)=>b.atlet_count - a.atlet_count).map(r => (
+                  <div key={r.id} className="p-3 rounded-lg mb-1 hover:bg-slate-800/40 border border-transparent hover:border-slate-700/50 transition-colors">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-extrabold text-slate-100">{r.nama}</span>
+                      <span className="text-[10px] font-mono text-rose-400 bg-rose-500/10 px-1.5 rounded">{r.atlet_count} Atlet</span>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-[10px] text-gray-400 font-mono">{ev.jam}</div>
-                      {ev.hasil && <div className="text-[10px] font-black" style={{color:PRIMARY}}>{ev.hasil}</div>}
+                    <div className="text-[10px] font-medium text-slate-400 leading-tight">Didominasi cabor: <span className="text-amber-400">{r.top_cabor}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── ROW 3: CABOR INTEL LIST VIEW (TRIAGE SYSTEM) ─────────────────── */}
+        <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/60 shadow-xl flex flex-col overflow-hidden">
+          
+          <div className="p-5 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0f172a]/90">
+            <div>
+               <h2 className="text-base font-extrabold text-white flex items-center gap-2"><Target className="text-blue-500" size={18}/> Daftar Intelijen Cabor (Triage System)</h2>
+               <p className="text-xs text-slate-500 font-mono mt-0.5">Menampilkan top {showAllCabor ? totals.cabor : 10} cabang olahraga dari total {totals.cabor}.</p>
+            </div>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"/>
+              <input value={searchCabor} onChange={e=>{setSearchCabor(e.target.value); setShowAllCabor(true);}} placeholder="Cari Cabor..." 
+                className="bg-[#020617] border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 focus:border-blue-500 outline-none w-full md:w-64 font-bold shadow-inner transition-colors"/>
+            </div>
+          </div>
+
+          {/* AI BRIEFING PANEL */}
+          {selCabor && (
+            <div className="p-6 border-b border-blue-500/30 bg-gradient-to-r from-[#0f172a]/90 to-[#020617]/90 animate-[slideDown_0.3s_ease-out] relative overflow-hidden backdrop-blur-md">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[50px] rounded-full"/>
+              <div className="flex flex-col lg:flex-row gap-8 relative z-10">
+                <div className="flex-1">
+                  <div className="text-[10px] text-blue-400 font-bold mb-1 uppercase tracking-widest flex items-center gap-1.5"><Zap size={12}/> Analisis Intelijen Cabor</div>
+                  <div className="text-3xl font-black text-white tracking-tight mb-4">{selCabor.nama}</div>
+                  <div className="flex gap-4">
+                    <div className="bg-[#020617] border border-slate-800 p-3 rounded-xl min-w-[100px]">
+                      <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Target Emas</div>
+                      <div className="text-2xl font-light text-amber-400">{selCabor.target}</div>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Alert stream */}
-          <div className="rounded-2xl shadow-md border overflow-hidden flex flex-col bg-white"
-            style={{flex:'1',borderColor:'#d1fae5'}}>
-            <div className="px-4 py-2.5 border-b flex items-center gap-2 flex-shrink-0"
-              style={{borderColor:'#e7f5f0'}}>
-              <Zap size={13} style={{color:GOLD}}/>
-              <span className="text-sm font-semibold" style={{color:'#1a2e1a'}}>Alert Stream</span>
-              <span className="ml-auto text-[10px] text-gray-400">{MOCK_ALERTS.length} notif</span>
-            </div>
-            <div className="overflow-y-auto divide-y flex-1" style={{borderColor:'#f0fdf4'}}>
-              {MOCK_ALERTS.map(al=>(
-                <div key={al.id} className="px-4 py-2.5 flex items-start gap-2.5"
-                  style={{background:al.tipe==='warning'?'#fffbeb50':al.tipe==='success'?'#f0fdf440':''}}>
-                  <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{background:al.tipe==='success'?'#d1fae5':al.tipe==='warning'?'#fef3c7':'#dbeafe'}}>
-                    {al.tipe==='success' && <CheckCircle size={11} style={{color:'#059669'}}/>}
-                    {al.tipe==='warning' && <AlertTriangle size={11} style={{color:'#d97706'}}/>}
-                    {al.tipe==='info'    && <Sparkles size={11} style={{color:'#2563eb'}}/>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-700 leading-relaxed">{al.pesan}</div>
-                    <div className="text-[9px] text-gray-400 mt-0.5">{al.waktu} · {al.venue}</div>
+                <div className="hidden lg:block w-px bg-slate-800"/>
+                <div className="flex-1 flex flex-col justify-center">
+                  <div className="text-[10px] text-slate-400 font-mono uppercase tracking-widest mb-3 border-b border-slate-800 pb-2">Kesimpulan Sistem</div>
+                  <div className="space-y-3">
+                    <div className="flex gap-3 items-start">
+                      {selCabor.cabutan / selCabor.total_atlet > 0.3 ? (
+                        <><ShieldAlert size={16} className="text-rose-500 mt-0.5 shrink-0"/><p className="text-sm text-slate-300"><span className="text-rose-400 font-bold">Risiko Mutasi Tinggi:</span> Segera periksa keabsahan SK mutasi.</p></>
+                      ) : (
+                        <><CheckCircle size={16} className="text-emerald-500 mt-0.5 shrink-0"/><p className="text-sm text-slate-300"><span className="text-emerald-400 font-bold">Kemandirian Sehat:</span> Didominasi atlet lokal.</p></>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── CABOR RANKING 2×5 ───────────────────────────────── */}
-      <div {...ani(110)}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold flex items-center gap-2" style={{color:'#1a2e1a'}}>
-            <BarChart2 size={15} style={{color:PRIMARY}}/> Ranking {MOCK_CABORS.length} Cabor Olahraga
-          </h3>
-          <div className="flex gap-2">
-            {[
-              {l:'Kuat',   c:'#059669', bg:'#f0fdf4', border:'#bbf7d0', n:MOCK_CABORS.filter(c=>c.prediksi==='kuat').length},
-              {l:'Sedang', c:'#92400e', bg:'#fffbeb', border:'#fde68a', n:MOCK_CABORS.filter(c=>c.prediksi==='sedang').length},
-              {l:'Risiko', c:'#991b1b', bg:'#fef2f2', border:'#fecaca', n:MOCK_CABORS.filter(c=>c.prediksi==='risiko').length},
-            ].map(s=>(
-              <div key={s.l} className="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs"
-                style={{background:s.bg,borderColor:s.border,color:s.c}}>
-                <span className="font-black">{s.n}</span> <span className="font-medium">{s.l}</span>
+                <button onClick={()=>setSelCabor(null)} className="absolute top-2 right-2 p-2 bg-[#020617] rounded-full border border-slate-700 text-slate-400 hover:text-white transition-all shadow-lg"><X size={14}/></button>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          {rankedCabors.map((c,i)=>(
-            <div key={c.id}
-              style={{transitionDelay:`${100+i*20}ms`,transition:'all 0.55s ease'}}
-              className={animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}>
-              <CaborCard c={c} rank={i+1}
-                isSelected={selectedCabor?.id===c.id}
-                onClick={()=>setSelectedCabor(p=>p?.id===c.id?null:c)}/>
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* Cabor detail expand */}
-        {selectedCabor && (
-          <div className="mt-4 rounded-2xl border p-5 flex items-center gap-6 shadow-md"
-            style={{background:'white',borderColor:`${PRIMARY}40`}}>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <h4 className="font-bold text-gray-800">{selectedCabor.nama}</h4>
-                <span className="text-[9px] font-bold px-2.5 py-1 rounded-full border"
-                  style={{
-                    background:PREDIKSI_CONF[selectedCabor.prediksi].bg,
-                    color:PREDIKSI_CONF[selectedCabor.prediksi].color,
-                    borderColor:PREDIKSI_CONF[selectedCabor.prediksi].border,
-                  }}>
-                  {PREDIKSI_CONF[selectedCabor.prediksi].label}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{background:'#e7f5f0'}}>
-                  <div className={`h-full rounded-full ${PREDIKSI_CONF[selectedCabor.prediksi].bar}`}
-                    style={{width:`${Math.min((selectedCabor.medali_emas/selectedCabor.target_emas)*100,100)}%`}}/>
+          {/* AREA TABEL LIST */}
+          <div className="max-h-[600px] overflow-y-auto custom-scrollbar bg-[#020617]">
+            {displayedCabors.map((c, i) => {
+              const pctCabutan = c.total_atlet > 0 ? (c.cabutan / c.total_atlet) * 100 : 0
+              const pctPending = c.total_atlet > 0 ? (c.pending / c.total_atlet) * 100 : 0
+              
+              let tagColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              let tagText = 'AMAN TERKENDALI'
+              let tagIcon = <CheckCircle size={12}/>
+
+              if (pctCabutan > 30) { tagColor = 'bg-rose-500/10 text-rose-400 border-rose-500/30'; tagText = 'RAWAN MUTASI'; tagIcon = <ShieldAlert size={12}/> } 
+              else if (pctPending > 20) { tagColor = 'bg-amber-500/10 text-amber-400 border-amber-500/30'; tagText = 'BERKAS TERTUNDA'; tagIcon = <FileWarning size={12}/> } 
+              else if (c.target > 2) { tagColor = 'bg-blue-500/10 text-blue-400 border-blue-500/30'; tagText = 'PRIORITAS EMAS'; tagIcon = <Flame size={12}/> }
+
+              // Menentukan nomor urut asli berdasarkan index di array keseluruhan
+              const actualRank = filteredCabors.findIndex(x => x.id === c.id) + 1
+
+              return (
+                <div key={c.id} onClick={()=>setSelCabor(p=>p?.id===c.id?null:c)}
+                  className={`p-4 border-b border-slate-800/50 hover:bg-[#0f172a] transition-all cursor-pointer flex flex-col md:flex-row md:items-center gap-6 ${selCabor?.id === c.id ? 'bg-blue-900/10 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`}>
+                  
+                  <div className="w-full md:w-64 shrink-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-slate-600 font-mono text-[10px] font-bold">{actualRank}.</span>
+                      <span className="font-extrabold text-slate-100 text-sm truncate">{c.nama}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 w-full">
+                     <div className="flex justify-between text-[10px] font-bold uppercase mb-1.5"><span className="text-slate-500">Verifikasi</span><span className="text-emerald-400 font-mono">{c.verified} / {c.total_atlet}</span></div>
+                     <div className="w-full bg-[#020617] rounded-full h-1.5 overflow-hidden flex border border-slate-800"><div className="h-full bg-emerald-500" style={{ width:`${(c.verified/c.total_atlet)*100}%` }}/><div className="h-full bg-amber-500" style={{ width:`${(c.pending/c.total_atlet)*100}%` }}/></div>
+                  </div>
+
+                  <div className="flex-1 w-full">
+                     <div className="flex justify-between text-[10px] font-bold uppercase mb-1.5"><span className="text-slate-500">Lokal vs Cabutan</span><span className={pctCabutan > 30 ? 'text-rose-400 font-mono' : 'text-slate-400 font-mono'}>{c.lokal} : {c.cabutan}</span></div>
+                     <div className="w-full bg-[#020617] rounded-full h-1.5 overflow-hidden flex border border-slate-800"><div className="h-full bg-blue-500" style={{ width:`${100 - pctCabutan}%` }}/><div className={`h-full ${pctCabutan > 30 ? 'bg-rose-500' : 'bg-slate-600'}`} style={{ width:`${pctCabutan}%` }}/></div>
+                  </div>
+
+                  <div className="w-full md:w-48 shrink-0 flex md:justify-end">
+                    <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px] font-bold uppercase tracking-wider ${tagColor}`}>{tagIcon} {tagText}</span>
+                  </div>
+
                 </div>
-                <span className="text-xs font-bold" style={{color:PRIMARY}}>
-                  {selectedCabor.medali_emas}/{selectedCabor.target_emas} emas
-                </span>
+              )
+            })}
+            
+            {/* LIMIT INDICATOR & LOAD MORE BUTTON */}
+            {!showAllCabor && filteredCabors.length > 10 && (
+              <div className="p-6 bg-[#020617] flex justify-center border-t border-slate-800/50">
+                <button 
+                  onClick={() => setShowAllCabor(true)}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-blue-500/10 text-blue-400 font-bold text-xs uppercase tracking-widest rounded-xl border border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all group"
+                >
+                  Lihat {filteredCabors.length - 10} Cabor Lainnya <ChevronDown size={14} className="group-hover:translate-y-0.5 transition-transform"/>
+                </button>
+              </div>
+            )}
+
+            {showAllCabor && filteredCabors.length > 10 && (
+              <div className="p-6 bg-[#020617] flex justify-center border-t border-slate-800/50">
+                <button 
+                  onClick={() => {
+                    setShowAllCabor(false)
+                    // Scroll back to top of the list when collapsing
+                    window.scrollTo({ top: document.body.scrollHeight / 2, behavior: 'smooth' })
+                  }}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-800/50 text-slate-400 font-bold text-xs uppercase tracking-widest rounded-xl border border-slate-700 hover:bg-slate-800 hover:text-white transition-all group"
+                >
+                  Tutup Daftar <ChevronUp size={14} className="group-hover:-translate-y-0.5 transition-transform"/>
+                </button>
+              </div>
+            )}
+
+            {filteredCabors.length === 0 && (
+              <div className="text-center p-10 text-slate-500 font-mono text-sm">Cabor tidak ditemukan.</div>
+            )}
+          </div>
+        </div>
+
+        {/* ── ROW 4: SPACE BARU UNTUK PELAPORAN & LOGISTIK (TOMBOL/WIDGET) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+          <div className="bg-gradient-to-br from-[#0f172a] to-[#020617] border border-slate-800 hover:border-blue-500/30 transition-colors rounded-2xl p-6 shadow-xl flex items-center justify-between group cursor-pointer">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                <FileText size={24}/>
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-base mb-1">Status Pelaporan & SPJ</h3>
+                <p className="text-xs text-slate-500 font-mono">Pantau progres penyusunan dokumen pelaporan kontingen harian.</p>
               </div>
             </div>
-            <div className="flex gap-6 text-center">
-              {[
-                {l:'Atlet',    v:selectedCabor.total_atlet,         c:'#2563eb'},
-                {l:'Lolos',    v:selectedCabor.lolos_kual,          c:PRIMARY},
-                {l:'Hari Ini', v:selectedCabor.jadwal_hari_ini,     c:'#d97706'},
-                {l:'Siap %',   v:`${selectedCabor.status_kesiapan}%`,c:'#7c3aed'},
-              ].map(s=>(
-                <div key={s.l}>
-                  <div className="text-2xl font-light" style={{color:s.c}}>{s.v}</div>
-                  <div className="text-[9px] text-gray-400">{s.l}</div>
-                </div>
-              ))}
-            </div>
-            <button onClick={()=>setSelectedCabor(null)} className="text-gray-300 hover:text-gray-400 ml-2">
-              <X size={15}/>
-            </button>
+            <div className="text-blue-500 group-hover:translate-x-2 transition-transform"><ChevronRight size={20}/></div>
           </div>
-        )}
-      </div>
 
+          <div className="bg-gradient-to-br from-[#0f172a] to-[#020617] border border-slate-800 hover:border-amber-500/30 transition-colors rounded-2xl p-6 shadow-xl flex items-center justify-between group cursor-pointer">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                <Package size={24}/>
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-base mb-1">Distribusi Logistik & Apparel</h3>
+                <p className="text-xs text-slate-500 font-mono">Rekapitulasi ukuran sepatu, jaket, dan status pengiriman ke venue.</p>
+              </div>
+            </div>
+            <div className="text-amber-500 group-hover:translate-x-2 transition-transform"><ChevronRight size={20}/></div>
+          </div>
+        </div>
+
+      </main>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.8); }
+      `}</style>
     </div>
   )
 }
