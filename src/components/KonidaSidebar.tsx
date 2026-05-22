@@ -352,18 +352,18 @@ export default function KonidaSidebar() {
 
         {/* Premium non-penyelenggara */}
         {isPremiumNonPenye && (
-          <>
-            <div className="h-px bg-slate-800 my-3"/>
-            <div className="flex items-center gap-1.5 px-2 mb-2">
-              <Trophy size={10} style={{ color: tc.primary }}/>
-              <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: tc.primary }}>
-                Premium
-              </span>
-            </div>
-            <NavItem label="War Room"       href="/konida/dashboard/premium" icon={Monitor}/>
-            <NavItem label="Laporan Harian" href="/konida/laporan/harian"    icon={FileText}/>
-            <NavItem label="Export PDF"     href="/konida/export"            icon={Download}/>
-          </>
+            <>
+              <div className="h-px bg-slate-800 my-3"/>
+              <div className="flex items-center gap-1.5 px-2 mb-2">
+                <Trophy size={10} style={{ color: tc.primary }}/>
+                <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: tc.primary }}>
+                  Premium
+                </span>
+              </div>
+              <NavItem label="War Room"          href={tp('/konida/warroom', tenantId)}           icon={Monitor}  />
+              <NavItem label="Lap. Pertandingan" href={tp('/konida/lappertandingan', tenantId)}   icon={FileText} />
+              <NavItem label="Premium Report"    href={tp('/konida/Premiumreport', tenantId)}     icon={Download} />
+            </>
         )}
 
         {/* Superadmin */}
