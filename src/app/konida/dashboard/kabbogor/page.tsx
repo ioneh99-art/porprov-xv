@@ -186,6 +186,26 @@ export default function DashboardKabBogor() {
   const domPutra = useMemo(() => cabors.filter(c=>c.total>3&&c.putra/c.total>0.8).slice(0,5), [cabors])
   const domPutri = useMemo(() => cabors.filter(c=>c.total>3&&c.putri/c.total>0.6).slice(0,5), [cabors])
   const filtered  = useMemo(() => search ? cabors.filter(c=>c.nama.toLowerCase().includes(search.toLowerCase())) : cabors, [cabors,search])
+
+  type AlertSeverity = 'danger' | 'warning' | 'info'
+  interface AlertItem { id:string; severity:AlertSeverity; title:string; msg:string }
+  const alerts = useMemo<AlertItem[]>(() => {
+    const list: AlertItem[] = []
+    if (kpi.ditolak > 0)
+      list.push({ id:'ditolak', severity:'danger', title:'Atlet Ditolak', msg:`${kpi.ditolak} atlet berstatus "Ditolak Admin". Segera hubungi atlet terkait untuk klarifikasi dokumen.` })
+    if (kpi.pending > 0 && kpi.total > 0 && kpi.pending / kpi.total > 0.05)
+      list.push({ id:'pending', severity:'danger', title:'Pending Menumpuk', msg:`${kpi.pending} atlet (${Math.round(kpi.pending/kpi.total*100)}%) masih menunggu verifikasi admin. Percepat proses agar tidak tertinggal dari kontingen lain.` })
+    if (kpi.nonLokal > 0 && kpi.total > 0 && kpi.nonLokal / kpi.total > 0.1)
+      list.push({ id:'nonlokal', severity:'warning', title:'Atlet Non-Lokal Tinggi', msg:`${kpi.nonLokal} atlet (${Math.round(kpi.nonLokal/kpi.total*100)}%) tercatat bukan dari wilayah Kab. Bogor. Perlu validasi domisili.` })
+    if (kpi.vpct < 60 && kpi.total > 0)
+      list.push({ id:'vpct', severity:'warning', title:'Verifikasi Rendah', msg:`Hanya ${kpi.vpct}% atlet yang sudah terverifikasi. Target minimal 80% sebelum kompetisi dimulai.` })
+    const zeroMedaliCabor = cabors.filter(c => c.total >= 5 && c.emas + c.perak + c.perunggu === 0)
+    if (zeroMedaliCabor.length > 0)
+      list.push({ id:'zeromedali', severity:'warning', title:'Cabor Tanpa Medali', msg:`${zeroMedaliCabor.length} cabor dengan ≥5 atlet belum meraih medali (${zeroMedaliCabor.slice(0,3).map(c=>c.nama).join(', ')}${zeroMedaliCabor.length>3?', …':''}). Evaluasi program pembinaan.` })
+    if (kpi.vpct >= 80 && kpi.ditolak === 0 && kpi.pending === 0)
+      list.push({ id:'ok', severity:'info', title:'Status Optimal', msg:`Seluruh atlet sudah terverifikasi dan tidak ada yang pending atau ditolak. Persiapan administrasi berjalan lancar.` })
+    return list
+  }, [kpi, cabors])
   const displayed = showAll ? filtered : filtered.slice(0,12)
   const maxAtlet  = cabors[0]?.total ?? 1
 

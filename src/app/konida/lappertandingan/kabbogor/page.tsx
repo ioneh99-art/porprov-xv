@@ -1,13 +1,14 @@
 'use client'
-// src/app/konida/lappertandingan/kabbogor/page.tsx
-// Laporan Pertandingan Harian — Jurnal Hasil Laga
+// src/app/konida/lappertandingan/kabbogor/page.tsx — v2
+// Input manual jurnal + localStorage + print/export real
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
-  FileText, Clock, Download, CheckCircle,
-  AlertTriangle, ListOrdered, ArrowRight,
-  Trophy, X, Medal, TrendingUp, RefreshCw,
+  FileText, Clock, Download, CheckCircle, Plus,
+  ListOrdered, ArrowRight, Trophy, X, Medal,
+  RefreshCw, Printer, Save, Edit2, Trash2,
+  Info, Calendar, AlertTriangle,
 } from 'lucide-react'
 
 const sb = createClient(
@@ -15,95 +16,219 @@ const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+const ACCENT = '#00ffaa'
+const KONTINGEN_ID = 1
+
+// PORPROV XV: 15–29 Juni 2026 = 15 hari
+const HARI_PORPROV = Array.from({length:15},(_,i)=>{
+  const d = new Date('2026-06-15')
+  d.setDate(d.getDate()+i)
+  return {
+    hari:   i+1,
+    tanggal: d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}),
+    iso:     d.toISOString().slice(0,10),
+  }
+})
+
 interface JurnalLaga {
-  waktu: string; cabor: string; hasil: string
-  medali: 'Emas'|'Perak'|'Perunggu'|'Tanpa Medali'; catatan: string
+  id:      string
+  waktu:   string
+  cabor:   string
+  hasil:   string
+  medali:  'Emas'|'Perak'|'Perunggu'|'Tanpa Medali'
+  catatan: string
 }
 
-const JURNAL_DATA: Record<number, JurnalLaga[]> = {
-  1: [
-    { waktu:'10:30', cabor:'Karate Kata Putri',    hasil:'Juara 1 Final — Ungguli Kota Bandung',     medali:'Emas',       catatan:'Penampilan sempurna, nilai tertinggi di babak final.' },
-    { waktu:'13:00', cabor:'Renang 100m Putri',    hasil:'Juara 2 Final',                            medali:'Perak',      catatan:'Finish sangat tipis, kalah 0.3 detik dari Bekasi.' },
-    { waktu:'15:30', cabor:'Bulu Tangkis Ganda Putra',hasil:'Kalah di SF dari Kota Depok',          medali:'Tanpa Medali',catatan:'Stamina menurun di set 3, perlu evaluasi.' },
-  ],
-  2: [
-    { waktu:'09:00', cabor:'Atletik 400m Putra',   hasil:'Juara 1 Final',                            medali:'Emas',       catatan:'Waktu terbaik musim ini. Potensi rekor daerah.' },
-    { waktu:'11:15', cabor:'Hockey Putra',          hasil:'Menang 3-1 vs Kota Bogor',                medali:'Tanpa Medali',catatan:'Masih babak penyisihan. Performa bagus.' },
-    { waktu:'14:00', cabor:'Pencak Silat Kelas C',  hasil:'Juara 3 Final',                           medali:'Perunggu',   catatan:'Kalah di SF tapi rebut perunggu.' },
-  ],
-  3: [
-    { waktu:'10:00', cabor:'Taekwondo 54kg Putra',  hasil:'Juara 1 Final — Telak atas Depok',       medali:'Emas',       catatan:'Agresif dari ronde 1, fisik prima.' },
-    { waktu:'14:15', cabor:'Tenis Meja Ganda Putri',hasil:'Kalah di QF dari Kab. Ciamis',           medali:'Tanpa Medali',catatan:'Kurang fokus set penentuan.' },
-    { waktu:'16:00', cabor:'Karate Perorangan Putri',hasil:'Juara 2 — Nilai tipis kalah dari Bekasi',medali:'Perak',      catatan:'Teknik sangat rapi, hanya kalah di power.' },
-  ],
-  4: [
-    { waktu:'08:30', cabor:'Dayung K-2 500m',       hasil:'Juara 1 Final',                           medali:'Emas',       catatan:'Start terbaik, dominan sepanjang race.' },
-    { waktu:'11:00', cabor:'Sepak Bola Putra',       hasil:'Menang 2-1 vs Kota Bandung (QF)',        medali:'Tanpa Medali',catatan:'Drama injury time, gol penentu menit 89.' },
-    { waktu:'15:30', cabor:'Panahan Recurve Putra',  hasil:'Juara 3',                                medali:'Perunggu',   catatan:'Konsisten di babak eliminasi.' },
-  ],
-  5: [
-    { waktu:'09:30', cabor:'Hockey Putra Final',     hasil:'Juara 1 — Menang 2-0 vs Kota Bekasi',   medali:'Emas',       catatan:'Partai final terbaik. Kiper gemilang.' },
-    { waktu:'13:00', cabor:'Sepak Bola Putra Final', hasil:'Runner-up — Kalah SO dari Kab. Bekasi',  medali:'Perak',      catatan:'Adu penalti dramatis. Kekalahan terhormat.' },
-    { waktu:'16:30', cabor:'Atletik 100m Putra',     hasil:'Juara 1 Final',                           medali:'Emas',       catatan:'Waktu 10.34 detik — rekor PORPROV baru!' },
-  ],
+const MEDALI_CFG = {
+  'Emas':        { text:'#ffd700', bg:'rgba(255,215,0,0.1)',    border:'rgba(255,215,0,0.25)',    dot:'#ffd700', emoji:'🥇' },
+  'Perak':       { text:'#c0c0c0', bg:'rgba(192,192,192,0.1)',  border:'rgba(192,192,192,0.25)',  dot:'#c0c0c0', emoji:'🥈' },
+  'Perunggu':    { text:'#cd7f32', bg:'rgba(205,127,50,0.1)',   border:'rgba(205,127,50,0.25)',   dot:'#cd7f32', emoji:'🥉' },
+  'Tanpa Medali':{ text:'#6b7280', bg:'rgba(107,114,128,0.06)', border:'rgba(107,114,128,0.1)',  dot:'#374151', emoji:'—' },
 }
 
-const MEDALI_COLOR = {
-  Emas:        { text:'#ffd700', bg:'rgba(255,215,0,0.1)',    border:'rgba(255,215,0,0.25)',    dot:'#ffd700' },
-  Perak:       { text:'#c0c0c0', bg:'rgba(192,192,192,0.1)',  border:'rgba(192,192,192,0.25)',  dot:'#c0c0c0' },
-  Perunggu:    { text:'#cd7f32', bg:'rgba(205,127,50,0.1)',   border:'rgba(205,127,50,0.25)',   dot:'#cd7f32' },
-  'Tanpa Medali':{ text:'#6b7280', bg:'rgba(107,114,128,0.06)',border:'rgba(107,114,128,0.15)', dot:'#374151' },
+const EMPTY_FORM: Omit<JurnalLaga,'id'> = {
+  waktu:'', cabor:'', hasil:'', medali:'Tanpa Medali', catatan:''
+}
+
+const LS_KEY = 'porprov_jurnal_v1'
+
+function loadFromLS(): Record<number, JurnalLaga[]> {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)||'{}') } catch { return {} }
+}
+function saveToLS(data: Record<number, JurnalLaga[]>) {
+  localStorage.setItem(LS_KEY, JSON.stringify(data))
 }
 
 export default function PageLapPertandingan() {
-  const [selectedHari, setSelectedHari] = useState(3)
-  const [animIn,       setAnimIn]       = useState(false)
+  const [selectedHari, setSelectedHari] = useState(1)
+  const [jurналData,   setJurnalData]   = useState<Record<number,JurnalLaga[]>>({})
   const [klasemen,     setKlasemen]     = useState<any>(null)
+  const [showForm,     setShowForm]     = useState(false)
+  const [editId,       setEditId]       = useState<string|null>(null)
+  const [form,         setForm]         = useState<Omit<JurnalLaga,'id'>>(EMPTY_FORM)
+  const [animIn,       setAnimIn]       = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [caborList,    setCaborList]    = useState<string[]>([])
+  const [showAllHari,  setShowAllHari]  = useState(false)
 
-  useEffect(() => { const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
+  useEffect(()=>{ const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
 
-  useEffect(() => {
-    sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id',1).single()
-      .then(({ data }) => { if(data) setKlasemen(data) })
-  }, [])
+  // Load dari localStorage
+  useEffect(()=>{
+    setJurnalData(loadFromLS())
+  },[])
 
-  const jurnal  = JURNAL_DATA[selectedHari] ?? []
-  const emas    = jurnal.filter(j => j.medali==='Emas').length
-  const perak   = jurnal.filter(j => j.medali==='Perak').length
-  const perunggu= jurnal.filter(j => j.medali==='Perunggu').length
-  const wins    = jurnal.filter(j => j.medali!=='Tanpa Medali').length
+  // Fetch klasemen + cabor list
+  useEffect(()=>{
+    sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id',KONTINGEN_ID).maybeSingle()
+      .then(({data})=>{ if(data) setKlasemen(data) })
+    sb.from('atlet').select('cabor_nama_raw').eq('kontingen_id',KONTINGEN_ID).eq('status_registrasi','Verified')
+      .then(({data})=>{
+        if(data){
+          const cabors = Array.from(new Set((data as any[]).map(a=>a.cabor_nama_raw).filter(Boolean))).sort()
+          setCaborList(cabors)
+        }
+      })
+  },[])
 
-  const ani = (d=0) => ({
-    style:{ transitionDelay:`${d}ms`, transition:'all 0.55s ease' },
-    className: animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5',
+  const jurnal = jurналData[selectedHari]??[]
+
+  // Summary per hari untuk sidebar
+  const hariSummary = useMemo(()=>{
+    const m: Record<number,{emas:number;total:number;laga:number}> = {}
+    Object.entries(jurналData).forEach(([h,list])=>{
+      const hi = Number(h)
+      m[hi] = {
+        emas:  (list as JurnalLaga[]).filter(j=>j.medali==='Emas').length,
+        total: (list as JurnalLaga[]).filter(j=>j.medali!=='Tanpa Medali').length,
+        laga:  (list as JurnalLaga[]).length,
+      }
+    })
+    return m
+  },[jurналData])
+
+  // Akumulasi semua medali (jurnal manual)
+  const totalAkum = useMemo(()=>{
+    let e=0,p=0,pg=0
+    Object.values(jurналData).forEach(list=>{
+      list.forEach(j=>{
+        if(j.medali==='Emas') e++
+        if(j.medali==='Perak') p++
+        if(j.medali==='Perunggu') pg++
+      })
+    })
+    return {e,p,pg,total:e+p+pg}
+  },[jurналData])
+
+  function openAdd() {
+    setForm(EMPTY_FORM); setEditId(null); setShowForm(true)
+  }
+  function openEdit(j: JurnalLaga) {
+    setForm({waktu:j.waktu,cabor:j.cabor,hasil:j.hasil,medali:j.medali,catatan:j.catatan})
+    setEditId(j.id); setShowForm(true)
+  }
+
+  function handleSave() {
+    if (!form.cabor||!form.hasil) return
+    const newData = {...jurналData}
+    if (!newData[selectedHari]) newData[selectedHari]=[]
+    if (editId) {
+      newData[selectedHari] = newData[selectedHari].map(j=>j.id===editId?{...form,id:editId}:j)
+    } else {
+      newData[selectedHari] = [...newData[selectedHari], {...form, id:Date.now().toString()}]
+    }
+    // Sort by waktu
+    newData[selectedHari].sort((a,b)=>a.waktu.localeCompare(b.waktu))
+    setJurnalData(newData)
+    saveToLS(newData)
+    setShowForm(false); setForm(EMPTY_FORM); setEditId(null)
+    setSaved(true); setTimeout(()=>setSaved(false),2000)
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm('Hapus entry ini?')) return
+    const newData = {...jurналData}
+    newData[selectedHari] = (newData[selectedHari]||[]).filter(j=>j.id!==id)
+    setJurnalData(newData); saveToLS(newData)
+  }
+
+  function printJurnal() {
+    const hari = HARI_PORPROV[selectedHari-1]
+    const html = `<!DOCTYPE html><html><head><title>Jurnal Hari ${selectedHari}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:24px}
+      h2{font-size:15px;margin-bottom:2px}p{color:#666;font-size:10px;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse}
+      th{background:#065f46;color:#fff;padding:6px 10px;text-align:left;font-size:10px}
+      td{padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;vertical-align:top}
+      tr:nth-child(even){background:#f9fafb}
+      .emas{color:#b45309;font-weight:800} .perak{color:#64748b;font-weight:700}
+      .perunggu{color:#92400e;font-weight:700} .none{color:#9ca3af}
+      .summary{margin-top:16px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px}
+      @media print{button{display:none}}
+    </style></head><body>
+    <h2>📋 Jurnal Hasil Pertandingan Harian</h2>
+    <p>Hari ke-${selectedHari} · ${hari.tanggal} · Kontingen Kab. Bogor · PORPROV XV Jawa Barat 2026</p>
+    <button onclick="window.print()" style="margin-bottom:16px;padding:6px 16px;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Print</button>
+    <table>
+      <thead><tr><th>#</th><th>Waktu</th><th>Cabor</th><th>Hasil Pertandingan</th><th>Medali</th><th>Catatan</th></tr></thead>
+      <tbody>
+        ${jurnal.map((j,i)=>`<tr>
+          <td>${i+1}</td>
+          <td>${j.waktu||'—'} WIB</td>
+          <td><strong>${j.cabor}</strong></td>
+          <td>${j.hasil}</td>
+          <td class="${j.medali==='Emas'?'emas':j.medali==='Perak'?'perak':j.medali==='Perunggu'?'perunggu':'none'}">${j.medali==='Emas'?'🥇 Emas':j.medali==='Perak'?'🥈 Perak':j.medali==='Perunggu'?'🥉 Perunggu':'—'}</td>
+          <td>${j.catatan||'—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="summary">
+      <strong>Rekap Hari Ini:</strong>
+      🥇 ${jurnal.filter(j=>j.medali==='Emas').length} Emas &nbsp;
+      🥈 ${jurnal.filter(j=>j.medali==='Perak').length} Perak &nbsp;
+      🥉 ${jurnal.filter(j=>j.medali==='Perunggu').length} Perunggu &nbsp;|&nbsp;
+      Total ${jurnal.filter(j=>j.medali!=='Tanpa Medali').length} Medali dari ${jurnal.length} Pertandingan
+    </div>
+    </body></html>`
+    const w = window.open('','_blank')
+    w?.document.write(html); w?.document.close()
+  }
+
+  const ani=(d=0)=>({
+    style:{transitionDelay:`${d}ms`,transition:'all 0.5s ease'},
+    className:animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4',
   })
+
+  const displayedHari = showAllHari ? HARI_PORPROV : HARI_PORPROV.slice(0,7)
 
   return (
     <div className="min-h-screen text-zinc-300 flex flex-col"
-      style={{ background:'linear-gradient(135deg,#020d06 0%,#040f08 100%)' }}>
+      style={{background:'linear-gradient(135deg,#020d06 0%,#040f08 100%)'}}>
 
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ backgroundImage:'linear-gradient(rgba(0,255,170,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,170,0.02) 1px,transparent 1px)', backgroundSize:'32px 32px' }}/>
+      <div className="fixed inset-0 pointer-events-none"
+        style={{backgroundImage:`linear-gradient(${ACCENT}03 1px,transparent 1px),linear-gradient(90deg,${ACCENT}03 1px,transparent 1px)`,backgroundSize:'32px 32px',zIndex:0}}/>
 
       {/* HEADER */}
-      <div className="sticky top-0 z-40 border-b border-zinc-800/60 p-5 backdrop-blur-xl"
-        style={{ background:'rgba(2,13,6,0.92)' }}>
+      <div className="sticky top-0 z-40 border-b backdrop-blur-xl px-6 py-4"
+        style={{background:'rgba(2,13,6,0.95)',borderColor:`${ACCENT}12`}}>
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center"
-              style={{ background:'rgba(0,255,170,0.1)', border:'1px solid rgba(0,255,170,0.25)' }}>
-              <FileText size={22} style={{ color:'#00ffaa' }}/>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`}}>
+              <FileText size={20} style={{color:ACCENT}}/>
             </div>
             <div>
               <h1 className="text-xl font-black text-white">Jurnal Hasil Pertandingan Harian</h1>
-              <p className="text-[11px] text-zinc-500 font-mono mt-0.5">Kronologi hasil tanding & laporan pertanggungjawaban harian · Kab. Bogor</p>
+              <p className="text-[11px] font-mono mt-0.5" style={{color:'rgba(255,255,255,0.35)'}}>
+                Input manual · Tersimpan di perangkat · Kab. Bogor · PORPROV XV 2026
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Rekap medali real */}
             {klasemen && (
               <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                style={{ background:'rgba(255,215,0,0.08)', border:'1px solid rgba(255,215,0,0.2)' }}>
+                style={{background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.2)'}}>
                 <span className="text-sm font-black text-yellow-400">🥇{klasemen.emas}</span>
                 <span className="text-sm text-zinc-400">🥈{klasemen.perak}</span>
                 <span className="text-sm text-orange-400">🥉{klasemen.perunggu}</span>
@@ -111,10 +236,13 @@ export default function PageLapPertandingan() {
                 <span className="text-xs font-bold text-zinc-400">{klasemen.total} total</span>
               </div>
             )}
-            <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-              style={{ background:'rgba(0,255,170,0.15)', border:'1px solid rgba(0,255,170,0.3)', color:'#00ffaa' }}>
-              <Download size={13}/> Export PDF Bupati
-            </button>
+            {jurnal.length>0 && (
+              <button onClick={printJurnal}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold"
+                style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,color:ACCENT}}>
+                <Printer size={13}/> Print Hari {selectedHari}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -122,137 +250,326 @@ export default function PageLapPertandingan() {
       <main className="flex-1 p-5 max-w-[1600px] w-full mx-auto relative z-10">
         <div className="grid grid-cols-4 gap-5">
 
-          {/* DAY SELECTOR */}
-          <div {...ani(0)} className="col-span-1 space-y-3">
-            <div className="text-[10px] text-zinc-600 uppercase tracking-widest font-mono px-1 mb-2">Pilih Hari</div>
+          {/* SIDEBAR — Day selector */}
+          <div className="col-span-1">
 
-            {[1,2,3,4,5].map(day => {
-              const d = JURNAL_DATA[day]??[]
-              const e = d.filter(x=>x.medali==='Emas').length
-              const total = d.filter(x=>x.medali!=='Tanpa Medali').length
-              const isActive = selectedHari===day
-              return (
-                <button key={day} onClick={()=>setSelectedHari(day)}
-                  className="w-full p-4 rounded-xl text-left transition-all"
-                  style={{
-                    background: isActive?'rgba(0,255,170,0.08)':'rgba(255,255,255,0.02)',
-                    border:`1px solid ${isActive?'rgba(0,255,170,0.3)':'rgba(255,255,255,0.06)'}`,
-                  }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold" style={{ color:isActive?'#00ffaa':'rgba(255,255,255,0.5)' }}>
-                      HARI KE-{day}
-                    </span>
-                    {isActive && <ArrowRight size={12} style={{ color:'#00ffaa' }}/>}
+            {/* Akumulasi manual */}
+            <div {...ani(0)} className="rounded-2xl p-4 mb-4"
+              style={{background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`}}>
+              <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                <Trophy size={10} style={{color:ACCENT}}/> Total Jurnal Manual
+              </div>
+              <div className="flex gap-2 mb-2">
+                {[{v:totalAkum.e,c:'#ffd700',e:'🥇'},{v:totalAkum.p,c:'#c0c0c0',e:'🥈'},{v:totalAkum.pg,c:'#cd7f32',e:'🥉'}].map((m,i)=>(
+                  <div key={i} className="flex-1 text-center rounded-lg py-2"
+                    style={{background:`${m.c}12`,border:`1px solid ${m.c}20`}}>
+                    <div className="text-base">{m.e}</div>
+                    <div className="text-lg font-black" style={{color:m.c}}>{m.v}</div>
                   </div>
-                  <div className="flex gap-2">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono"
-                      style={{ background:'rgba(255,215,0,0.1)', color:'#ffd700' }}>
-                      {e} emas
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono"
-                      style={{ background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.4)' }}>
-                      {d.length} laga
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-
-            {/* Ringkasan hari ini */}
-            <div className="rounded-xl p-4 mt-2"
-              style={{ background:'rgba(0,255,170,0.05)', border:'1px solid rgba(0,255,170,0.15)' }}>
-              <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-3">Hari ke-{selectedHari}</div>
-              {[
-                { l:'Emas',    v:emas,     c:'#ffd700' },
-                { l:'Perak',   v:perak,    c:'#c0c0c0' },
-                { l:'Perunggu',v:perunggu, c:'#cd7f32' },
-                { l:'Medali',  v:wins,     c:'#00ffaa' },
-              ].map(s => (
-                <div key={s.l} className="flex justify-between items-center py-1.5 border-b last:border-0"
-                  style={{ borderColor:'rgba(255,255,255,0.05)' }}>
-                  <span className="text-[11px] text-zinc-500">{s.l}</span>
-                  <span className="text-sm font-black" style={{ color:s.c }}>{s.v}</span>
+                ))}
+              </div>
+              <div className="text-[10px] mt-1 text-center" style={{color:'rgba(255,255,255,0.3)'}}>
+                {totalAkum.total} medali dari {Object.values(jurналData).reduce((s,l)=>s+l.length,0)} pertandingan
+              </div>
+              {saved && (
+                <div className="mt-2 flex items-center gap-1.5 text-[10px] text-green-400">
+                  <CheckCircle size={10}/> Tersimpan!
                 </div>
-              ))}
+              )}
             </div>
+
+            {/* Info localStorage */}
+            <div className="rounded-xl p-3 mb-4 flex items-start gap-2"
+              style={{background:`${ACCENT}04`,border:`1px solid ${ACCENT}10`}}>
+              <Info size={11} style={{color:ACCENT,flexShrink:0,marginTop:1}}/>
+              <p className="text-[9px] leading-relaxed" style={{color:`${ACCENT}70`}}>
+                Data jurnal tersimpan di perangkat ini (localStorage). Nanti diintegrasikan ke tabel <code>hasil_pertandingan</code> saat tersedia.
+              </p>
+            </div>
+
+            {/* Day list */}
+            <div className="text-[10px] text-zinc-600 uppercase tracking-widest font-mono px-1 mb-2">
+              15–29 Juni 2026
+            </div>
+            <div className="space-y-1.5">
+              {displayedHari.map(h=>{
+                const s       = hariSummary[h.hari]
+                const isAct   = selectedHari===h.hari
+                const hasData = s && s.laga>0
+                return (
+                  <button key={h.hari} onClick={()=>setSelectedHari(h.hari)}
+                    className="w-full p-3 rounded-xl text-left transition-all"
+                    style={{
+                      background: isAct?`${ACCENT}10`:'rgba(255,255,255,0.02)',
+                      border:`1px solid ${isAct?`${ACCENT}25`:'rgba(255,255,255,0.06)'}`,
+                    }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold"
+                        style={{color:isAct?ACCENT:'rgba(255,255,255,0.5)'}}>
+                        Hari {h.hari}
+                      </span>
+                      {hasData && <div className="w-1.5 h-1.5 rounded-full" style={{background:ACCENT}}/>}
+                    </div>
+                    <div className="text-[9px]" style={{color:'rgba(255,255,255,0.3)'}}>{h.tanggal}</div>
+                    {hasData && (
+                      <div className="flex gap-1.5 mt-1.5">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                          style={{background:'rgba(255,215,0,0.1)',color:'#ffd700'}}>
+                          {s.emas}🥇
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                          style={{background:'rgba(255,255,255,0.04)',color:'rgba(255,255,255,0.35)'}}>
+                          {s.laga} laga
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {HARI_PORPROV.length>7 && (
+              <button onClick={()=>setShowAllHari(v=>!v)}
+                className="w-full mt-2 py-2 rounded-xl text-[10px] font-bold"
+                style={{background:`${ACCENT}08`,color:ACCENT,border:`1px solid ${ACCENT}15`}}>
+                {showAllHari?'Sembunyikan':'Lihat semua 15 hari'}
+              </button>
+            )}
           </div>
 
-          {/* JURNAL TIMELINE */}
-          <div {...ani(60)} className="col-span-3 rounded-2xl p-6"
-            style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)' }}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                <ListOrdered size={15} style={{ color:'#00ffaa' }}/>
-                Kronologi Hasil Tanding Hari Ke-{selectedHari}
-              </h2>
-              <span className="text-[10px] font-mono px-2.5 py-1 rounded-full"
-                style={{ background:'rgba(0,255,170,0.1)', color:'#00ffaa', border:'1px solid rgba(0,255,170,0.2)' }}>
-                {jurnal.length} pertandingan · {wins} medali
-              </span>
-            </div>
+          {/* MAIN — Jurnal timeline */}
+          <div {...ani(60)} className="col-span-3">
+            <div className="rounded-2xl overflow-hidden"
+              style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.07)'}}>
 
-            {/* Timeline */}
-            <div className="relative">
-              <div className="absolute left-5 top-0 bottom-0 w-px" style={{ background:'rgba(0,255,170,0.1)' }}/>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b"
+                style={{borderColor:'rgba(255,255,255,0.07)'}}>
+                <div className="flex items-center gap-3">
+                  <ListOrdered size={14} style={{color:ACCENT}}/>
+                  <div>
+                    <span className="text-sm font-bold text-white">
+                      Hari ke-{selectedHari} · {HARI_PORPROV[selectedHari-1].tanggal}
+                    </span>
+                    <div className="text-[10px] mt-0.5" style={{color:'rgba(255,255,255,0.3)'}}>
+                      {jurnal.length} pertandingan tercatat ·{' '}
+                      {jurnal.filter(j=>j.medali!=='Tanpa Medali').length} medali
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {jurnal.length>0 && (
+                    <div className="flex gap-2 text-[10px] font-bold">
+                      {[
+                        {v:jurnal.filter(j=>j.medali==='Emas').length,     c:'#ffd700', l:'Emas'},
+                        {v:jurnal.filter(j=>j.medali==='Perak').length,    c:'#c0c0c0', l:'Perak'},
+                        {v:jurnal.filter(j=>j.medali==='Perunggu').length, c:'#cd7f32', l:'Prnggu'},
+                      ].filter(s=>s.v>0).map(s=>(
+                        <div key={s.l} className="px-2 py-1 rounded-lg"
+                          style={{background:`${s.c}12`,color:s.c,border:`1px solid ${s.c}20`}}>
+                          {s.v} {s.l}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={openAdd}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold"
+                    style={{background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,color:ACCENT}}>
+                    <Plus size={13}/> Input Hasil
+                  </button>
+                </div>
+              </div>
 
-              <div className="space-y-5">
-                {jurnal.map((j, i) => {
-                  const mc = MEDALI_COLOR[j.medali]
-                  return (
-                    <div key={i} className="relative pl-14"
-                      style={{ animation:`fadeIn 0.4s ease ${i*100}ms both` }}>
-                      {/* Timeline dot */}
-                      <div className="absolute left-[17px] top-4 w-7 h-7 rounded-full flex items-center justify-center z-10"
-                        style={{ background:mc.bg, border:`2px solid ${mc.dot}`, boxShadow:`0 0 8px ${mc.dot}40` }}>
-                        {j.medali!=='Tanpa Medali'
-                          ? <span className="text-xs">{j.medali==='Emas'?'🥇':j.medali==='Perak'?'🥈':'🥉'}</span>
-                          : <X size={10} style={{ color:'#6b7280' }}/>
-                        }
-                      </div>
+              {/* Timeline */}
+              <div className="p-5">
+                {jurnal.length===0 ? (
+                  <div className="py-16 text-center">
+                    <Calendar size={32} className="mx-auto mb-3 opacity-15"/>
+                    <div className="text-sm font-bold text-zinc-600 mb-1">Belum ada hasil pertandingan</div>
+                    <p className="text-xs text-zinc-700 mb-4">Klik "Input Hasil" untuk menambah jurnal hari ini</p>
+                    <button onClick={openAdd}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold mx-auto"
+                      style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,color:ACCENT}}>
+                      <Plus size={14}/> Input Hasil Pertandingan
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-5 top-0 bottom-0 w-px"
+                      style={{background:'rgba(0,255,170,0.1)'}}/>
+                    <div className="space-y-4">
+                      {jurnal.map((j,i)=>{
+                        const mc = MEDALI_CFG[j.medali]
+                        return (
+                          <div key={j.id} className="relative pl-14">
+                            {/* Dot */}
+                            <div className="absolute left-[17px] top-3.5 w-7 h-7 rounded-full flex items-center justify-center z-10"
+                              style={{background:mc.bg,border:`2px solid ${mc.dot}`,boxShadow:`0 0 8px ${mc.dot}40`}}>
+                              <span className="text-xs">{mc.emoji}</span>
+                            </div>
 
-                      {/* Card */}
-                      <div className="rounded-xl p-4"
-                        style={{ background:'rgba(255,255,255,0.02)', border:`1px solid ${mc.border}` }}>
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-mono text-zinc-500 flex items-center gap-1">
-                                <Clock size={9}/> {j.waktu} WIB
-                              </span>
-                              {j.medali!=='Tanpa Medali' && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase"
-                                  style={{ background:mc.bg, color:mc.text, border:`1px solid ${mc.border}` }}>
-                                  {j.medali}
-                                </span>
+                            <div className="rounded-xl p-4 group"
+                              style={{background:'rgba(255,255,255,0.025)',border:`1px solid ${mc.border}`}}>
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    {j.waktu && (
+                                      <span className="text-[10px] font-mono text-zinc-500 flex items-center gap-1">
+                                        <Clock size={9}/> {j.waktu} WIB
+                                      </span>
+                                    )}
+                                    <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase"
+                                      style={{background:mc.bg,color:mc.text,border:`1px solid ${mc.border}`}}>
+                                      {j.medali}
+                                    </span>
+                                  </div>
+                                  <h3 className="text-base font-black text-zinc-100">{j.cabor}</h3>
+                                </div>
+                                {/* Edit/Delete */}
+                                <div className="flex gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={()=>openEdit(j)}
+                                    className="p-1.5 rounded-lg transition-all"
+                                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.4)'}}>
+                                    <Edit2 size={12}/>
+                                  </button>
+                                  <button onClick={()=>handleDelete(j.id)}
+                                    className="p-1.5 rounded-lg transition-all"
+                                    style={{background:'rgba(248,113,113,0.08)',border:'1px solid rgba(248,113,113,0.2)',color:'#f87171'}}>
+                                    <Trash2 size={12}/>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="text-sm font-semibold text-zinc-300 p-3 rounded-lg mb-2"
+                                style={{background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.06)'}}>
+                                {j.hasil}
+                              </div>
+
+                              {j.catatan && (
+                                <div className="pl-3 border-l-2"
+                                  style={{borderColor:'rgba(0,255,170,0.2)'}}>
+                                  <span className="text-[9px] font-mono text-zinc-600 uppercase block mb-0.5">Catatan:</span>
+                                  <p className="text-[11px] text-zinc-400 leading-relaxed">{j.catatan}</p>
+                                </div>
                               )}
                             </div>
-                            <h3 className="text-base font-black text-zinc-100">{j.cabor}</h3>
                           </div>
-                        </div>
-
-                        <div className="text-sm font-semibold text-zinc-300 p-3 rounded-lg mb-3"
-                          style={{ background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.06)' }}>
-                          {j.hasil}
-                        </div>
-
-                        <div className="flex items-start gap-2 pl-3"
-                          style={{ borderLeft:'2px solid rgba(0,255,170,0.2)' }}>
-                          <div>
-                            <span className="text-[9px] font-mono text-zinc-600 uppercase block mb-0.5">Catatan Tim:</span>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">{j.catatan}</p>
-                          </div>
-                        </div>
-                      </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </main>
 
-      <style>{`@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }`}</style>
+      {/* INPUT FORM MODAL */}
+      {showForm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{background:'rgba(0,0,0,0.75)',backdropFilter:'blur(6px)'}}>
+          <div className="w-full max-w-[500px] rounded-2xl overflow-hidden"
+            style={{background:'#040f08',border:`1px solid ${ACCENT}20`,boxShadow:'0 25px 60px rgba(0,0,0,0.8)'}}>
+
+            <div className="flex items-center justify-between px-6 py-4 border-b"
+              style={{borderColor:`${ACCENT}12`,background:`${ACCENT}04`}}>
+              <div className="text-white font-bold">
+                {editId?'Edit Hasil Pertandingan':'Input Hasil Pertandingan'}
+              </div>
+              <button onClick={()=>setShowForm(false)} className="p-2 rounded-xl"
+                style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.4)'}}>
+                <X size={15}/>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Hari info */}
+              <div className="text-[11px] px-3 py-2 rounded-lg"
+                style={{background:`${ACCENT}06`,border:`1px solid ${ACCENT}12`,color:`${ACCENT}80`}}>
+                Hari ke-{selectedHari} · {HARI_PORPROV[selectedHari-1].tanggal}
+              </div>
+
+              {/* Waktu + Cabor */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Waktu (WIB)</label>
+                  <input type="time" value={form.waktu} onChange={e=>setForm(f=>({...f,waktu:e.target.value}))}
+                    className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none"
+                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}
+                    onFocus={e=>e.target.style.borderColor=ACCENT}
+                    onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Cabor *</label>
+                  <select value={form.cabor} onChange={e=>setForm(f=>({...f,cabor:e.target.value}))}
+                    className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none"
+                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}>
+                    <option value="" style={{background:'#040f08'}}>Pilih cabor...</option>
+                    {caborList.map(c=><option key={c} value={c} style={{background:'#040f08'}}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Hasil */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Hasil Pertandingan *</label>
+                <input value={form.hasil} onChange={e=>setForm(f=>({...f,hasil:e.target.value}))}
+                  placeholder="Contoh: Juara 1 Final — Menang vs Kota Bandung"
+                  className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none"
+                  style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}
+                  onFocus={e=>e.target.style.borderColor=ACCENT}
+                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
+              </div>
+
+              {/* Medali */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Medali Diraih</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['Emas','Perak','Perunggu','Tanpa Medali'] as const).map(m=>{
+                    const mc = MEDALI_CFG[m]
+                    return (
+                      <button key={m} onClick={()=>setForm(f=>({...f,medali:m}))}
+                        className="py-2.5 rounded-xl text-[11px] font-bold text-center transition-all"
+                        style={{
+                          background: form.medali===m?mc.bg:'rgba(255,255,255,0.03)',
+                          color:      form.medali===m?mc.text:'rgba(255,255,255,0.4)',
+                          border:     form.medali===m?`1px solid ${mc.border}`:'1px solid rgba(255,255,255,0.07)',
+                        }}>
+                        {mc.emoji} {m==='Tanpa Medali'?'Tanpa':''}
+                        {m!=='Tanpa Medali'?m:'Medali'}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Catatan */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Catatan Tim</label>
+                <textarea value={form.catatan} onChange={e=>setForm(f=>({...f,catatan:e.target.value}))}
+                  rows={3} placeholder="Evaluasi performa, highlight, atau hal yang perlu ditindaklanjuti..."
+                  className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none resize-none"
+                  style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}
+                  onFocus={e=>e.target.style.borderColor=ACCENT}
+                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
+              </div>
+            </div>
+
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={()=>setShowForm(false)}
+                className="flex-1 py-3 rounded-xl text-sm font-bold"
+                style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.4)'}}>
+                Batal
+              </button>
+              <button onClick={handleSave} disabled={!form.cabor||!form.hasil}
+                className="flex-[2] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,color:ACCENT}}>
+                <Save size={15}/> {editId?'Simpan Perubahan':'Simpan Jurnal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -304,7 +304,7 @@ export default function KonidaSidebar() {
         }
 
         {can('export_pdf') && (
-          <NavItem label="Export PDF"    href={tp('/konida/export', tenantId)}      icon={Download}/>
+          <NavItem label="Data Gateway"    href={tp('/konida/export', tenantId)}      icon={Download}/>
         )}
 
         {/* SIPA — selalu /konida/sipa (universal) */}
