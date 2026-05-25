@@ -159,6 +159,27 @@ export default function LoginKabBogor() {
               <ExternalLink size={13} className="text-emerald-400/60 flex-shrink-0 group-hover:text-emerald-400 transition-colors"/>
             </a>
 
+            {/* Portal Atlet */}
+            <a
+              href="/atlet/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-900/20 border border-amber-400/20 hover:bg-amber-900/40 hover:border-amber-400/50 transition-all group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-400/30 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-500/25 transition-colors">
+                <span className="text-sm">🏆</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">
+                  Portal Atlet
+                </div>
+                <div className="text-white/35 text-[10px] mt-0.5">
+                  Login portal resmi untuk atlet · 768 aktif
+                </div>
+              </div>
+              <ExternalLink size={13} className="text-amber-400/60 flex-shrink-0 group-hover:text-amber-400 transition-colors"/>
+            </a>
+
             {/* Open Presentation */}
             <a
               href="/presentation/porprov-xv"
