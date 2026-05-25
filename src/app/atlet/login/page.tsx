@@ -1,18 +1,25 @@
 'use client'
-// src/app/atlet/login/page.tsx — Universal (semua kontingen)
+// src/app/atlet/login/page.tsx — v2 Universal
+// Style: slate-950 theme (sama kayak KONI Jabar login)
+// Konten: portal atlet NIK-based, universal semua kontingen
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, AlertCircle, Loader2, ShieldCheck, Trophy, Medal, Star } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Loader2, ShieldCheck, Trophy } from 'lucide-react'
 
-const STATS = [
-  { v:'1.097', l:'Atlet Terdaftar' },
-  { v:'61',    l:'Cabang Olahraga' },
-  { v:'27',    l:'Kontingen'       },
-  { v:'15',    l:'Hari Kompetisi'  },
+const PUBLIK_LINKS = [
+  { label:'📅 Jadwal', href:'/publik/jadwal' },
+  { label:'🏅 Hasil',  href:'/publik/hasil'  },
+  { label:'🔍 Atlet',  href:'/publik/atlet'  },
 ]
 
-export default function LoginAtletUniversal() {
+const STATS = [
+  { value:'1.097', label:'Atlet Kab. Bogor' },
+  { value:'61',    label:'Cabang Olahraga'  },
+  { value:'27',    label:'Kontingen'        },
+]
+
+export default function LoginAtlet() {
   const router = useRouter()
   const [nik,      setNik]      = useState('')
   const [password, setPassword] = useState('')
@@ -26,12 +33,12 @@ export default function LoginAtletUniversal() {
     setError(''); setLoading(true)
     try {
       const res  = await fetch('/api/atlet/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ nik, password }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Login gagal'); setLoading(false); return }
+      if (!res.ok) { setError(data.error||'Login gagal'); setLoading(false); return }
       document.cookie = `atlet_token=${data.token}; path=/; max-age=${60*60*8}; samesite=lax`
       localStorage.setItem('atlet_nik', nik)
       router.push('/atlet/dashboard')
@@ -42,157 +49,138 @@ export default function LoginAtletUniversal() {
   }
 
   return (
-    <div className="min-h-screen flex overflow-hidden" style={{ background:'#020D06' }}>
+    <div className="min-h-screen bg-slate-950 flex">
 
-      {/* ── KIRI: Branding ── */}
-      <div className="hidden lg:flex w-[55%] flex-col justify-between p-12 relative overflow-hidden"
-        style={{ background:'rgba(5,20,10,0.8)', borderRight:'1px solid rgba(0,180,138,0.1)' }}>
+      {/* ══ PANEL KIRI ══════════════════════════════════════════════════ */}
+      <div className="hidden lg:flex w-[55%] border-r border-slate-800 flex-col items-center justify-center px-16 relative overflow-hidden"
+        style={{ background:'#020915' }}>
 
-        {/* Grid bg */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage:'linear-gradient(rgba(0,180,138,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,180,138,0.03) 1px,transparent 1px)',
-          backgroundSize:'32px 32px',
-        }}/>
-        {/* Glow circles */}
-        <div className="absolute bottom-[-100px] left-[-100px] w-[400px] h-[400px] rounded-full pointer-events-none"
-          style={{ background:'radial-gradient(circle,rgba(0,180,138,0.08) 0%,transparent 70%)' }}/>
-        <div className="absolute top-[-60px] right-[-60px] w-[300px] h-[300px] rounded-full pointer-events-none"
-          style={{ background:'radial-gradient(circle,rgba(0,180,138,0.05) 0%,transparent 70%)' }}/>
+        {/* Decorative glow */}
+        <div className="absolute top-[-100px] left-[-100px] w-80 h-80 rounded-full opacity-20"
+          style={{ background:'radial-gradient(circle,#10b981,transparent)' }}/>
+        <div className="absolute bottom-[-80px] right-[-80px] w-64 h-64 rounded-full opacity-10"
+          style={{ background:'radial-gradient(circle,#10b981,transparent)' }}/>
 
-        {/* Top logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background:'rgba(0,180,138,0.12)', border:'1px solid rgba(0,180,138,0.3)' }}>
-            <Trophy size={20} style={{ color:'#00B48A' }}/>
-          </div>
-          <div>
-            <div className="text-white text-sm font-bold">PORPROV XV</div>
-            <div className="text-[10px] font-bold tracking-widest" style={{ color:'#00B48A' }}>JAWA BARAT 2026</div>
+        {/* Logo */}
+        <div className="relative z-10 mb-6">
+          <div className="w-28 h-28 rounded-3xl flex items-center justify-center"
+            style={{ background:'rgba(16,185,129,0.1)', border:'2px solid rgba(16,185,129,0.25)' }}>
+            <Trophy size={52} style={{ color:'#10b981' }}/>
           </div>
         </div>
 
-        {/* Main content */}
-        <div className="relative z-10">
-          <div className="text-[11px] font-bold tracking-[0.3em] mb-4" style={{ color:'#00B48A' }}>
-            PORTAL ATLET RESMI
-          </div>
-          <h1 className="text-white font-extrabold leading-tight mb-4" style={{ fontSize:'clamp(32px,4vw,52px)' }}>
-            Satu Portal<br/>
-            <span style={{ color:'#00B48A' }}>Semua Kontingen</span>
-          </h1>
-          <p className="text-zinc-400 text-sm leading-relaxed mb-8 max-w-sm">
-            Login dengan NIK kamu. Sistem otomatis mendeteksi kontingen, cabor, dan semua data terdaftar.
-          </p>
+        {/* Text */}
+        <div className="relative z-10 text-center mb-6">
+          <div className="text-white text-2xl font-bold mb-1">Portal Atlet Resmi</div>
+          <div className="text-slate-400 text-sm">PORPROV XV Jawa Barat 2026</div>
+          <span className="inline-flex items-center gap-1.5 mt-3 text-xs px-3 py-1.5 rounded-full font-medium"
+            style={{ background:'rgba(16,185,129,0.15)', color:'#10b981', border:'1px solid rgba(16,185,129,0.3)' }}>
+            🏟️ 15–29 Juni 2026 · Jawa Barat
+          </span>
+        </div>
 
-          {/* Medal icons */}
-          <div className="flex gap-4 mb-10">
-            {[
-              { icon:'🥇', label:'Pantau Jadwal', color:'#F59E0B' },
-              { icon:'🏆', label:'Hasil & Medali', color:'#00B48A' },
-              { icon:'💰', label:'Status Bonus',   color:'#60A5FA' },
-              { icon:'📋', label:'Data Lengkap',   color:'#A78BFA' },
-            ].map(f => (
-              <div key={f.label} className="flex flex-col items-center gap-1.5">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-                  style={{ background:`${f.color}12`, border:`1px solid ${f.color}25` }}>
-                  {f.icon}
-                </div>
-                <span className="text-[9px] text-zinc-500 text-center font-medium">{f.label}</span>
-              </div>
+        {/* Divider */}
+        <div className="relative z-10 w-full max-w-xs h-px my-2 opacity-20"
+          style={{ background:'#10b981' }}/>
+
+        {/* Stats */}
+        <div className="relative z-10 flex gap-10 my-6">
+          {STATS.map(s => (
+            <div key={s.label} className="text-center">
+              <div className="text-white text-2xl font-bold">{s.value}</div>
+              <div className="text-slate-600 text-xs mt-0.5">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick links */}
+        <div className="relative z-10 flex flex-col items-center gap-3 w-full max-w-xs">
+          <a href="/publik/klasemen"
+            className="w-full flex items-center justify-center gap-2 text-amber-400 text-xs px-4 py-2.5 rounded-full transition-all"
+            style={{ background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.2)' }}>
+            <span>🏆</span>
+            <span>Lihat Klasemen Medali Live</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"/>
+          </a>
+          <div className="flex items-center gap-4">
+            {PUBLIK_LINKS.map(l => (
+              <a key={l.href} href={l.href}
+                className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                {l.label}
+              </a>
             ))}
           </div>
         </div>
 
-        {/* Stats bottom */}
-        <div className="relative z-10 grid grid-cols-4 gap-3">
-          {STATS.map(s => (
-            <div key={s.l} className="text-center p-3 rounded-xl"
-              style={{ background:'rgba(0,180,138,0.04)', border:'1px solid rgba(0,180,138,0.1)' }}>
-              <div className="text-lg font-extrabold" style={{ color:'#00B48A' }}>{s.v}</div>
-              <div className="text-[9px] text-zinc-600 mt-0.5 font-medium uppercase tracking-wide">{s.l}</div>
-            </div>
-          ))}
+        {/* Powered by */}
+        <div className="relative z-10 absolute bottom-8 text-center">
+          <p className="text-slate-700 text-[11px]">Powered by PORPROV XV Platform</p>
+          <p className="text-slate-800 text-[10px] mt-0.5">© KONI Jawa Barat 2026</p>
         </div>
       </div>
 
-      {/* ── KANAN: Form Login ── */}
-      <div className="flex-1 flex items-center justify-center px-6 py-10" style={{
-        backgroundImage:'linear-gradient(rgba(0,180,138,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,180,138,0.02) 1px,transparent 1px)',
-        backgroundSize:'28px 28px',
-      }}>
-        <div className="w-full max-w-[380px]">
+      {/* ══ PANEL KANAN — Form ══════════════════════════════════════════ */}
+      <div className="flex-1 flex items-center justify-center px-8 py-12">
+        <div className="w-full max-w-sm">
 
-          {/* Mobile header */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-              style={{ background:'rgba(0,180,138,0.1)', border:'2px solid rgba(0,180,138,0.25)' }}>
-              <Trophy size={28} style={{ color:'#00B48A' }}/>
+          {/* Mobile logo */}
+          <div className="lg:hidden flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3"
+              style={{ background:'rgba(16,185,129,0.1)', border:'2px solid rgba(16,185,129,0.25)' }}>
+              <Trophy size={28} style={{ color:'#10b981' }}/>
             </div>
-            <div className="text-[10px] font-bold tracking-[0.25em] mb-1" style={{ color:'#00B48A' }}>
-              PORPROV XV · JAWA BARAT 2026
-            </div>
-            <h1 className="text-white text-2xl font-extrabold">Portal Atlet</h1>
+            <p className="text-white text-sm font-semibold">Portal Atlet PORPROV XV</p>
           </div>
 
-          {/* Card */}
-          <div className="rounded-3xl p-8 relative" style={{
-            background:'rgba(5,20,10,0.95)',
-            border:'1px solid rgba(0,180,138,0.2)',
-            boxShadow:'0 25px 60px rgba(0,0,0,0.5)',
-          }}>
-            {/* Corner accents */}
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 rounded-tl-3xl pointer-events-none"
-              style={{ borderColor:'rgba(0,180,138,0.3)' }}/>
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 rounded-br-3xl pointer-events-none"
-              style={{ borderColor:'rgba(0,180,138,0.3)' }}/>
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-full px-3 py-1.5 mb-8">
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-emerald-400"/>
+            <span className="text-[10px] font-semibold tracking-wider text-emerald-400">
+              PORTAL ATLET · PORPROV XV 2026
+            </span>
+          </div>
 
-            <h2 className="text-white text-2xl font-extrabold mb-1">Masuk ke Portal</h2>
-            <p className="text-zinc-500 text-sm mb-6">
-              Semua atlet PORPROV XV Jawa Barat 2026
-            </p>
+          <h1 className="text-white text-2xl font-semibold mb-1">Selamat datang</h1>
+          <p className="text-slate-500 text-sm mb-8">Masuk ke portal atlet resmi PORPROV XV</p>
 
-            {/* Info box */}
-            <div className="flex items-start gap-3 p-3 rounded-xl mb-6" style={{
-              background:'rgba(0,180,138,0.06)', border:'1px solid rgba(0,180,138,0.15)',
-            }}>
-              <ShieldCheck size={15} style={{ color:'#00B48A', flexShrink:0, marginTop:1 }}/>
-              <div className="text-xs text-zinc-400 leading-relaxed">
-                <span className="font-semibold" style={{ color:'#00B48A' }}>Username:</span> NIK / KTP (16 digit)<br/>
-                <span className="font-semibold" style={{ color:'#00B48A' }}>Password:</span> 4 digit terakhir NIK
-                <span className="text-zinc-600"> · dapat diganti setelah login</span>
+          {/* Form card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-7">
+
+            {/* Info credential */}
+            <div className="flex items-start gap-2.5 p-3 rounded-xl mb-5"
+              style={{ background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)' }}>
+              <ShieldCheck size={14} className="text-emerald-400 flex-shrink-0 mt-0.5"/>
+              <div className="text-xs text-slate-400 leading-relaxed">
+                <span className="text-emerald-400 font-semibold">Username:</span> NIK/KTP (16 digit)
+                <br/>
+                <span className="text-emerald-400 font-semibold">Password:</span> 4 digit terakhir NIK
+                <span className="text-slate-600"> · dapat diganti setelah login</span>
               </div>
             </div>
 
-            {/* Error */}
-            {error && (
-              <div className="flex items-center gap-2 p-3 rounded-xl mb-5" style={{
-                background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)',
-              }}>
-                <AlertCircle size={14} className="text-red-400 flex-shrink-0"/>
-                <span className="text-red-300 text-xs">{error}</span>
-              </div>
-            )}
-
             <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+                  <AlertCircle size={13} className="text-red-400 flex-shrink-0"/>
+                  <span className="text-red-400 text-xs">{error}</span>
+                </div>
+              )}
+
               {/* NIK */}
               <div>
-                <label className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase block mb-1.5">
+                <label className="block text-slate-500 text-[10px] font-medium mb-1.5 uppercase tracking-wider">
                   Nomor NIK / KTP
                 </label>
                 <input type="tel" inputMode="numeric" maxLength={16}
                   value={nik} onChange={e => setNik(e.target.value.replace(/\D/g,''))}
-                  placeholder="16 digit NIK" required
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none tracking-widest font-mono transition-all"
-                  style={{
-                    background:'rgba(0,0,0,0.4)',
-                    border: nik.length===16 ? '1px solid rgba(0,180,138,0.5)' : '1px solid rgba(0,180,138,0.15)',
-                  }}
-                  onFocus={e => e.target.style.borderColor='rgba(0,180,138,0.4)'}
-                  onBlur={e  => e.target.style.borderColor=nik.length===16?'rgba(0,180,138,0.5)':'rgba(0,180,138,0.15)'}
+                  placeholder="16 digit NIK" required autoComplete="username"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none transition-all font-mono tracking-widest"
+                  onFocus={e => e.target.style.borderColor='#10b981'}
+                  onBlur={e  => e.target.style.borderColor='#334155'}
                 />
                 <div className="flex justify-between mt-1">
-                  <span className="text-[10px] text-zinc-600">Nomor pada e-KTP</span>
-                  <span className={`text-[10px] font-mono ${nik.length===16?'text-emerald-400':'text-zinc-600'}`}>
+                  <span className="text-[10px] text-slate-600">Nomor pada e-KTP</span>
+                  <span className={`text-[10px] font-mono ${nik.length===16?'text-emerald-400':'text-slate-600'}`}>
                     {nik.length}/16
                   </span>
                 </div>
@@ -200,21 +188,20 @@ export default function LoginAtletUniversal() {
 
               {/* Password */}
               <div>
-                <label className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase block mb-1.5">
+                <label className="block text-slate-500 text-[10px] font-medium mb-1.5 uppercase tracking-wider">
                   Password
                 </label>
                 <div className="relative">
                   <input type={showPass?'text':'password'} maxLength={20}
                     value={password} onChange={e => setPassword(e.target.value)}
-                    placeholder="Password" required
-                    className="w-full pl-4 pr-11 py-3 rounded-xl text-sm text-white outline-none transition-all"
-                    style={{ background:'rgba(0,0,0,0.4)', border:'1px solid rgba(0,180,138,0.15)' }}
-                    onFocus={e => e.target.style.borderColor='rgba(0,180,138,0.4)'}
-                    onBlur={e  => e.target.style.borderColor='rgba(0,180,138,0.15)'}
+                    placeholder="Password" required autoComplete="current-password"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pr-10 text-sm text-slate-200 placeholder-slate-600 focus:outline-none transition-all"
+                    onFocus={e => e.target.style.borderColor='#10b981'}
+                    onBlur={e  => e.target.style.borderColor='#334155'}
                   />
                   <button type="button" onClick={() => setShowPass(s=>!s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-emerald-400 transition-colors">
-                    {showPass ? <EyeOff size={15}/> : <Eye size={15}/>}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showPass ? <EyeOff size={14}/> : <Eye size={14}/>}
                   </button>
                 </div>
               </div>
@@ -222,51 +209,54 @@ export default function LoginAtletUniversal() {
               {/* Submit */}
               <button type="submit"
                 disabled={loading || nik.length!==16 || !password}
-                className="w-full py-3.5 rounded-xl text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all mt-2"
+                className="w-full flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed"
                 style={{
                   background: (loading||nik.length!==16||!password)
-                    ? 'rgba(255,255,255,0.04)'
-                    : 'linear-gradient(135deg,#00B48A,#065F46)',
-                  color: (loading||nik.length!==16||!password)
-                    ? 'rgba(255,255,255,0.25)' : 'white',
-                  border:'1px solid rgba(0,180,138,0.3)',
-                  boxShadow: (loading||nik.length!==16||!password)
-                    ? 'none' : '0 0 20px rgba(0,180,138,0.25)',
+                    ? undefined
+                    : 'linear-gradient(135deg,#10b981,#059669)',
                 }}>
                 {loading
-                  ? <><Loader2 size={15} className="animate-spin"/> Memverifikasi...</>
-                  : <><Trophy size={15}/> Masuk ke Portal Atlet</>
+                  ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Memverifikasi...</>
+                  : <><Trophy size={14}/> Masuk ke Portal Atlet</>
                 }
               </button>
             </form>
-
-            <div className="mt-6 pt-5" style={{ borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-              <p className="text-center text-zinc-600 text-xs">
-                Masalah login? Hubungi koordinator kontingen kamu
-              </p>
-              <p className="text-center text-zinc-700 text-[10px] mt-2">
-                © 2026 KONI Jawa Barat · PORPROV XV
-              </p>
-            </div>
           </div>
 
-          {/* Link ke login Kab. Bogor */}
-          <div className="mt-5 text-center">
-            <p className="text-zinc-600 text-xs mb-2">Login sebagai koordinator kontingen?</p>
-            <div className="flex gap-2 justify-center flex-wrap">
-              <a href="/login/kabbogor"
-                className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all"
-                style={{ background:'rgba(0,180,138,0.08)', color:'#00B48A', border:'1px solid rgba(0,180,138,0.2)' }}>
-                🏛 Koordinator Kab. Bogor
+          {/* Link koordinator */}
+          <div className="mt-4 text-center space-y-2">
+            <div>
+              <span className="text-slate-600 text-xs">Kamu koordinator kontingen? </span>
+              <a href="/login" className="text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-colors">
+                Login admin →
               </a>
-              <a href="/login"
-                className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all"
-                style={{ background:'rgba(255,255,255,0.04)', color:'#71717A', border:'1px solid rgba(255,255,255,0.08)' }}>
-                Admin PORPROV
+            </div>
+            <div>
+              <span className="text-slate-600 text-xs">Belum punya akun? </span>
+              <a href="/atlet/daftar" className="text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-colors">
+                Daftar di sini →
               </a>
             </div>
           </div>
 
+          {/* Mobile publik links */}
+          <div className="lg:hidden mt-5 flex flex-col items-center gap-2">
+            <a href="/publik/klasemen" className="flex items-center gap-2 text-amber-400 text-xs">
+              🏆 Lihat Klasemen Medali Live
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"/>
+            </a>
+            <div className="flex items-center gap-4">
+              {PUBLIK_LINKS.map(l => (
+                <a key={l.href} href={l.href} className="text-slate-500 hover:text-slate-300 text-xs transition-colors">
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-center text-slate-700 text-[10px] mt-5">
+            © 2026 KONI Jawa Barat · PORPROV XV Platform
+          </p>
         </div>
       </div>
     </div>
