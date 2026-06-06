@@ -14,7 +14,7 @@ import {
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const GROQ_MODEL = 'llama-3.3-70b-versatile'  // fast & smart enough untuk Q&A
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_MODEL = 'claude-sonnet-4-5'  // for deep reasoning
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6'  // for deep reasoning
 
 // ── Groq key rotation (3 keys for rate limit resilience) ──
 function getGroqKey(): string {

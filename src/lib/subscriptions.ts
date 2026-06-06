@@ -1,11 +1,11 @@
 // src/lib/subscriptions.ts
-// Sprint 2 — Subscription Layer — v3 fix query
+// Sprint 2 — Subscription Layer — v5: pakai API ROUTE untuk bypass RLS
 
 import { createClient } from '@supabase/supabase-js'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!  // 🆕 PURE anon key (read-only)
 )
 
 // ─── Feature Keys ─────────────────────────────────────────
@@ -38,6 +38,15 @@ export const F = {
 } as const
 
 export type FeatureKey = typeof F[keyof typeof F]
+export type UserLevel = 'superadmin' | 'koni_jabar' | 'level1' | 'level2' | 'level3'
+
+export const PLAN_TO_LEVEL_MAP: Record<number, UserLevel> = {
+  0: 'level3',
+  1: 'level3',
+  2: 'level2',
+  3: 'level1',
+  4: 'koni_jabar',
+}
 
 export interface Plan {
   id:          string
@@ -47,6 +56,7 @@ export interface Plan {
   features:    string[]
   max_users:   number
   max_atlet:   number
+  urutan?:     number
 }
 
 export interface Subscription {
@@ -62,16 +72,14 @@ export interface Subscription {
   is_expired:   boolean
 }
 
-// Cache in-memory
 const cache = new Map<number, { data: Subscription; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
-// ─── Get subscription ─────────────────────────────────────
+// ─── Get subscription (READ — anon OK) ───────────────────
 export async function getSubscription(kontingenId: number): Promise<Subscription | null> {
   const cached = cache.get(kontingenId)
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
 
-  // Query subscription + join plans untuk ambil features
   const { data, error } = await sb
     .from('subscriptions')
     .select(`
@@ -90,14 +98,10 @@ export async function getSubscription(kontingenId: number): Promise<Subscription
   if (error || !data) return null
 
   const isExpired = data.valid_until ? new Date(data.valid_until) < new Date() : false
-
-  // Resolve features: dari kolom features subscription ATAU dari plan
   const subFeatures: string[]    = data.features ?? []
   const planFeatures: string[]   = (data.plans as any)?.features ?? []
   const featuresAdd: string[]    = data.features_add ?? []
   const featuresRemove: string[] = data.features_remove ?? []
-
-  // Gabung: pakai subFeatures kalau ada, fallback ke planFeatures
   const baseFeatures = subFeatures.length > 0 ? subFeatures : planFeatures
   const resolvedFeatures = Array.from(new Set(baseFeatures.concat(featuresAdd)))
     .filter(f => !featuresRemove.includes(f))
@@ -119,13 +123,18 @@ export async function getSubscription(kontingenId: number): Promise<Subscription
   return sub
 }
 
-// ─── Get all plans ────────────────────────────────────────
+// ─── Get all plans (READ — anon OK) ──────────────────────
 export async function getPlans(): Promise<Plan[]> {
-  const { data } = await sb
+  const { data, error } = await sb
     .from('plans')
     .select('*')
     .eq('is_active', true)
     .order('urutan', { nullsFirst: false })
+
+  if (error) {
+    console.error('[getPlans] error:', error)
+    return []
+  }
 
   return (data ?? []).map((p: any) => ({
     ...p,
@@ -133,10 +142,34 @@ export async function getPlans(): Promise<Plan[]> {
   }))
 }
 
-// ─── Assign plan ──────────────────────────────────────────
+// ─── Get tenant levels (READ — anon OK) ──────────────────
+export async function getTenantLevels(): Promise<Record<number, UserLevel>> {
+  const { data, error } = await sb
+    .from('tenants')
+    .select('kontingen_id, level')
+    .not('kontingen_id', 'is', null)
+
+  if (error) {
+    console.error('[getTenantLevels] error:', error)
+    return {}
+  }
+
+  const map: Record<number, UserLevel> = {}
+  for (const row of data ?? []) {
+    if (row.kontingen_id != null) {
+      map[row.kontingen_id] = (row.level ?? 'level3') as UserLevel
+    }
+  }
+  return map
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🆕 ASSIGN PLAN — call API route (bypass RLS via SERVICE_ROLE)
+// ═══════════════════════════════════════════════════════════
 export async function assignPlan(params: {
   kontingen_id:     number
   plan_id:          string
+  level?:           UserLevel
   valid_until?:     string | null
   max_users?:       number
   max_atlet?:       number
@@ -144,45 +177,65 @@ export async function assignPlan(params: {
   features_remove?: string[]
   catatan?:         string
   created_by:       string
-}): Promise<{ ok: boolean; error?: string }> {
-  // Nonaktifkan subscription lama
-  await sb
-    .from('subscriptions')
-    .update({ is_active: false })
-    .eq('kontingen_id', params.kontingen_id)
-    .eq('is_active', true)
+  is_trial?:        boolean
+}): Promise<{ ok: boolean; error?: string; warnings?: string[] }> {
+  console.log('[assignPlan] calling API /api/superadmin/assign-plan', params)
 
-  // Ambil features dari plan baru
-  const { data: planData } = await sb
-    .from('plans')
-    .select('features')
-    .eq('id', params.plan_id)
-    .single()
+  try {
+    const res = await fetch('/api/superadmin/assign-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    })
 
-  const planFeatures = planData?.features ?? []
-  const featuresAdd  = params.features_add ?? []
-  const featuresRemove = params.features_remove ?? []
-  const resolvedFeatures = Array.from(new Set((planFeatures as string[]).concat(featuresAdd as string[])))
-    .filter(f => !featuresRemove.includes(f))
+    const data = await res.json()
+    console.log('[assignPlan] API response:', data)
 
-  const { error } = await sb.from('subscriptions').insert({
-    kontingen_id:     params.kontingen_id,
-    plan_id:          params.plan_id,
-    features:         resolvedFeatures,
-    valid_until:      params.valid_until ?? null,
-    max_users:        params.max_users ?? null,
-    max_atlet:        params.max_atlet ?? null,
-    features_add:     params.features_add ?? [],
-    features_remove:  params.features_remove ?? [],
-    catatan:          params.catatan ?? null,
-    created_by:       params.created_by,
-    is_active:        true,
-    is_trial:         false,
-  })
+    if (!res.ok || !data.ok) {
+      return {
+        ok: false,
+        error: data.error ?? `HTTP ${res.status}`,
+      }
+    }
 
-  cache.delete(params.kontingen_id)
-  if (error) return { ok: false, error: error.message }
-  return { ok: true }
+    cache.delete(params.kontingen_id)
+    return {
+      ok: true,
+      warnings: data.warnings,
+    }
+  } catch (e: any) {
+    console.error('[assignPlan] fetch exception:', e)
+    return {
+      ok: false,
+      error: `Network error: ${e.message ?? 'unknown'}`,
+    }
+  }
+}
+
+// ─── Set kontingen level via API (juga via API biar konsisten) ──
+export async function setKontingenLevel(
+  kontingenId: number,
+  level: UserLevel
+): Promise<{ ok: boolean; error?: string }> {
+  console.log('[setKontingenLevel] via API', { kontingenId, level })
+
+  // Re-use assignPlan endpoint with minimal payload
+  // Atau bikin endpoint khusus — untuk sekarang gunakan tenants update via service role
+  try {
+    const res = await fetch('/api/superadmin/set-level', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kontingen_id: kontingenId, level }),
+    })
+
+    const data = await res.json()
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error ?? `HTTP ${res.status}` }
+    }
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, error: `Network: ${e.message ?? 'unknown'}` }
+  }
 }
 
 // ─── Cache invalidation ───────────────────────────────────

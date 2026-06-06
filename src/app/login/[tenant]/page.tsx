@@ -1,34 +1,35 @@
 'use client'
-// src/app/login/[tenant]/page.tsx
-// Dynamic login page — satu file untuk SEMUA 28 tenant
-// URL: /login/bekasi, /login/kabbogor, /login/bandung, dll
+// src/app/login/[tenant]/page.tsx — JARVIS THEME
+// Dynamic login: /login/superadmin, /login/bekasi, /login/bandung, dll
+// Loads tenant config from /api/tenant?slug=... then renders branded JARVIS page
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Eye, EyeOff, AlertCircle, Monitor, Loader2 } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, Loader2, LogIn, Terminal } from 'lucide-react'
 import type { TenantConfig } from '../../../lib/tenants'
+import { tc } from '../../../lib/tenants'
 
 export default function DynamicLoginPage() {
-  const params   = useParams()
-  const router   = useRouter()
-  const slug     = params?.tenant as string
+  const params = useParams()
+  const router = useRouter()
+  const slug   = params?.tenant as string
 
-  const [tenant, setTenant]     = useState<TenantConfig | null>(null)
-  const [loading, setLoading]   = useState(true)
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const [error, setError]       = useState('')
+  const [tenant,     setTenant]     = useState<TenantConfig | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [username,   setUsername]   = useState('')
+  const [password,   setPassword]   = useState('')
+  const [showPass,   setShowPass]   = useState(false)
+  const [error,      setError]      = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [imgErr,     setImgErr]     = useState(false)
 
-  // Load tenant config dari API
   useEffect(() => {
     if (!slug) return
     fetch(`/api/tenant?slug=${slug}`)
       .then(r => r.json())
       .then(data => {
         if (data?.id) setTenant(data)
-        else router.replace('/login') // fallback ke login jabar
+        else router.replace('/login')
       })
       .catch(() => router.replace('/login'))
       .finally(() => setLoading(false))
@@ -39,14 +40,12 @@ export default function DynamicLoginPage() {
     setError(''); setSubmitting(true)
     try {
       const res = await fetch('/api/auth/login', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Login gagal'); return }
-
-      // Set cookie client-side
       document.cookie = `login_origin=${slug}; path=/; max-age=${60*60*24*30}; samesite=lax`
       if (tenant?.id && tenant.id !== 'jabar') {
         localStorage.setItem('tenant_id', tenant.id)
@@ -57,267 +56,310 @@ export default function DynamicLoginPage() {
     finally { setSubmitting(false) }
   }
 
-  // Loading state
+  // ── Loading ──────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0f172a' }}>
-      <div className="text-center">
-        <Loader2 size={32} className="animate-spin mx-auto mb-3 text-blue-500"/>
-        <p className="text-slate-400 text-sm">Memuat halaman login...</p>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: FONT_IMPORT }} />
+      <div className="min-h-screen flex items-center justify-center font-sci"
+        style={{ background:'#030712' }}>
+        <div className="text-center">
+          <div className="w-10 h-10 border border-cyan-500/40 flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Terminal size={18} style={{ color:'#00f3ff' }}/>
+          </div>
+          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color:'#334155' }}>
+            LOADING TENANT CONFIG...
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   )
 
   if (!tenant) return null
 
-  const primary   = `#${tenant.color_primary}`
-  const secondary = `#${tenant.color_secondary}`
-  const accent    = `#${tenant.color_accent}`
+  const primary   = tc(tenant.color_primary)
+  const secondary = tc(tenant.color_secondary)
+  const accent    = tc(tenant.color_accent)
+  const isSA      = slug === 'superadmin'
 
-  // ── Layout: SPLIT (panel kiri + form kanan) ─────────────
-  if (tenant.login_layout === 'split') {
-    return (
-      <div className="min-h-screen flex" style={{ background: '#080806', fontFamily:'system-ui,sans-serif' }}>
+  // For superadmin: override to JARVIS cyan/green
+  const P  = isSA ? '#00f3ff' : primary
+  const P2 = isSA ? '#00ff66' : secondary
 
-        {/* Panel Kiri */}
-        <div className="hidden lg:flex w-[52%] flex-col relative overflow-hidden"
-          style={{ background: '#0c0b08', borderRight: '1px solid #1a1a14' }}>
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: FONT_IMPORT + GLOBAL_CSS }} />
 
-          {/* Gradient bar warna tenant */}
-          <div style={{ height: 4, background: `linear-gradient(90deg, ${primary}, ${accent}, ${secondary})`, flexShrink: 0 }}/>
+      <div className="min-h-screen flex font-sci relative login-grid scanline-fx"
+        style={{ background:'#030712', color:'#f1f5f9' }}>
 
-          {/* Background grid */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            backgroundImage: `linear-gradient(${primary}08 1px, transparent 1px), linear-gradient(90deg, ${primary}08 1px, transparent 1px)`,
-            backgroundSize: '36px 36px',
-          }}/>
+        {/* ══ PANEL KIRI ══════════════════════════════════════ */}
+        {tenant.login_layout !== 'centered' && (
+          <div className="hidden lg:flex w-[52%] border-r flex-col relative overflow-hidden"
+            style={{ borderColor:`${P}20`, background:'rgba(0,0,0,0.35)' }}>
 
-          {/* Glow */}
-          <div className="absolute pointer-events-none" style={{
-            bottom: -60, right: -60, width: 300, height: 300,
-            background: `radial-gradient(circle, ${primary}10 0%, transparent 70%)`,
-          }}/>
+            {/* Top accent bar */}
+            <div style={{ height:2, background:`linear-gradient(90deg, ${P}, ${P2}, transparent)`, flexShrink:0 }}/>
 
-          <div className="relative flex flex-col flex-1 px-10 pt-10">
-            {/* Logo + nama */}
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {tenant.logo_url ? (
-                  <img src={tenant.logo_url} alt={tenant.nama} className="w-14 h-14 object-contain"
-                    onError={e => {
-                      const el = e.target as HTMLImageElement
-                      el.style.display = 'none'
-                      el.parentElement!.innerHTML = `<span style="font-size:16px;font-weight:900;color:${primary}">${tenant.nama_pendek?.slice(0,3).toUpperCase()}</span>`
-                    }}/>
-                ) : (
-                  <span style={{ fontSize:16, fontWeight:900, color:primary }}>
-                    {tenant.nama_pendek?.slice(0,3).toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div>
-                <div style={{ color: primary, fontSize:10, fontWeight:700, letterSpacing:'0.15em', textTransform:'uppercase', marginBottom:2 }}>
-                  PORPROV XV · 2026
+            {/* Glow orbs */}
+            <div className="absolute pointer-events-none"
+              style={{ top:-60, left:-60, width:260, height:260, background:`radial-gradient(circle, ${P}12, transparent 70%)` }}/>
+            <div className="absolute pointer-events-none"
+              style={{ bottom:-40, right:-40, width:180, height:180, background:`radial-gradient(circle, ${P2}0a, transparent 70%)` }}/>
+
+            {/* Corner brackets */}
+            <Corner pos="top-6 left-6"   sides="t-2 l-2" color={P} />
+            <Corner pos="top-6 right-6"  sides="t-2 r-2" color={`${P}40`} />
+            <Corner pos="bottom-6 left-6"  sides="b-2 l-2" color={`${P}40`} />
+            <Corner pos="bottom-6 right-6" sides="b-2 r-2" color={P} />
+
+            <div className="relative flex flex-col flex-1 px-10 pt-10">
+
+              {/* Logo + nama */}
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-16 h-16 border flex items-center justify-center flex-shrink-0 overflow-hidden relative"
+                  style={{ borderColor:`${P}40`, background:`${P}08` }}>
+                  <div className="absolute inset-0 animate-pulse" style={{ background:`${P}05` }}/>
+                  {tenant.logo_url && !imgErr ? (
+                    <img src={tenant.logo_url} alt={tenant.nama}
+                      className="w-12 h-12 object-contain relative z-10"
+                      onError={()=>setImgErr(true)}/>
+                  ) : (
+                    <span className="font-lcd font-black text-lg relative z-10"
+                      style={{ color:P }}>
+                      {tenant.nama_pendek?.slice(0,3).toUpperCase()}
+                    </span>
+                  )}
                 </div>
-                <div style={{ color:'white', fontSize:18, fontWeight:800, lineHeight:1.1 }}>{tenant.nama}</div>
-                {tenant.tagline && (
-                  <div style={{ color:'#6b7280', fontSize:11, marginTop:2 }}>{tenant.tagline}</div>
-                )}
-              </div>
-            </div>
-
-            {/* Status bar */}
-            <div className="flex items-center gap-3 mb-8 px-4 py-2.5 rounded-xl"
-              style={{ background: `${primary}12`, border: `1px solid ${primary}30` }}>
-              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: primary, flexShrink:0 }}/>
-              <span style={{ color: primary, fontSize:11, fontWeight:600, letterSpacing:'0.1em' }}>
-                PORPROV XV · SISTEM AKTIF
-              </span>
-              <Monitor size={13} style={{ color:`${primary}60`, marginLeft:'auto' }}/>
-            </div>
-
-            {/* Stats grid */}
-            {tenant.login_stats.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 mb-8">
-                {tenant.login_stats.map(stat => (
-                  <div key={stat.label} className="p-4 rounded-xl"
-                    style={{ background:`${stat.color}12`, border:`1px solid ${stat.color}30` }}>
-                    <div style={{ color:'#6b7280', fontSize:9, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:4 }}>
-                      {stat.label}
-                    </div>
-                    <div style={{ color:stat.color, fontSize:22, fontWeight:800, lineHeight:1 }}>{stat.value}</div>
+                <div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest mb-1"
+                    style={{ color:`${P}80` }}>
+                    PORPROV XV · 2026
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Venues list */}
-            {tenant.login_venues.length > 0 && (
-              <>
-                <div style={{ height:1, background:`linear-gradient(90deg, ${primary}40, ${accent}30, transparent)`, marginBottom:20 }}/>
-                <div style={{ color:'#4b5563', fontSize:9, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:10 }}>
-                  Venue Unggulan
+                  <div className="font-lcd font-bold text-lg tracking-wide" style={{ color:P, textShadow:`0 0 12px ${P}` }}>
+                    {isSA ? 'ROOT_ACCESS' : tenant.nama.toUpperCase()}
+                  </div>
+                  {tenant.tagline && (
+                    <div className="text-xs mt-0.5" style={{ color:'#475569' }}>{tenant.tagline}</div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  {tenant.login_venues.map((venue, i) => (
-                    <div key={venue.nama} className="flex items-center gap-3 py-2 px-3 rounded-lg"
-                      style={{ background: i<2?`${venue.color}10`:'transparent', borderLeft:`2px solid ${i<2?venue.color:'#1a1a14'}` }}>
-                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background:venue.color }}/>
-                      <span style={{ color:i<2?'#e5e7eb':'#6b7280', fontSize:11, flex:1 }}>{venue.nama}</span>
-                      <span style={{ color:venue.color, fontSize:9, fontWeight:700 }}>{venue.status}</span>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center gap-3 mb-8 px-4 py-2.5 border"
+                style={{ borderColor:`${P}25`, background:`${P}08` }}>
+                <span className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ background:P }}/>
+                <span className="text-[10px] font-mono uppercase tracking-widest flex-1" style={{ color:P }}>
+                  {isSA ? 'SUPERADMIN_CONSOLE · SECURE' : 'PORPROV XV · SISTEM AKTIF'}
+                </span>
+              </div>
+
+              {/* Stats grid */}
+              {tenant.login_stats.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 mb-8">
+                  {tenant.login_stats.map(stat => (
+                    <div key={stat.label} className="p-4 border"
+                      style={{ borderColor:`${stat.color}30`, background:`${stat.color}08` }}>
+                      <div className="text-[9px] font-mono uppercase tracking-widest mb-2"
+                        style={{ color:'#475569' }}>{stat.label}</div>
+                      <div className="font-lcd font-bold text-2xl" style={{ color:stat.color }}>{stat.value}</div>
                     </div>
                   ))}
                 </div>
-              </>
-            )}
-          </div>
+              )}
 
-          {/* Bottom */}
-          <div className="relative px-10 py-6">
-            <div className="flex items-center gap-2">
-              <div className="h-px flex-1" style={{ background:`${primary}20` }}/>
-              <span style={{ color:'#374151', fontSize:10 }}>PORPROV XV Platform · KONI Jawa Barat 2026</span>
-              <div className="h-px flex-1" style={{ background:`${secondary}20` }}/>
+              {/* Venues */}
+              {tenant.login_venues.length > 0 && (
+                <>
+                  <div className="h-px mb-5" style={{ background:`linear-gradient(90deg, ${P}40, transparent)` }}/>
+                  <div className="text-[9px] font-mono uppercase tracking-widest mb-3" style={{ color:'#334155' }}>
+                    VENUE UNGGULAN
+                  </div>
+                  <div className="space-y-1.5">
+                    {tenant.login_venues.map((v, i) => (
+                      <div key={v.nama} className="flex items-center gap-3 py-2 px-3 border-l-2"
+                        style={{ borderColor:i<2?v.color:'#1e293b', background:i<2?`${v.color}08`:'transparent' }}>
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background:v.color }}/>
+                        <span className="flex-1 text-xs" style={{ color:i<2?'#e2e8f0':'#475569' }}>{v.nama}</span>
+                        <span className="text-[9px] font-mono font-bold" style={{ color:v.color }}>{v.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Superadmin extra info */}
+              {isSA && (
+                <div className="mt-auto mb-4 space-y-2">
+                  <div className="h-px" style={{ background:`${P}20` }}/>
+                  {['RBAC Authentication','End-to-end Encrypted','Audit Log Active'].map(txt => (
+                    <div key={txt} className="flex items-center gap-2 text-[10px] font-mono" style={{ color:'#334155' }}>
+                      <span style={{ color:`${P}50` }}>▸</span> {txt}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative px-10 py-5">
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1" style={{ background:`${P}15` }}/>
+                <span className="text-[9px] font-mono" style={{ color:'#1e293b' }}>PORPROV XV Platform · KONI Jawa Barat 2026</span>
+                <div className="h-px flex-1" style={{ background:`${P2}15` }}/>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Form Login */}
-        <LoginForm
-          tenant={tenant} primary={primary} secondary={secondary}
-          username={username} setUsername={setUsername}
-          password={password} setPassword={setPassword}
-          showPass={showPass} setShowPass={setShowPass}
-          error={error} submitting={submitting}
-          onSubmit={handleSubmit}/>
+        {/* ══ PANEL KANAN — Form ══════════════════════════════ */}
+        <div className={`flex-1 flex items-center justify-center px-8 py-12 ${tenant.login_layout === 'centered' ? 'w-full' : ''}`}>
+          <div className="w-full max-w-sm">
+
+            {/* Mobile logo */}
+            <div className="lg:hidden flex flex-col items-center mb-8">
+              {tenant.logo_url && !imgErr ? (
+                <img src={tenant.logo_url} alt={tenant.nama} className="w-14 h-14 object-contain"
+                  onError={()=>setImgErr(true)}/>
+              ) : (
+                <div className="w-14 h-14 border flex items-center justify-center font-lcd font-black text-xl"
+                  style={{ borderColor:`${P}40`, color:P }}>
+                  {tenant.nama_pendek?.slice(0,2).toUpperCase()}
+                </div>
+              )}
+              <span className="font-lcd text-xs tracking-widest mt-2" style={{ color:P }}>
+                {isSA ? 'ROOT_ACCESS' : tenant.nama.toUpperCase()}
+              </span>
+            </div>
+
+            {/* Badge */}
+            <div className="flex items-center gap-2 border px-3 py-1.5 mb-8 w-fit text-[10px] font-mono uppercase tracking-widest"
+              style={{ borderColor:`${P}30`, background:`${P}06` }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background:P }}/>
+              <span style={{ color:P }}>
+                {isSA ? 'SUPERADMIN · RESTRICTED' : `${tenant.nama_pendek?.toUpperCase()} · PORPROV XV`}
+              </span>
+            </div>
+
+            <h1 className="font-lcd font-bold text-2xl tracking-wide mb-1">
+              {tenant.login_title || 'ACCESS_PORTAL'}
+            </h1>
+            <p className="text-sm mb-8" style={{ color:'#475569' }}>
+              {tenant.login_subtitle || 'Masuk ke sistem PORPROV XV'}
+            </p>
+
+            {/* Form card */}
+            <div className="border p-7 relative"
+              style={{ borderColor:`${P}25`, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(12px)' }}>
+
+              <Corner pos="-top-px -left-px"   sides="t-2 l-2" color={P}/>
+              <Corner pos="-top-px -right-px"  sides="t-2 r-2" color={P}/>
+              <Corner pos="-bottom-px -left-px"  sides="b-2 l-2" color={P}/>
+              <Corner pos="-bottom-px -right-px" sides="b-2 r-2" color={P}/>
+
+              {/* Error */}
+              {error && (
+                <div className="flex items-center gap-2 border px-3 py-2.5 mb-5 text-xs font-mono"
+                  style={{ borderColor:'rgba(255,51,102,0.4)', background:'rgba(255,51,102,0.08)', color:'#ff3366' }}>
+                  <AlertCircle size={13} className="flex-shrink-0"/>
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Username */}
+                <div>
+                  <label className="block text-[9px] font-mono uppercase tracking-widest mb-1.5"
+                    style={{ color:'#475569' }}>USERNAME</label>
+                  <input type="text" value={username}
+                    onChange={e=>setUsername(e.target.value)}
+                    placeholder="Masukkan username"
+                    autoComplete="username" required disabled={submitting}
+                    className="w-full px-4 py-2.5 text-sm outline-none transition-all"
+                    style={{ background:`${P}05`, border:`1px solid ${P}20`, color:'#f1f5f9', borderRadius:0, fontFamily:'Rajdhani,sans-serif' }}
+                    onFocus={e=>e.currentTarget.style.borderColor=`${P}60`}
+                    onBlur={e=>e.currentTarget.style.borderColor=`${P}20`}/>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-[9px] font-mono uppercase tracking-widest mb-1.5"
+                    style={{ color:'#475569' }}>PASSWORD</label>
+                  <div className="relative">
+                    <input type={showPass?'text':'password'} value={password}
+                      onChange={e=>setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="current-password" required disabled={submitting}
+                      className="w-full px-4 py-2.5 pr-11 text-sm outline-none transition-all"
+                      style={{ background:`${P}05`, border:`1px solid ${P}20`, color:'#f1f5f9', borderRadius:0, fontFamily:'Rajdhani,sans-serif' }}
+                      onFocus={e=>e.currentTarget.style.borderColor=`${P}60`}
+                      onBlur={e=>e.currentTarget.style.borderColor=`${P}20`}/>
+                    <button type="button" onClick={()=>setShowPass(p=>!p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                      style={{ color:'#475569' }}
+                      onMouseEnter={e=>e.currentTarget.style.color=P}
+                      onMouseLeave={e=>e.currentTarget.style.color='#475569'}>
+                      {showPass ? <EyeOff size={14}/> : <Eye size={14}/>}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <button type="submit"
+                  disabled={submitting || !username || !password}
+                  className="w-full flex items-center justify-center gap-2 py-3 mt-2 text-sm font-mono uppercase tracking-widest border transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: `${P}60`,
+                    color: submitting||!username||!password ? '#475569' : P,
+                    background: submitting||!username||!password ? 'transparent' : `${P}10`,
+                    textShadow: submitting||!username||!password ? 'none' : `0 0 8px ${P}`,
+                  }}>
+                  {submitting
+                    ? <><div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin"/> AUTHENTICATING...</>
+                    : <><LogIn size={14}/> AUTHENTICATE</>}
+                </button>
+              </form>
+            </div>
+
+            <p className="text-center text-[10px] font-mono uppercase tracking-widest mt-5"
+              style={{ color:'#1e293b' }}>
+              © 2026 {tenant.nama} · PORPROV XV Platform
+            </p>
+          </div>
+        </div>
       </div>
-    )
+    </>
+  )
+}
+
+// ── Shared corner bracket ─────────────────────────────────
+function Corner({ pos, sides, color }: { pos:string; sides:string; color:string }) {
+  const cls = sides.split(' ').map(s => `border-${s}`).join(' ')
+  return (
+    <div className={`absolute ${pos} w-4 h-4 pointer-events-none ${cls}`}
+      style={{ borderColor: color }}/>
+  )
+}
+
+// ── Font import ───────────────────────────────────────────
+const FONT_IMPORT = `
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+  .font-lcd { font-family: 'Orbitron', sans-serif; }
+  .font-sci { font-family: 'Rajdhani', sans-serif; }
+`
+
+const GLOBAL_CSS = `
+  .login-grid {
+    background-image:
+      radial-gradient(circle at 30% 50%, rgba(0,243,255,0.035) 0%, transparent 60%),
+      linear-gradient(rgba(0,243,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,243,255,0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
   }
-
-  // ── Layout: CENTERED ─────────────────────────────────────
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: '#080806', fontFamily:'system-ui,sans-serif' }}>
-      <div style={{ height:4, background:`linear-gradient(90deg, ${primary}, ${accent}, ${secondary})`, position:'fixed', top:0, left:0, right:0 }}/>
-
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 overflow-hidden"
-            style={{ background:`${primary}15`, border:`2px solid ${primary}30` }}>
-            {tenant.logo_url ? (
-              <img src={tenant.logo_url} alt={tenant.nama} className="w-16 h-16 object-contain"
-                onError={e => {
-                  const el = e.target as HTMLImageElement
-                  el.style.display = 'none'
-                  el.parentElement!.innerHTML = `<span style="font-size:20px;font-weight:900;color:${primary}">${tenant.nama_pendek?.slice(0,3).toUpperCase()}</span>`
-                }}/>
-            ) : (
-              <span style={{ fontSize:20, fontWeight:900, color:primary }}>{tenant.nama_pendek?.slice(0,3).toUpperCase()}</span>
-            )}
-          </div>
-          <div style={{ color: primary, fontSize:10, fontWeight:700, letterSpacing:'0.15em', textTransform:'uppercase', marginBottom:4 }}>
-            PORPROV XV · 2026
-          </div>
-          <div style={{ color:'white', fontSize:20, fontWeight:800, textAlign:'center' }}>{tenant.nama}</div>
-          {tenant.tagline && <div style={{ color:'#6b7280', fontSize:12, marginTop:4, textAlign:'center' }}>{tenant.tagline}</div>}
-        </div>
-
-        <LoginForm
-          tenant={tenant} primary={primary} secondary={secondary}
-          username={username} setUsername={setUsername}
-          password={password} setPassword={setPassword}
-          showPass={showPass} setShowPass={setShowPass}
-          error={error} submitting={submitting}
-          onSubmit={handleSubmit}
-          embedded/>
-      </div>
-    </div>
-  )
-}
-
-// ── Sub-komponen: Form Login ──────────────────────────────
-function LoginForm({ tenant, primary, secondary, username, setUsername, password, setPassword,
-  showPass, setShowPass, error, submitting, onSubmit, embedded = false }: any) {
-  return (
-    <div className={embedded ? 'w-full' : 'flex-1 flex items-center justify-center px-10'}>
-      <div className={embedded ? 'w-full' : 'w-full max-w-xs'}>
-
-        {/* Mobile logo (only for split) */}
-        {!embedded && (
-          <div className="lg:hidden flex flex-col items-center mb-8">
-            <img src={tenant.logo_url} alt={tenant.nama} className="w-16 h-16 object-contain"
-              onError={e => { (e.target as HTMLElement).style.display = 'none' }}/>
-            <div style={{ color:'white', fontSize:16, fontWeight:800, marginTop:8 }}>{tenant.nama}</div>
-          </div>
-        )}
-
-        <div className={embedded ? '' : 'mb-8'}>
-          <div style={{ color: primary, fontSize:9, fontWeight:700, letterSpacing:'0.15em', textTransform:'uppercase', marginBottom:6 }}>
-            {tenant.login_hero_text || 'Portal PORPROV XV'}
-          </div>
-          <h1 style={{ color:'white', fontSize:24, fontWeight:800, lineHeight:1.2, marginBottom:6 }}>
-            {tenant.login_title}
-          </h1>
-          <p style={{ color:'#4b5563', fontSize:13 }}>{tenant.login_subtitle}</p>
-        </div>
-
-        {error && (
-          <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 mb-4"
-            style={{ background:`${primary}10`, border:`1px solid ${primary}30` }}>
-            <AlertCircle size={13} style={{ color: primary, flexShrink:0 }}/>
-            <span style={{ color:'#fca5a5', fontSize:12 }}>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={onSubmit} className="space-y-4" style={{ marginTop: embedded ? 0 : 0 }}>
-          <div>
-            <label style={{ color:'#6b7280', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', display:'block', marginBottom:6 }}>
-              Username
-            </label>
-            <input type="text" value={username} onChange={e=>setUsername(e.target.value)}
-              placeholder="Masukkan username" autoComplete="username" required
-              style={{ width:'100%', background:'#141210', border:'1px solid #242018', borderRadius:10, padding:'10px 14px', fontSize:13, color:'white', outline:'none', boxSizing:'border-box' }}
-              onFocus={e=>e.target.style.borderColor=primary}
-              onBlur={e=>e.target.style.borderColor='#242018'}/>
-          </div>
-          <div>
-            <label style={{ color:'#6b7280', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', display:'block', marginBottom:6 }}>
-              Password
-            </label>
-            <div style={{ position:'relative' }}>
-              <input type={showPass?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)}
-                placeholder="Masukkan password" autoComplete="current-password" required
-                style={{ width:'100%', background:'#141210', border:'1px solid #242018', borderRadius:10, padding:'10px 40px 10px 14px', fontSize:13, color:'white', outline:'none', boxSizing:'border-box' }}
-                onFocus={e=>e.target.style.borderColor=primary}
-                onBlur={e=>e.target.style.borderColor='#242018'}/>
-              <button type="button" onClick={()=>setShowPass((s: boolean)=>!s)}
-                style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'#4b5563' }}>
-                {showPass ? <EyeOff size={15}/> : <Eye size={15}/>}
-              </button>
-            </div>
-          </div>
-          <button type="submit" disabled={submitting || !username || !password}
-            style={{
-              width:'100%', padding:'12px', borderRadius:10, fontSize:13, fontWeight:700,
-              color:'white', border:'none', cursor: submitting||!username||!password ? 'not-allowed' : 'pointer',
-              background: submitting||!username||!password ? '#1a1a14' : `linear-gradient(135deg, ${primary}, ${secondary})`,
-              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-              letterSpacing:'0.05em', textTransform:'uppercase', marginTop:8,
-              boxShadow: submitting||!username||!password ? 'none' : `0 0 20px ${primary}40`,
-            }}>
-            {submitting
-              ? <><div style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Memverifikasi...</>
-              : <><Monitor size={14}/> Masuk</>
-            }
-          </button>
-        </form>
-
-        <div style={{ marginTop:24, textAlign:'center', color:'#374151', fontSize:11 }}>
-          © 2026 {tenant.nama} · PORPROV XV Jawa Barat
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
-  )
-}
+  .scanline-fx::after {
+    content: '';
+    position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: linear-gradient(to bottom, transparent 50%, rgba(0,243,255,0.025) 50%);
+    background-size: 100% 4px;
+    animation: scanMove 10s linear infinite;
+  }
+  @keyframes scanMove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+`

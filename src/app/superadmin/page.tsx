@@ -8,9 +8,9 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import {
-  AlertTriangle, Award, CheckCircle, ChevronRight,
-  Eye, Globe, Layers, Medal, RefreshCw, Search,
-  Shield, Target, TrendingDown, TrendingUp,
+  AlertTriangle, Award, Brain, Building2, CheckCircle, ChevronRight,
+  Eye, FileSearch, FileText, Globe, Layers, Medal, RefreshCw, Search,
+  Shield, ShieldCheck, Target, TrendingDown, TrendingUp,
   UserCog, Users, X, Zap, Terminal, Activity
 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
@@ -104,6 +104,51 @@ function KpiCard({ label, value, sub, color, icon:Icon }: {
     </div>
   )
 }
+
+// PORPROV XV — 20 Oktober 2026 (target, sesuaikan SK)
+const PORPROV_DATE = new Date('2026-10-20T07:00:00+07:00')
+
+function Countdown() {
+  const [diff, setDiff] = useState(0)
+  useEffect(() => {
+    const tick = () => setDiff(Math.max(0, PORPROV_DATE.getTime() - Date.now()))
+    tick()
+    const i = setInterval(tick, 1000)
+    return () => clearInterval(i)
+  }, [])
+  const d = Math.floor(diff / 86_400_000)
+  const h = Math.floor((diff % 86_400_000) / 3_600_000)
+  const m = Math.floor((diff % 3_600_000) / 60_000)
+  const s = Math.floor((diff % 60_000) / 1_000)
+  const unit = (v: number, l: string) => (
+    <div className="text-center">
+      <div className="font-lcd font-bold text-lg tabular-nums" style={{ color: C.primary }}>{String(v).padStart(2,'0')}</div>
+      <div className="text-[8px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>{l}</div>
+    </div>
+  )
+  return (
+    <div className="flex items-center gap-3">
+      {unit(d,'DAY')}
+      <span className="font-lcd text-lg" style={{ color: C.border }}>:</span>
+      {unit(h,'HRS')}
+      <span className="font-lcd text-lg" style={{ color: C.border }}>:</span>
+      {unit(m,'MIN')}
+      <span className="font-lcd text-lg" style={{ color: C.border }}>:</span>
+      {unit(s,'SEC')}
+    </div>
+  )
+}
+
+const MODULES = [
+  { label:'OBSERVATORY',   path:'/superadmin/observatory',  icon:Globe,       color:'#a855f7', desc:'Network health · nodes' },
+  { label:'TENANTS_CONFIG',path:'/superadmin/tenants',      icon:Building2,   color:'#a855f7', desc:'Branding · login · plan' },
+  { label:'USER_MATRIX',   path:'/superadmin/tenants',      icon:Users,       color:'#00f3ff', desc:'Kelola user di tab USERS' },
+  { label:'SUBSCRIPTIONS', path:'/superadmin/subscriptions',icon:Target,      color:'#00f3ff', desc:'Plan · feature flags'    },
+  { label:'VERIF_CENTER',  path:'/superadmin/verif',        icon:ShieldCheck, color:'#00ff66', desc:'Bulk approve · reject'   },
+  { label:'INTEGRITY',     path:'/superadmin/integrity',    icon:FileSearch,  color:'#00ff66', desc:'Data health · anomaly'   },
+  { label:'AI_MONITOR',    path:'/superadmin/ai',           icon:Brain,       color:'#ffb000', desc:'Cost · token · usage'    },
+  { label:'AUDIT_LOGS',    path:'/superadmin/logs',         icon:FileText,    color:'#ffb000', desc:'Aksi · history · trail'  },
+]
 
 export default function SuperadminDashboard() {
   const [loading, setLoading]       = useState(true)
@@ -311,6 +356,33 @@ export default function SuperadminDashboard() {
         </Link>
       </div>
 
+      {/* PORPROV countdown + Command Hub */}
+      <div {...ani(35)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Countdown */}
+        <div className="p-4 relative overflow-hidden" style={cyberPanelStyle}>
+          <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg,${C.primary},${C.secondary})` }} />
+          <div className="text-[9px] font-lcd uppercase tracking-widest mb-2" style={{ color: C.muted }}>
+            ⚡ PORPROV_XV — COUNTDOWN
+          </div>
+          <Countdown />
+          <div className="text-[8px] font-mono mt-2" style={{ color: C.muted }}>Target: 20 Oktober 2026</div>
+        </div>
+        {/* Quick module grid */}
+        <div className="lg:col-span-2 grid grid-cols-4 gap-2">
+          {MODULES.map(m => (
+            <Link key={m.path} href={m.path}
+              className="p-3 flex flex-col gap-1.5 border transition-all hover:scale-[1.02] group"
+              style={{ ...cyberPanelStyle, borderColor: `${m.color}20` }}>
+              <div className="flex items-center gap-1.5">
+                <m.icon size={12} style={{ color: m.color }} />
+                <span className="text-[8px] font-lcd uppercase tracking-wider font-bold" style={{ color: m.color }}>{m.label}</span>
+              </div>
+              <div className="text-[7px] font-mono" style={{ color: C.muted }}>{m.desc}</div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* KPI */}
       <div {...ani(40)} className="grid grid-cols-5 gap-4">
         <KpiCard label="Network Nodes" value={summary?.total_kontingen??0} sub="Registered" color={C.primary} icon={Globe} />
@@ -507,12 +579,16 @@ export default function SuperadminDashboard() {
             <h3 className="text-sm font-lcd font-bold text-[#00ff66] mb-4 flex items-center gap-2 uppercase border-b border-[#00ff66]/20 pb-2">
               <Terminal size={14}/> Executable Actions
             </h3>
-            <div className="space-y-3 font-mono">
+            <div className="space-y-2 font-mono">
               {[
-                { label:'VERIFY_GLOBAL', path:'/superadmin/verif', icon:CheckCircle, color:C.green, badge:summary?.pending_verif },
-                { label:'USER_MANAGEMENT', path:'/superadmin/users', icon:Users, color:C.secondary },
-                { label:'SUBSCRIPTION_CTRL', path:'/superadmin/subscriptions', icon:Target, color:C.cyan },
-                { label:'SYS_HEALTH_CHECK', path:'/superadmin/system', icon:Activity, color:C.muted },
+                { label:'VERIF_CENTER',    path:'/superadmin/verif',         icon:ShieldCheck, color:C.green,   badge:summary?.pending_verif },
+                { label:'INTEGRITY_SCAN',  path:'/superadmin/integrity',     icon:FileSearch,  color:C.secondary },
+                { label:'OBSERVATORY',     path:'/superadmin/observatory',   icon:Globe,       color:'#a855f7' },
+                { label:'TENANTS_CONFIG',  path:'/superadmin/tenants',       icon:Building2,   color:'#a855f7' },
+                { label:'AI_MONITOR',      path:'/superadmin/ai',            icon:Brain,       color:C.accent  },
+                { label:'AUDIT_TRAIL',     path:'/superadmin/logs',          icon:FileText,    color:C.accent  },
+                { label:'USER_MATRIX',     path:'/superadmin/tenants',       icon:Users,       color:C.secondary },
+                { label:'SUBSCRIPTIONS',   path:'/superadmin/subscriptions', icon:Target,      color:C.cyan    },
               ].map(q => (
                 <Link key={q.path} href={q.path}
                   className="flex items-center gap-3 px-3 py-2 text-xs border transition-colors hover:bg-slate-800"

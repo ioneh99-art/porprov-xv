@@ -5,12 +5,34 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Activity, CheckCircle, Cpu, FileSearch,
-  Flame, Grid, Layers, LogOut, Package,
-  Server, Shield, Sparkles, Trophy, UserCog, Users,
+  Building2, CheckCircle, Cpu, FileSearch, FileText,
+  Flame, Globe, Grid, LogOut, Package,
+  Server, Sparkles,
   Terminal
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+
+const LAYOUT_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+  .font-sci { font-family: 'Rajdhani', sans-serif; }
+  .font-lcd { font-family: 'Orbitron', sans-serif; }
+  .bg-grid {
+    background-image:
+      radial-gradient(circle at 50% 50%, #0a192f 0%, #030712 100%),
+      linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+    background-size: 100% 100%, 30px 30px, 30px 30px;
+  }
+  .scanline {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0, 243, 255, 0.1) 50%, rgba(255,255,255,0));
+    background-size: 100% 4px; pointer-events: none; z-index: 50; opacity: 0.3;
+  }
+  .text-glow { text-shadow: 0 0 8px #00f3ff; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.4); }
+`
 
 const C = {
   primary: '#00f3ff', // Cyan Neon
@@ -26,16 +48,18 @@ const C = {
 const NAV = [
   { section: 'SYSTEM_MAIN' },
   { icon: Grid,        label: 'DASHBOARD_HQ',       path: '/superadmin'                  },
-  { icon: Users,       label: 'USER_MATRIX',        path: '/superadmin/users'            },
+  { icon: Globe,       label: 'OBSERVATORY',        path: '/superadmin/observatory'      },
   { icon: Package,     label: 'SUBSCRIPTIONS',      path: '/superadmin/subscriptions'    },
+  { icon: Building2,  label: 'TENANTS_CONFIG',     path: '/superadmin/tenants'          },
   { section: 'OPERATIONS_PROTOCOL' },
-  { icon: CheckCircle, label: 'VERIFICATION',       path: '/superadmin/verif'            },
+  { icon: CheckCircle, label: 'VERIF_CENTER',       path: '/superadmin/verif'            },
+  { icon: FileSearch,  label: 'INTEGRITY_SCAN',     path: '/superadmin/integrity'        },
   { icon: Cpu,         label: 'AI_MONITOR',         path: '/superadmin/ai'               },
   { icon: Server,      label: 'SYSTEM_HEALTH',      path: '/superadmin/system'           },
-  { icon: FileSearch,  label: 'AUDIT_LOGS',         path: '/superadmin/logs'             },
+  { icon: FileText,    label: 'AUDIT_LOGS',         path: '/superadmin/logs'             },
   { section: 'QUICK_UPLINK' },
   { icon: Flame,       label: 'INVOICES',           path: '/superadmin/invoices'     },
-  { icon: Sparkles,    label: 'SIPA_CONSOLE',       path: '/konida/sipa'                 },
+  { icon: Sparkles,    label: 'AI_SPORT_INTEL',     path: '/superadmin/ai'               },
 ]
 
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
@@ -59,32 +83,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     <div className="flex h-screen overflow-hidden font-sci" style={{ background: C.bg }}>
       
       {/* Global Sci-Fi Styles */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
-        
-        .font-sci { font-family: 'Rajdhani', sans-serif; }
-        .font-lcd { font-family: 'Orbitron', sans-serif; }
-        
-        .bg-grid {
-          background-image: 
-            radial-gradient(circle at 50% 50%, #0a192f 0%, #030712 100%),
-            linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
-          background-size: 100% 100%, 30px 30px, 30px 30px;
-        }
-
-        .scanline {
-          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-          background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0, 243, 255, 0.1) 50%, rgba(255,255,255,0));
-          background-size: 100% 4px; pointer-events: none; z-index: 50; opacity: 0.3;
-        }
-        
-        .text-glow { text-shadow: 0 0 8px ${C.primary}; }
-        
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.4); }
-      `}</style>
+      <style dangerouslySetInnerHTML={{ __html: LAYOUT_CSS }} />
       
       <div className="fixed inset-0 bg-grid pointer-events-none z-0"/>
       <div className="scanline"/>
