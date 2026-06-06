@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -240,6 +241,9 @@ INSTRUKSI PENTING:
 
 // ── POST Handler ──────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const limited = checkRateLimit(req, { limit: 30, windowMs: 60_000, key: 'sipa', scope: 'ip+user' })
+  if (limited) return limited
+
   try {
     const body = await req.json()
     const message: string          = body.message ?? body.question ?? ''

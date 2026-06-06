@@ -75,7 +75,7 @@ export default function LoginAtlet() {
           <div className="text-slate-400 text-sm">PORPROV XV Jawa Barat 2026</div>
           <span className="inline-flex items-center gap-1.5 mt-3 text-xs px-3 py-1.5 rounded-full font-medium"
             style={{ background:'rgba(16,185,129,0.15)', color:'#10b981', border:'1px solid rgba(16,185,129,0.3)' }}>
-            🏟️ 15–29 Juni 2026 · Jawa Barat
+            🏟️ 7–20 November 2026 · Jawa Barat
           </span>
         </div>
 

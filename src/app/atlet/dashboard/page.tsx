@@ -203,7 +203,7 @@ export default function AtletDashboard() {
   const perunggu = kej_verified.filter(k=>/perunggu|juara\s*3|bronze/i.test(k.hasil)).length
   const totalBonus = emas*TARIF.emas+perak*TARIF.perak+perunggu*TARIF.perunggu
   const pending  = kejuaraan.filter(k=>k.status.startsWith('Menunggu')).length
-  const hMenuju  = Math.max(0,Math.ceil((new Date('2026-06-15').getTime()-Date.now())/86400000))
+  const hMenuju  = Math.max(0,Math.ceil((new Date('2026-11-07').getTime()-Date.now())/86400000))
 
   // Trend data chart (simulasi progress login)
   const progressData = [
@@ -344,7 +344,7 @@ export default function AtletDashboard() {
             <div className="text-sm font-bold mb-1" style={{color:C.text}}>
               {hMenuju===0 ? '🎉 HARI INI!' : 'Menuju PORPROV XV'}
             </div>
-            <div className="text-xs mb-4" style={{color:C.muted}}>15–29 Juni 2026 · Jawa Barat</div>
+            <div className="text-xs mb-4" style={{color:C.muted}}>7–20 November 2026 · Jawa Barat</div>
             <div className="w-full px-4 py-3 rounded-xl text-center"
               style={{background:'rgba(251,191,36,0.06)',border:'1px solid rgba(251,191,36,0.15)'}}>
               <div className="text-[10px]" style={{color:C.muted}}>Cabor kamu</div>

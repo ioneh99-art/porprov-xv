@@ -34,7 +34,7 @@ export default function Sidebar() {
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     
-    { label: 'SIPA Intelligence', href: '/dashboard/ai', icon: Sparkles },
+    { label: 'Sport Intelligence', href: '/dashboard/ai', icon: Sparkles },
     { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
     
     { label: 'Atlet', href: '/dashboard/atlet', icon: Users, badge: '24K' },

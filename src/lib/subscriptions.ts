@@ -185,6 +185,15 @@ export async function assignPlan(params: {
   return { ok: true }
 }
 
+// ─── Cache invalidation ───────────────────────────────────
+export function invalidateSubscriptionCache(kontingenId?: number): void {
+  if (kontingenId != null) {
+    cache.delete(kontingenId)
+  } else {
+    cache.clear()
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────
 export function canAccess(features: string[], feature: FeatureKey): boolean {
   return features.includes(feature)

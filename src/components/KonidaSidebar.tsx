@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, BarChart2, LogOut, ChevronRight,
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
-  Download, Lock,
+  Download, Lock, Activity, Database, FileCheck,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -286,36 +286,65 @@ export default function KonidaSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 pt-3 overflow-y-auto space-y-0.5">
-        <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
 
-        <NavItem label="Dashboard"       href={dashboardHref}                      icon={LayoutDashboard}/>
-        <NavItem label="Atlet"           href={tp('/konida/atlet', tenantId)}       icon={Users}/>
-
-        {can('kualifikasi')
-          ? <NavItem label="Kualifikasi" href={tp('/konida/kualifikasi', tenantId)} icon={ClipboardCheck}/>
-          : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
-        }
-
-        <NavItem label="Kejuaraan Atlet" href={tp('/konida/kejuaraan', tenantId)}   icon={Trophy} notif={counts.kejuaraan ?? 0}/>
-
-        {can('laporan')
-          ? <NavItem label="Laporan"     href={tp('/konida/laporan', tenantId)}     icon={BarChart2}/>
-          : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
-        }
-
-        {can('export_pdf') && (
-          <NavItem label="Data Gateway"    href={tp('/konida/export', tenantId)}      icon={Download}/>
+        {/* ── PREMIUM — tampil pertama di atas ── */}
+        {isPremiumNonPenye && (
+          <>
+            <div className="flex items-center gap-1.5 px-2 mb-2">
+              <Trophy size={10} style={{ color: tc.primary }}/>
+              <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: tc.primary }}>
+                Premium
+              </span>
+            </div>
+            <NavItem label="War Room"         href={tp('/konida/warroom', tenantId)}                         icon={Monitor}  />
+            <NavItem label="Tes Biomotorik"   href={tp('/konida/Premiumreport', tenantId) + '/tes-fisik'}      icon={Activity} />
+            <NavItem label="Heatmap Cabor"    href={tp('/konida/Premiumreport', tenantId) + '/heatmap-cabor'} icon={BarChart2}/>
+            <NavItem label="Premium Report"   href={tp('/konida/Premiumreport', tenantId)}                    icon={Download} />
+            {/* Report Pertandingan — badge Live/Offline otomatis */}
+            <Link href={tp('/konida/lappertandingan', tenantId)}
+              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
+                pathname.startsWith(tp('/konida/lappertandingan', tenantId))
+                  ? 'text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }`}
+              style={pathname.startsWith(tp('/konida/lappertandingan', tenantId))
+                ? { background: `${tc.primary}20`, color: tc.primary } : {}}>
+              <FileText size={16}/>
+              <span className="flex-1 text-sm">Report Pertandingan</span>
+              {Date.now() >= new Date('2026-11-07').getTime() && Date.now() <= new Date('2026-11-20').getTime()
+                ? <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 animate-pulse leading-none">LIVE</span>
+                : <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-500 leading-none">OFFLINE</span>
+              }
+            </Link>
+            <div className="h-px bg-slate-800 my-3"/>
+          </>
         )}
 
-        {/* SIPA — selalu /konida/sipa (universal) */}
-        <>
-          <div className="h-px bg-slate-800 my-3"/>
-          <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">AI</div>
-          {can('sipa_full')
-            ? <NavItem label="SIPA Intelligence" href="/konida/sipa" icon={Cpu}/>
-            : <LockedNavItem label="SIPA Intelligence" icon={Cpu} plan="Premium"/>
-          }
-        </>
+        {/* ── SPORT INTELLIGENCE ── */}
+        <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">AI</div>
+        {can('sipa_full')
+          ? <NavItem label="Sport Intelligence" href="/konida/sipa" icon={Cpu}/>
+          : <LockedNavItem label="Sport Intelligence" icon={Cpu} plan="Premium"/>
+        }
+        <div className="h-px bg-slate-800 my-3"/>
+
+        {/* ── KONTINGEN ── */}
+        <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
+        <NavItem label="Dashboard"       href={dashboardHref}                       icon={LayoutDashboard}/>
+        <NavItem label="Data Atlet"      href={tp('/konida/atlet', tenantId)}        icon={Users}/>
+        <NavItem label="Dokumen Atlet"   href={tp('/konida/dokumen', tenantId)}      icon={FileCheck}/>
+        {can('kualifikasi')
+          ? <NavItem label="Kualifikasi" href={tp('/konida/kualifikasi', tenantId)}  icon={ClipboardCheck}/>
+          : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
+        }
+        <NavItem label="Kejuaraan Atlet" href={tp('/konida/kejuaraan', tenantId)}    icon={Trophy} notif={counts.kejuaraan ?? 0}/>
+        {can('laporan')
+          ? <NavItem label="Laporan"     href={tp('/konida/laporan', tenantId)}      icon={BarChart2}/>
+          : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
+        }
+        {can('export_pdf')
+          ? <NavItem label="Data Gateway"  href={tp('/konida/export', tenantId)} icon={Database}/>
+          : <LockedNavItem label="Data Gateway" icon={Database} plan="Premium"/>
+        }
 
         {/* Penyelenggara */}
         {isPenyelenggara && (
@@ -348,22 +377,6 @@ export default function KonidaSidebar() {
               : <LockedNavItem label="Laporan Harian" icon={FileText} plan="Premium"/>
             }
           </>
-        )}
-
-        {/* Premium non-penyelenggara */}
-        {isPremiumNonPenye && (
-            <>
-              <div className="h-px bg-slate-800 my-3"/>
-              <div className="flex items-center gap-1.5 px-2 mb-2">
-                <Trophy size={10} style={{ color: tc.primary }}/>
-                <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: tc.primary }}>
-                  Premium
-                </span>
-              </div>
-              <NavItem label="War Room"          href={tp('/konida/warroom', tenantId)}           icon={Monitor}  />
-              <NavItem label="Lap. Pertandingan" href={tp('/konida/lappertandingan', tenantId)}   icon={FileText} />
-              <NavItem label="Premium Report"    href={tp('/konida/Premiumreport', tenantId)}     icon={Download} />
-            </>
         )}
 
         {/* Superadmin */}

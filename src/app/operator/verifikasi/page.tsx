@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Search, CheckCircle, XCircle, Mail } from 'lucide-react'
+import { STATUS_LABEL } from '@/lib/atlet-status'
 
 export default function OperatorVerifikasiPage() {
   const [atlet, setAtlet] = useState<any[]>([])
@@ -207,13 +208,16 @@ export default function OperatorVerifikasiPage() {
                       : '-'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium
-                      ${a.status_registrasi === 'Menunggu Cabor' ? 'bg-amber-500/10 text-amber-400'
-                      : a.status_registrasi === 'Menunggu Admin' ? 'bg-purple-500/10 text-purple-400'
-                      : a.status_registrasi === 'Ditolak Cabor' ? 'bg-red-500/10 text-red-400'
-                      : a.status_registrasi === 'Verified' ? 'bg-emerald-500/10 text-emerald-400'
-                      : 'bg-slate-700/50 text-slate-400'}`}>
-                      {a.status_registrasi}
+                    <span
+                      role="status"
+                      aria-label={`Status: ${STATUS_LABEL[a.status_registrasi as keyof typeof STATUS_LABEL] ?? a.status_registrasi}`}
+                      className={`text-[10px] px-2.5 py-1 rounded-full font-medium
+                        ${a.status_registrasi === 'Menunggu Cabor' ? 'bg-amber-500/10 text-amber-400'
+                        : a.status_registrasi === 'Menunggu Admin' ? 'bg-purple-500/10 text-purple-400'
+                        : a.status_registrasi === 'Ditolak Cabor' ? 'bg-red-500/10 text-red-400'
+                        : a.status_registrasi === 'Verified' ? 'bg-emerald-500/10 text-emerald-400'
+                        : 'bg-slate-700/50 text-slate-400'}`}>
+                      {STATUS_LABEL[a.status_registrasi as keyof typeof STATUS_LABEL] ?? a.status_registrasi}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs max-w-[140px] truncate">
@@ -222,18 +226,22 @@ export default function OperatorVerifikasiPage() {
                   <td className="px-4 py-3">
                     {a.status_registrasi === 'Menunggu Cabor' && (
                       <div className="flex gap-1.5">
-                        <button onClick={() => handleApprove(a.id)}
+                        <button
+                          onClick={() => handleApprove(a.id)}
                           disabled={processing === a.id}
+                          aria-label={`Approve atlet ${a.nama_lengkap}`}
                           className="flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50">
                           {processing === a.id
-                            ? <div className="w-3 h-3 border border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
-                            : <CheckCircle size={11} />}
+                            ? <div className="w-3 h-3 border border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" aria-label="Memproses..." />
+                            : <CheckCircle size={11} aria-hidden="true" />}
                           Approve
                         </button>
-                        <button onClick={() => handleReject(a.id)}
+                        <button
+                          onClick={() => handleReject(a.id)}
                           disabled={processing === a.id}
+                          aria-label={`Tolak atlet ${a.nama_lengkap}`}
                           className="flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50">
-                          <XCircle size={11} /> Reject
+                          <XCircle size={11} aria-hidden="true" /> Tolak
                         </button>
                       </div>
                     )}

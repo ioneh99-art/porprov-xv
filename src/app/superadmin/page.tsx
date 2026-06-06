@@ -1,6 +1,5 @@
 'use client'
-// src/app/superadmin/page.tsx — v2
-// Sidebar sudah di layout.tsx, file ini hanya konten
+// src/app/superadmin/page.tsx — JARVIS COMMAND CENTER THEME
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -12,7 +11,7 @@ import {
   AlertTriangle, Award, CheckCircle, ChevronRight,
   Eye, Globe, Layers, Medal, RefreshCw, Search,
   Shield, Target, TrendingDown, TrendingUp,
-  UserCog, Users, X, Zap,
+  UserCog, Users, X, Zap, Terminal, Activity
 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { LEVEL_META, resolveLevel, type UserLevel } from '@/lib/levels'
@@ -22,81 +21,65 @@ const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+// Types (TIDAK ADA YANG DIUBAH)
 interface TenantStat {
-  kontingen_id:    number
-  nama:            string
-  level:           UserLevel
-  total_atlet:     number
-  total_user:      number
-  medali_emas:     number
-  medali_perak:    number
-  medali_perunggu: number
-  kual_lolos:      number
-  kual_pending:    number
-  last_active:     string
-  status:          'aktif' | 'idle'
+  kontingen_id:    number; nama: string; level: UserLevel
+  total_atlet:     number; total_user: number
+  medali_emas:     number; medali_perak: number; medali_perunggu: number
+  kual_lolos:      number; kual_pending: number
+  last_active:     string; status: 'aktif' | 'idle'
 }
 
 interface SystemSummary {
-  total_kontingen: number
-  total_atlet:     number
-  total_user:      number
-  total_emas:      number
-  total_medali:    number
-  pending_verif:   number
-  atlet_l:         number
-  atlet_p:         number
+  total_kontingen: number; total_atlet: number; total_user: number
+  total_emas:      number; total_medali: number
+  pending_verif:   number; atlet_l: number; atlet_p: number
 }
 
+// JARVIS PALETTE
 const C = {
-  primary:'#ef4444', secondary:'#f97316', accent:'#fbbf24',
-  cyan:'#06b6d4', green:'#10b981', blue:'#3b82f6', muted:'#64748b',
-  bg:'#0b0e14', bgCard:'#111827', border:'rgba(255,255,255,0.07)', text:'#f1f5f9',
+  primary: '#00f3ff', secondary: '#00ff66', accent: '#ffb000', alert: '#ff3366',
+  cyan: '#00f3ff', green: '#00ff66', blue: '#00ccff', muted: '#7a8b9e',
+  bg: 'transparent', bgCard: 'rgba(10, 25, 47, 0.4)', border: 'rgba(0, 243, 255, 0.2)', text: '#f1f5f9',
 }
 
 function timeAgo(d: string | null): string {
-  if (!d) return 'Tidak pernah'
+  if (!d) return 'NO_DATA'
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
-  if (m < 1) return 'Baru saja'
-  if (m < 60) return `${m} mnt lalu`
+  if (m < 1) return 'JUST_NOW'
+  if (m < 60) return `${m}M_AGO`
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h} jam lalu`
-  return `${Math.floor(h / 24)} hari lalu`
+  if (h < 24) return `${h}H_AGO`
+  return `${Math.floor(h / 24)}D_AGO`
 }
 
 function LiveClock() {
   const [t, setT] = useState(new Date())
   useEffect(() => { const i = setInterval(() => setT(new Date()), 1000); return () => clearInterval(i) }, [])
-  return <span className="font-mono text-sm font-bold tabular-nums" style={{ color: C.accent }}>
-    {t.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}
+  return <span className="font-lcd text-sm font-bold tabular-nums text-glow text-[#00f3ff]">
+    {t.toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' })}
   </span>
 }
 
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  if (!data.length) return null
-  const max = Math.max(...data, 1); const min = Math.min(...data)
-  const W = 72; const H = 28
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * W
-    const y = H - ((v - min) / (max - min || 1)) * (H - 4) - 2
-    return `${x},${y}`
-  }).join(' ')
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="opacity-70">
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
+// Cyber Panel CSS
+const cyberPanelStyle = {
+  background: C.bgCard,
+  border: `1px solid ${C.border}`,
+  backdropFilter: 'blur(10px)',
+  boxShadow: `inset 0 0 20px rgba(0, 243, 255, 0.05)`,
+  position: 'relative' as const
 }
 
+// Chart Tooltip Sci-Fi
 function ChartTip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl px-4 py-3 shadow-2xl text-xs border" style={{ background:C.bgCard, borderColor:C.border }}>
-      <div className="text-gray-400 mb-2 font-medium">{label}</div>
+    <div className="p-3 border font-mono text-xs backdrop-blur-md" style={{ background:'rgba(3,7,18,0.9)', borderColor:C.primary, boxShadow:`0 0 15px ${C.primary}40` }}>
+      <div className="text-[#00f3ff] mb-2 font-bold uppercase border-b border-[#00f3ff]/30 pb-1">{label}</div>
       {payload.map((p: any) => (
         <div key={p.name} className="flex items-center gap-2 mb-1">
-          <div className="w-2 h-2 rounded-full" style={{ background:p.color }} />
-          <span className="text-gray-400">{p.name}:</span>
+          <div className="w-1.5 h-1.5" style={{ background:p.color }} />
+          <span className="text-slate-400 uppercase">{p.name}:</span>
           <span className="text-white font-bold">{p.value}</span>
         </div>
       ))}
@@ -104,31 +87,20 @@ function ChartTip({ active, payload, label }: any) {
   )
 }
 
-function KpiCard({ label, value, sub, color, icon:Icon, trend, spark }: {
+function KpiCard({ label, value, sub, color, icon:Icon }: {
   label:string; value:string|number; sub?:string; color:string; icon:any
-  trend?:{ pct:number; up:boolean }; spark?:number[]
 }) {
   return (
-    <div className="rounded-2xl p-5 relative overflow-hidden border" style={{ background:C.bgCard, borderColor:C.border }}>
-      <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full blur-2xl opacity-25" style={{ background:color }} />
-      <div className="relative flex items-start justify-between mb-4">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background:`${color}20` }}>
-          <Icon size={18} style={{ color }} />
-        </div>
-        {trend && (
-          <span className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full ${trend.up?'bg-emerald-500/15 text-emerald-400':'bg-red-500/15 text-red-400'}`}>
-            {trend.up ? <TrendingUp size={10}/> : <TrendingDown size={10}/>} {trend.pct}%
-          </span>
-        )}
+    <div className="p-5 font-mono" style={cyberPanelStyle}>
+      <div className="absolute top-0 right-0 p-2 opacity-20"><Icon size={40} color={color}/></div>
+      <div className="relative">
+        <div className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">{label}</div>
+        <div className="text-3xl font-lcd font-bold mb-2" style={{ color, textShadow:`0 0 10px ${color}80` }}>{value}</div>
+        {sub && <div className="text-[9px] uppercase" style={{ color:`${color}90` }}>&gt; {sub}</div>}
       </div>
-      <div className="relative flex items-end justify-between">
-        <div>
-          <div className="text-2xl font-black text-white leading-none mb-1">{value}</div>
-          <div className="text-xs font-medium" style={{ color:C.muted }}>{label}</div>
-          {sub && <div className="text-[10px] mt-0.5" style={{ color:`${C.muted}80` }}>{sub}</div>}
-        </div>
-        {spark && <Sparkline data={spark} color={color} />}
-      </div>
+      {/* Ornamen sudut */}
+      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: color }}/>
+      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2" style={{ borderColor: color }}/>
     </div>
   )
 }
@@ -147,6 +119,7 @@ export default function SuperadminDashboard() {
   const [animIn, setAnimIn]         = useState(false)
   let reqId = 0
 
+  // FETCH DATA TETAP SAMA
   const fetchData = useCallback(async () => {
     const id = ++reqId
     setRefreshing(true); setError(null)
@@ -169,7 +142,6 @@ export default function SuperadminDashboard() {
 
       if (id !== reqId) return
 
-      // Build maps
       const levelMap  = new Map<number, UserLevel>()
       const userMap   = new Map<number, { count:number; lastActive:string }>()
       const atletMap  = new Map<number, { total:number; lolos:number; pending:number }>()
@@ -277,145 +249,130 @@ export default function SuperadminDashboard() {
   })
 
   if (loading) return (
-    <div className="flex items-center justify-center h-full min-h-screen" style={{ background:C.bg }}>
-      <div className="text-center">
-        <div className="w-10 h-10 border-2 rounded-full animate-spin mx-auto mb-3"
-          style={{ borderColor:`${C.primary}40`, borderTopColor:C.primary }}/>
-        <p className="text-sm" style={{ color:C.muted }}>Memuat data sistem...</p>
+    <div className="flex items-center justify-center h-full min-h-screen">
+      <div className="text-center font-lcd">
+        <div className="w-12 h-12 border-2 border-[#00f3ff]/20 border-t-[#00f3ff] rounded-full animate-spin mx-auto mb-4" style={{boxShadow: '0 0 15px rgba(0, 243, 255, 0.5)'}}/>
+        <p className="text-[#00f3ff] text-xs uppercase tracking-widest text-glow">INITIALIZING DASHBOARD_HQ...</p>
       </div>
     </div>
   )
 
   if (error) return (
-    <div className="flex items-center justify-center h-full min-h-screen" style={{ background:C.bg }}>
-      <div className="rounded-2xl p-8 border max-w-sm w-full text-center" style={{ background:C.bgCard, borderColor:C.border }}>
-        <AlertTriangle size={32} className="mx-auto mb-3" style={{ color:C.primary }}/>
-        <h3 className="text-white font-bold mb-2">Gagal Memuat Data</h3>
+    <div className="flex items-center justify-center h-full min-h-screen">
+      <div className="p-8 border max-w-sm w-full text-center" style={{ ...cyberPanelStyle, borderColor: C.alert }}>
+        <AlertTriangle size={32} className="mx-auto mb-3" style={{ color:C.alert }}/>
+        <h3 className="text-white font-lcd mb-2">SYSTEM_ERROR</h3>
         <p className="text-xs mb-4 font-mono" style={{ color:C.muted }}>{error}</p>
         <button onClick={()=>void fetchData()}
-          className="px-6 py-2 rounded-xl text-sm font-bold text-white"
-          style={{ background:`linear-gradient(135deg,${C.primary},${C.secondary})` }}>
-          Coba Lagi
+          className="px-6 py-2 text-sm font-lcd tracking-widest text-black bg-[#ff3366] hover:bg-white transition-colors">
+          REBOOT_SEQUENCE
         </button>
       </div>
     </div>
   )
 
   return (
-    <div className="p-6 space-y-5 min-h-screen" style={{ background:C.bg }}>
+    <div className="p-6 space-y-6 min-h-screen">
 
       {/* Topbar */}
       <div {...ani(0)} className="flex items-center justify-between">
-        <div className="relative w-64">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color:C.muted }}/>
+        <div className="relative w-72">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color:C.primary }}/>
           <input value={search} onChange={e=>setSearch(e.target.value)}
-            placeholder="Cari kontingen..."
-            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border outline-none"
-            style={{ background:'rgba(255,255,255,0.04)', borderColor:C.border, color:C.text }}/>
+            placeholder="QUERY_KONTINGEN..."
+            className="w-full pl-9 pr-4 py-2 text-xs font-mono border outline-none bg-slate-900/50 focus:border-[#00f3ff] transition-colors"
+            style={{ borderColor:C.border, color:C.primary }}/>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-1.5 rounded-xl border flex items-center gap-2"
-            style={{ border:`1px solid ${C.secondary}30`, background:`${C.secondary}10` }}>
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background:C.green }}/>
+        <div className="flex items-center gap-4">
+          <div className="px-4 py-2 border flex items-center gap-2 bg-[#00f3ff]/5"
+            style={{ borderColor:C.border }}>
+            <div className="w-2 h-2 bg-[#00f3ff] animate-pulse"/>
             <LiveClock/>
           </div>
           <button onClick={()=>void fetchData()}
-            className="w-9 h-9 rounded-xl flex items-center justify-center border"
-            style={{ borderColor:C.border, color:C.muted }}>
-            <RefreshCw size={14} className={refreshing?'animate-spin':''}/>
+            className="w-10 h-10 flex items-center justify-center border text-[#00f3ff] hover:bg-[#00f3ff] hover:text-black transition-colors"
+            style={{ borderColor:C.border }}>
+            <RefreshCw size={16} className={refreshing?'animate-spin':''}/>
           </button>
         </div>
       </div>
 
       {/* Page title + action */}
-      <div {...ani(20)} className="flex items-center justify-between">
+      <div {...ani(20)} className="flex items-center justify-between border-b border-[#00f3ff]/20 pb-4">
         <div>
-          <h1 className="text-xl font-black text-white">Control Center</h1>
-          <p className="text-xs mt-0.5" style={{ color:C.muted }}>
-            PORPROV XV · {summary?.total_kontingen??0} kontingen · data real-time
+          <h1 className="text-2xl font-lcd font-bold text-white text-glow">GLOBAL_COMMAND_CENTER</h1>
+          <p className="text-[11px] font-mono mt-1 uppercase" style={{ color:C.muted }}>
+            NETWORK_NODES: {summary?.total_kontingen??0} | LIVE_TELEMETRY: ACTIVE
           </p>
         </div>
         <Link href="/superadmin/verif"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white"
-          style={{ background:`linear-gradient(135deg,${C.primary},${C.secondary})` }}>
-          <CheckCircle size={13}/> {summary?.pending_verif??0} Pending Verif
+          className="flex items-center gap-2 px-4 py-2 text-xs font-lcd tracking-widest bg-[#ff3366]/20 text-[#ff3366] border border-[#ff3366] hover:bg-[#ff3366] hover:text-white transition-colors">
+          <CheckCircle size={14}/> {summary?.pending_verif??0} PENDING_APPROVAL
         </Link>
       </div>
 
       {/* KPI */}
       <div {...ani(40)} className="grid grid-cols-5 gap-4">
-        <KpiCard label="Total Kontingen" value={summary?.total_kontingen??0} sub="terdaftar"
-          color={C.primary} icon={Globe} spark={[1,2,3,4,5,6,summary?.total_kontingen??6]}/>
-        <KpiCard label="Total Atlet" value={(summary?.total_atlet??0).toLocaleString()}
-          sub={`L:${summary?.atlet_l??0} P:${summary?.atlet_p??0}`}
-          color={C.secondary} icon={Users} trend={{ pct:8, up:true }}
-          spark={[400,520,580,650,700,750,summary?.total_atlet??800]}/>
-        <KpiCard label="User Aktif" value={summary?.total_user??0} sub="di sistem"
-          color={C.accent} icon={UserCog}
-          spark={[10,18,22,28,32,38,summary?.total_user??40]}/>
-        <KpiCard label="Total Emas" value={`🥇 ${summary?.total_emas??0}`}
-          sub={`${summary?.total_medali??0} total medali`}
-          color={C.green} icon={Medal} trend={{ pct:12, up:true }}
-          spark={[5,10,15,18,22,28,summary?.total_emas??30]}/>
-        <KpiCard label="Pending Verif" value={summary?.pending_verif??0} sub="perlu review"
-          color="#f43f5e" icon={Award} trend={{ pct:20, up:false }}
-          spark={[20,35,28,45,38,55,summary?.pending_verif??60]}/>
+        <KpiCard label="Network Nodes" value={summary?.total_kontingen??0} sub="Registered" color={C.primary} icon={Globe} />
+        <KpiCard label="Total Assets" value={(summary?.total_atlet??0).toLocaleString()} sub={`M:${summary?.atlet_l??0} F:${summary?.atlet_p??0}`} color={C.secondary} icon={Users} />
+        <KpiCard label="Active Users" value={summary?.total_user??0} sub="System Wide" color={C.blue} icon={UserCog} />
+        <KpiCard label="Gold Yield" value={summary?.total_emas??0} sub={`${summary?.total_medali??0} Total Medals`} color={C.accent} icon={Medal} />
+        <KpiCard label="Critical Verif" value={summary?.pending_verif??0} sub="Action Required" color={C.alert} icon={AlertTriangle} />
       </div>
 
       {/* Charts */}
-      <div {...ani(70)} className="grid grid-cols-3 gap-5">
-        <div className="col-span-2 rounded-2xl p-5 border" style={{ background:C.bgCard, borderColor:C.border }}>
-          <div className="flex items-center justify-between mb-5">
+      <div {...ani(70)} className="grid grid-cols-3 gap-4">
+        <div className="col-span-2 p-5" style={cyberPanelStyle}>
+          <div className="flex items-center justify-between mb-5 border-b border-[#00f3ff]/20 pb-2">
             <div>
-              <h3 className="text-sm font-bold text-white">Aktivitas Sistem</h3>
-              <p className="text-[10px] mt-0.5" style={{ color:C.muted }}>Distribusi harian</p>
+              <h3 className="text-sm font-lcd font-bold text-[#00f3ff] uppercase">System Activity Matrix</h3>
             </div>
-            <div className="flex gap-4">
-              {[{color:C.secondary,label:'Atlet'},{color:C.cyan,label:'User'},{color:C.green,label:'Verif'}].map(l=>(
+            <div className="flex gap-4 font-mono text-[10px] uppercase">
+              {[{color:C.secondary,label:'Asset_Sync'},{color:C.cyan,label:'User_Login'},{color:C.green,label:'Verif_Log'}].map(l=>(
                 <div key={l.label} className="flex items-center gap-1.5">
-                  <div className="w-3 h-1 rounded-full" style={{ background:l.color }}/>
-                  <span className="text-[10px]" style={{ color:C.muted }}>{l.label}</span>
+                  <div className="w-2 h-2" style={{ background:l.color }}/>
+                  <span style={{ color:C.text }}>{l.label}</span>
                 </div>
               ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={190}>
+          <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={activityData} margin={{ top:5, right:5, left:-20, bottom:0 }}>
               <defs>
                 <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.secondary} stopOpacity={0.4}/><stop offset="95%" stopColor={C.secondary} stopOpacity={0}/></linearGradient>
                 <linearGradient id="gU" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.cyan} stopOpacity={0.35}/><stop offset="95%" stopColor={C.cyan} stopOpacity={0}/></linearGradient>
                 <linearGradient id="gV" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.green} stopOpacity={0.3}/><stop offset="95%" stopColor={C.green} stopOpacity={0}/></linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)"/>
-              <XAxis dataKey="time" tick={{ fill:C.muted, fontSize:10 }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill:C.muted, fontSize:10 }} axisLine={false} tickLine={false}/>
+              <CartesianGrid strokeDasharray="2 4" stroke="rgba(0,243,255,0.1)"/>
+              <XAxis dataKey="time" tick={{ fill:C.muted, fontSize:10, fontFamily:'monospace' }} axisLine={false} tickLine={false}/>
+              <YAxis tick={{ fill:C.muted, fontSize:10, fontFamily:'monospace' }} axisLine={false} tickLine={false}/>
               <Tooltip content={<ChartTip/>}/>
-              <Area type="monotone" dataKey="atlet" name="Atlet" stroke={C.secondary} strokeWidth={2} fill="url(#gA)"/>
-              <Area type="monotone" dataKey="user"  name="User"  stroke={C.cyan}      strokeWidth={2} fill="url(#gU)"/>
-              <Area type="monotone" dataKey="verif" name="Verif" stroke={C.green}     strokeWidth={2} fill="url(#gV)"/>
+              <Area type="monotone" dataKey="atlet" name="Asset_Sync" stroke={C.secondary} strokeWidth={2} fill="url(#gA)"/>
+              <Area type="monotone" dataKey="user"  name="User_Login"  stroke={C.cyan}      strokeWidth={2} fill="url(#gU)"/>
+              <Area type="monotone" dataKey="verif" name="Verif_Log" stroke={C.green}     strokeWidth={2} fill="url(#gV)"/>
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-2xl p-5 border" style={{ background:C.bgCard, borderColor:C.border }}>
-          <div className="mb-5">
-            <h3 className="text-sm font-bold text-white">Medali per Kontingen</h3>
-            <p className="text-[10px] mt-0.5" style={{ color:C.muted }}>Top {medaliChart.length}</p>
+        <div className="p-5" style={cyberPanelStyle}>
+          <div className="mb-5 border-b border-[#00f3ff]/20 pb-2">
+            <h3 className="text-sm font-lcd font-bold text-[#ffb000] uppercase">Medal Distribution</h3>
+            <p className="text-[10px] font-mono mt-0.5 uppercase" style={{ color:C.muted }}>Top {medaliChart.length} Nodes</p>
           </div>
           {medaliChart.length === 0 ? (
-            <div className="flex items-center justify-center h-48" style={{ color:C.muted }}>
-              <div className="text-center"><Medal size={28} className="mx-auto mb-2 opacity-30"/><p className="text-xs">Belum ada medali</p></div>
+            <div className="flex items-center justify-center h-48 font-mono text-xs" style={{ color:C.muted }}>
+                NO_DATA_DETECTED
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={190}>
-              <BarChart data={medaliChart} margin={{ top:0, right:5, left:-25, bottom:0 }} barSize={7}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal vertical={false}/>
-                <XAxis dataKey="nama" tick={{ fill:C.muted, fontSize:9 }} axisLine={false} tickLine={false}/>
-                <YAxis tick={{ fill:C.muted, fontSize:10 }} axisLine={false} tickLine={false}/>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={medaliChart} margin={{ top:0, right:5, left:-25, bottom:0 }} barSize={10}>
+                <CartesianGrid strokeDasharray="2 4" stroke="rgba(0,243,255,0.1)" horizontal vertical={false}/>
+                <XAxis dataKey="nama" tick={{ fill:C.muted, fontSize:9, fontFamily:'monospace' }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fill:C.muted, fontSize:10, fontFamily:'monospace' }} axisLine={false} tickLine={false}/>
                 <Tooltip content={<ChartTip/>}/>
-                <Bar dataKey="emas"     name="Emas"     fill="#fbbf24" radius={[4,4,0,0]}/>
-                <Bar dataKey="perak"    name="Perak"    fill="#94a3b8" radius={[4,4,0,0]}/>
-                <Bar dataKey="perunggu" name="Perunggu" fill={C.secondary} radius={[4,4,0,0]}/>
+                <Bar dataKey="emas"     name="Gold"     fill="#ffb000" radius={[2,2,0,0]}/>
+                <Bar dataKey="perak"    name="Silver"    fill="#94a3b8" radius={[2,2,0,0]}/>
+                <Bar dataKey="perunggu" name="Bronze" fill="#cd7f32" radius={[2,2,0,0]}/>
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -423,92 +380,85 @@ export default function SuperadminDashboard() {
       </div>
 
       {/* Tenant Table + Side Panel */}
-      <div {...ani(100)} className="grid grid-cols-3 gap-5">
-        <div className="col-span-2 rounded-2xl border overflow-hidden" style={{ background:C.bgCard, borderColor:C.border }}>
-          <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor:C.border }}>
+      <div {...ani(100)} className="grid grid-cols-3 gap-4">
+        <div className="col-span-2 overflow-hidden" style={cyberPanelStyle}>
+          
+          <div className="px-5 py-4 border-b flex items-center justify-between bg-[#00f3ff]/5" style={{ borderColor:C.border }}>
             <div>
-              <h3 className="text-sm font-bold text-white">Semua Kontingen</h3>
-              <p className="text-[10px] mt-0.5" style={{ color:C.muted }}>{filtered.length} dari {tenants.length}</p>
+              <h3 className="text-sm font-lcd font-bold text-white uppercase tracking-wider">Network Directory</h3>
+              <p className="text-[10px] font-mono mt-0.5 uppercase" style={{ color:C.muted }}>Filtering {filtered.length} / {tenants.length} Nodes</p>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               {(['semua','level1','level2','level3'] as const).map(l => (
                 <button key={l} onClick={()=>setFilterLevel(l)}
-                  className="text-[10px] px-2.5 py-1.5 rounded-lg transition-all font-bold"
+                  className="text-[10px] px-3 py-1 font-lcd uppercase tracking-widest transition-colors border"
                   style={{
-                    background: filterLevel===l
-                      ? l==='semua'   ? `linear-gradient(135deg,${C.primary},${C.secondary})`
-                      : l==='level1' ? 'linear-gradient(135deg,#d97706,#f59e0b)'
-                      : l==='level2' ? 'linear-gradient(135deg,#475569,#64748b)'
-                      : `linear-gradient(135deg,#1d4ed8,${C.blue})`
-                      : 'rgba(255,255,255,0.05)',
-                    color: filterLevel===l ? '#fff' : C.muted,
-                    border: `1px solid ${filterLevel===l ? 'transparent' : C.border}`,
+                    background: filterLevel===l ? 'rgba(0, 243, 255, 0.15)' : 'transparent',
+                    color: filterLevel===l ? '#00f3ff' : C.muted,
+                    borderColor: filterLevel===l ? '#00f3ff' : 'transparent',
                   }}>
-                  {l==='semua' ? 'Semua' : `${LEVEL_META[l]?.icon} ${LEVEL_META[l]?.label?.split('·')[0]?.trim()}`}
+                  {l==='semua' ? 'ALL_NODES' : LEVEL_META[l]?.label?.split('·')[0]?.trim()}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="grid px-5 py-2.5 text-[9px] font-black uppercase tracking-wider"
-            style={{ gridTemplateColumns:'2fr 1fr 1.4fr 1.2fr auto', background:'rgba(255,255,255,0.02)', color:C.muted }}>
-            <div>Kontingen</div><div className="text-center">Atlet</div>
-            <div>Kualifikasi</div><div>Medali</div><div>Aksi</div>
+          <div className="grid px-5 py-3 text-[10px] font-lcd font-bold uppercase tracking-widest border-b"
+            style={{ gridTemplateColumns:'2fr 1fr 1.4fr 1.2fr auto', background:'rgba(0,243,255,0.05)', color:C.primary, borderColor:C.border }}>
+            <div>Node_Name</div><div className="text-center">Assets</div>
+            <div>Qual_Status</div><div>Acquisition</div><div>Protocol</div>
           </div>
 
-          <div>
+          <div className="max-h-[500px] overflow-y-auto font-mono">
             {filtered.length === 0 ? (
-              <div className="py-16 text-center text-sm" style={{ color:C.muted }}>Tidak ada kontingen</div>
+              <div className="py-16 text-center text-sm" style={{ color:C.muted }}> NO_NODES_FOUND</div>
             ) : filtered.map(t => {
               const kualPct = t.total_atlet > 0 ? Math.round((t.kual_lolos/t.total_atlet)*100) : 0
-              const barColor = kualPct>80 ? C.green : kualPct>50 ? C.secondary : C.primary
+              const barColor = kualPct>80 ? C.green : kualPct>50 ? C.accent : C.alert
               return (
                 <div key={t.kontingen_id}
-                  className="grid px-5 py-3.5 border-b items-center transition-colors"
-                  style={{ gridTemplateColumns:'2fr 1fr 1.4fr 1.2fr auto', borderColor:C.border }}
-                  onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,0.02)')}
-                  onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                  className="grid px-5 py-4 border-b items-center transition-colors hover:bg-[#00f3ff]/5"
+                  style={{ gridTemplateColumns:'2fr 1fr 1.4fr 1.2fr auto', borderColor:'rgba(0,243,255,0.1)' }}>
 
                   <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${t.status==='aktif'?'animate-pulse':''}`}
+                    <div className={`w-2 h-2 flex-shrink-0 ${t.status==='aktif'?'animate-ping':''}`}
                       style={{ background:t.status==='aktif'?C.green:C.muted }}/>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white truncate">{t.nama}</div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[9px] font-bold" style={{ color:LEVEL_CLR[t.level]??C.muted }}>
-                          {LEVEL_META[t.level]?.icon} {LEVEL_META[t.level]?.label?.split('·')[0]?.trim()}
+                      <div className="text-sm font-bold text-white truncate font-lcd tracking-wider">{t.nama}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-black/50 border border-slate-700" style={{ color:LEVEL_CLR[t.level]??C.muted }}>
+                          {LEVEL_META[t.level]?.label?.split('·')[0]?.trim()}
                         </span>
-                        <span className="text-[9px]" style={{ color:`${C.muted}80` }}>· {t.last_active}</span>
+                        <span className="text-[9px] uppercase" style={{ color:C.muted }}>_LOG: {t.last_active}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="text-center">
-                    <div className="text-sm font-bold text-white">{t.total_atlet}</div>
-                    <div className="text-[9px]" style={{ color:C.muted }}>{t.total_user} user</div>
+                    <div className="text-sm font-bold text-[#00f3ff]">{t.total_atlet}</div>
+                    <div className="text-[9px] uppercase" style={{ color:C.muted }}>{t.total_user} usr</div>
                   </div>
 
-                  <div>
+                  <div className="pr-4">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px]" style={{ color:C.muted }}>{t.kual_lolos} lolos</span>
+                      <span className="text-[9px] uppercase" style={{ color:C.muted }}>{t.kual_lolos} Pass</span>
                       <span className="text-[10px] font-bold text-white">{kualPct}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.08)' }}>
-                      <div className="h-full rounded-full" style={{ width:`${kualPct}%`, background:barColor }}/>
+                    <div className="h-1 bg-slate-800/50">
+                      <div className="h-full" style={{ width:`${kualPct}%`, background:barColor, boxShadow:`0 0 5px ${barColor}` }}/>
                     </div>
-                    {t.kual_pending>0 && <div className="text-[9px] mt-0.5 font-bold" style={{ color:C.secondary }}>{t.kual_pending} pending</div>}
+                    {t.kual_pending>0 && <div className="text-[9px] mt-1 font-bold uppercase" style={{ color:C.accent }}>! {t.kual_pending} PNDG</div>}
                   </div>
 
-                  <div className="flex gap-2 text-sm font-bold">
-                    <span style={{ color:C.accent }}>🥇{t.medali_emas}</span>
-                    <span style={{ color:C.muted }}>🥈{t.medali_perak}</span>
-                    <span style={{ color:C.secondary }}>🥉{t.medali_perunggu}</span>
+                  <div className="flex gap-2 text-sm font-bold font-lcd">
+                    <span style={{ color:C.accent }}>{t.medali_emas}</span>
+                    <span style={{ color:C.muted }}>{t.medali_perak}</span>
+                    <span style={{ color:'#cd7f32' }}>{t.medali_perunggu}</span>
                   </div>
 
                   <button onClick={()=>setImpersonateId(t.kontingen_id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-white"
-                    style={{ background:`linear-gradient(135deg,${C.primary}80,${C.secondary}80)`, border:`1px solid ${C.secondary}40` }}>
-                    <Eye size={10}/> View
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-lcd font-bold text-black bg-[#00f3ff] hover:bg-white transition-colors uppercase">
+                    <Eye size={12}/> OVERRIDE
                   </button>
                 </div>
               )
@@ -518,58 +468,59 @@ export default function SuperadminDashboard() {
 
         {/* Right Panel */}
         <div className="space-y-4">
-          <div className="rounded-2xl p-5 border" style={{ background:C.bgCard, borderColor:C.border }}>
-            <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-              <Layers size={14} style={{ color:C.secondary }}/> Distribusi Level
+          <div className="p-5" style={cyberPanelStyle}>
+            <h3 className="text-sm font-lcd font-bold text-[#00f3ff] mb-4 flex items-center gap-2 uppercase border-b border-[#00f3ff]/20 pb-2">
+              <Layers size={14}/> Level Distribution
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-4 font-mono">
               {(['level1','level2','level3'] as UserLevel[]).map(lv => {
                 const count = tenants.filter(t=>t.level===lv).length
                 const pct   = tenants.length > 0 ? Math.round((count/tenants.length)*100) : 0
                 const color = lv==='level1' ? C.accent : lv==='level2' ? C.muted : C.blue
                 return (
                   <div key={lv}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs" style={{ color:C.muted }}>{LEVEL_META[lv]?.icon} {LEVEL_META[lv]?.label}</span>
+                    <div className="flex items-center justify-between mb-1.5 uppercase">
+                      <span className="text-[10px] font-bold" style={{ color }}>{LEVEL_META[lv]?.label}</span>
                       <span className="text-xs font-bold text-white">{count}</span>
                     </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.08)' }}>
-                      <div className="h-full rounded-full" style={{ width:`${pct}%`, background:color }}/>
+                    <div className="h-1.5 bg-slate-800/50">
+                      <div className="h-full" style={{ width:`${pct}%`, background:color, boxShadow:`0 0 5px ${color}` }}/>
                     </div>
                   </div>
                 )
               })}
             </div>
-            <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-3" style={{ borderColor:C.border }}>
-              <div className="text-center rounded-xl py-3" style={{ background:'rgba(59,130,246,0.1)', border:'1px solid rgba(59,130,246,0.2)' }}>
-                <div className="text-lg font-black" style={{ color:C.blue }}>♂ {summary?.atlet_l??0}</div>
-                <div className="text-[10px]" style={{ color:C.muted }}>Putra</div>
+            
+            <div className="mt-5 pt-5 border-t border-[#00f3ff]/20 grid grid-cols-2 gap-3 font-mono">
+              <div className="text-center p-3 border border-[#00ccff]/30 bg-[#00ccff]/5">
+                <div className="text-lg font-lcd font-bold" style={{ color:C.blue }}>M: {summary?.atlet_l??0}</div>
+                <div className="text-[9px] uppercase" style={{ color:C.muted }}>Male Assets</div>
               </div>
-              <div className="text-center rounded-xl py-3" style={{ background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.2)' }}>
-                <div className="text-lg font-black" style={{ color:'#f43f5e' }}>♀ {summary?.atlet_p??0}</div>
-                <div className="text-[10px]" style={{ color:C.muted }}>Putri</div>
+              <div className="text-center p-3 border border-[#ff00ff]/30 bg-[#ff00ff]/5">
+                <div className="text-lg font-lcd font-bold" style={{ color:'#ff00ff' }}>F: {summary?.atlet_p??0}</div>
+                <div className="text-[9px] uppercase" style={{ color:C.muted }}>Female Assets</div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl p-5 border" style={{ background:C.bgCard, borderColor:C.border }}>
-            <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-              <Zap size={14} style={{ color:C.secondary }}/> Quick Actions
+          <div className="p-5" style={cyberPanelStyle}>
+            <h3 className="text-sm font-lcd font-bold text-[#00ff66] mb-4 flex items-center gap-2 uppercase border-b border-[#00ff66]/20 pb-2">
+              <Terminal size={14}/> Executable Actions
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-3 font-mono">
               {[
-                { label:'Verifikasi Global',   path:'/superadmin/verif',          icon:CheckCircle, color:C.green,     badge:summary?.pending_verif },
-                { label:'Manajemen User',      path:'/superadmin/users',          icon:Users,       color:C.secondary },
-                { label:'Subscriptions',       path:'/superadmin/subscriptions',  icon:Target,      color:C.cyan      },
-                { label:'System Health',       path:'/superadmin/system',         icon:Shield,      color:C.muted     },
+                { label:'VERIFY_GLOBAL', path:'/superadmin/verif', icon:CheckCircle, color:C.green, badge:summary?.pending_verif },
+                { label:'USER_MANAGEMENT', path:'/superadmin/users', icon:Users, color:C.secondary },
+                { label:'SUBSCRIPTION_CTRL', path:'/superadmin/subscriptions', icon:Target, color:C.cyan },
+                { label:'SYS_HEALTH_CHECK', path:'/superadmin/system', icon:Activity, color:C.muted },
               ].map(q => (
                 <Link key={q.path} href={q.path}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium border transition-all group hover:text-white"
-                  style={{ borderColor:C.border, color:C.muted }}>
-                  <q.icon size={13} style={{ color:q.color }}/>
-                  <span className="flex-1">{q.label}</span>
-                  {!!q.badge && q.badge>0 && <span className="text-[9px] font-black text-white px-1.5 py-0.5 rounded-full" style={{ background:C.primary }}>{q.badge}</span>}
-                  <ChevronRight size={11} className="opacity-0 group-hover:opacity-100"/>
+                  className="flex items-center gap-3 px-3 py-2 text-xs border transition-colors hover:bg-slate-800"
+                  style={{ borderColor:C.border, color:q.color }}>
+                  <q.icon size={13}/>
+                  <span className="flex-1 uppercase">{q.label}</span>
+                  {!!q.badge && q.badge>0 && <span className="text-[9px] font-bold text-black bg-[#ff3366] px-1.5 py-0.5">{q.badge}</span>}
+                  <ChevronRight size={11} className="text-slate-500"/>
                 </Link>
               ))}
             </div>
@@ -577,37 +528,34 @@ export default function SuperadminDashboard() {
         </div>
       </div>
 
-      {/* Impersonate Modal */}
+      {/* Impersonate Modal Sci-Fi */}
       {impersonateId && (
-        <div className="fixed inset-0 flex items-center justify-center z-[2000] p-4"
-          style={{ background:'rgba(0,0,0,0.75)', backdropFilter:'blur(8px)' }}>
-          <div className="w-full max-w-sm rounded-2xl overflow-hidden border shadow-2xl" style={{ background:C.bgCard, borderColor:C.border }}>
-            <div className="px-6 py-5 border-b flex items-center gap-3"
-              style={{ borderColor:C.border, background:`linear-gradient(135deg,${C.primary}20,${C.secondary}10)` }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background:`linear-gradient(135deg,${C.primary},${C.secondary})` }}>
-                <Eye size={18} className="text-white"/>
+        <div className="fixed inset-0 flex items-center justify-center z-[2000] p-4 bg-black/80 backdrop-blur-sm font-mono">
+          <div className="w-full max-w-sm border shadow-[0_0_30px_rgba(0,243,255,0.2)]" style={{ background:'rgba(3,7,18,0.95)', borderColor:C.primary }}>
+            <div className="px-6 py-4 border-b flex items-center gap-3 bg-[#00f3ff]/10" style={{ borderColor:C.primary }}>
+              <div className="w-8 h-8 flex items-center justify-center bg-[#00f3ff] text-black">
+                <Eye size={18}/>
               </div>
               <div>
-                <h3 className="text-white font-bold">Masuk sebagai Tenant</h3>
-                <p className="text-xs mt-0.5" style={{ color:C.muted }}>Aksi tercatat di audit log</p>
+                <h3 className="text-[#00f3ff] font-lcd font-bold uppercase tracking-wider">OVERRIDE_PROTOCOL</h3>
+                <p className="text-[9px] mt-0.5 text-[#00f3ff]/70 uppercase">Action will be logged in audit trail</p>
               </div>
-              <button onClick={()=>setImpersonateId(null)} className="ml-auto" style={{ color:C.muted }}><X size={16}/></button>
+              <button onClick={()=>setImpersonateId(null)} className="ml-auto text-[#00f3ff] hover:text-[#ff3366]"><X size={16}/></button>
             </div>
             <div className="p-6">
-              <p className="text-sm mb-5" style={{ color:C.muted }}>
-                Kamu akan melihat sistem sebagai{' '}
-                <b className="text-white">{tenants.find(t=>t.kontingen_id===impersonateId)?.nama}</b>.
+              <p className="text-xs mb-6 text-slate-300 uppercase leading-relaxed">
+                {'>'} Executing identity override.<br/>
+                {'>'} Target Node: <b className="text-[#00ff66]">{tenants.find(t=>t.kontingen_id===impersonateId)?.nama}</b>.<br/>
+                {'>'} Proceed with caution.
               </p>
-              <div className="flex gap-3">
+              <div className="flex gap-3 font-lcd tracking-widest text-xs">
                 <button onClick={()=>setImpersonateId(null)}
-                  className="flex-1 py-2.5 text-sm rounded-xl border" style={{ borderColor:C.border, color:C.muted }}>
-                  Batal
+                  className="flex-1 py-2 border text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" style={{ borderColor:C.border }}>
+                  ABORT
                 </button>
                 <Link href={`/konida/dashboard?impersonate=${impersonateId}`}
-                  className="flex-1 py-2.5 text-sm text-center text-white font-bold rounded-xl"
-                  style={{ background:`linear-gradient(135deg,${C.primary},${C.secondary})` }}>
-                  Masuk →
+                  className="flex-1 py-2 text-center text-black font-bold bg-[#00f3ff] hover:bg-white transition-colors">
+                  EXECUTE &gt;
                 </Link>
               </div>
             </div>

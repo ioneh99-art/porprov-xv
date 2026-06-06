@@ -5,6 +5,7 @@ import {
   emailStatusAtlet,
   emailVerifikasiAdmin
 } from '@/lib/email'
+import { applyTransition, type VerifikasiAction, type AtletStatus } from '@/lib/atlet-status'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,34 +58,18 @@ export async function POST(req: NextRequest) {
       .eq('cabor_id', atlet.cabor_id)
       .single()
 
-    let newStatus = ''
-    let logKeterangan = ''
-
-    // Tentukan status baru
-    switch (action) {
-      case 'approve_cabor':
-        newStatus = 'Menunggu Admin'
-        logKeterangan = 'Diverifikasi oleh Operator Cabor'
-        break
-      case 'reject_cabor':
-        newStatus = 'Ditolak Cabor'
-        logKeterangan = alasan || 'Ditolak oleh Operator Cabor'
-        break
-      case 'approve_admin':
-        newStatus = 'Verified'
-        logKeterangan = 'Diverifikasi oleh Admin'
-        break
-      case 'reject_admin':
-        newStatus = 'Ditolak Admin'
-        logKeterangan = alasan || 'Ditolak oleh Admin'
-        break
-      case 'posting':
-        newStatus = 'Posted'
-        logKeterangan = 'Diposting oleh Admin'
-        break
-      default:
-        return NextResponse.json({ error: 'Action tidak valid' }, { status: 400 })
+    // Validasi transisi via state machine
+    const transition = applyTransition(
+      atlet.status_registrasi as AtletStatus,
+      action as VerifikasiAction,
+      user.role
+    )
+    if (!transition.ok) {
+      return NextResponse.json({ error: transition.error }, { status: 422 })
     }
+
+    const newStatus      = transition.newStatus!
+    const logKeterangan  = alasan || `${action.replace('_', ' ')} oleh ${user.nama ?? user.role}`
 
     // Update status atlet
     const { error: updateError } = await sb()
@@ -110,65 +95,35 @@ export async function POST(req: NextRequest) {
     const namaCabor = (atlet as any).cabang_olahraga?.nama ?? ''
     const namaKontingen = (atlet as any).kontingen?.nama ?? ''
 
-    try {
-      if (action === 'approve_cabor' && konidaUser?.email) {
-        // Email ke KONIDA: atlet lolos verifikasi cabor
-        await emailStatusAtlet({
-          to: konidaUser.email,
-          namaKonida: konidaUser.nama,
-          namaAtlet,
-          status: 'Menunggu Verifikasi Admin',
-          namaOperator: operatorUser?.nama ?? 'Operator',
-          namaCabor,
-        })
+    // Fire-and-forget: email tidak menghalangi response API
+    if (konidaUser?.email) {
+      const sendEmail = (): Promise<unknown> => {
+        if (action === 'approve_cabor') {
+          return emailStatusAtlet({
+            to: konidaUser.email!, namaKonida: konidaUser.nama, namaAtlet,
+            status: 'Menunggu Verifikasi Admin',
+            namaOperator: operatorUser?.nama ?? 'Operator', namaCabor,
+          })
+        }
+        if (action === 'reject_cabor') {
+          return emailStatusAtlet({
+            to: konidaUser.email!, namaKonida: konidaUser.nama, namaAtlet,
+            status: 'Ditolak Cabor', alasan,
+            namaOperator: operatorUser?.nama ?? 'Operator', namaCabor,
+          })
+        }
+        if (action === 'approve_admin') {
+          return emailVerifikasiAdmin({ to: konidaUser.email!, namaKonida: konidaUser.nama, namaAtlet, status: 'Verified' })
+        }
+        if (action === 'reject_admin') {
+          return emailVerifikasiAdmin({ to: konidaUser.email!, namaKonida: konidaUser.nama, namaAtlet, status: 'Ditolak Admin', alasan })
+        }
+        if (action === 'posting') {
+          return emailVerifikasiAdmin({ to: konidaUser.email!, namaKonida: konidaUser.nama, namaAtlet, status: 'Posted' })
+        }
+        return Promise.resolve()
       }
-
-      if (action === 'reject_cabor' && konidaUser?.email) {
-        // Email ke KONIDA: atlet ditolak cabor
-        await emailStatusAtlet({
-          to: konidaUser.email,
-          namaKonida: konidaUser.nama,
-          namaAtlet,
-          status: 'Ditolak Cabor',
-          alasan,
-          namaOperator: operatorUser?.nama ?? 'Operator',
-          namaCabor,
-        })
-      }
-
-      if (action === 'approve_admin' && konidaUser?.email) {
-        // Email ke KONIDA: atlet verified admin
-        await emailVerifikasiAdmin({
-          to: konidaUser.email,
-          namaKonida: konidaUser.nama,
-          namaAtlet,
-          status: 'Verified',
-        })
-      }
-
-      if (action === 'reject_admin' && konidaUser?.email) {
-        // Email ke KONIDA: atlet ditolak admin
-        await emailVerifikasiAdmin({
-          to: konidaUser.email,
-          namaKonida: konidaUser.nama,
-          namaAtlet,
-          status: 'Ditolak Admin',
-          alasan,
-        })
-      }
-
-      if (action === 'posting' && konidaUser?.email) {
-        // Email ke KONIDA: atlet resmi posted
-        await emailVerifikasiAdmin({
-          to: konidaUser.email,
-          namaKonida: konidaUser.nama,
-          namaAtlet,
-          status: 'Posted',
-        })
-      }
-    } catch (emailError) {
-      // Email gagal tidak blocking — log saja
-      console.error('Email error:', emailError)
+      sendEmail().catch(e => console.error('Email error:', e))
     }
 
     return NextResponse.json({
@@ -191,6 +146,10 @@ export async function GET(req: NextRequest) {
   const user = JSON.parse(session)
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
+  const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1'))
+  const limit  = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '50')))
+  const from   = (page - 1) * limit
+  const to     = from + limit - 1
 
   try {
     let query = sb()
@@ -199,8 +158,9 @@ export async function GET(req: NextRequest) {
         id, nama_lengkap, gender, tgl_lahir, no_ktp,
         status_registrasi, status_kontingen, created_at,
         kontingen(nama), cabang_olahraga(nama)
-      `)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false })
+      .range(from, to)
 
     if (user.role === 'operator_cabor') {
       query = query
@@ -214,10 +174,13 @@ export async function GET(req: NextRequest) {
       if (status) query = query.eq('status_registrasi', status)
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
     if (error) throw new Error(error.message)
 
-    return NextResponse.json(data ?? [])
+    return NextResponse.json({
+      data: data ?? [],
+      meta: { page, limit, total: count ?? 0, pages: Math.ceil((count ?? 0) / limit) },
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

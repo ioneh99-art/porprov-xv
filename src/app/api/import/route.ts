@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import * as XLSX from 'xlsx'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,6 +52,9 @@ const parseTanggal = (val: any): string | null => {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = checkRateLimit(req, { limit: 10, windowMs: 60_000, key: 'import', scope: 'ip+user' })
+  if (limited) return limited
+
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File

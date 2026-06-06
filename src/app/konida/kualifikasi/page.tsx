@@ -1,432 +1,695 @@
 'use client'
+// src/app/konida/kualifikasi/page.tsx — v4
+// DB-driven: cabor_master + cabor_kuota + v_cabor_kuota_summary
+// + Sub-quota gender breakdown (putra/putri)
+// + Validation Engine (alert panel)
+// + Group by klaster venue option
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Award, CheckCircle, ChevronDown, ChevronRight,
-  Clock, Download, Edit3, Filter, Loader2,
-  Plus, RefreshCw, Search, Target, TrendingUp,
-  Users, X, XCircle, AlertCircle, BarChart2, Medal,
-} from 'lucide-react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import {
+  ShieldAlert, Search, CheckCircle, AlertTriangle,
+  Users, Target, Lock, Unlock, RefreshCw, X,
+  MapPin, ChevronDown, ChevronUp,
+  Printer, FileSpreadsheet, Filter,
+  Trophy, Activity, AlertCircle, Loader2,
+} from 'lucide-react'
+import {
+  type CaborKuotaSummary, type KuotaAlert, type StatusKuota,
+  STATUS_KUOTA_CFG, KLASTER_CFG,
+  aggregateKpi, validateKuota, groupByKlaster,
+} from '@/lib/kuota-helpers'
 
 const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// ─── Types ────────────────────────────────────────────────
-type KualStatus = 'lolos' | 'tidak_lolos' | 'pending' | 'cadangan'
-type Gender = 'L' | 'P'
+const KONTINGEN_ID = 1
+const ACCENT       = '#00ffaa'
+const ROWS_DEFAULT = 15
+const CABOR_DEFAULT = 6
 
-interface Atlet {
-  id: number
-  nama: string
-  gender: Gender
-  tgl_lahir?: string
-  kontingen_id?: number
-  kontingen_nama?: string
-  cabor_id?: number
-  cabor_nama?: string
-  nomor_pertandingan?: string
-  status_kualifikasi: KualStatus
-  nilai_kualifikasi?: number
-  catatan?: string
-  verified: boolean
+interface AtletRow {
+  id:                 number
+  nama_lengkap:       string
+  no_ktp:             string
+  tgl_lahir:          string
+  gender:             string
+  cabor_nama_raw:     string
+  kode_asal_daerah:   string
+  nama_asal_daerah:   string
+  status_registrasi:  string
+  no_registrasi_koni: number | null
 }
 
-interface CaborKualifikasi {
-  cabor_id: number
-  cabor_nama: string
-  kuota_l: number
-  kuota_p: number
-  terisi_l: number
-  terisi_p: number
-  total_pendaftar: number
-  atlet: Atlet[]
-}
+type FilterStatus = 'Semua'|'Verified'|'Menunggu Admin'|'Ditolak Admin'|'Posted'
+type ViewMode     = 'cabor' | 'klaster'
 
-interface Kontingen {
-  id: number
-  nama: string
-}
-
-// ─── Mock Data ────────────────────────────────────────────
-const MOCK_CABORS: CaborKualifikasi[] = [
-  {
-    cabor_id: 1, cabor_nama: 'Atletik',
-    kuota_l: 12, kuota_p: 10, terisi_l: 9, terisi_p: 7, total_pendaftar: 38,
-    atlet: [
-      { id: 1, nama: 'Rizky Pratama', gender: 'L', kontingen_nama: 'Kota Bandung', cabor_nama: 'Atletik', nomor_pertandingan: '100m Putra', status_kualifikasi: 'lolos', nilai_kualifikasi: 92, verified: true },
-      { id: 2, nama: 'Siti Rahayu', gender: 'P', kontingen_nama: 'Kota Bogor', cabor_nama: 'Atletik', nomor_pertandingan: '200m Putri', status_kualifikasi: 'lolos', nilai_kualifikasi: 88, verified: true },
-      { id: 3, nama: 'Dandi Kusuma', gender: 'L', kontingen_nama: 'Kota Depok', cabor_nama: 'Atletik', nomor_pertandingan: '400m Putra', status_kualifikasi: 'pending', nilai_kualifikasi: 75, verified: false },
-      { id: 4, nama: 'Maya Sari', gender: 'P', kontingen_nama: 'Kab. Bekasi', cabor_nama: 'Atletik', nomor_pertandingan: 'Lompat Jauh Putri', status_kualifikasi: 'cadangan', nilai_kualifikasi: 71, verified: true },
-      { id: 5, nama: 'Hendra Wijaya', gender: 'L', kontingen_nama: 'Kota Bekasi', cabor_nama: 'Atletik', nomor_pertandingan: '100m Putra', status_kualifikasi: 'tidak_lolos', nilai_kualifikasi: 58, verified: true },
-    ],
-  },
-  {
-    cabor_id: 2, cabor_nama: 'Renang',
-    kuota_l: 8, kuota_p: 8, terisi_l: 8, terisi_p: 6, total_pendaftar: 24,
-    atlet: [
-      { id: 6, nama: 'Aldo Setiawan', gender: 'L', kontingen_nama: 'Kota Bandung', cabor_nama: 'Renang', nomor_pertandingan: '100m Gaya Bebas', status_kualifikasi: 'lolos', nilai_kualifikasi: 95, verified: true },
-      { id: 7, nama: 'Putri Cahaya', gender: 'P', kontingen_nama: 'Kab. Bogor', cabor_nama: 'Renang', nomor_pertandingan: '200m Gaya Kupu', status_kualifikasi: 'lolos', nilai_kualifikasi: 91, verified: true },
-      { id: 8, nama: 'Bima Saputra', gender: 'L', kontingen_nama: 'Kota Cimahi', cabor_nama: 'Renang', nomor_pertandingan: '50m Gaya Bebas', status_kualifikasi: 'pending', nilai_kualifikasi: 82, verified: false },
-    ],
-  },
-  {
-    cabor_id: 3, cabor_nama: 'Bulu Tangkis',
-    kuota_l: 6, kuota_p: 6, terisi_l: 5, terisi_p: 4, total_pendaftar: 18,
-    atlet: [
-      { id: 9, nama: 'Kevin Santoso', gender: 'L', kontingen_nama: 'Kota Bandung', cabor_nama: 'Bulu Tangkis', nomor_pertandingan: 'Tunggal Putra', status_kualifikasi: 'lolos', nilai_kualifikasi: 97, verified: true },
-      { id: 10, nama: 'Rini Permata', gender: 'P', kontingen_nama: 'Kota Bogor', cabor_nama: 'Bulu Tangkis', nomor_pertandingan: 'Tunggal Putri', status_kualifikasi: 'lolos', nilai_kualifikasi: 89, verified: true },
-    ],
-  },
-  {
-    cabor_id: 4, cabor_nama: 'Pencak Silat',
-    kuota_l: 10, kuota_p: 8, terisi_l: 6, terisi_p: 5, total_pendaftar: 22,
-    atlet: [
-      { id: 11, nama: 'Agus Rahmat', gender: 'L', kontingen_nama: 'Kab. Ciamis', cabor_nama: 'Pencak Silat', nomor_pertandingan: 'Kelas C Putra', status_kualifikasi: 'lolos', nilai_kualifikasi: 86, verified: true },
-      { id: 12, nama: 'Dewi Anggraini', gender: 'P', kontingen_nama: 'Kota Tasik', cabor_nama: 'Pencak Silat', nomor_pertandingan: 'Kelas B Putri', status_kualifikasi: 'pending', nilai_kualifikasi: 79, verified: false },
-    ],
-  },
-]
-
-const MOCK_KONTINGENS: Kontingen[] = [
-  { id: 1, nama: 'Kota Bandung' },
-  { id: 2, nama: 'Kota Bogor' },
-  { id: 3, nama: 'Kota Depok' },
-  { id: 4, nama: 'Kota Bekasi' },
-  { id: 5, nama: 'Kab. Bekasi' },
-  { id: 6, nama: 'Kab. Bogor' },
-]
-
-// ─── Config ───────────────────────────────────────────────
-const KUAL_STATUS: Record<KualStatus, { label: string; color: string; bg: string; border: string; icon: any }> = {
-  lolos:       { label: 'Lolos',       color: 'text-green-700',  bg: 'bg-green-50',  border: 'border-green-200', icon: CheckCircle },
-  tidak_lolos: { label: 'Tidak Lolos', color: 'text-red-700',    bg: 'bg-red-50',    border: 'border-red-200',   icon: XCircle },
-  pending:     { label: 'Pending',     color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200',icon: Clock },
-  cadangan:    { label: 'Cadangan',    color: 'text-blue-700',   bg: 'bg-blue-50',   border: 'border-blue-200',  icon: AlertCircle },
-}
-
-// ─── Sub-components ───────────────────────────────────────
-function KuotaBar({ used, total, label, color }: { used: number; total: number; label: string; color: string }) {
-  const pct = total > 0 ? Math.min(Math.round((used / total) * 100), 100) : 0
-  const isFull = pct >= 100
+// ── Helpers ─────────────────────────────────────
+function Bar({value, max, color, h=5}: {value:number; max:number; color:string; h?:number}) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] text-gray-400 w-3">{label}</span>
-      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${isFull ? 'bg-red-400' : color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className={`text-[10px] font-bold w-10 text-right ${isFull ? 'text-red-600' : 'text-gray-600'}`}>
-        {used}/{total}
-      </span>
+    <div className="rounded-full overflow-hidden" style={{height:h, background:'rgba(255,255,255,0.06)'}}>
+      <div className="h-full rounded-full transition-all duration-700"
+        style={{width:`${max>0?Math.min(value/max*100,100):0}%`, background:color}}/>
     </div>
   )
 }
 
-function NilaiBadge({ nilai }: { nilai?: number }) {
-  if (!nilai) return <span className="text-gray-300 text-xs">—</span>
-  const color = nilai >= 90 ? 'text-green-600 bg-green-50' : nilai >= 75 ? 'text-blue-600 bg-blue-50' : nilai >= 60 ? 'text-orange-600 bg-orange-50' : 'text-red-600 bg-red-50'
-  return <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${color}`}>{nilai}</span>
+function hitungUmur(tgl: string) {
+  if (!tgl) return 0
+  return Math.floor((Date.now() - new Date(tgl).getTime()) / (365.25*24*3600*1000))
 }
 
-function AtletRow({
-  atlet, onEdit,
-}: { atlet: Atlet; onEdit: (a: Atlet) => void }) {
-  const st = KUAL_STATUS[atlet.status_kualifikasi]
-  return (
-    <div className={`grid gap-3 px-5 py-3 border-b border-gray-50 hover:bg-gray-50/50 items-center text-sm ${
-      atlet.status_kualifikasi === 'lolos' ? 'bg-green-50/10' : atlet.status_kualifikasi === 'tidak_lolos' ? 'bg-red-50/10' : ''
-    }`}
-      style={{ gridTemplateColumns: '1fr 5rem 1fr 6rem 5rem 5rem 2rem' }}>
-      <div>
-        <div className="font-medium text-[#3c4858]">{atlet.nama}</div>
-        <div className="text-xs text-gray-400 mt-0.5">{atlet.kontingen_nama}</div>
-      </div>
-      <div className="text-xs text-center">
-        <span className={`px-2 py-0.5 rounded-full font-bold ${atlet.gender === 'L' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'}`}>
-          {atlet.gender === 'L' ? '♂ Putra' : '♀ Putri'}
-        </span>
-      </div>
-      <div className="text-xs text-gray-500 truncate">{atlet.nomor_pertandingan ?? '—'}</div>
-      <div>
-        <span className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border w-fit ${st.bg} ${st.color} ${st.border}`}>
-          <st.icon size={10} /> {st.label}
-        </span>
-      </div>
-      <div className="text-center"><NilaiBadge nilai={atlet.nilai_kualifikasi} /></div>
-      <div className="text-center">
-        {atlet.verified
-          ? <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-bold">✓ Verified</span>
-          : <span className="text-[10px] text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full font-bold">Pending</span>}
-      </div>
-      <button onClick={() => onEdit(atlet)} className="w-7 h-7 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-center">
-        <Edit3 size={12} className="text-gray-400" />
-      </button>
-    </div>
-  )
-}
-
-// ─── Edit Modal ───────────────────────────────────────────
-function EditModal({ atlet, onClose, onSave }: { atlet: Atlet; onClose: () => void; onSave: (a: Atlet) => void }) {
-  const [form, setForm] = useState(atlet)
-  return (
-    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
-      <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 flex justify-between items-center">
-          <h3 className="text-white font-medium">Edit Status Kualifikasi</h3>
-          <button onClick={onClose}><X size={18} className="text-blue-100" /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="font-semibold text-[#3c4858]">{form.nama}</div>
-            <div className="text-sm text-gray-400 mt-0.5">{form.kontingen_nama} · {form.cabor_nama}</div>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Status Kualifikasi</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(KUAL_STATUS) as [KualStatus, any][]).map(([k, v]) => (
-                <button
-                  key={k}
-                  onClick={() => setForm(f => ({ ...f, status_kualifikasi: k }))}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    form.status_kualifikasi === k ? `${v.bg} ${v.color} ${v.border}` : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  <v.icon size={14} /> {v.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Nilai Kualifikasi (0–100)</label>
-            <input
-              type="number" min={0} max={100}
-              value={form.nilai_kualifikasi ?? ''}
-              onChange={e => setForm(f => ({ ...f, nilai_kualifikasi: Number(e.target.value) }))}
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <input type="checkbox" id="verified" checked={form.verified}
-              onChange={e => setForm(f => ({ ...f, verified: e.target.checked }))}
-              className="w-4 h-4 text-blue-500 rounded" />
-            <label htmlFor="verified" className="text-sm text-gray-600">Tandai sebagai Verified</label>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Catatan</label>
-            <textarea
-              value={form.catatan ?? ''}
-              onChange={e => setForm(f => ({ ...f, catatan: e.target.value }))}
-              rows={2} placeholder="Catatan tambahan..."
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 resize-none"
-            />
-          </div>
-        </div>
-        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-100">
-          <button onClick={onClose} className="px-5 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg">Batal</button>
-          <button onClick={() => { onSave(form); onClose() }}
-            className="px-5 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shadow-md">
-            Simpan
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main Page ────────────────────────────────────────────
-export default function KualifikasiAtlet() {
-  const [cabors, setCabors] = useState<CaborKualifikasi[]>(MOCK_CABORS)
+// ════════════════════════════════════════════════════════════
+export default function PageKualifikasi() {
+  const [atlets, setAtlets] = useState<AtletRow[]>([])
+  const [caborSummary, setCaborSummary] = useState<CaborKuotaSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState<KualStatus | 'semua'>('semua')
-  const [filterCabor, setFilterCabor] = useState<number | 'semua'>('semua')
-  const [expandedCabor, setExpandedCabor] = useState<number | null>(1)
-  const [editAtlet, setEditAtlet] = useState<Atlet | null>(null)
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('Semua')
+  const [filterCabor, setFilterCabor]   = useState('Semua')
+  const [filterStatusKuota, setFilterStatusKuota] = useState<'all'|StatusKuota>('all')
+  const [viewMode, setViewMode] = useState<ViewMode>('cabor')
+  const [showAllCabor, setShowAllCabor] = useState(false)
+  const [showAllAtlet, setShowAllAtlet] = useState(false)
+  const [expandedCabor, setExpandedCabor] = useState<string|null>(null)
+  const [expandedKlaster, setExpandedKlaster] = useState<string|null>(null)
+  const [showAlertPanel, setShowAlertPanel] = useState(true)
   const [animIn, setAnimIn] = useState(false)
 
-  useEffect(() => { const t = setTimeout(() => setAnimIn(true), 80); return () => clearTimeout(t) }, [])
+  useEffect(()=>{ const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
 
-  const allAtlets = useMemo(() => cabors.flatMap(c => c.atlet), [cabors])
+  // ── Fetch data ──────────────────────────────────
+  useEffect(()=>{
+    async function fetchAll() {
+      try {
+        const [atletRes, summaryRes] = await Promise.all([
+          sb.from('atlet')
+            .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,status_registrasi,no_registrasi_koni')
+            .eq('kontingen_id', KONTINGEN_ID)
+            .order('cabor_nama_raw',{ascending:true})
+            .order('nama_lengkap',{ascending:true}),
+          sb.from('v_cabor_kuota_summary')
+            .select('*')
+            .eq('kontingen_id', KONTINGEN_ID)
+            .order('urutan'),
+        ])
+        
+        if (atletRes.data) setAtlets(atletRes.data as AtletRow[])
+        if (summaryRes.data) setCaborSummary(summaryRes.data as CaborKuotaSummary[])
+      } catch (e) {
+        console.error('[Kualifikasi] Load error:', e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    void fetchAll()
+  },[])
 
-  const filteredAtlets = useMemo(() => {
-    let r = allAtlets
-    if (search) r = r.filter(a => a.nama.toLowerCase().includes(search.toLowerCase()) || (a.kontingen_nama ?? '').toLowerCase().includes(search.toLowerCase()))
-    if (filterStatus !== 'semua') r = r.filter(a => a.status_kualifikasi === filterStatus)
-    if (filterCabor !== 'semua') r = r.filter(a => a.cabor_id === filterCabor)
-    return r
-  }, [allAtlets, search, filterStatus, filterCabor])
+  // ── Filtered cabors ──────────────────────────────
+  const filteredCabors = useMemo(()=>{
+    let list = caborSummary
+    if (filterStatusKuota !== 'all') {
+      list = list.filter(c => c.status_kuota === filterStatusKuota)
+    }
+    return list
+  },[caborSummary, filterStatusKuota])
 
-  const summary = useMemo(() => ({
-    total: allAtlets.length,
-    lolos: allAtlets.filter(a => a.status_kualifikasi === 'lolos').length,
-    pending: allAtlets.filter(a => a.status_kualifikasi === 'pending').length,
-    tidak_lolos: allAtlets.filter(a => a.status_kualifikasi === 'tidak_lolos').length,
-    cadangan: allAtlets.filter(a => a.status_kualifikasi === 'cadangan').length,
-    verified: allAtlets.filter(a => a.verified).length,
-    totalKuota: cabors.reduce((a, c) => a + c.kuota_l + c.kuota_p, 0),
-    terisi: cabors.reduce((a, c) => a + c.terisi_l + c.terisi_p, 0),
-  }), [allAtlets, cabors])
+  // ── Aggregate KPI ────────────────────────────────
+  const kpi = useMemo(()=>aggregateKpi(caborSummary), [caborSummary])
 
-  function handleSaveAtlet(updated: Atlet) {
-    setCabors(prev => prev.map(c => ({
-      ...c,
-      atlet: c.atlet.map(a => a.id === updated.id ? updated : a),
-    })))
-  }
+  // ── Validation alerts ────────────────────────────
+  const alerts = useMemo(()=>validateKuota(caborSummary), [caborSummary])
 
-  const ani = (d = 0) => ({
-    style: { transitionDelay: `${d}ms`, transition: 'all 0.6s ease' },
+  // ── Group by klaster ─────────────────────────────
+  const groupedByKlaster = useMemo(()=>{
+    return groupByKlaster(filteredCabors)
+  },[filteredCabors])
+
+  // ── Filtered atlet ───────────────────────────────
+  const filteredAtlet = useMemo(()=>atlets.filter(a=>{
+    const ms = !search || a.nama_lengkap.toLowerCase().includes(search.toLowerCase()) || a.no_ktp?.includes(search)
+    const ss = filterStatus==='Semua' || a.status_registrasi===filterStatus
+    const cs = filterCabor==='Semua' || a.cabor_nama_raw===filterCabor
+    return ms && ss && cs
+  }),[atlets, search, filterStatus, filterCabor])
+
+  const caborList = useMemo(()=>
+    ['Semua', ...Array.from(new Set(atlets.map(a=>a.cabor_nama_raw||'Lainnya'))).sort()]
+  ,[atlets])
+
+  const displayedCabor = showAllCabor ? filteredCabors : filteredCabors.slice(0, CABOR_DEFAULT)
+  const displayedAtlet = showAllAtlet ? filteredAtlet : filteredAtlet.slice(0, ROWS_DEFAULT)
+
+  const ani=(d=0)=>({
+    style:{transitionDelay:`${d}ms`, transition:'all 0.5s ease'},
     className: animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
   })
 
+  const STATUS_CFG_ATLET: Record<string,{bg:string;text:string;border:string}> = {
+    'Verified':       {bg:'rgba(74,222,128,0.1)', text:'#4ade80', border:'rgba(74,222,128,0.2)'},
+    'Menunggu Admin': {bg:'rgba(251,191,36,0.1)', text:'#fbbf24', border:'rgba(251,191,36,0.2)'},
+    'Ditolak Admin':  {bg:'rgba(248,113,113,0.1)',text:'#f87171', border:'rgba(248,113,113,0.2)'},
+    'Posted':         {bg:'rgba(96,165,250,0.1)', text:'#60a5fa', border:'rgba(96,165,250,0.2)'},
+    'Draft':          {bg:'rgba(255,255,255,0.05)',text:'#6b7280',border:'rgba(255,255,255,0.1)'},
+  }
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{background:'#020d06'}}>
+      <div className="text-center">
+        <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4" style={{color:ACCENT}}/>
+        <p className="font-mono text-xs uppercase tracking-widest" style={{color:ACCENT}}>Memuat Kontrol Kuota...</p>
+      </div>
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-[#eeeeee] p-8 font-sans space-y-6">
+    <div className="min-h-screen text-zinc-300 font-sans flex flex-col"
+      style={{background:'linear-gradient(135deg,#020d06 0%,#030e08 100%)'}}>
 
-      {/* Header */}
-      <div {...ani(0)} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-light text-[#3c4858]">Kualifikasi Atlet</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manajemen status kualifikasi & kuota per cabang olahraga PORPROV XV</p>
-        </div>
-        <div className="flex gap-3">
-          <button className="bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-full text-sm text-gray-600 flex items-center gap-2 shadow-sm">
-            <Download size={14} /> Export Excel
-          </button>
-          <button className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-full text-sm flex items-center gap-2 shadow-md">
-            <Plus size={14} /> Tambah Atlet
-          </button>
-        </div>
-      </div>
+      <div className="fixed inset-0 pointer-events-none"
+        style={{backgroundImage:`linear-gradient(${ACCENT}03 1px,transparent 1px),linear-gradient(90deg,${ACCENT}03 1px,transparent 1px)`,backgroundSize:'24px 24px',zIndex:0}}/>
 
-      {/* KPI */}
-      <div {...ani(40)} className="grid grid-cols-6 gap-4 pt-2">
-        {[
-          { label: 'Total Pendaftar', value: summary.total, gradient: 'from-blue-500 to-blue-400', icon: Users },
-          { label: 'Lolos Kualifikasi', value: summary.lolos, gradient: 'from-green-500 to-green-400', icon: CheckCircle },
-          { label: 'Pending Review', value: summary.pending, gradient: 'from-orange-500 to-orange-400', icon: Clock },
-          { label: 'Tidak Lolos', value: summary.tidak_lolos, gradient: 'from-red-500 to-red-400', icon: XCircle },
-          { label: 'Cadangan', value: summary.cadangan, gradient: 'from-purple-500 to-purple-400', icon: AlertCircle },
-          { label: 'Kuota Terisi', value: `${summary.terisi}/${summary.totalKuota}`, gradient: 'from-cyan-500 to-cyan-400', icon: Target },
-        ].map(c => (
-          <div key={c.label} className="relative bg-white rounded-xl shadow-md p-3 pt-7">
-            <div className={`absolute -top-4 left-3 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-tr ${c.gradient}`}>
-              <c.icon size={18} className="text-white" />
+      {/* HEADER */}
+      <div className="sticky top-0 z-40 border-b backdrop-blur-xl px-6 py-4"
+        style={{background:'rgba(2,13,6,0.95)', borderColor:`${ACCENT}12`}}>
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{background:`${ACCENT}12`, border:`1px solid ${ACCENT}25`}}>
+              <Target size={20} style={{color:ACCENT}}/>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-gray-400 mb-0.5">{c.label}</p>
-              <h4 className="text-xl font-light text-[#3c4858]">{c.value}</h4>
+            <div>
+              <h1 className="text-xl font-black text-white tracking-tight">Kontrol Kuota & Kualifikasi</h1>
+              <p className="text-[11px] font-mono mt-0.5" style={{color:'rgba(255,255,255,0.35)'}}>
+                {caborSummary.length} cabor PORPROV XV · Kontingen Kab. Bogor
+              </p>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Filter Bar */}
-      <div {...ani(60)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Cari nama atlet / kontingen..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50" />
-        </div>
-        <select value={filterCabor} onChange={e => setFilterCabor(e.target.value === 'semua' ? 'semua' : Number(e.target.value))}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 bg-gray-50 outline-none">
-          <option value="semua">Semua Cabor</option>
-          {cabors.map(c => <option key={c.cabor_id} value={c.cabor_id}>{c.cabor_nama}</option>)}
-        </select>
-        <div className="flex gap-1.5 flex-wrap">
-          {(['semua', 'lolos', 'pending', 'cadangan', 'tidak_lolos'] as const).map(s => {
-            const conf = s === 'semua' ? { label: 'Semua', color: 'text-gray-600', bg: 'bg-gray-100', border: 'border-gray-200' } : KUAL_STATUS[s]
-            return (
-              <button key={s} onClick={() => setFilterStatus(s)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                  filterStatus === s ? `${conf.bg} ${conf.color} ${conf.border} font-bold` : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
-                }`}>
-                {conf.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ─── Mode 1: Filter aktif → tampil flat list ─── */}
-      {(search || filterStatus !== 'semua' || filterCabor !== 'semua') ? (
-        <div {...ani(80)} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="grid gap-3 px-5 py-3 bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider"
-            style={{ gridTemplateColumns: '1fr 5rem 1fr 6rem 5rem 5rem 2rem' }}>
-            <div>Atlet / Kontingen</div><div className="text-center">Gender</div>
-            <div>Nomor</div><div>Status</div><div className="text-center">Nilai</div>
-            <div className="text-center">Verifikasi</div><div></div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-xl"
+              style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
+              {(['cabor','klaster'] as ViewMode[]).map(v=>(
+                <button key={v} onClick={()=>setViewMode(v)}
+                  className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                  style={{
+                    background: viewMode===v ? `${ACCENT}15` : 'transparent',
+                    color:      viewMode===v ? ACCENT : 'rgba(255,255,255,0.4)',
+                  }}>
+                  {v==='cabor' ? '🏆 Per Cabor' : '🗺 Per Klaster'}
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>window.location.reload()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs"
+              style={{background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.4)'}}>
+              <RefreshCw size={11}/> Refresh
+            </button>
           </div>
-          {filteredAtlets.length === 0
-            ? <div className="py-16 text-center text-gray-400 text-sm">Tidak ada atlet ditemukan</div>
-            : filteredAtlets.map(a => <AtletRow key={a.id} atlet={a} onEdit={setEditAtlet} />)}
         </div>
-      ) : (
-        /* ─── Mode 2: Default → accordion per cabor ─── */
-        <div className="space-y-4">
-          {cabors.map((c, ci) => {
-            const isOpen = expandedCabor === c.cabor_id
-            const cLolos = c.atlet.filter(a => a.status_kualifikasi === 'lolos').length
-            const cPending = c.atlet.filter(a => a.status_kualifikasi === 'pending').length
-            const cMasalah = c.atlet.filter(a => a.status_kualifikasi === 'tidak_lolos').length
-            const pctKuota = Math.round(((c.terisi_l + c.terisi_p) / (c.kuota_l + c.kuota_p)) * 100)
+      </div>
 
-            return (
-              <div key={c.cabor_id} {...ani(80 + ci * 30)} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                {/* Accordion Header */}
-                <div
-                  className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
-                  onClick={() => setExpandedCabor(isOpen ? null : c.cabor_id)}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-[#3c4858]">{c.cabor_nama}</h3>
-                      <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full">{c.total_pendaftar} pendaftar</span>
-                      {cPending > 0 && <span className="text-xs bg-orange-100 text-orange-600 px-2.5 py-0.5 rounded-full font-bold">{cPending} pending</span>}
-                    </div>
-                    <div className="flex items-center gap-6 mt-2">
-                      <KuotaBar used={c.terisi_l} total={c.kuota_l} label="L" color="bg-blue-400" />
-                      <KuotaBar used={c.terisi_p} total={c.kuota_p} label="P" color="bg-pink-400" />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex gap-3 text-xs">
-                      <span className="text-green-600 font-bold">✓{cLolos}</span>
-                      <span className="text-orange-500 font-bold">⏳{cPending}</span>
-                      {cMasalah > 0 && <span className="text-red-500 font-bold">✗{cMasalah}</span>}
-                    </div>
-                    <div className="w-12 text-right">
-                      <span className={`text-xs font-bold ${pctKuota >= 100 ? 'text-red-600' : 'text-gray-500'}`}>{pctKuota}%</span>
-                    </div>
-                    {isOpen ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
-                  </div>
+      <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative z-10 space-y-5">
+
+        {/* KPI STRIP */}
+        <div {...ani(0)} className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Total Kuota — Big card */}
+          <div className="lg:col-span-2 rounded-2xl p-5 relative overflow-hidden"
+            style={{background:`${ACCENT}06`, border:`1px solid ${ACCENT}18`}}>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Users size={13} style={{color:ACCENT}}/>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Total Kuota Kontingen</span>
                 </div>
-
-                {/* Accordion Body */}
-                {isOpen && (
-                  <div className="border-t border-gray-100">
-                    <div className="grid gap-3 px-5 py-2.5 bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider"
-                      style={{ gridTemplateColumns: '1fr 5rem 1fr 6rem 5rem 5rem 2rem' }}>
-                      <div>Atlet / Kontingen</div><div className="text-center">Gender</div>
-                      <div>Nomor</div><div>Status</div><div className="text-center">Nilai</div>
-                      <div className="text-center">Verifikasi</div><div></div>
-                    </div>
-                    {c.atlet.map(a => <AtletRow key={a.id} atlet={a} onEdit={setEditAtlet} />)}
-                  </div>
-                )}
+                <div className="text-5xl font-light text-white">{kpi.totalKuota.toLocaleString('id')}</div>
+                <div className="text-[11px] mt-1" style={{color:`${ACCENT}70`}}>
+                  {kpi.totalAktif} terpakai · {kpi.sisa} sisa · {kpi.totalCabor} cabor
+                </div>
               </div>
-            )
-          })}
-        </div>
-      )}
+              <div className="flex-shrink-0 relative">
+                <svg width="64" height="64" style={{transform:'rotate(-90deg)'}}>
+                  <circle cx="32" cy="32" r="24" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5"/>
+                  <circle cx="32" cy="32" r="24" fill="none" stroke={ACCENT} strokeWidth="5"
+                    strokeDasharray={`${2*Math.PI*24*kpi.pct/100} ${2*Math.PI*24}`} strokeLinecap="round"/>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-base font-black" style={{color:ACCENT}}>{kpi.pct}%</div>
+                </div>
+              </div>
+            </div>
+            <Bar value={kpi.totalAktif} max={kpi.totalKuota} color={ACCENT} h={5}/>
 
-      {editAtlet && (
-        <EditModal atlet={editAtlet} onClose={() => setEditAtlet(null)} onSave={handleSaveAtlet} />
-      )}
+            {/* Gender breakdown */}
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-lg p-2.5"
+                style={{background:'rgba(96,165,250,0.06)', border:'1px solid rgba(96,165,250,0.15)'}}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-blue-400 font-bold">♂ PUTRA</span>
+                  <span className="text-[10px] font-mono text-zinc-400">{kpi.pctPutra}%</span>
+                </div>
+                <div className="text-sm font-bold text-white">{kpi.totalAktifPutra} / {kpi.totalKuotaPutra}</div>
+                <div className="mt-1.5"><Bar value={kpi.totalAktifPutra} max={kpi.totalKuotaPutra} color="#60a5fa" h={3}/></div>
+              </div>
+              <div className="rounded-lg p-2.5"
+                style={{background:'rgba(236,72,153,0.06)', border:'1px solid rgba(236,72,153,0.15)'}}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-pink-400 font-bold">♀ PUTRI</span>
+                  <span className="text-[10px] font-mono text-zinc-400">{kpi.pctPutri}%</span>
+                </div>
+                <div className="text-sm font-bold text-white">{kpi.totalAktifPutri} / {kpi.totalKuotaPutri}</div>
+                <div className="mt-1.5"><Bar value={kpi.totalAktifPutri} max={kpi.totalKuotaPutri} color="#ec4899" h={3}/></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Distribution */}
+          {[
+            { l:'Tiket Aktif', v:kpi.totalAktif, c:'#4ade80', sub:'Verified + Posted', icon:CheckCircle },
+            { l:'Sisa Kuota',  v:kpi.sisa,        c:'#fbbf24', sub:'Slot tersedia',     icon:Unlock      },
+            { l:'Alert Cabor', v:kpi.over+kpi.kritis, c:'#f87171', sub:`${kpi.over} over · ${kpi.kritis} kritis`, icon:AlertTriangle },
+          ].map(s=>(
+            <div key={s.l} className="rounded-2xl p-5 relative overflow-hidden"
+              style={{background:'rgba(255,255,255,0.025)', border:`1px solid ${s.c}18`}}>
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{background:`${s.c}50`}}/>
+              <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase tracking-wider mb-2">
+                <s.icon size={12} style={{color:s.c}}/> {s.l}
+              </div>
+              <div className="text-4xl font-light" style={{color:s.c}}>{s.v}</div>
+              <div className="text-[10px] text-zinc-600 mt-1.5">{s.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ════════ ALERT PANEL (validation engine) ════════ */}
+        {alerts.length > 0 && showAlertPanel && (
+          <div {...ani(20)} className="rounded-2xl p-4 relative overflow-hidden"
+            style={{
+              background:'linear-gradient(135deg, rgba(248,113,113,0.05) 0%, rgba(251,191,36,0.03) 100%)',
+              border:'1px solid rgba(248,113,113,0.2)',
+            }}>
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{background:'rgba(248,113,113,0.15)', border:'1px solid rgba(248,113,113,0.3)'}}>
+                <AlertCircle size={16} className="text-red-400"/>
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-black text-red-300 mb-0.5">
+                  ⚠ {alerts.length} Issue Ditemukan
+                </div>
+                <p className="text-[11px] text-red-200/80">
+                  Auto-validation engine mendeteksi anomali kuota
+                </p>
+              </div>
+              <button onClick={()=>setShowAlertPanel(false)}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold"
+                style={{background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.5)', border:'1px solid rgba(255,255,255,0.1)'}}>
+                Sembunyikan
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+              {alerts.map((a,i)=>{
+                const c = a.severity==='error' ? '#f87171' : a.severity==='warning' ? '#fbbf24' : '#3b82f6'
+                const icon = a.severity==='error' ? '🚨' : a.severity==='warning' ? '⚠' : 'ℹ'
+                return (
+                  <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg"
+                    style={{background:`${c}08`, border:`1px solid ${c}20`}}>
+                    <span className="text-xs">{icon}</span>
+                    <span className="text-[11px] flex-1" style={{color:`${c}cc`}}>{a.message}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ════════ MONITOR KUOTA — VIEW MODE: CABOR ════════ */}
+        {viewMode === 'cabor' && (
+          <div {...ani(40)} className="rounded-2xl overflow-hidden"
+            style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)'}}>
+
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-5 py-4 border-b flex-wrap gap-3"
+              style={{borderColor:'rgba(255,255,255,0.07)'}}>
+              <div className="flex items-center gap-2">
+                <Target size={14} style={{color:ACCENT}}/>
+                <span className="text-sm font-bold text-white">Monitor Kuota per Cabor</span>
+                <span className="text-[11px]" style={{color:'rgba(255,255,255,0.3)'}}>
+                  {displayedCabor.length} / {filteredCabors.length} cabor
+                </span>
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {([
+                  {k:'all',    l:`Semua (${caborSummary.length})`, c:ACCENT},
+                  {k:'OPEN',   l:`🟢 Open (${kpi.open})`,           c:'#00ffaa'},
+                  {k:'KRITIS', l:`🟡 Kritis (${kpi.kritis})`,       c:'#fbbf24'},
+                  {k:'PENUH',  l:`🔵 Penuh (${kpi.penuh})`,         c:'#60a5fa'},
+                  {k:'OVER',   l:`🔴 Over (${kpi.over})`,           c:'#f87171'},
+                ] as const).map(f=>(
+                  <button key={f.k} onClick={()=>setFilterStatusKuota(f.k as any)}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                    style={{
+                      background: filterStatusKuota===f.k ? `${f.c}20` : 'rgba(255,255,255,0.04)',
+                      color:      filterStatusKuota===f.k ? f.c : 'rgba(255,255,255,0.4)',
+                      border:     filterStatusKuota===f.k ? `1px solid ${f.c}40` : '1px solid transparent',
+                    }}>
+                    {f.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Grid Cabor */}
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {displayedCabor.map(c=>{
+                const isExp = expandedCabor===c.cabor_nama
+                const sCfg = STATUS_KUOTA_CFG[c.status_kuota]
+                const klasterCfg = c.klaster_venue ? KLASTER_CFG[c.klaster_venue] : null
+
+                return (
+                  <div key={c.cabor_id} className="rounded-xl overflow-hidden transition-all"
+                    style={{
+                      border: `1px solid ${isExp ? sCfg.color : sCfg.border}`,
+                      background: isExp ? `${sCfg.color}08` : 'rgba(255,255,255,0.02)',
+                    }}>
+                    <div className="p-3.5 cursor-pointer"
+                      onClick={()=>setExpandedCabor(isExp ? null : c.cabor_nama)}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-sm font-bold text-zinc-200 truncate">{c.cabor_nama}</span>
+                          {klasterCfg && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded shrink-0"
+                              style={{background:`${klasterCfg.color}15`, color:klasterCfg.color}}>
+                              {klasterCfg.emoji}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                            style={{background:sCfg.bg, color:sCfg.color, border:`1px solid ${sCfg.border}`}}>
+                            {sCfg.label}
+                          </span>
+                          {isExp
+                            ? <ChevronUp size={13} style={{color:sCfg.color}}/>
+                            : <ChevronDown size={13} style={{color:'rgba(255,255,255,0.3)'}}/>}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-[10px] mb-1.5">
+                        <span className="text-zinc-500">
+                          Aktif <strong style={{color:sCfg.color}}>{c.aktif}</strong> / <strong className="text-white">{c.kuota_total}</strong>
+                        </span>
+                        <span style={{color:sCfg.color, fontWeight:700}}>{c.pct}%</span>
+                      </div>
+                      <Bar value={c.aktif} max={c.kuota_total} color={sCfg.color} h={4}/>
+                    </div>
+
+                    {isExp && (
+                      <div className="px-3.5 pb-3.5 border-t" style={{borderColor:`${sCfg.color}15`}}>
+                        {/* Sub-Quota Gender Breakdown */}
+                        <div className="mt-3 mb-3 grid grid-cols-2 gap-2">
+                          <div className="rounded-lg p-2"
+                            style={{background:'rgba(96,165,250,0.06)', border:'1px solid rgba(96,165,250,0.15)'}}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] text-blue-400 font-bold">♂ PUTRA</span>
+                              <span className="text-[10px] font-mono font-bold text-blue-400">
+                                {c.aktif_putra}/{c.kuota_putra}
+                              </span>
+                            </div>
+                            <Bar value={c.aktif_putra} max={c.kuota_putra} color="#60a5fa" h={3}/>
+                          </div>
+                          <div className="rounded-lg p-2"
+                            style={{background:'rgba(236,72,153,0.06)', border:'1px solid rgba(236,72,153,0.15)'}}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] text-pink-400 font-bold">♀ PUTRI</span>
+                              <span className="text-[10px] font-mono font-bold text-pink-400">
+                                {c.aktif_putri}/{c.kuota_putri}
+                              </span>
+                            </div>
+                            <Bar value={c.aktif_putri} max={c.kuota_putri} color="#ec4899" h={3}/>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            {l:'Total Daftar', v:c.total_terdaftar, c:'rgba(255,255,255,0.6)'},
+                            {l:'Verified',     v:c.verified,         c:'#4ade80'},
+                            {l:'Posted',       v:c.posted,           c:'#60a5fa'},
+                            {l:'Pending',      v:c.pending,          c:'#fbbf24'},
+                            {l:'Ditolak',      v:c.ditolak,          c:'#f87171'},
+                            {l:'Ofisial Slot', v:c.kuota_ofisial,    c:'#a855f7'},
+                          ].map(s=>(
+                            <div key={s.l} className="rounded-lg p-2"
+                              style={{background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                              <div className="text-[9px] text-zinc-500 uppercase truncate">{s.l}</div>
+                              <div className="text-base font-bold mt-0.5" style={{color:s.c}}>{s.v}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button onClick={()=>{setFilterCabor(c.cabor_nama===filterCabor ? 'Semua' : c.cabor_nama); setExpandedCabor(null)}}
+                          className="mt-3 w-full py-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5"
+                          style={{
+                            background: filterCabor===c.cabor_nama ? `${sCfg.color}20` : `${ACCENT}10`,
+                            color:      filterCabor===c.cabor_nama ? sCfg.color : ACCENT,
+                            border:     `1px solid ${filterCabor===c.cabor_nama ? sCfg.color : ACCENT}25`,
+                          }}>
+                          <Filter size={11}/>
+                          {filterCabor===c.cabor_nama ? 'Hapus Filter Ini' : 'Filter Tabel Atlet →'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {filteredCabors.length > CABOR_DEFAULT && (
+              <div className="px-4 pb-4 flex justify-center border-t" style={{borderColor:'rgba(255,255,255,0.05)', paddingTop:12}}>
+                <button onClick={()=>setShowAllCabor(v=>!v)}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold"
+                  style={{background:`${ACCENT}10`, color:ACCENT, border:`1px solid ${ACCENT}20`}}>
+                  {showAllCabor
+                    ? <><ChevronUp size={13}/> Tutup ({filteredCabors.length-CABOR_DEFAULT} cabor)</>
+                    : <><ChevronDown size={13}/> Buka {filteredCabors.length-CABOR_DEFAULT} cabor lainnya</>}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════════ MONITOR KUOTA — VIEW MODE: KLASTER ════════ */}
+        {viewMode === 'klaster' && (
+          <div {...ani(40)} className="space-y-3">
+            {Object.entries(groupedByKlaster).map(([klaster, cabors])=>{
+              const klasterCfg = KLASTER_CFG[klaster] || {color:'#94a3b8', emoji:'📍'}
+              const totalKuota = cabors.reduce((s,c)=>s+c.kuota_total,0)
+              const totalAktif = cabors.reduce((s,c)=>s+c.aktif,0)
+              const pct = totalKuota>0 ? Math.round(totalAktif/totalKuota*100) : 0
+              const isExp = expandedKlaster===klaster
+
+              return (
+                <div key={klaster} className="rounded-2xl overflow-hidden"
+                  style={{
+                    background:'rgba(255,255,255,0.02)',
+                    border:`1px solid ${isExp ? klasterCfg.color+'40' : 'rgba(255,255,255,0.07)'}`,
+                  }}>
+                  <div className="p-4 cursor-pointer flex items-center justify-between"
+                    onClick={()=>setExpandedKlaster(isExp ? null : klaster)}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                        style={{background:`${klasterCfg.color}15`, border:`1px solid ${klasterCfg.color}30`}}>
+                        {klasterCfg.emoji}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Klaster {klaster}</h3>
+                        <div className="text-[11px] text-zinc-500 mt-0.5">
+                          {cabors.length} cabor · {totalAktif} / {totalKuota} atlet · {pct}%
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-32 text-right">
+                        <div className="text-2xl font-light" style={{color:klasterCfg.color}}>{pct}%</div>
+                        <Bar value={totalAktif} max={totalKuota} color={klasterCfg.color} h={3}/>
+                      </div>
+                      {isExp
+                        ? <ChevronUp size={16} style={{color:klasterCfg.color}}/>
+                        : <ChevronDown size={16} style={{color:'rgba(255,255,255,0.3)'}}/>}
+                    </div>
+                  </div>
+
+                  {isExp && (
+                    <div className="border-t p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+                      style={{borderColor:`${klasterCfg.color}15`}}>
+                      {cabors.map(c=>{
+                        const sCfg = STATUS_KUOTA_CFG[c.status_kuota]
+                        return (
+                          <div key={c.cabor_id} className="rounded-lg p-3"
+                            style={{background:`${sCfg.color}06`, border:`1px solid ${sCfg.border}`}}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-bold text-zinc-200 truncate">{c.cabor_nama}</span>
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded"
+                                style={{background:sCfg.bg, color:sCfg.color}}>
+                                {sCfg.label}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 mb-1.5">
+                              <strong style={{color:sCfg.color}}>{c.aktif}</strong> / {c.kuota_total} ({c.pct}%)
+                            </div>
+                            <Bar value={c.aktif} max={c.kuota_total} color={sCfg.color} h={3}/>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ════════ TABEL ATLET ════════ */}
+        <div {...ani(80)} className="rounded-2xl overflow-hidden"
+          style={{background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)'}}>
+
+          <div className="flex items-center justify-between px-5 py-4 border-b flex-wrap gap-3"
+            style={{borderColor:'rgba(255,255,255,0.07)'}}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <ShieldAlert size={14} style={{color:ACCENT}}/>
+              <span className="text-sm font-bold text-white">Daftar Atlet</span>
+              <span className="text-[11px]" style={{color:'rgba(255,255,255,0.3)'}}>
+                {filteredAtlet.length} / {atlets.length}
+              </span>
+              {filterCabor!=='Semua' && (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold"
+                  style={{background:`${ACCENT}15`, color:ACCENT, border:`1px solid ${ACCENT}25`}}>
+                  <Filter size={10}/> {filterCabor}
+                  <button onClick={()=>setFilterCabor('Semua')} className="ml-1"><X size={9}/></button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex gap-1">
+                {(['Semua','Verified','Menunggu Admin','Ditolak Admin','Posted'] as FilterStatus[]).map(s=>(
+                  <button key={s} onClick={()=>setFilterStatus(s)}
+                    className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                    style={{
+                      background: filterStatus===s ? `${ACCENT}18` : 'rgba(255,255,255,0.04)',
+                      color:      filterStatus===s ? ACCENT : 'rgba(255,255,255,0.35)',
+                      border:     filterStatus===s ? `1px solid ${ACCENT}25` : '1px solid transparent',
+                    }}>
+                    {s==='Semua' ? 'Semua' :
+                     s==='Verified' ? `✅ ${atlets.filter(a=>a.status_registrasi===s).length}` :
+                     s==='Menunggu Admin' ? `⏳ ${atlets.filter(a=>a.status_registrasi===s).length}` :
+                     s==='Ditolak Admin' ? `❌ ${atlets.filter(a=>a.status_registrasi===s).length}` :
+                     `📌 ${atlets.filter(a=>a.status_registrasi===s).length}`}
+                  </button>
+                ))}
+              </div>
+              <div className="relative">
+                <Search size={11} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"/>
+                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama / NIK..."
+                  className="bg-transparent border rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-200 outline-none w-40"
+                  style={{borderColor:'rgba(255,255,255,0.1)'}}
+                  onFocus={e=>e.target.style.borderColor=ACCENT}
+                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
+              </div>
+              <select value={filterCabor} onChange={e=>setFilterCabor(e.target.value)}
+                className="rounded-xl px-3 py-1.5 text-xs text-zinc-200 outline-none"
+                style={{background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)'}}>
+                {caborList.map(c=>(
+                  <option key={c} value={c} style={{background:'#040f08'}}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="text-[9px] uppercase tracking-widest"
+                style={{background:'rgba(2,13,6,0.98)', color:'rgba(255,255,255,0.3)', borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+                <th className="px-4 py-3 font-bold w-8 text-center">#</th>
+                <th className="px-4 py-3 font-bold">Nama & NIK</th>
+                <th className="px-4 py-3 font-bold">Cabor</th>
+                <th className="px-4 py-3 font-bold">Usia & Gender</th>
+                <th className="px-4 py-3 font-bold">Asal Daerah</th>
+                <th className="px-4 py-3 font-bold">No Reg KONI</th>
+                <th className="px-4 py-3 font-bold text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayedAtlet.map((a,i)=>{
+                const umur = hitungUmur(a.tgl_lahir)
+                const nonLk = a.kode_asal_daerah && !a.kode_asal_daerah.startsWith('3201')
+                const st = STATUS_CFG_ATLET[a.status_registrasi] ?? STATUS_CFG_ATLET['Draft']
+                return (
+                  <tr key={a.id} className="border-b hover:bg-white/[0.02]"
+                    style={{borderColor:'rgba(255,255,255,0.04)'}}>
+                    <td className="px-4 py-3 text-center text-[10px] font-mono" style={{color:'rgba(255,255,255,0.2)'}}>{i+1}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-bold text-zinc-200">{a.nama_lengkap}</div>
+                      <div className="text-[10px] font-mono mt-0.5" style={{color:'rgba(255,255,255,0.25)'}}>{a.no_ktp||'-'}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-bold text-zinc-300">{a.cabor_nama_raw||'-'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-sm font-bold ${umur>35?'text-rose-400':umur<17?'text-amber-400':'text-zinc-300'}`}>{umur}th</span>
+                      <span className="text-[10px] ml-1.5" style={{color:'rgba(255,255,255,0.3)'}}>({a.gender||'-'})</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {nonLk ? (
+                        <span className="flex items-center gap-1 text-[9px] font-bold text-orange-400 bg-orange-500/10 px-2 py-1 rounded-lg w-fit border border-orange-500/20">
+                          <MapPin size={8}/> {a.nama_asal_daerah||'Luar'}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold" style={{color:`${ACCENT}60`}}>Lokal KBR</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[10px] font-mono" style={{color:a.no_registrasi_koni?ACCENT:'rgba(255,255,255,0.2)'}}>
+                        {a.no_registrasi_koni ? `#${a.no_registrasi_koni}` : '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase"
+                        style={{background:st.bg, color:st.text, border:`1px solid ${st.border}`}}>
+                        {a.status_registrasi}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          {filteredAtlet.length===0 && (
+            <div className="py-10 text-center" style={{color:'rgba(255,255,255,0.2)'}}>
+              <Search size={22} className="mx-auto mb-3 opacity-30"/>
+              <p className="text-sm">Tidak ada atlet yang cocok</p>
+            </div>
+          )}
+
+          {filteredAtlet.length > ROWS_DEFAULT && (
+            <div className="p-4 flex items-center justify-between border-t"
+              style={{borderColor:'rgba(255,255,255,0.05)'}}>
+              <span className="text-[11px]" style={{color:'rgba(255,255,255,0.25)'}}>
+                Menampilkan {displayedAtlet.length} dari {filteredAtlet.length} atlet
+              </span>
+              <button onClick={()=>setShowAllAtlet(v=>!v)}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold"
+                style={{background:`${ACCENT}10`, color:ACCENT, border:`1px solid ${ACCENT}20`}}>
+                {showAllAtlet
+                  ? <><ChevronUp size={13}/> Tutup — tampilkan {ROWS_DEFAULT} saja</>
+                  : <><ChevronDown size={13}/> Buka semua {filteredAtlet.length} atlet</>}
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   )
 }

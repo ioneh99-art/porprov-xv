@@ -4,3 +4,12 @@ node_modules/
 .env
 *.env
 .DS_Store
+
+# Data sensitif (NIK atlet, hasil tes biomotorik)
+scripts/data/*.xlsx
+scripts/data/*.json
+scripts/data/*.csv
+scripts/conflicts_*.csv
+scripts/extraction_summary.json
+scripts/full_text.txt
+scripts/__pycache__/

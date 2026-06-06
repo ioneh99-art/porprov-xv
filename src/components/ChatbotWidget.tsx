@@ -1,10 +1,10 @@
 'use client'
 
-// ChatbotWidget — Restored dari versi asli + payload sync ke chatbot route baru
+// ChatbotWidget — JARVIS SCI-FI THEME
 // src/components/ChatbotWidget.tsx
 
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Loader2, MessageCircle, Minimize2, Send, User, X } from 'lucide-react'
+import { Bot, Loader2, MessageCircle, Minimize2, Send, User, X, Cpu, TerminalSquare } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -13,35 +13,43 @@ interface Message {
 
 const QUICK_QUESTIONS: Record<string, string[]> = {
   admin: [
-    'Berapa total atlet terdaftar?',
-    'Cara tambah akun KONIDA baru?',
-    'Cara import data atlet massal?',
-    'Cara setup kuota kualifikasi?',
+    '> CALC_REGISTERED_ASSETS',
+    '> INSTRUCT_ADD_KONIDA',
+    '> INSTRUCT_MASS_IMPORT',
+    '> SETUP_QUALIFICATION_QUOTA',
   ],
   konida: [
-    'Berapa atlet saya yang sudah verified?',
-    'Cara input atlet baru?',
-    'Cara submit atlet ke operator?',
-    'Cara daftarkan atlet ke nomor pertandingan?',
+    '> CHECK_VERIFIED_ASSETS',
+    '> INSTRUCT_INPUT_ASSET',
+    '> INSTRUCT_SUBMIT_OPERATOR',
+    '> INSTRUCT_REGISTER_EVENT',
   ],
   operator_cabor: [
-    'Cara verifikasi atlet?',
-    'Cara input hasil pertandingan?',
-    'Cara konfirmasi lineup?',
-    'Cara validasi kejuaraan atlet?',
+    '> INSTRUCT_VERIFY_ASSET',
+    '> INSTRUCT_INPUT_RESULTS',
+    '> INSTRUCT_CONFIRM_LINEUP',
+    '> INSTRUCT_VALIDATE_CHAMPIONSHIP',
   ],
   atlet: [
-    'Cara input riwayat kejuaraan?',
-    'Kenapa kejuaraan saya belum verified?',
-    'Cara upload bukti prestasi?',
-    'Status registrasi saya bagaimana?',
+    '> INSTRUCT_INPUT_HISTORY',
+    '> WHY_UNVERIFIED_STATUS',
+    '> INSTRUCT_UPLOAD_EVIDENCE',
+    '> CHECK_REGISTRATION_STATUS',
   ],
   penyelenggara: [
-    'Status venue yang aktif sekarang?',
-    'Ada incident terbuka?',
-    'Jadwal pertandingan hari ini?',
-    'Tamu VIP yang perlu disambut?',
+    '> FETCH_VENUE_STATUS',
+    '> SCAN_OPEN_INCIDENTS',
+    '> SCHED_TODAY',
+    '> VIP_GUEST_LOGS',
   ],
+}
+
+// JARVIS THEME COLORS BY TENANT
+const TENANT_COLORS: Record<string, string> = {
+  kabbogor:'#00ffaa', kotabekasi:'#ffb000', kabbekasi:'#00f3ff',
+  kotabandung:'#00f3ff', kabbandung:'#00ff66', kotadepok:'#ff00ff',
+  kotabogor:'#00ff66', kabkarawang:'#ff3366', kabbandungbarat:'#00f3ff',
+  kotacirebon:'#ffb000',
 }
 
 export default function ChatbotWidget({ user }: { user: any }) {
@@ -56,17 +64,21 @@ export default function ChatbotWidget({ user }: { user: any }) {
 
   const role = user?.role ?? 'konida'
   const quickQuestions = QUICK_QUESTIONS[role] ?? QUICK_QUESTIONS.konida
+  const accent = TENANT_COLORS[user?.tenant_id ?? ''] ?? '#00f3ff'
 
   useEffect(() => {
     if (open && messages.length === 0) {
-      const greeting = `Halo ${user?.nama?.split(' ')[0] || 'Kak'}! 👋\n\nSaya **SIPA** — Asisten AI PORPROV XV Jawa Barat 2026.\n\nSaya siap membantu kamu menggunakan sistem ini. Silakan tanya apa saja! 😊`
+      const greeting = `SYSTEM ONLINE. 
+SPORT INTELLIGENCE ACTIVE — [NODE: ${user?.nama?.split(' ')[0] || 'GUEST'}]
+
+Akses database PORPROV XV diizinkan. Silakan eksekusi perintah atau input query manual di bawah.`
       setMessages([{ role: 'assistant', content: greeting }])
     }
     if (open) {
       setUnread(0)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [open])
+  }, [open, user])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -101,14 +113,14 @@ export default function ChatbotWidget({ user }: { user: any }) {
 
       const data = await res.json()
       // support kedua format response: reply (lama) atau answer (baru)
-      const reply = data.reply ?? data.answer ?? 'Maaf, terjadi kesalahan. Coba lagi ya!'
+      const reply = data.reply ?? data.answer ?? 'ERROR: RESPONSE_MALFORMED. Please retry execution.'
 
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
       if (!open) setUnread(prev => prev + 1)
     } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Maaf, tidak bisa terhubung ke server. Coba lagi dalam beberapa saat! 🙏',
+        content: '⚠️ UPLINK_FAILED. Unable to connect to Sport Intelligence Core.',
       }])
     } finally {
       setLoading(false)
@@ -125,14 +137,26 @@ export default function ChatbotWidget({ user }: { user: any }) {
 
   return (
     <>
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;600&display=swap');
+        .cw-font-sci { font-family: 'Rajdhani', sans-serif; }
+        .cw-font-lcd { font-family: 'Orbitron', sans-serif; }
+        
+        .cw-scroll::-webkit-scrollbar { width: 4px; }
+        .cw-scroll::-webkit-scrollbar-track { background: transparent; }
+        .cw-scroll::-webkit-scrollbar-thumb { background: ${accent}40; }
+      `}}/>
+
       {/* ─── Floating Button ─── */}
       <button
         onClick={() => { setOpen(true); setMinimized(false) }}
-        className={`fixed top-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all hover:scale-110 ${open ? 'hidden' : 'flex'}`}
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 bg-black/80 flex items-center justify-center transition-all duration-300 hover:bg-black border ${open ? 'hidden' : 'flex'}`}
+        style={{ borderColor: accent, boxShadow: `0 0 15px ${accent}40` }}
       >
-        <MessageCircle size={24} />
+        <Cpu size={24} style={{ color: accent, filter: `drop-shadow(0 0 5px ${accent})` }} />
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#ff3366] text-white text-[10px] font-bold flex items-center justify-center border border-black animate-pulse"
+                style={{ boxShadow: '0 0 10px #ff3366' }}>
             {unread}
           </span>
         )}
@@ -140,35 +164,51 @@ export default function ChatbotWidget({ user }: { user: any }) {
 
       {/* ─── Chat Window ─── */}
       {open && (
-        <div className={`fixed top-6 right-6 z-50 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 flex flex-col transition-all ${minimized ? 'h-14' : 'h-[520px]'}`}>
+        <div className={`fixed bottom-24 right-6 z-50 w-80 flex flex-col transition-all duration-300 cw-font-sci ${minimized ? 'h-[50px]' : 'h-[520px]'}`}
+             style={{ 
+               background: 'rgba(3, 7, 18, 0.95)',
+               border: `1px solid ${accent}50`,
+               boxShadow: `0 0 30px ${accent}20`,
+               backdropFilter: 'blur(10px)'
+             }}>
 
           {/* Header */}
           <div
-            className="flex items-center gap-3 px-4 py-3 border-b border-slate-800 flex-shrink-0 cursor-pointer"
+            className="flex items-center gap-2.5 px-4 py-3 border-b flex-shrink-0 cursor-pointer relative"
+            style={{ borderColor: `${accent}40`, background: `${accent}10` }}
             onClick={() => setMinimized(m => !m)}
           >
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-              <Bot size={16} className="text-white" />
+            {/* Ornamen sudut */}
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l" style={{ borderColor: accent }}/>
+            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r" style={{ borderColor: accent }}/>
+
+            <div className="w-8 h-8 flex items-center justify-center border bg-black/50 flex-shrink-0"
+                 style={{ borderColor: accent }}>
+              <TerminalSquare size={16} style={{ color: accent }} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-white text-xs font-semibold">SIPA</div>
-              <div className="text-emerald-400 text-[10px] flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                Asisten AI PORPROV XV
+              <div className="font-lcd font-bold text-sm tracking-widest leading-none" style={{ color: accent, textShadow: `0 0 8px ${accent}` }}>
+                SPORT_INTEL
+              </div>
+              <div className="text-[9px] mt-1 flex items-center gap-1.5 font-mono text-slate-400 uppercase tracking-widest">
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: accent }} />
+                AI ASST
               </div>
             </div>
             <div className="flex gap-1">
               <button
                 onClick={e => { e.stopPropagation(); setMinimized(m => !m) }}
-                className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-all"
+                className="w-6 h-6 rounded-none flex items-center justify-center hover:bg-white/10 transition-colors"
+                style={{ color: accent }}
               >
-                <Minimize2 size={13} />
+                <Minimize2 size={12} />
               </button>
               <button
                 onClick={e => { e.stopPropagation(); setOpen(false) }}
-                className="p-1 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-all"
+                className="w-6 h-6 rounded-none flex items-center justify-center hover:bg-[#ff3366]/20 hover:text-[#ff3366] transition-colors"
+                style={{ color: accent }}
               >
-                <X size={13} />
+                <X size={12} />
               </button>
             </div>
           </div>
@@ -176,34 +216,54 @@ export default function ChatbotWidget({ user }: { user: any }) {
           {!minimized && (
             <>
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 scrollbar-thin scrollbar-thumb-slate-700">
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 relative cw-scroll">
+                
+                {/* Decorative Grid */}
+                <div className="absolute inset-0 pointer-events-none opacity-20"
+                     style={{ 
+                       backgroundImage: `linear-gradient(${accent} 1px, transparent 1px), linear-gradient(90deg, ${accent} 1px, transparent 1px)`,
+                       backgroundSize: '20px 20px' 
+                     }}/>
+
                 {messages.map((msg, i) => (
-                  <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      msg.role === 'user' ? 'bg-blue-600' : 'bg-slate-700'
-                    }`}>
+                  <div key={i} className={`flex gap-2 relative z-10 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`w-6 h-6 border flex items-center justify-center flex-shrink-0 mt-0.5 bg-black/60`}
+                         style={{ borderColor: msg.role === 'user' ? '#64748b' : accent }}>
                       {msg.role === 'user'
-                        ? <User size={12} className="text-white" />
-                        : <Bot size={12} className="text-blue-400" />}
+                        ? <User size={12} className="text-slate-400" />
+                        : <Cpu size={12} style={{ color: accent }} />}
                     </div>
                     <div
-                      className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                      className={`max-w-[85%] px-3.5 py-2.5 text-xs leading-relaxed font-mono ${
                         msg.role === 'user'
-                          ? 'bg-blue-600 text-white rounded-tr-sm'
-                          : 'bg-slate-800 text-slate-200 rounded-tl-sm'
+                          ? 'border-r-2'
+                          : 'border border-slate-800'
                       }`}
+                      style={msg.role === 'user' ? {
+                        background: `${accent}15`,
+                        color: accent,
+                        borderRightColor: accent
+                      } : {
+                        background: 'rgba(0,0,0,0.6)',
+                        color: '#e2e8f0', // Slate 200
+                      }}
                       dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
                     />
                   </div>
                 ))}
 
                 {loading && (
-                  <div className="flex gap-2">
-                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                      <Bot size={12} className="text-blue-400" />
+                  <div className="flex gap-2 relative z-10">
+                    <div className="w-6 h-6 border flex items-center justify-center flex-shrink-0 bg-black/60"
+                         style={{ borderColor: accent }}>
+                      <Cpu size={12} style={{ color: accent }} />
                     </div>
-                    <div className="bg-slate-800 px-3 py-2 rounded-2xl rounded-tl-sm">
-                      <Loader2 size={14} className="text-blue-400 animate-spin" />
+                    <div className="border border-slate-800 px-4 py-3 bg-black/60 flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mr-2">PROCESSING</span>
+                      {[0,1,2].map(i => (
+                        <div key={i} className="w-1 h-1 bg-white animate-pulse"
+                             style={{ animationDelay:`${i*150}ms` }}/>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -212,14 +272,19 @@ export default function ChatbotWidget({ user }: { user: any }) {
 
               {/* Quick Questions — hanya saat awal */}
               {messages.length <= 1 && (
-                <div className="px-3 pb-2">
-                  <div className="text-slate-600 text-[10px] mb-1.5">Pertanyaan cepat:</div>
-                  <div className="flex flex-col gap-1">
+                <div className="px-4 pb-3 pt-2 relative z-10 font-mono">
+                  <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: `${accent}80` }}>EXECUTE_COMMANDS:</div>
+                  <div className="flex flex-col gap-1.5">
                     {quickQuestions.map(q => (
                       <button
                         key={q}
                         onClick={() => void sendMessage(q)}
-                        className="text-left text-xs text-blue-400 hover:text-blue-300 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20 rounded-lg px-2.5 py-1.5 transition-all"
+                        className="text-left text-[10px] border px-3 py-1.5 transition-all hover:pl-4 uppercase tracking-wider"
+                        style={{ 
+                          background: 'rgba(0,0,0,0.5)', 
+                          borderColor: `${accent}40`, 
+                          color: accent 
+                        }}
                       >
                         {q}
                       </button>
@@ -228,24 +293,32 @@ export default function ChatbotWidget({ user }: { user: any }) {
                 </div>
               )}
 
-              {/* Input */}
-              <div className="px-3 pb-3 flex gap-2 flex-shrink-0 border-t border-slate-800 pt-3">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && void sendMessage()}
-                  placeholder="Ketik pertanyaan..."
-                  disabled={loading}
-                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
-                />
+              {/* Input Area */}
+              <div className="px-3 py-3 flex gap-2 flex-shrink-0 border-t"
+                   style={{ borderColor: `${accent}30`, background: 'rgba(3,7,18,0.9)' }}>
+                <div className="flex-1 relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold" style={{ color:accent }}></span>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && void sendMessage()}
+                    placeholder="INPUT_QUERY..."
+                    disabled={loading}
+                    className="w-full bg-black/50 border px-7 py-2 text-xs font-mono outline-none disabled:opacity-60 placeholder-slate-600 transition-colors"
+                    style={{ borderColor: `${accent}40`, color: accent }}
+                    onFocus={e => { e.target.style.borderColor = accent }}
+                    onBlur={e => { e.target.style.borderColor = `${accent}40` }}
+                  />
+                </div>
                 <button
                   onClick={() => void sendMessage()}
                   disabled={!input.trim() || loading}
-                  className="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all flex-shrink-0"
+                  className="w-9 h-9 border flex items-center justify-center transition-all disabled:opacity-50 hover:bg-white/10 flex-shrink-0"
+                  style={{ borderColor: accent, background: `${accent}20` }}
                 >
-                  <Send size={13} />
+                  {loading ? <Loader2 size={13} className="animate-spin" style={{ color: accent }} /> : <Send size={13} style={{ color: accent }} />}
                 </button>
               </div>
             </>

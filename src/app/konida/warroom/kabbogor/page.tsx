@@ -1,45 +1,37 @@
 'use client'
-// src/app/konida/warroom/kabbogor/page.tsx — v2
-// Fix: m.value.data possibly null
-// Redesign: Prediksi medali per cabor + alert laga aktif
+// src/app/konida/warroom/kabbogor/page.tsx — v3 STRATEGIC INTELLIGENCE
+// Layer:
+//  1. Header + KPI Strip + Alert Laga Aktif
+//  2. Peta Kompetitor + Top 5 Klasemen (side-by-side, dari Dashboard)
+//  3. Target Realisasi + Medal Prediction (combined)
+//  4. Strategic Actions (catch-up plan)
+//  5. Jadwal Berikutnya
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
-  Monitor, Trophy, Activity, Clock, Target,
-  TrendingUp, Users, RefreshCw, AlertTriangle,
-  Zap, ChevronRight, Medal, Star, CheckCircle,
+  Monitor, Clock, Target, TrendingUp,
+  RefreshCw, Zap, MapPin, Crown,
 } from 'lucide-react'
+import PetaKompetitor from '@/components/PetaKompetitor'
+import {
+  StrategicActionsCard,
+  generateStrategicActions,
+} from '@/components/konida/WarRoomHelpers'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// Prediksi potensi medali per cabor — berdasarkan data atlet & histori
-const PREDIKSI_CABOR = [
-  { cabor:'Hockey',       potensi:'Emas',    prob:92, atlet:76, alasan:'Tim terkuat, unbeaten di fase grup',        status:'LIVE',    laga:'vs Kota Depok — Lap. Hoki PKS'          },
-  { cabor:'Dayung',       potensi:'Emas',    prob:87, atlet:67, alasan:'Dominan di K-2 & K-4, sudah di final',      status:'LIVE',    laga:'K-2 500m Final — Situ Cikaret'          },
-  { cabor:'Atletik',      potensi:'Emas',    prob:84, atlet:18, alasan:'Sprint & lari jauh unggulan Jabar Barat',    status:'UPCOMING',laga:'100m Putra Final — 16:30 Stadion PKS'   },
-  { cabor:'Taekwondo',    potensi:'Emas',    prob:78, atlet:16, alasan:'3 finalis dari Kab. Bogor hari ini',         status:'DONE',    laga:'54kg Putra Final — Juara 🥇'            },
-  { cabor:'Karate',       potensi:'Emas',    prob:71, atlet:18, alasan:'Kata putri & kumite putra masuk final',      status:'UPCOMING',laga:'Kumite Putra Final — 15:00'              },
-  { cabor:'Menembak',     potensi:'Perak',   prob:68, atlet:42, alasan:'Banyak atlet tapi persaingan ketat',         status:'UPCOMING',laga:'10m Air Rifle — 14:30 Lap. Menembak'     },
-  { cabor:'Bulutangkis',  potensi:'Emas',    prob:65, atlet:18, alasan:'Tunggal putra di semifinal',                 status:'LIVE',    laga:'Tunggal Putra SF — Laga Tangkas'        },
-  { cabor:'Akuatik',      potensi:'Perak',   prob:61, atlet:51, alasan:'Kuat di gaya bebas, bersaing ketat renang gaya dada',status:'UPCOMING',laga:'200m Gaya Bebas — 15:45' },
-  { cabor:'Floorball',    potensi:'Emas',    prob:58, atlet:44, alasan:'Tim muda berbakat, semifinal vs Depok',      status:'UPCOMING',laga:'Semifinal vs Depok — 17:00'             },
-  { cabor:'Sepak Bola',   potensi:'Perak',   prob:52, atlet:49, alasan:'QF menang, SF vs Kota Bandung berat',        status:'LIVE',    laga:'QF vs Kota Bandung — Stadion PKS'       },
-  { cabor:'Panahan',      potensi:'Perunggu',prob:45, atlet:31, alasan:'Masuk top 4, persaingan 3-4 sangat ketat',  status:'UPCOMING',laga:'Recurve Putra 3/4 — 13:00'              },
-  { cabor:'Angkat Besi',  potensi:'Perunggu',prob:42, atlet:36, alasan:'Kompetitif di 2 kelas berat ringan',        status:'DONE',    laga:'Kelas 56kg — Perunggu 🥉'               },
+const ACCENT = '#00ffaa'
+
+const LAGA_LIVE = [
+  { cabor:'Hockey',      laga:'vs Kota Depok',          venue:'Lap. Hoki PKS',        status:'LIVE' },
+  { cabor:'Dayung',      laga:'K-2 500m Final',          venue:'Situ Cikaret',          status:'LIVE' },
+  { cabor:'Bulutangkis', laga:'Tunggal Putra SF',        venue:'Laga Tangkas',          status:'LIVE' },
+  { cabor:'Sepak Bola',  laga:'QF vs Kota Bandung',      venue:'Stadion PKS',           status:'LIVE' },
 ]
-
-const LIVE_ALERT = PREDIKSI_CABOR.filter(c => c.status==='LIVE')
-const UPCOMING   = PREDIKSI_CABOR.filter(c => c.status==='UPCOMING').slice(0,4)
-
-const POTENSI_COLOR: Record<string,{c:string;bg:string;border:string}> = {
-  Emas:     { c:'#ffd700', bg:'rgba(255,215,0,0.1)',   border:'rgba(255,215,0,0.25)'   },
-  Perak:    { c:'#c0c0c0', bg:'rgba(192,192,192,0.1)', border:'rgba(192,192,192,0.25)' },
-  Perunggu: { c:'#cd7f32', bg:'rgba(205,127,50,0.1)',  border:'rgba(205,127,50,0.25)'  },
-}
 
 function LiveClock() {
   const [t, setT] = useState('')
@@ -49,16 +41,7 @@ function LiveClock() {
     const i = setInterval(() => setT(fmt()), 1000)
     return () => clearInterval(i)
   }, [])
-  return <span className="tabular-nums font-mono font-bold" style={{color:'#00ffaa'}}>{t}</span>
-}
-
-function ProbBar({ prob, color }: { prob: number; color: string }) {
-  return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.06)' }}>
-      <div className="h-full rounded-full transition-all duration-1000"
-        style={{ width:`${prob}%`, background:color, boxShadow:`0 0 6px ${color}60` }}/>
-    </div>
-  )
+  return <span className="tabular-nums font-mono font-bold tracking-wider" style={{color:ACCENT}}>{t}</span>
 }
 
 export default function PageWarRoom() {
@@ -68,32 +51,43 @@ export default function PageWarRoom() {
   const [animIn,   setAnimIn]   = useState(false)
   const [pulse,    setPulse]    = useState(true)
 
+  const [tesFisikSum, setTesFisikSum] = useState({topAtlet:0, lowAtlet:0, weakCabors:0})
+
   useEffect(() => { const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
   useEffect(() => { const i=setInterval(()=>setPulse(p=>!p),800); return()=>clearInterval(i) },[])
 
   useEffect(() => {
     async function load() {
       try {
-        const [k, m, a] = await Promise.allSettled([
+        const [k, m, a, tf] = await Promise.allSettled([
           sb.from('klasemen_medali')
             .select('emas,perak,perunggu,total,kontingen(nama)')
             .order('emas',  { ascending:false })
             .order('perak', { ascending:false })
-            .limit(7),
+            .limit(27),
           sb.from('klasemen_medali')
             .select('emas,perak,perunggu,total')
             .eq('kontingen_id', 1)
-            .maybeSingle(), // ← fix: maybeSingle() tidak throw kalau null
+            .maybeSingle(),
           sb.from('atlet')
-            .select('status_registrasi')
+            .select('status_registrasi,cabor_nama_raw')
             .eq('kontingen_id', 1),
+          sb.from('atlet_tes_fisik')
+            .select('kesimpulan_persen,status_tes,cabor_nama,atlet_id')
+            .eq('kontingen_id', 1).eq('tahap', 3),
         ])
 
         if (k.status==='fulfilled' && k.value.data) {
-          setKlasemen(k.value.data as any[])
+          const raw = k.value.data as any[]
+          setKlasemen(raw.map(r => ({
+            nama:     (r.kontingen as any)?.nama ?? '-',
+            emas:     r.emas    ?? 0,
+            perak:    r.perak   ?? 0,
+            perunggu: r.perunggu ?? 0,
+            total:    r.total   ?? 0,
+          })))
         }
 
-        // Fix: cek data tidak null sebelum akses property
         if (m.status==='fulfilled' && m.value.data) {
           const d = m.value.data
           setSummary(prev => ({
@@ -112,6 +106,31 @@ export default function PageWarRoom() {
             total:    atlets.length,
             verified: atlets.filter(x => x.status_registrasi==='Verified').length,
           }))
+
+          const caborAtletMap: Record<string, number> = {}
+          atlets.forEach(x => {
+            const c = x.cabor_nama_raw || 'Lainnya'
+            caborAtletMap[c] = (caborAtletMap[c] || 0) + 1
+          })
+
+          if (tf.status==='fulfilled' && tf.value.data) {
+            const tfData = tf.value.data
+            const valid = tfData.filter((t:any) => t.status_tes === 'Hadir' && t.kesimpulan_persen != null)
+
+            const caborFitnessMap: Record<string,{sum:number;n:number}> = {}
+            valid.forEach((t:any) => {
+              const c = t.cabor_nama || 'Unknown'
+              if (!caborFitnessMap[c]) caborFitnessMap[c] = {sum:0,n:0}
+              caborFitnessMap[c].sum += t.kesimpulan_persen
+              caborFitnessMap[c].n++
+            })
+
+            setTesFisikSum({
+              topAtlet:   valid.filter((t:any) => t.kesimpulan_persen >= 80).length,
+              lowAtlet:   valid.filter((t:any) => t.kesimpulan_persen < 40).length,
+              weakCabors: Object.values(caborFitnessMap).filter(c => c.n>=2 && c.sum/c.n < 55).length,
+            })
+          }
         }
       } catch (e) {
         console.error('[WarRoom load error]', e)
@@ -123,293 +142,345 @@ export default function PageWarRoom() {
   }, [])
 
   const myRank = klasemen.findIndex(k =>
-    String((k.kontingen as any)?.nama ?? '').toUpperCase().includes('BOGOR')
+    String(k.nama ?? '').toUpperCase().includes('BOGOR')
   ) + 1
 
-  const totalPrediksiEmas = PREDIKSI_CABOR.filter(c => c.potensi==='Emas').length
+  const TARGET = { emas: 50, perak: 40, perunggu: 30 }
 
   const ani = (d=0) => ({
-    style:     { transitionDelay:`${d}ms`, transition:'all 0.55s cubic-bezier(0.16,1,0.3,1)' },
-    className: animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5',
+    style:     { transitionDelay:`${d}ms`, transition:'all 0.8s cubic-bezier(0.16,1,0.3,1)' },
+    className: animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8',
   })
 
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#020d06]">
+      <div className="text-center">
+        <div className="w-12 h-12 border-2 rounded-full animate-spin mx-auto mb-4"
+          style={{ borderColor:`${ACCENT}25`, borderTopColor:ACCENT }}/>
+        <p className="font-mono text-xs uppercase tracking-widest" style={{ color:ACCENT }}>Memuat War Room...</p>
+      </div>
+    </div>
+  )
+
   return (
-    <div className="min-h-screen text-zinc-300 flex flex-col"
-      style={{ background:'linear-gradient(135deg,#020d06 0%,#040f08 100%)', fontFamily:'system-ui,sans-serif' }}>
+    <div className="min-h-screen text-zinc-300 font-sans" style={{ background:'linear-gradient(145deg, #020a05 0%, #05160e 100%)' }}>
 
-      {/* Grid bg */}
-      <div className="fixed inset-0 pointer-events-none"
-        style={{ backgroundImage:'linear-gradient(rgba(0,255,170,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,170,0.025) 1px,transparent 1px)', backgroundSize:'32px 32px', zIndex:0 }}/>
+      <div className="fixed inset-0 pointer-events-none opacity-30 mix-blend-overlay" style={{ zIndex:0,
+        backgroundImage:`linear-gradient(${ACCENT}06 1px,transparent 1px),linear-gradient(90deg,${ACCENT}06 1px,transparent 1px)`,
+        backgroundSize:'60px 60px' }}/>
 
-      {/* ── HEADER ── */}
-      <div className="sticky top-0 z-40 border-b border-zinc-800/60 px-5 py-4 backdrop-blur-xl"
-        style={{ background:'rgba(2,13,6,0.93)' }}>
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      {/* ═════════ HEADER ═════════ */}
+      <header className="sticky top-0 z-40 px-6 py-4 backdrop-blur-xl border-b shadow-lg"
+        style={{ background:'rgba(2,13,6,0.85)', borderColor:`${ACCENT}15` }}>
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center"
-              style={{ background:'rgba(0,255,170,0.1)', border:'1px solid rgba(0,255,170,0.3)', boxShadow:'0 0 20px rgba(0,255,170,0.1)' }}>
-              <Monitor size={22} style={{ color:'#00ffaa' }}/>
+              style={{ background:`${ACCENT}15`, border:`1px solid ${ACCENT}40` }}>
+              <Monitor size={18} style={{color:ACCENT}}/>
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+              <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-3 flex-wrap">
                 WAR ROOM — KAB. BOGOR
-                <span className="flex items-center gap-1.5 text-[9px] px-2.5 py-1 rounded-full font-bold"
-                  style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', color:'#f87171' }}>
-                  <span className={`w-1.5 h-1.5 rounded-full bg-red-400 transition-opacity ${pulse?'opacity-100':'opacity-20'}`}/>
-                  LIVE · {LIVE_ALERT.length} LAGA AKTIF
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20">
+                  <div className={`w-1.5 h-1.5 rounded-full bg-red-400 transition-opacity ${pulse?'opacity-100':'opacity-30'}`}/>
+                  <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">LIVE · {LAGA_LIVE.length} Laga</span>
                 </span>
               </h1>
-              <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                Prediksi perolehan medali & pemantauan laga real-time · PORPROV XV 2026
+              <p className="text-[11px] font-mono uppercase tracking-widest mt-1" style={{ color:`${ACCENT}90` }}>
+                Strategic Intelligence · PORPROV XV 2026
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-              style={{ background:'rgba(0,255,170,0.08)', border:'1px solid rgba(0,255,170,0.2)' }}>
-              <Clock size={12} style={{ color:'#00ffaa' }}/>
-              <LiveClock/>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/30 border border-white/5">
+              <Clock size={14} style={{ color:ACCENT }}/><LiveClock/>
             </div>
             <button onClick={() => window.location.reload()}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all"
-              style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.4)' }}>
-              <RefreshCw size={12}/> Refresh
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
+              <RefreshCw size={11}/> Refresh
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <main className="flex-1 p-5 max-w-[1600px] w-full mx-auto relative z-10 space-y-5">
+      <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative z-10 space-y-6">
 
-        {/* ── KPI STRIP ── */}
-        <div {...ani(0)} className="grid grid-cols-6 gap-3">
-          {[
-            { l:'Laga Live',     v:LIVE_ALERT.length,    c:'#ff4444', icon:Activity,  sub:'pertandingan berjalan' },
-            { l:'Total Atlet',   v:loading?'—':summary.total,    c:'#00ffaa', icon:Users,    sub:`${summary.verified} verified` },
-            { l:'Medali Emas',   v:loading?'—':summary.emas,     c:'#ffd700', icon:Trophy,   sub:`target 50 emas` },
-            { l:'Total Medali',  v:loading?'—':summary.total_medali, c:'#ff8c00', icon:Medal, sub:'🥇🥈🥉 gabungan' },
-            { l:'Prediksi Emas', v:totalPrediksiEmas,    c:'#b44fff', icon:Star,     sub:'cabor berpotensi' },
-            { l:'Ranking',       v:loading?'—':myRank>0?`#${myRank}`:'—', c:'#00b4ff', icon:TrendingUp, sub:'klasemen PORPROV' },
-          ].map(k => (
-            <div key={k.l} className="rounded-2xl p-4 flex flex-col gap-2 transition-all"
-              style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${k.c}18` }}
-              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.borderColor=`${k.c}35`}
-              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.borderColor=`${k.c}18`}>
-              <k.icon size={15} style={{ color:k.c }}/>
-              <div className="text-2xl font-black" style={{ color:k.c }}>{k.v}</div>
-              <div>
-                <div className="text-[10px] font-semibold text-zinc-400">{k.l}</div>
-                <div className="text-[9px] text-zinc-600">{k.sub}</div>
+        {/* ════ 1. KPI STRIP — 5 panel ════ */}
+        <div {...ani(0)} className="grid grid-cols-5 gap-2">
+          {([
+            { l:'Ranking',      v:`#${myRank>0?myRank:'—'}`, c:'#ffd700', sub:'klasemen',          icon:'👑' },
+            { l:'Medali Emas',  v:summary.emas,               c:'#ffd700', sub:`/ ${TARGET.emas}`,  icon:'🥇' },
+            { l:'Total Medali', v:summary.total_medali,       c:'#3b82f6', sub:'semua jenis',       icon:'🏅' },
+            { l:'Laga Live',    v:LAGA_LIVE.length,           c:'#ef4444', sub:'berlangsung',       icon:null  },
+            { l:'Total Atlet',  v:summary.total,              c:ACCENT,    sub:`${summary.verified} ok`, icon:'⚡' },
+          ] as const).map(s => (
+            <div key={s.l} className="rounded-xl px-3 py-2.5 relative overflow-hidden flex items-center gap-2.5"
+              style={{ background:`${s.c}08`, border:`1px solid ${s.c}20` }}>
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] rounded-full"
+                style={{ background:s.c }}/>
+              <div className="pl-1 min-w-0">
+                <div className="flex items-center gap-1 mb-0.5">
+                  {s.icon === null
+                    ? <div className={`w-1.5 h-1.5 rounded-full bg-red-400 shrink-0 transition-opacity ${pulse?'opacity-100':'opacity-30'}`}/>
+                    : <span className="text-xs leading-none shrink-0">{s.icon}</span>
+                  }
+                  <span className="text-[9px] font-semibold uppercase tracking-widest truncate" style={{ color:`${s.c}99` }}>{s.l}</span>
+                </div>
+                <div className="text-lg font-black leading-none" style={{ color: s.c }}>{s.v}</div>
+                <div className="text-[9px] text-zinc-600 mt-0.5 truncate">{s.sub}</div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* ── ALERT LAGA AKTIF ── */}
-        {LIVE_ALERT.length > 0 && (
-          <div {...ani(60)}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-2 h-2 rounded-full bg-red-400 transition-opacity ${pulse?'opacity-100':'opacity-20'}`}/>
-              <span className="text-[11px] font-bold text-red-400 uppercase tracking-widest">
-                {LIVE_ALERT.length} LAGA SEDANG BERLANGSUNG
-              </span>
+        {/* ════ 2. LAGA AKTIF ════ */}
+        {LAGA_LIVE.length > 0 && (
+          <div {...ani(15)} className="rounded-3xl p-5 relative overflow-hidden"
+            style={{ background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.25)' }}>
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-20"
+              style={{ background:'#ef4444' }}/>
+            <div className="relative flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full bg-red-400 ${pulse?'opacity-100':'opacity-20'} transition-opacity`}
+                  style={{ boxShadow:'0 0 8px rgba(239,68,68,0.8)' }}/>
+                <h2 className="text-sm font-black text-red-400 uppercase tracking-widest">
+                  🚨 {LAGA_LIVE.length} Laga Sedang Berlangsung
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Real-time</span>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              {LIVE_ALERT.map(c => {
-                const pc = POTENSI_COLOR[c.potensi]
-                return (
-                  <div key={c.cabor} className="flex items-center gap-3 p-3.5 rounded-xl"
-                    style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.2)' }}>
-                    <div className={`w-2 h-2 rounded-full bg-red-400 flex-shrink-0 transition-opacity ${pulse?'opacity-100':'opacity-20'}`}/>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm text-zinc-200">{c.cabor}</div>
-                      <div className="text-[10px] text-zinc-500 truncate mt-0.5">{c.laga}</div>
-                    </div>
-                    <span className="text-[9px] font-bold px-2 py-1 rounded-lg flex-shrink-0"
-                      style={{ background:pc.bg, color:pc.c, border:`1px solid ${pc.border}` }}>
-                      {c.potensi}
-                    </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative">
+              {LAGA_LIVE.map((l, i) => (
+                <div key={i} className="rounded-xl p-3 transition-all hover:scale-[1.02]"
+                  style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.2)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-red-400">LIVE</span>
                   </div>
-                )
-              })}
+                  <div className="text-sm font-bold text-white mb-1">{l.cabor}</div>
+                  <div className="text-[11px] text-zinc-300">{l.laga}</div>
+                  <div className="text-[10px] text-zinc-500 mt-1 font-mono">📍 {l.venue}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* ── MAIN GRID ── */}
-        <div {...ani(100)} className="grid grid-cols-3 gap-5">
+        {/* ════ 3. MISSION INTELLIGENCE — Gap · Target · Klasemen ════ */}
+        <div {...ani(30)} className="rounded-3xl overflow-hidden relative"
+          style={{ background:'rgba(2,13,6,0.65)', border:`1px solid ${ACCENT}18` }}>
+          <div className="px-5 py-3 flex items-center gap-3 border-b"
+            style={{ background:'rgba(0,0,0,0.25)', borderColor:`${ACCENT}12` }}>
+            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:ACCENT }}>Mission Intelligence</span>
+            <span className="h-3 w-px bg-white/10"/>
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Gap ke Puncak · Target Bupati · Top Klasemen</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/[0.05]">
 
-          {/* KLASEMEN */}
-          <div className="rounded-2xl p-5"
-            style={{ background:'rgba(255,255,255,0.025)', border:'1px solid rgba(0,255,170,0.1)' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <Trophy size={14} style={{ color:'#ffd700' }}/>
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Klasemen PORPROV XV</span>
-            </div>
+            {/* ── Col 1: Gap ke Puncak ── */}
+            {myRank > 1 && klasemen[myRank-1] && klasemen[0] ? (()=> {
+              const gapEmas  = klasemen[0].emas  - klasemen[myRank-1].emas
+              const gapTotal = klasemen[0].total - klasemen[myRank-1].total
+              const pctToTop = klasemen[0].emas > 0 ? Math.round((klasemen[myRank-1].emas / klasemen[0].emas) * 100) : 0
+              return (
+                <div className="p-5 relative overflow-hidden" style={{ background:'rgba(239,68,68,0.05)' }}>
+                  <div className="absolute inset-0 opacity-[0.025] pointer-events-none"
+                    style={{ backgroundImage:`repeating-linear-gradient(-45deg,#ef4444 0,#ef4444 1px,transparent 0,transparent 12px)` }}/>
+                  <div className="relative">
+                    <div className="flex items-center gap-2 mb-3">
+                      <TrendingUp size={11} className="text-red-400"/>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Gap ke Puncak</span>
+                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-black transition-opacity ${pulse?'opacity-100':'opacity-40'}`}
+                        style={{ background:'rgba(239,68,68,0.2)', color:'#ef4444' }}>⚠ KRITIS</span>
+                    </div>
+                    <div className="flex items-end gap-3 mb-3">
+                      <div>
+                        <div className="text-5xl font-black leading-none text-red-400"
+                          style={{ textShadow:'0 0 28px rgba(239,68,68,0.55)' }}>-{gapEmas}</div>
+                        <div className="text-[10px] text-zinc-500 mt-1">🥇 emas dari <span className="text-zinc-400 font-semibold">{klasemen[0].nama}</span></div>
+                      </div>
+                      <div className="text-zinc-700 text-lg mb-0.5">/</div>
+                      <div>
+                        <div className="text-3xl font-black leading-none text-amber-400"
+                          style={{ textShadow:'0 0 20px rgba(251,191,36,0.4)' }}>-{gapTotal}</div>
+                        <div className="text-[10px] text-zinc-500 mt-1">🏅 total</div>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden mb-1.5" style={{ background:'rgba(255,255,255,0.05)' }}>
+                      <div className="h-full rounded-full transition-all duration-1000"
+                        style={{ width:`${pctToTop}%`, background:'linear-gradient(to right,#ef4444,#fbbf24)', boxShadow:'0 0 10px rgba(239,68,68,0.5)' }}/>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Zap size={9} className="text-red-400"/>
+                      <span className="text-[9px] font-bold text-red-400">{pctToTop}% dari #1 · +{gapEmas} emas dibutuhkan</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })() : (
+              <div className="p-5 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl font-black leading-none mb-2" style={{ color:ACCENT, textShadow:`0 0 24px ${ACCENT}60` }}>🏆 #1</div>
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Posisi Puncak</div>
+                </div>
+              </div>
+            )}
 
-            {loading ? (
-              <div className="text-center text-zinc-600 text-xs py-8">Memuat data...</div>
-            ) : klasemen.length > 0 ? (
-              <div className="space-y-2">
-                {klasemen.map((k:any, i) => {
-                  const nama  = (k.kontingen as any)?.nama ?? '-'
-                  const isUs  = nama.toUpperCase().includes('BOGOR')
+            {/* ── Col 2: Target Bupati vs Realisasi ── */}
+            <div className="p-5" style={{ background:'rgba(168,85,247,0.03)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Target size={11} className="text-purple-400"/>
+                <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">Target Bupati</span>
+                <span className="text-[8px] px-1.5 py-0.5 rounded font-bold"
+                  style={{ background:'rgba(251,191,36,0.12)', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.2)' }}>⚠ Demo</span>
+              </div>
+              <div className="space-y-3">
+                {([
+                  { l:'Emas',     v:summary.emas,     t:TARGET.emas,     c:'#ffd700' as const, icon:'🥇' },
+                  { l:'Perak',    v:summary.perak,    t:TARGET.perak,    c:'#e2e8f0' as const, icon:'🥈' },
+                  { l:'Perunggu', v:summary.perunggu, t:TARGET.perunggu, c:'#cd7f32' as const, icon:'🥉' },
+                ]).map(m => {
+                  const pct = m.t > 0 ? Math.round((m.v / m.t) * 100) : 0
+                  const sc  = pct >= 80 ? '#10b981' : pct >= 50 ? '#fbbf24' : '#ef4444'
                   return (
-                    <div key={i} className="flex items-center gap-2.5 p-2.5 rounded-xl transition-all"
-                      style={{
-                        background: isUs?'rgba(0,255,170,0.07)':'rgba(255,255,255,0.02)',
-                        border:`1px solid ${isUs?'rgba(0,255,170,0.2)':'rgba(255,255,255,0.04)'}`,
-                      }}>
-                      <span className="text-xs w-5 text-center font-mono flex-shrink-0"
-                        style={{ color:i===0?'#ffd700':i===1?'#c0c0c0':i===2?'#cd7f32':'rgba(255,255,255,0.2)' }}>
-                        {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`}
-                      </span>
-                      <span className="flex-1 text-xs truncate font-medium"
-                        style={{ color:isUs?'#00ffaa':'rgba(255,255,255,0.65)' }}>
-                        {nama}{isUs?' ✦ KITA':''}
-                      </span>
-                      <div className="flex gap-1.5 text-[11px] font-mono font-bold flex-shrink-0">
-                        <span style={{ color:'#ffd700' }}>{k.emas}</span>
-                        <span style={{ color:'#9ca3af' }}>{k.perak}</span>
-                        <span style={{ color:'#cd7f32' }}>{k.perunggu}</span>
+                    <div key={m.l}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm leading-none">{m.icon}</span>
+                          <span className="text-xs font-bold" style={{ color:m.c }}>{m.l}</span>
+                        </div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-2xl font-black leading-none" style={{ color:m.c, textShadow:`0 0 14px ${m.c}40` }}>{m.v}</span>
+                          <span className="text-[10px] text-zinc-600">/{m.t}</span>
+                          <span className="text-[10px] font-black" style={{ color:sc }}>{pct}%</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.05)' }}>
+                        <div className="h-full rounded-full transition-all duration-1000"
+                          style={{ width:`${Math.min(pct,100)}%`, background:m.c, boxShadow:`0 0 6px ${m.c}50` }}/>
                       </div>
                     </div>
                   )
                 })}
+                <div className="pt-2.5 border-t border-white/[0.05] flex items-center justify-between">
+                  <span className="text-[9px] text-zinc-500">Total target {TARGET.emas+TARGET.perak+TARGET.perunggu}</span>
+                  <span className="text-xs font-black" style={{ color:ACCENT }}>{summary.total_medali} / {TARGET.emas+TARGET.perak+TARGET.perunggu}</span>
+                </div>
               </div>
-            ) : (
-              <div className="text-center text-zinc-600 text-xs py-4">Data klasemen belum tersedia</div>
-            )}
-
-            {/* Progress target */}
-            <div className="mt-4 pt-4 border-t" style={{ borderColor:'rgba(255,255,255,0.06)' }}>
-              <div className="flex justify-between text-[10px] mb-2">
-                <span className="text-zinc-500">Progress Target Emas</span>
-                <span style={{ color:'#ffd700' }}>{summary.emas}/50 · {Math.round(summary.emas/50*100)}%</span>
-              </div>
-              <ProbBar prob={Math.round(summary.emas/50*100)} color="#ffd700"/>
             </div>
-          </div>
 
-          {/* PREDIKSI MEDALI — col-span-2 */}
-          <div className="col-span-2 rounded-2xl p-5"
-            style={{ background:'rgba(255,255,255,0.025)', border:'1px solid rgba(255,215,0,0.1)' }}>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <Star size={14} style={{ color:'#ffd700' }}/>
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                  Prediksi Perolehan Medali per Cabor
+            {/* ── Col 3: Top 5 Klasemen ── */}
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Crown size={11} className="text-yellow-400"/>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-yellow-400">Top Klasemen</span>
+                </div>
+                <span className="text-[8px] font-mono font-bold border border-yellow-500/20 text-yellow-500/70 px-2 py-0.5 rounded-full">
+                  #{myRank>0?myRank:'—'} / {klasemen.length}
                 </span>
               </div>
-              <div className="flex gap-2">
-                {[
-                  { l:'Emas',     n:PREDIKSI_CABOR.filter(c=>c.potensi==='Emas').length,     c:'#ffd700' },
-                  { l:'Perak',    n:PREDIKSI_CABOR.filter(c=>c.potensi==='Perak').length,    c:'#c0c0c0' },
-                  { l:'Perunggu', n:PREDIKSI_CABOR.filter(c=>c.potensi==='Perunggu').length, c:'#cd7f32' },
-                ].map(s => (
-                  <div key={s.l} className="px-2.5 py-1 rounded-lg text-[10px] font-bold"
-                    style={{ background:`${s.c}12`, border:`1px solid ${s.c}25`, color:s.c }}>
-                    {s.n} {s.l}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1"
-              style={{ scrollbarWidth:'thin', scrollbarColor:'rgba(0,255,170,0.2) transparent' }}>
-              {PREDIKSI_CABOR.map((c, i) => {
-                const pc = POTENSI_COLOR[c.potensi]
-                const isLive    = c.status==='LIVE'
-                const isDone    = c.status==='DONE'
-                return (
-                  <div key={c.cabor} className="flex items-center gap-4 p-3.5 rounded-xl transition-all"
-                    style={{ background:'rgba(255,255,255,0.02)', border:`1px solid ${isDone?pc.border:isLive?'rgba(239,68,68,0.2)':'rgba(255,255,255,0.05)'}` }}
-                    onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,0.04)'}
-                    onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,0.02)'}>
-
-                    {/* Rank */}
-                    <div className="w-6 text-center text-xs font-mono text-zinc-600 flex-shrink-0">{i+1}</div>
-
-                    {/* Cabor info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-bold text-zinc-200">{c.cabor}</span>
-                        {isLive && (
-                          <span className="flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{ background:'rgba(239,68,68,0.15)', color:'#f87171', border:'1px solid rgba(239,68,68,0.25)' }}>
-                            <span className={`w-1 h-1 rounded-full bg-red-400 transition-opacity ${pulse?'opacity-100':'opacity-20'}`}/>
-                            LIVE
-                          </span>
-                        )}
-                        {isDone && (
-                          <span className="flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{ background:'rgba(0,255,170,0.1)', color:'#00ffaa', border:'1px solid rgba(0,255,170,0.2)' }}>
-                            <CheckCircle size={8}/> SELESAI
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-zinc-500 truncate">{c.alasan}</div>
-                      <div className="text-[10px] text-zinc-600 truncate mt-0.5">
-                        {isLive ? '🔴 ' : isDone ? '✅ ' : '⏰ '}{c.laga}
-                      </div>
-                    </div>
-
-                    {/* Prob bar */}
-                    <div className="w-28 flex-shrink-0">
-                      <div className="flex justify-between text-[9px] mb-1">
-                        <span className="text-zinc-600">Peluang</span>
-                        <span style={{ color:pc.c }} className="font-bold">{c.prob}%</span>
-                      </div>
-                      <ProbBar prob={c.prob} color={pc.c}/>
-                      <div className="text-[9px] text-zinc-600 mt-0.5">{c.atlet} atlet</div>
-                    </div>
-
-                    {/* Potensi badge */}
-                    <div className="flex-shrink-0">
-                      <span className="text-[10px] font-bold px-3 py-1.5 rounded-xl"
-                        style={{ background:pc.bg, color:pc.c, border:`1px solid ${pc.border}` }}>
-                        {c.potensi==='Emas'?'🥇':c.potensi==='Perak'?'🥈':'🥉'} {c.potensi}
+              <div className="space-y-1.5">
+                {klasemen.slice(0, 5).map((k, i) => {
+                  const isUs = String(k.nama ?? '').toUpperCase().includes('BOGOR')
+                  return (
+                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-colors"
+                      style={{
+                        background: isUs ? `${ACCENT}10` : 'rgba(255,255,255,0.025)',
+                        borderColor: isUs ? `${ACCENT}40` : 'rgba(255,255,255,0.05)',
+                      }}>
+                      <span className="text-xs w-6 text-center font-black shrink-0"
+                        style={{ color: i<3 ? ['#ffd700','#cbd5e1','#cd7f32'][i] : '#6b7280' }}>
+                        {i<3 ? ['🥇','🥈','🥉'][i] : `#${i+1}`}
                       </span>
+                      <span className="flex-1 text-[10px] font-bold truncate" style={{ color: isUs ? ACCENT : '#d4d4d8' }}>
+                        {k.nama}{isUs?' ✦':''}
+                      </span>
+                      <div className="flex gap-1 text-[10px] font-mono font-bold shrink-0 bg-black/20 px-1.5 py-0.5 rounded">
+                        <span className="text-yellow-400">{k.emas}</span>
+                        <span className="text-zinc-500">{k.perak}</span>
+                        <span className="text-amber-700">{k.perunggu}</span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+                {myRank > 5 && klasemen[myRank-1] && (
+                  <>
+                    <div className="text-center text-[10px] text-zinc-700 font-mono py-0.5">⋮</div>
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
+                      style={{ background:`${ACCENT}12`, border:`1px solid ${ACCENT}45`, boxShadow:`0 0 10px ${ACCENT}15` }}>
+                      <span className="text-xs w-6 text-center font-black shrink-0" style={{ color: ACCENT }}>#{myRank}</span>
+                      <span className="flex-1 text-[10px] font-bold truncate" style={{ color: ACCENT }}>
+                        {klasemen[myRank-1].nama} ✦
+                      </span>
+                      <div className="flex gap-1 text-[10px] font-mono font-bold shrink-0 bg-black/20 px-1.5 py-0.5 rounded">
+                        <span className="text-yellow-400">{klasemen[myRank-1].emas}</span>
+                        <span className="text-zinc-500">{klasemen[myRank-1].perak}</span>
+                        <span className="text-amber-700">{klasemen[myRank-1].perunggu}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ── JADWAL BERIKUTNYA ── */}
-        <div {...ani(140)} className="rounded-2xl p-5"
-          style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(0,180,255,0.1)' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Clock size={14} style={{ color:'#00b4ff' }}/>
-            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-              Jadwal Pertandingan Berikutnya
-            </span>
-          </div>
-          <div className="grid grid-cols-4 gap-3">
-            {UPCOMING.map(c => {
-              const pc = POTENSI_COLOR[c.potensi]
-              return (
-                <div key={c.cabor} className="p-4 rounded-xl"
-                  style={{ background:'rgba(0,180,255,0.05)', border:'1px solid rgba(0,180,255,0.15)' }}>
-                  <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1.5">⏰ UPCOMING</div>
-                  <div className="font-bold text-sm text-zinc-200 mb-1">{c.cabor}</div>
-                  <div className="text-[10px] text-zinc-500 mb-3 leading-relaxed">{c.laga}</div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold px-2 py-1 rounded-lg"
-                      style={{ background:pc.bg, color:pc.c, border:`1px solid ${pc.border}` }}>
-                      Target {c.potensi}
-                    </span>
-                    <span className="text-[9px] font-bold" style={{ color:'#00b4ff' }}>{c.prob}%</span>
-                  </div>
+        {/* ════ 4. PETA KOMPETITOR — full width ════ */}
+        <div {...ani(45)} className="rounded-3xl overflow-hidden relative shadow-xl"
+          style={{ border:`1px solid ${ACCENT}25`, height:490 }}>
+          <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none px-5 py-4 flex flex-wrap items-center justify-between gap-3"
+            style={{ background:'linear-gradient(to bottom, #020d06 0%, rgba(2,13,6,0.7) 60%, transparent 100%)' }}>
+            <div>
+              <div className="flex items-center gap-2">
+                <MapPin size={14} style={{ color:ACCENT }}/>
+                <h3 className="text-sm font-bold text-white">Peta Kekuatan Kompetitor</h3>
+              </div>
+              <p className="text-[10px] uppercase tracking-widest font-mono mt-0.5" style={{ color:'rgba(255,255,255,0.4)' }}>
+                Sebaran medali {klasemen.length} kontingen · Jawa Barat 2026
+              </p>
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {[{c:'#ef4444',l:'Ancaman Tinggi'},{c:'#f97316',l:'Waspada'},{c:'#fbbf24',l:'Seimbang'},{c:'#6b7280',l:'Aman'}].map(t=>(
+                <div key={t.l} className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 border border-white/10">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background:t.c }}/>
+                  <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-wider">{t.l}</span>
                 </div>
-              )
-            })}
+              ))}
+            </div>
           </div>
+          <PetaKompetitor
+            klasemen={klasemen}
+            kbgEmas={summary.emas}
+            height={490}
+            center={[-6.75, 107.35]}
+            zoom={8.5}
+          />
+        </div>
+
+        {/* ════ 5. STRATEGIC ACTIONS ════ */}
+        <div {...ani(70)}>
+          <StrategicActionsCard
+            primary={ACCENT}
+            actions={generateStrategicActions({
+              topPerformers: tesFisikSum.topAtlet,
+              weakCabors:    tesFisikSum.weakCabors,
+              lowSkorAtlet:  tesFisikSum.lowAtlet,
+              gapEmas: myRank > 1 && klasemen[myRank-1] && klasemen[0]
+                        ? klasemen[0].emas - klasemen[myRank-1].emas : 0,
+            })}
+          />
         </div>
 
       </main>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        *{box-sizing:border-box}
+        ::-webkit-scrollbar{width:6px;height:6px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:${ACCENT}40;border-radius:10px}
+        ::-webkit-scrollbar-thumb:hover{background:${ACCENT}80}
+      ` }} />
     </div>
   )
 }

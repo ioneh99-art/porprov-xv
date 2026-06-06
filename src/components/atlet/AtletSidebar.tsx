@@ -1,5 +1,6 @@
 'use client'
-// src/components/atlet/AtletSidebar.tsx — v2
+// src/components/atlet/AtletSidebar.tsx — v3
+// Tambah: nav item "Tes Fisik" di group Administrasi
 // Theme: slate-950 dark navy (sama kayak superadmin)
 
 import { useState, useEffect } from 'react'
@@ -8,7 +9,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Trophy, Calendar, Medal,
   Wallet, User, FileText, QrCode, LogOut,
-  ChevronLeft, ChevronRight, Menu, X, Shield
+  ChevronLeft, ChevronRight, Menu, X, Shield,
+  Activity,
 } from 'lucide-react'
 
 const C = {
@@ -35,6 +37,7 @@ const NAV = [
     items:[
       {href:'/atlet/bonus',     icon:Wallet,    label:'Status Bonus',    desc:'Estimasi & SPJ'},
       {href:'/atlet/profil',    icon:User,      label:'Profil Saya',     desc:'Data & apparel'},
+      {href:'/atlet/tes-fisik', icon:Activity,  label:'Tes Fisik',       desc:'Biomotorik UPI'},
       {href:'/atlet/kejuaraan', icon:Trophy,    label:'Riwayat Juara',   desc:'Track record'},
     ],
   },

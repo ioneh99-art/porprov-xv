@@ -1,6 +1,6 @@
 'use client'
 // src/app/superadmin/layout.tsx
-// Layout wrapper — sidebar otomatis muncul di semua halaman superadmin
+// Layout wrapper — JARVIS COMMAND CENTER THEME
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -8,28 +8,34 @@ import {
   Activity, CheckCircle, Cpu, FileSearch,
   Flame, Grid, Layers, LogOut, Package,
   Server, Shield, Sparkles, Trophy, UserCog, Users,
+  Terminal
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const C = {
-  primary: '#ef4444', secondary: '#f97316',
-  bg: '#0b0e14', border: 'rgba(255,255,255,0.07)',
-  text: '#f1f5f9', muted: '#64748b',
+  primary: '#00f3ff', // Cyan Neon
+  secondary: '#00ff66', // Green Neon
+  alert: '#ff3366',
+  bg: '#030712',
+  bgPanel: 'rgba(10, 25, 47, 0.4)',
+  border: 'rgba(0, 243, 255, 0.2)',
+  text: '#f1f5f9', 
+  muted: '#7a8b9e',
 }
 
 const NAV = [
-  { section: 'Main' },
-  { icon: Grid,        label: 'Dashboard',       path: '/superadmin'                  },
-  { icon: Users,       label: 'Manajemen User',  path: '/superadmin/users'            },
-  { icon: Package,     label: 'Subscriptions',   path: '/superadmin/subscriptions'    },
-  { section: 'Operasional' },
-  { icon: CheckCircle, label: 'Verifikasi',       path: '/superadmin/verif'            },
-  { icon: Cpu,         label: 'AI Monitor',       path: '/superadmin/ai'               },
-  { icon: Server,      label: 'System Health',    path: '/superadmin/system'           },
-  { icon: FileSearch,  label: 'Audit Logs',       path: '/superadmin/logs'             },
-  { section: 'Quick Nav' },
-  { icon: Flame,       label: 'Invoices',  path: '/superadmin/invoices'     },
-  { icon: Sparkles,    label: 'SIPA Console',     path: '/konida/sipa'                 },
+  { section: 'SYSTEM_MAIN' },
+  { icon: Grid,        label: 'DASHBOARD_HQ',       path: '/superadmin'                  },
+  { icon: Users,       label: 'USER_MATRIX',        path: '/superadmin/users'            },
+  { icon: Package,     label: 'SUBSCRIPTIONS',      path: '/superadmin/subscriptions'    },
+  { section: 'OPERATIONS_PROTOCOL' },
+  { icon: CheckCircle, label: 'VERIFICATION',       path: '/superadmin/verif'            },
+  { icon: Cpu,         label: 'AI_MONITOR',         path: '/superadmin/ai'               },
+  { icon: Server,      label: 'SYSTEM_HEALTH',      path: '/superadmin/system'           },
+  { icon: FileSearch,  label: 'AUDIT_LOGS',         path: '/superadmin/logs'             },
+  { section: 'QUICK_UPLINK' },
+  { icon: Flame,       label: 'INVOICES',           path: '/superadmin/invoices'     },
+  { icon: Sparkles,    label: 'SIPA_CONSOLE',       path: '/konida/sipa'                 },
 ]
 
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
@@ -50,75 +56,103 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: C.bg }}>
+    <div className="flex h-screen overflow-hidden font-sci" style={{ background: C.bg }}>
+      
+      {/* Global Sci-Fi Styles */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+        
+        .font-sci { font-family: 'Rajdhani', sans-serif; }
+        .font-lcd { font-family: 'Orbitron', sans-serif; }
+        
+        .bg-grid {
+          background-image: 
+            radial-gradient(circle at 50% 50%, #0a192f 0%, #030712 100%),
+            linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+          background-size: 100% 100%, 30px 30px, 30px 30px;
+        }
+
+        .scanline {
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+          background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0, 243, 255, 0.1) 50%, rgba(255,255,255,0));
+          background-size: 100% 4px; pointer-events: none; z-index: 50; opacity: 0.3;
+        }
+        
+        .text-glow { text-shadow: 0 0 8px ${C.primary}; }
+        
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.4); }
+      `}</style>
+      
+      <div className="fixed inset-0 bg-grid pointer-events-none z-0"/>
+      <div className="scanline"/>
 
       {/* ── Sidebar ── */}
-      <aside className="w-56 flex-shrink-0 flex flex-col border-r overflow-y-auto"
-        style={{ background: C.bg, borderColor: C.border }}>
+      <aside className="w-64 flex-shrink-0 flex flex-col border-r overflow-y-auto relative z-10 backdrop-blur-md"
+        style={{ background: 'rgba(3,7,18,0.8)', borderColor: C.border }}>
 
         {/* Logo */}
-        <div className="px-5 py-5 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg,${C.primary},${C.secondary})` }}>
-            <Shield size={18} className="text-white" />
+        <div className="px-5 py-6 flex items-center gap-3 border-b border-[#00f3ff]/30 bg-[#00f3ff]/5">
+          <div className="w-10 h-10 border border-[#00f3ff] flex items-center justify-center flex-shrink-0 relative bg-cyan-950/50">
+            <div className="absolute inset-0 bg-[#00f3ff]/20 animate-pulse"/>
+            <Terminal size={18} className="text-[#00f3ff] z-10" />
           </div>
           <div className="min-w-0">
-            <div className="text-white font-black text-sm leading-none">PORPROV XV</div>
-            <div className="text-[10px] font-bold mt-0.5" style={{ color: C.secondary }}>Super Admin</div>
+            <div className="text-[#00f3ff] font-lcd font-bold text-sm tracking-widest text-glow truncate">ROOT_ACCESS</div>
+            <div className="text-[10px] font-mono text-[#00ff66] mt-0.5 uppercase tracking-widest flex items-center gap-1">
+               <span className="w-1.5 h-1.5 rounded-full bg-[#00ff66] animate-pulse"/> Super Admin
+            </div>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {NAV.map((item, i) => {
             if ('section' in item) return (
-              <p key={i} className="text-[9px] font-black uppercase tracking-[2px] px-3 mb-2 mt-4 first:mt-0"
-                style={{ color: `${C.muted}80` }}>
-                {item.section}
+              <p key={i} className="text-[9px] font-lcd font-bold text-[#00f3ff]/60 tracking-widest px-2 mb-2 mt-6 first:mt-0 uppercase flex items-center gap-2">
+                <span className="w-2 h-px bg-[#00f3ff]/40"/> {item.section} <span className="flex-1 h-px bg-[#00f3ff]/10"/>
               </p>
             )
             const active = pathname === item.path || (item.path !== '/superadmin' && pathname.startsWith(item.path))
             return (
               <Link key={item.path} href={item.path}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all"
+                className="flex items-center gap-3 px-3 py-2 text-xs font-mono uppercase tracking-wider transition-all group"
                 style={{
-                  color: active ? C.text : C.muted,
-                  fontWeight: active ? 600 : 400,
-                  background: active
-                    ? `linear-gradient(135deg,${C.primary}25,${C.secondary}15)`
-                    : 'transparent',
-                  border: active ? `1px solid ${C.primary}30` : '1px solid transparent',
+                  color: active ? '#00f3ff' : C.muted,
+                  background: active ? 'rgba(0,243,255,0.1)' : 'transparent',
+                  borderLeft: active ? `3px solid ${C.primary}` : '3px solid transparent',
+                  textShadow: active ? `0 0 8px ${C.primary}` : 'none'
                 }}>
-                <item.icon size={15} style={{ color: active ? C.secondary : 'inherit' }} />
-                <span>{item.label}</span>
+                <item.icon size={15} style={{ color: active ? C.primary : 'inherit' }} className="group-hover:text-[#00f3ff] transition-colors"/>
+                <span className="group-hover:text-[#00f3ff] transition-colors">{item.label}</span>
               </Link>
             )
           })}
         </nav>
 
         {/* User + Logout */}
-        <div className="px-3 pb-4 pt-3 border-t space-y-1" style={{ borderColor: C.border }}>
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0"
-              style={{ background: `linear-gradient(135deg,${C.primary},${C.secondary})` }}>
+        <div className="px-4 pb-4 pt-4 border-t border-[#00f3ff]/30 bg-slate-900/50">
+          <div className="flex items-center gap-3 px-2 py-2 mb-2 border border-slate-700/50 bg-black/40">
+            <div className="w-8 h-8 flex items-center justify-center text-[#ffb000] text-xs font-lcd font-bold border border-[#ffb000]/50 bg-[#ffb000]/10">
               SA
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-white truncate">{user?.nama ?? 'Super Admin'}</div>
-              <div className="text-[10px] truncate" style={{ color: C.muted }}>{user?.email ?? ''}</div>
+            <div className="flex-1 min-w-0 font-mono">
+              <div className="text-xs font-bold text-white truncate">{user?.nama ?? 'SYS_ADMIN'}</div>
+              <div className="text-[9px] text-[#00f3ff]/70 truncate">{user?.email ?? 'root@porprov.gov'}</div>
             </div>
           </div>
           <button onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all hover:text-red-400"
-            style={{ color: C.muted }}>
-            <LogOut size={15} />
-            <span>Keluar</span>
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-mono tracking-widest text-[#ff3366] hover:bg-[#ff3366]/10 border border-transparent hover:border-[#ff3366]/30 transition-all uppercase">
+            <LogOut size={14} />
+            <span>TERMINATE_SESSION</span>
           </button>
         </div>
       </aside>
 
       {/* ── Content ── */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto relative z-10">
         {children}
       </main>
     </div>

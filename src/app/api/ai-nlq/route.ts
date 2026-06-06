@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -100,6 +101,9 @@ async function callAI(systemPrompt: string, messages: any[]): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = checkRateLimit(req, { limit: 20, windowMs: 60_000, key: 'ai-nlq', scope: 'ip+user' })
+  if (limited) return limited
+
   const session = req.cookies.get('porprov_session')?.value
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

@@ -101,21 +101,21 @@ function resolveLevel(user: {
 }
 
 // ─── Resolve Plan ─────────────────────────────────────────
-// Hardcode enterprise dulu, fallback ke DB subscription
+// Prioritas: (1) DB subscription, (2) DB tenants.is_enterprise, (3) hardcode fallback
 async function resolvePlan(
   kontingenId: number | null | undefined,
   tenantId: string
 ): Promise<string> {
-  // 10 enterprise tenant → selalu premium
-  if (ENTERPRISE_TENANTS[tenantId]) return 'premium'
-
-  // Coba ambil dari DB
+  // Coba ambil dari DB subscription terlebih dahulu
   if (kontingenId) {
     try {
       const sub = await getSubscription(kontingenId)
       if (sub?.plan_id) return sub.plan_id
-    } catch { /* fallback */ }
+    } catch { /* fallback ke logika berikutnya */ }
   }
+
+  // Fallback ke hardcode enterprise list (sementara sampai DB subscription terisi penuh)
+  if (ENTERPRISE_TENANTS[tenantId]) return 'premium'
 
   return 'basic'
 }
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
   }
 
   const key = getRateLimitKey(req, username)
-  const { blocked, remaining, resetIn } = checkRateLimit(key)
+  const { blocked, resetIn } = checkRateLimit(key)
   if (blocked) {
     return NextResponse.json(
       { error: `Terlalu banyak percobaan. Coba lagi dalam ${resetIn} menit.` },

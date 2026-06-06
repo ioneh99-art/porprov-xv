@@ -51,9 +51,11 @@ interface Props {
   selectedCabor?: string | null
   kbgEmas: number
   height?: number
+  center?: [number, number]
+  zoom?: number
 }
 
-export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, height=280 }: Props) {
+export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, height=280, center, zoom }: Props) {
   const mapDiv = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap|null>(null)
 
@@ -72,7 +74,7 @@ export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, heigh
       if (el._leaflet_id) el._leaflet_id = undefined
 
       const map = L.map(mapDiv.current, {
-        center: [-6.9, 107.6], zoom: 8,
+        center: center ?? [-6.75, 107.35], zoom: zoom ?? 8.5,
         zoomControl: false,
         scrollWheelZoom: false,
         attributionControl: false,
