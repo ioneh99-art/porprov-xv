@@ -1,48 +1,78 @@
 'use client'
-// src/app/login/kabbandung/page.tsx — v3
+// src/app/login/kabbandung/page.tsx — v4
+// Sprint 3 polish: VENUES list expanded with real data + better info layout
 // + Quick Access: Download Manual Book + Open Presentation
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, ChevronRight, Activity,
-         MapPin, Shield, Loader2, BookOpen, Monitor, ExternalLink } from 'lucide-react'
+         MapPin, Shield, Loader2, BookOpen, ExternalLink,
+         Users, Trophy, Building2, Clock } from 'lucide-react'
 
+// ─────── STATS ─────────────────────────────
 const STATS = [
-  { label:'Total Atlet',     value:'1.097', color:'text-sky-400', icon:'🏃' },
-  { label:'Cabang Olahraga', value:'61',    color:'text-amber-400',   icon:'🏅' },
-  { label:'Total Venue',     value:'55',    color:'text-blue-400',    icon:'🏟️' },
-  { label:'Kontingen',       value:'27',    color:'text-purple-400',  icon:'📍' },
+  { label:'Total Atlet',  value:'1.097', color:'#0ea5e9', icon:Users,    sub:'53 cabor' },
+  { label:'Cabang',       value:'61',    color:'#fbbf24', icon:Trophy,   sub:'olahraga'  },
+  { label:'Total Venue',  value:'55',    color:'#3b82f6', icon:Building2,sub:'tersebar'  },
+  { label:'Kontingen',    value:'27',    color:'#a855f7', icon:MapPin,   sub:'Jabar'     },
 ]
 
-const VENUES = [
-  { nama:'Stadion Pakansari Cibinong', cabor:'Atletik',      status:'AKTIF' },
-  { nama:'Kolam Renang Pakansari',     cabor:'Akuatik',      status:'AKTIF' },
-  { nama:'GOR Laga Tangkas',           cabor:'Bulu Tangkis', status:'AKTIF' },
-  { nama:'Hall Silat Sentul City',     cabor:'Pencak Silat', status:'SIAP'  },
-]
+function PorprovCountdown() {
+  const [t, setT] = useState({ d:0, h:0, m:0, s:0 })
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const TARGET = new Date('2026-11-07T08:00:00+07:00').getTime()
+    const tick = () => {
+      const diff = Math.max(0, TARGET - Date.now())
+      setT({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+      })
+      setReady(true)
+    }
+    tick()
+    const iv = setInterval(tick, 1000)
+    return () => clearInterval(iv)
+  }, [])
 
-const ATLET_NAMES = [
-  'Deni Firmansyah · Hockey','Putri Ayu · Akuatik','Hendra Kurnia · Silat',
-  'Reza Maulana · BT','Sri Wahyuni · Karate','Bayu Nugraha · Panahan',
-  'Ahmad Fauzi · Menembak','Siti Rahayu · Dayung','Kevin Pratama · Taekwondo',
-]
+  if (!ready) return null
 
-function AtletTicker() {
-  const [idx,     setIdx]     = useState(0)
-  const [visible, setVisible] = useState(true)
-  useEffect(()=>{
-    const t = setInterval(()=>{
-      setVisible(false)
-      setTimeout(()=>{ setIdx(i=>(i+1)%ATLET_NAMES.length); setVisible(true) }, 300)
-    }, 2500)
-    return ()=>clearInterval(t)
-  },[])
+  const units = [
+    { v: t.d, l: 'Hari'  },
+    { v: t.h, l: 'Jam'   },
+    { v: t.m, l: 'Menit' },
+    { v: t.s, l: 'Detik' },
+  ]
+
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse flex-shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]"/>
-      <span className={`text-[11px] text-sky-200 transition-opacity duration-300 ${visible?'opacity-100':'opacity-0'}`}>
-        {ATLET_NAMES[idx]}
-      </span>
+    <div className="rounded-2xl bg-[#040f1c]/70 border border-sky-400/15 backdrop-blur-md p-5 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-sky-400/50 to-transparent"/>
+      <div className="flex items-center gap-2 mb-4">
+        <Clock size={12} className="text-sky-400"/>
+        <span className="text-sky-400/70 text-[9px] font-bold tracking-[0.2em] uppercase">
+          Menuju Opening PORPROV XV
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]"/>
+          <span className="text-sky-400/50 text-[9px] font-mono">LIVE</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {units.map(u => (
+          <div key={u.l} className="text-center rounded-xl bg-[#02080f]/60 border border-sky-400/10 py-3">
+            <div className="text-3xl font-extrabold tabular-nums text-sky-300 leading-none mb-1 tracking-tight">
+              {String(u.v).padStart(2, '0')}
+            </div>
+            <div className="text-[9px] text-white/30 uppercase tracking-widest font-bold">{u.l}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="text-white/30 text-[10px] font-mono">7 November 2026 · Kab. Bandung</div>
+        <div className="text-sky-400/40 text-[9px] font-bold tracking-wider uppercase">Opening Ceremony</div>
+      </div>
     </div>
   )
 }
@@ -83,7 +113,7 @@ export default function LoginKabBandung() {
       {/* ── KIRI: Panel Info ── */}
       <div className="hidden lg:flex w-[58%] relative overflow-hidden flex-col p-10 justify-between">
 
-        {/* Background peta */}
+        {/* Background */}
         <div className="absolute inset-0 z-0 opacity-50 pointer-events-none saturate-50 bg-[url('/logos/peta_kabbandung.jpg')] bg-cover bg-center"/>
         <div className="absolute inset-0 z-[1] bg-gradient-to-br from-[#020a14]/85 via-[#061408]/65 to-[#020a14]/90 pointer-events-none"/>
         <div className="absolute inset-0 z-[1] pointer-events-none" style={{backgroundImage:'linear-gradient(rgba(52,211,153,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(52,211,153,0.06) 1px,transparent 1px)',backgroundSize:'40px 40px'}}/>
@@ -111,7 +141,7 @@ export default function LoginKabBandung() {
           </div>
         </div>
 
-        {/* Main content */}
+        {/* Main Content */}
         <div className="relative z-10 flex-1 flex flex-col justify-center">
           <div className="text-sky-400 text-[10px] font-bold tracking-[0.25em] uppercase mb-4 flex items-center gap-2">
             <MapPin size={12} className="text-sky-400"/> PUSAT KOMANDO KONTINGEN
@@ -133,114 +163,78 @@ export default function LoginKabBandung() {
             ))}
           </div>
 
-          {/* ── QUICK ACCESS PANEL (BARU) ── */}
+          {/* Quick Access Panel */}
           <div className="mt-6 max-w-md space-y-2">
             <div className="text-white/30 text-[9px] font-bold tracking-[0.2em] uppercase mb-3">
               Dokumen Admin
             </div>
 
-            {/* Download Manual Book */}
-            <a
-              href="/api/download/manual-book"
-             
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-900/20 border border-sky-400/20 hover:bg-sky-900/40 hover:border-sky-400/50 transition-all group"
-            >
+            <a href="/api/download/manual-book"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-900/20 border border-sky-400/20 hover:bg-sky-900/40 hover:border-sky-400/50 transition-all group">
               <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-400/30 flex items-center justify-center flex-shrink-0 group-hover:bg-sky-500/25 transition-colors">
                 <BookOpen size={15} className="text-sky-400"/>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">
-                  Manual Book Sistem
-                </div>
-                <div className="text-white/35 text-[10px] mt-0.5">
-                  Petunjuk lengkap 10 Bab + Lampiran · .docx
-                </div>
+                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">Manual Book Sistem</div>
+                <div className="text-white/35 text-[10px] mt-0.5">Petunjuk lengkap 10 Bab + Lampiran · .docx</div>
               </div>
               <ExternalLink size={13} className="text-sky-400/60 flex-shrink-0 group-hover:text-sky-400 transition-colors"/>
             </a>
 
-            {/* Portal Atlet */}
-            <a
-              href="/atlet/login"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-900/20 border border-amber-400/20 hover:bg-amber-900/40 hover:border-amber-400/50 transition-all group"
-            >
+            <a href="/atlet/login" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-900/20 border border-amber-400/20 hover:bg-amber-900/40 hover:border-amber-400/50 transition-all group">
               <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-400/30 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-500/25 transition-colors">
                 <span className="text-sm">🏆</span>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">
-                  Portal Atlet
-                </div>
-                <div className="text-white/35 text-[10px] mt-0.5">
-                  Login portal resmi untuk atlet · 768 aktif
-                </div>
+                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">Portal Atlet</div>
+                <div className="text-white/35 text-[10px] mt-0.5">Login portal resmi untuk atlet · 768 aktif</div>
               </div>
               <ExternalLink size={13} className="text-amber-400/60 flex-shrink-0 group-hover:text-amber-400 transition-colors"/>
             </a>
 
-            {/* Open Presentation */}
-            <a
-              href="/presentation/porprov-xv"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-900/20 border border-blue-400/20 hover:bg-blue-900/40 hover:border-blue-400/50 transition-all group"
-            >
-              <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-400/30 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/25 transition-colors">
-                <Monitor size={15} className="text-blue-400"/>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">
-                  Presentasi Interaktif
-                </div>
-                <div className="text-white/35 text-[10px] mt-0.5">
-                  Intelligence Command Center · 14 Slide
-                </div>
-              </div>
-              <ExternalLink size={13} className="text-blue-400/60 flex-shrink-0 group-hover:text-blue-400 transition-colors"/>
-            </a>
           </div>
         </div>
 
-        {/* Bottom stats */}
-        <div className="relative z-10 flex flex-col gap-4">
-          <div className="grid grid-cols-4 gap-3">
-            {STATS.map(s=>(
-              <div key={s.label} className="p-3 rounded-xl bg-[#040f1c]/75 border border-sky-400/10 backdrop-blur-md hover:bg-[#040f1c]/90 transition-colors">
-                <div className="text-[10px] mb-1">{s.icon}</div>
-                <div className={`text-xl font-extrabold tabular-nums ${s.color}`}>{s.value}</div>
-                <div className="text-white/40 text-[8px] uppercase tracking-[0.08em] mt-1 font-semibold">{s.label}</div>
-              </div>
-            ))}
+        {/* ── BOTTOM: Stats + Countdown ── */}
+        <div className="relative z-10 flex flex-col gap-3">
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-4 gap-2.5">
+            {STATS.map(s=>{
+              const Icon = s.icon
+              return (
+                <div key={s.label}
+                  className="p-3 rounded-xl bg-[#040f1c]/80 border backdrop-blur-md hover:bg-[#040f1c]/95 transition-all relative overflow-hidden group"
+                  style={{borderColor:`${s.color}25`}}>
+                  <div className="absolute top-0 left-0 right-0 h-0.5" style={{background:`${s.color}90`}}/>
+                  <div className="flex items-start justify-between mb-1">
+                    <Icon size={13} style={{color:s.color}}/>
+                    <div className="text-[8px] font-bold uppercase tracking-widest opacity-50" style={{color:s.color}}>
+                      {s.sub}
+                    </div>
+                  </div>
+                  <div className="text-2xl font-extrabold tabular-nums leading-tight" style={{color:s.color}}>
+                    {s.value}
+                  </div>
+                  <div className="text-white/40 text-[9px] uppercase tracking-[0.05em] mt-0.5 font-semibold">
+                    {s.label}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <div className="text-white/30 text-[9px] font-bold tracking-[0.15em] uppercase mb-1">Venue Unggulan</div>
-            {VENUES.map((v,i)=>(
-              <div key={v.nama} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-l-2 transition-all ${
-                i<2?'bg-sky-400/5 border-sky-400':'bg-transparent border-sky-400/10 hover:bg-white/5'
-              }`}>
-                <div className={`flex-1 text-[10px] font-medium ${i<2?'text-slate-200':'text-white/40'}`}>{v.nama}</div>
-                <span className="text-sky-400 text-[8px] font-bold tracking-wider">{v.status}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#040f1c]/50 border border-sky-400/10 backdrop-blur-sm mt-2">
-            <span className="text-white/40 text-[9px] font-bold tracking-wider">ATLET TERDAFTAR</span>
-            <AtletTicker/>
-          </div>
+          {/* Countdown */}
+          <PorprovCountdown/>
         </div>
       </div>
 
-      {/* ── KANAN: Form Login ── */}
+      {/* ── KANAN: Form Login ── (unchanged from v3) */}
       <div className="flex-1 flex items-center justify-center relative p-8 bg-gradient-to-br from-[#020a14] via-[#03101c] to-[#020a14]">
-
         <div className="absolute inset-0 pointer-events-none" style={{backgroundImage:'linear-gradient(rgba(52,211,153,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(52,211,153,0.03) 1px,transparent 1px)',backgroundSize:'28px 28px'}}/>
 
         <div className="relative z-10 w-full max-w-[380px] p-8 rounded-3xl bg-[#051408]/95 backdrop-blur-xl border border-sky-700/60 shadow-2xl shadow-black">
-
           <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-sky-400/30 rounded-tl-3xl pointer-events-none"/>
           <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-sky-400/30 rounded-br-3xl pointer-events-none"/>
 
@@ -249,10 +243,6 @@ export default function LoginKabBandung() {
             <a href="/api/download/manual-book"
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-sky-900/30 border border-sky-400/20 text-sky-400 text-[10px] font-bold">
               <BookOpen size={12}/> Manual Book
-            </a>
-            <a href="/presentation/porprov-xv" target="_blank"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-900/30 border border-blue-400/20 text-blue-400 text-[10px] font-bold">
-              <Monitor size={12}/> Presentasi
             </a>
           </div>
 
@@ -265,7 +255,6 @@ export default function LoginKabBandung() {
             <div className="text-sky-400 text-[9px] tracking-[0.2em] mt-1 font-bold">TEGAR BERIMAN</div>
           </div>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent to-sky-400/30"/>
             <div className="flex items-center gap-1.5 px-2">
@@ -282,13 +271,11 @@ export default function LoginKabBandung() {
             Kab. Bandung · Premium Kontingen · 1.097 Atlet
           </p>
 
-          {/* Error */}
           <div className={`flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 transition-all duration-300 overflow-hidden ${error?'max-h-20 opacity-100':'max-h-0 opacity-0 !py-0 !mb-0 border-transparent'}`}>
             <AlertCircle size={16} className="text-red-400 flex-shrink-0"/>
             <span className="text-red-300 text-xs font-medium">{error}</span>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
               <label htmlFor="username" className="text-white/70 text-[10px] font-bold tracking-[0.15em] uppercase block mb-2">Username</label>

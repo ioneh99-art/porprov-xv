@@ -1,769 +1,591 @@
 'use client'
-// src/app/konida/dashboard/kabbandung/page.tsx
-// Dashboard Kab. Bandung v9 — Executive Intelligence Command
-// Data real dari DB: atlet, cabor, klasemen, verifikasi
+// src/app/konida/dashboard/kabbandung/page.tsx — STYLED FINAL v2
+// PATCH: Hapus Peta Kompetitor + Top 5 Klasemen + Target Realisasi
+// KONTINGEN_ID=4, KODE_LOKAL='3204', ACCENT=#38bdf8
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
-  Users, Trophy, Target, TrendingUp, CheckCircle, Clock,
-  AlertTriangle, BarChart2, Zap, Shield, ChevronRight,
-  Activity, Award, RefreshCw, Info, Search, X,
-  Flame, Package,
+  Users, Trophy, Target, CheckCircle, Clock, AlertTriangle,
+  Zap, Shield, ChevronRight, RefreshCw, Info,
+  Search, X, FileText, Download, Monitor,
+  Activity, FileCheck,
 } from 'lucide-react'
+import SportScienceCard from '@/components/konida/SportScienceCard'
+import CaborWatchlist, { CaborWatchData } from '@/components/konida/CaborWatchlist'
+import {
+  HealthIndexGauge, CriticalAlertsCard, CriticalPathTimeline, MissionControlActions,
+  buildAlertsFromData, buildMissionActions, buildDefaultTimeline,
+} from '@/components/konida/DashboardHelpers'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const PRIMARY = '#2563eb'
+const KONTINGEN_ID = 4
+const KODE_LOKAL   = '3204'
+const ACCENT       = '#38bdf8'
+const PRIMARY      = '#075985'
 
-// ── Types ─────────────────────────────────────────────────
-interface CaborStat {
-  nama: string; total: number; putra: number; putri: number
-  verified: number; avg_umur: number
-  emas: number; perak: number; perunggu: number; target: number
-  conversion: number // medali / atlet * 100
-  kategori: string
-}
-
-interface KpiData {
-  total_atlet: number; putra: number; putri: number
-  verified: number; pending: number; ditolak: number
-  total_cabor: number; lokal: number; non_lokal: number
-  emas: number; perak: number; perunggu: number
-  total_medali: number; rank: number
-}
-
-// Kategori cabor untuk grouping
 const CABOR_KATEGORI: Record<string, string> = {
   'Sepak Bola':'Permainan','Bola Basket':'Permainan','Bola Voli':'Permainan',
-  'Hockey':'Permainan','Floorball':'Permainan','Rugby':'Permainan',
-  'Futsal':'Permainan','Sepak Takraw':'Permainan',
+  'Hockey':'Permainan','Floorball':'Permainan','Rugby':'Permainan','Futsal':'Permainan',
   'Pencak Silat':'Bela Diri','Karate':'Bela Diri','Taekwondo':'Bela Diri',
-  'Judo':'Bela Diri','Gulat':'Bela Diri','Tinju':'Bela Diri',
-  'Muaythai':'Bela Diri','Kickboxing':'Bela Diri','Hapkido':'Bela Diri',
-  'Atletik':'Atletik','Renang':'Air','Akuatik':'Air','Dayung':'Air',
-  'Selam':'Air','Arung Jeram':'Air','Layar':'Air',
-  'Panahan':'Akurasi','Menembak':'Akurasi','Biliar':'Akurasi',
-  'Catur':'Mental','Petanque':'Akurasi','Golf':'Akurasi',
-  'Angkat Besi':'Angkat','Angkat Berat':'Angkat','Binaraga':'Angkat',
-  'Senam':'Seni','Dancesport':'Seni','Drumband':'Seni',
-  'Balap Motor':'Otomotif','Balap Sepeda':'Otomotif',
-  'Panjat Tebing':'Alam','Paralayang':'Alam','Gantole':'Alam',
+  'Judo':'Bela Diri','Gulat':'Bela Diri','Tinju':'Bela Diri','Muaythai':'Bela Diri',
+  'Atletik':'Atletik','Renang':'Air','Akuatik':'Air','Dayung':'Air','Selam':'Air',
+  'Panahan':'Akurasi','Menembak':'Akurasi','Biliar':'Akurasi','Petanque':'Akurasi',
+  'Catur':'Mental','Angkat Besi':'Angkat','Angkat Berat':'Angkat','Binaraga':'Angkat',
+  'Senam':'Seni','Dancesport':'Seni','Balap Sepeda':'Otomotif','Panjat Tebing':'Alam',
 }
 
+interface AtletRaw {
+  status_registrasi:string; gender:string; cabor_nama_raw:string
+  kode_asal_daerah:string; nama_asal_daerah:string; tgl_lahir:string
+}
+interface CaborStat {
+  nama:string; total:number; putra:number; putri:number
+  verified:number; kategori:string
+  emas:number; perak:number; perunggu:number; conversion:number
+}
+
+// ── Helpers ───────────────────────────────────────────────
 function LiveClock() {
   const [t, setT] = useState('')
   useEffect(() => {
-    const fmt = () => new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
-    setT(fmt())
-    const i = setInterval(()=>setT(fmt()),1000)
-    return ()=>clearInterval(i)
-  },[])
-  return <span className="tabular-nums font-mono font-bold text-sm" style={{color:PRIMARY}}>{t}</span>
+    const f = () => new Date().toLocaleTimeString('id-ID',{ hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    setT(f())
+    const i = setInterval(() => setT(f()), 1000)
+    return () => clearInterval(i)
+  }, [])
+  return <span className="tabular-nums font-mono font-bold tracking-wider" style={{ color:ACCENT }}>{t}</span>
 }
 
-// ── Mini Bar untuk heatmap ────────────────────────────────
-function HeatBar({ value, max, color }: { value:number; max:number; color:string }) {
-  const pct = max > 0 ? Math.min(value/max*100,100) : 0
-  return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,0.06)'}}>
-      <div className="h-full rounded-full" style={{width:`${pct}%`,background:color,transition:'width 0.8s ease'}}/>
-    </div>
-  )
-}
-
-// ── Donut mini ────────────────────────────────────────────
-function MiniDonut({ putra, putri, size=48 }: {putra:number;putri:number;size?:number}) {
-  const total = putra+putri
-  if(total===0) return <div style={{width:size,height:size}}/>
-  const pct = putra/total
-  const r=size/2-4; const circ=2*Math.PI*r
-  const dash=circ*pct
-  return (
-    <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(244,114,182,0.3)" strokeWidth={4}/>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={PRIMARY} strokeWidth={4}
-        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"/>
-    </svg>
-  )
-}
-
+// ── Main ──────────────────────────────────────────────────
 export default function DashboardKabBandung() {
-  const [kpi,       setKpi]       = useState<KpiData>({ total_atlet:0,putra:0,putri:0,verified:0,pending:0,ditolak:0,total_cabor:0,lokal:0,non_lokal:0,emas:0,perak:0,perunggu:0,total_medali:0,rank:0 })
+  const [atlets,    setAtlets]    = useState<AtletRaw[]>([])
   const [cabors,    setCabors]    = useState<CaborStat[]>([])
   const [klasemen,  setKlasemen]  = useState<any[]>([])
+  const [myMedali,  setMyMedali]  = useState({ emas:0, perak:0, perunggu:0, total:0 })
   const [loading,   setLoading]   = useState(true)
   const [animIn,    setAnimIn]    = useState(false)
   const [search,    setSearch]    = useState('')
   const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
-  const [showAll,   setShowAll]   = useState(false)
-  const [activeTab, setActiveTab] = useState<'cabor'|'heatmap'|'conversion'>('cabor')
+  const [pulse,     setPulse]     = useState(true)
+  const [tesFisikData, setTesFisikData] = useState<{
+    hadir: number; dns: number; avgSkor: number;
+    topAtlet: number; lowAtlet: number;
+    lemahCount: number;
+  }>({hadir:0,dns:0,avgSkor:0,topAtlet:0,lowAtlet:0,lemahCount:0})
+  // Per-cabor fitness map: cabor → { hadir, avg }
+  const [caborFitness, setCaborFitness] = useState<Record<string,{hadir:number;avg:number}>>({})
 
-  useEffect(()=>{ const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
+  useEffect(() => { const t = setTimeout(() => setAnimIn(true), 80); return () => clearTimeout(t) }, [])
+  useEffect(() => { const i = setInterval(() => setPulse(p => !p), 800); return () => clearInterval(i) }, [])
 
-  useEffect(()=>{
+  useEffect(() => {
     async function load() {
-      try {
-        const [atletRes, caborRes, klasemenRes, myMedaliRes] = await Promise.allSettled([
-          sb.from('atlet').select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,tgl_lahir')
-            .eq('kontingen_id', 4), // kabbandung = kontingen_id 4
-          sb.from('cabang_olahraga').select('nama,total_atlet,atlet_putra,atlet_putri,avg_umur,kategori')
-            .order('total_atlet',{ascending:false}),
-          sb.from('klasemen_medali').select('emas,perak,perunggu,total,kontingen(nama)')
-            .order('emas',{ascending:false}).order('perak',{ascending:false}).limit(10),
-          sb.from('klasemen_medali').select('emas,perak,perunggu,total')
-            .eq('kontingen_id',4).maybeSingle(),
-        ])
+      const [a, k, m, tf, tfi] = await Promise.allSettled([
+        sb.from('atlet')
+          .select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir')
+          .eq('kontingen_id', KONTINGEN_ID),
+        sb.from('klasemen_medali')
+          .select('emas,perak,perunggu,total,kontingen(nama)')
+          .order('emas',{ ascending:false })
+          .order('perak',{ ascending:false })
+          .limit(27),
+        sb.from('klasemen_medali')
+          .select('emas,perak,perunggu,total')
+          .eq('kontingen_id', KONTINGEN_ID)
+          .maybeSingle(),
+        sb.from('atlet_tes_fisik')
+          .select('kesimpulan_persen,status_tes,cabor_nama')
+          .eq('kontingen_id', KONTINGEN_ID).eq('tahap', 3),
+        sb.from('atlet_tes_fisik_item')
+          .select('komponen,capaian_persen'),
+      ])
 
-        // Proses atlet
-        if(atletRes.status==='fulfilled' && atletRes.value.data) {
-          const a = atletRes.value.data as any[]
-          const verified = a.filter(x=>x.status_registrasi==='Verified').length
-          const pending  = a.filter(x=>x.status_registrasi==='Menunggu Admin').length
-          const ditolak  = a.filter(x=>x.status_registrasi==='Ditolak Admin').length
-          const putra    = a.filter(x=>x.gender==='L').length
-          const putri    = a.filter(x=>x.gender==='P').length
-          const lokal    = a.filter(x=>x.kode_asal_daerah==='3204').length
-          // Group by cabor for medal conversion
-          const caborMap: Record<string,{total:number,putra:number,putri:number,verified:number}> = {}
-          a.forEach(x=>{
-            const c = x.cabor_nama_raw||'Lainnya'
-            if(!caborMap[c]) caborMap[c]={total:0,putra:0,putri:0,verified:0}
-            caborMap[c].total++
-            if(x.gender==='L') caborMap[c].putra++
-            else               caborMap[c].putri++
-            if(x.status_registrasi==='Verified') caborMap[c].verified++
-          })
-          // Build cabor stats
-          const caborList: CaborStat[] = Object.entries(caborMap)
-            .map(([nama,s],i)=>{
-              const emas    = Math.floor(Math.random()*4)
-              const perak   = Math.floor(Math.random()*3)
-              const perunggu= Math.floor(Math.random()*3)
-              const target  = Math.floor(Math.random()*4)+1
-              const total_m = emas+perak+perunggu
-              return {
-                nama, total:s.total, putra:s.putra, putri:s.putri,
-                verified:s.verified, avg_umur:22,
-                emas, perak, perunggu, target,
-                conversion: s.total>0 ? Math.round(total_m/s.total*100) : 0,
-                kategori: CABOR_KATEGORI[nama]||'Umum',
-              }
-            })
-            .sort((a,b)=>b.total-a.total)
-          setCabors(caborList)
-          setKpi(prev=>({...prev, total_atlet:a.length, putra, putri, verified, pending, ditolak, total_cabor:caborList.length, lokal, non_lokal:a.length-lokal }))
+      if (tf.status==='fulfilled' && tf.value.data) {
+        const tfData = tf.value.data
+        const hadir = tfData.filter((t:any) => t.status_tes === 'Hadir')
+        const valid = hadir.filter((t:any) => t.kesimpulan_persen != null)
+        const avgSkor = valid.length
+          ? Math.round(valid.reduce((s:number,t:any) => s + t.kesimpulan_persen, 0) / valid.length)
+          : 0
+        const caborMap: Record<string,{sum:number;n:number}> = {}
+        valid.forEach((t:any) => {
+          const c = t.cabor_nama || 'Unknown'
+          if (!caborMap[c]) caborMap[c] = {sum:0,n:0}
+          caborMap[c].sum += t.kesimpulan_persen
+          caborMap[c].n++
+        })
+        const lemahCabor = Object.values(caborMap).filter(c => c.n>=2 && c.sum/c.n < 55).length
+        // Populate per-cabor fitness map for CaborWatchlist
+        const fitnessMap: Record<string,{hadir:number;avg:number}> = {}
+        Object.entries(caborMap).forEach(([nama, v]) => {
+          fitnessMap[nama] = { hadir: v.n, avg: Math.round(v.sum / v.n) }
+        })
+        setCaborFitness(fitnessMap)
+        setTesFisikData({
+          hadir: hadir.length,
+          dns: tfData.length - hadir.length,
+          avgSkor,
+          topAtlet: valid.filter((t:any) => t.kesimpulan_persen >= 80).length,
+          lowAtlet: valid.filter((t:any) => t.kesimpulan_persen < 40).length,
+          lemahCount: lemahCabor,
+        })
+      }
+
+      if (a.status==='fulfilled' && a.value.data) {
+        const data = a.value.data as AtletRaw[]
+        setAtlets(data)
+        const cmap: Record<string,{total:number;putra:number;putri:number;verified:number}> = {}
+        data.forEach(x => {
+          const c = x.cabor_nama_raw||'Lainnya'
+          if (!cmap[c]) cmap[c] = { total:0, putra:0, putri:0, verified:0 }
+          cmap[c].total++
+          if (x.gender==='L') cmap[c].putra++; else cmap[c].putri++
+          if (x.status_registrasi==='Verified') cmap[c].verified++
+        })
+        const MEDALI: Record<string,{e:number;p:number;pg:number}> = {
+          'Hockey':{e:1,p:0,pg:0},'Dayung':{e:2,p:1,pg:1},'Atletik':{e:3,p:1,pg:0},
+          'Taekwondo':{e:2,p:0,pg:1},'Karate':{e:1,p:2,pg:0},'Renang':{e:0,p:1,pg:2},
+          'Menembak':{e:1,p:1,pg:1},'Panahan':{e:0,p:1,pg:1},'Pencak Silat':{e:1,p:0,pg:2},
+          'Bulutangkis':{e:0,p:1,pg:0},'Sepak Bola':{e:0,p:0,pg:1},
         }
-        // Proses klasemen
-        if(klasemenRes.status==='fulfilled' && klasemenRes.value.data) {
-          setKlasemen(klasemenRes.value.data as any[])
-        }
-        // Medali kontingen
-        if(myMedaliRes.status==='fulfilled' && myMedaliRes.value.data) {
-          const d = myMedaliRes.value.data
-          setKpi(prev=>({...prev, emas:d.emas??0, perak:d.perak??0, perunggu:d.perunggu??0, total_medali:d.total??0 }))
-        }
-        // Rank
-        if(klasemenRes.status==='fulfilled' && klasemenRes.value.data) {
-          const idx = (klasemenRes.value.data as any[]).findIndex(k=>
-            String((k.kontingen as any)?.nama??'').toUpperCase().includes('BANDUNG')
-          )
-          if(idx>=0) setKpi(prev=>({...prev, rank:idx+1}))
-        }
-      } catch(e){ console.error(e) } finally { setLoading(false) }
+        const clist: CaborStat[] = Object.entries(cmap).map(([nama,s]) => {
+          const med = MEDALI[nama] ?? { e:0, p:0, pg:0 }
+          const tm  = med.e+med.p+med.pg
+          return {
+            nama, total:s.total, putra:s.putra, putri:s.putri, verified:s.verified,
+            kategori: CABOR_KATEGORI[nama]||'Umum',
+            emas:med.e, perak:med.p, perunggu:med.pg,
+            conversion: s.total>0 ? Math.round(tm/s.total*100) : 0,
+          }
+        }).sort((a,b) => b.total-a.total)
+        setCabors(clist)
+      }
+
+      if (k.status==='fulfilled' && k.value.data) {
+        const raw = k.value.data as any[]
+        const flat = raw.map(r => ({
+          nama:     (r.kontingen as any)?.nama ?? '-',
+          emas:     r.emas    ?? 0,
+          perak:    r.perak   ?? 0,
+          perunggu: r.perunggu ?? 0,
+          total:    r.total   ?? 0,
+        }))
+        setKlasemen(flat)
+      }
+      if (m.status==='fulfilled' && m.value.data) {
+        const d = m.value.data
+        setMyMedali({ emas:d.emas??0, perak:d.perak??0, perunggu:d.perunggu??0, total:d.total??0 })
+      }
+      setLoading(false)
     }
     void load()
-  },[])
+  }, [])
 
-  // Kategori grouping
-  const caborByKategori = useMemo(()=>{
-    const map: Record<string,CaborStat[]> = {}
-    cabors.forEach(c=>{
-      if(!map[c.kategori]) map[c.kategori]=[]
-      map[c.kategori].push(c)
+  const kpi = useMemo(() => {
+    const total    = atlets.length
+    const putra    = atlets.filter(a => a.gender==='L').length
+    const putri    = atlets.filter(a => a.gender==='P').length
+    const verified = atlets.filter(a => a.status_registrasi==='Verified').length
+    const pending  = atlets.filter(a => a.status_registrasi==='Menunggu Admin').length
+    const ditolak  = atlets.filter(a => a.status_registrasi==='Ditolak Admin').length
+    const posted   = atlets.filter(a => a.status_registrasi==='Posted').length
+    const lokal    = atlets.filter(a => a.kode_asal_daerah?.startsWith(KODE_LOKAL)).length
+    const nonLokal = total - lokal
+    const myRank   = klasemen.findIndex(k =>
+      k.nama?.toUpperCase().includes('KAB. BANDUNG')
+    ) + 1
+    return {
+      total, putra, putri, verified, pending, ditolak, posted, lokal, nonLokal,
+      vpct: total>0 ? Math.round(verified/total*100) : 0,
+      lpct: total>0 ? Math.round(lokal/total*100)    : 0,
+      myRank,
+    }
+  }, [atlets, klasemen])
+
+  // ── Build CaborWatchData for Watchlist component ──
+  const caborWatchList = useMemo<CaborWatchData[]>(() => {
+    // Aggregate per cabor from raw atlets
+    const m: Record<string, {
+      total:number; putra:number; putri:number; verified:number;
+      pending:number; ditolak:number; nonLokal:number;
+      emas:number; perak:number; perunggu:number;
+    }> = {}
+    atlets.forEach(a => {
+      const c = a.cabor_nama_raw || 'Lainnya'
+      if (!m[c]) m[c] = { total:0,putra:0,putri:0,verified:0,pending:0,ditolak:0,nonLokal:0,emas:0,perak:0,perunggu:0 }
+      m[c].total++
+      if (a.gender === 'L') m[c].putra++
+      else m[c].putri++
+      if (a.status_registrasi === 'Verified') m[c].verified++
+      if (a.status_registrasi === 'Menunggu Admin') m[c].pending++
+      if (a.status_registrasi === 'Ditolak Admin') m[c].ditolak++
+      if (a.kode_asal_daerah && !a.kode_asal_daerah.startsWith(KODE_LOKAL)) m[c].nonLokal++
     })
-    return map
-  },[cabors])
+    // Add medali from cabors array (yang udah ada hardcoded mapping)
+    cabors.forEach(c => {
+      if (m[c.nama]) {
+        m[c.nama].emas = c.emas
+        m[c.nama].perak = c.perak
+        m[c.nama].perunggu = c.perunggu
+      }
+    })
+    // Build final list with fitness data
+    return Object.entries(m).map(([nama, s]) => ({
+      nama,
+      ...s,
+      fisikHadir: caborFitness[nama]?.hadir ?? 0,
+      fisikAvg:   caborFitness[nama]?.avg   ?? 0,
+      medaliIsDemo: true,  // semua medali masih hardcode untuk demo
+    }))
+  }, [atlets, cabors, caborFitness])
 
-  const filteredCabors = useMemo(()=>{
-    let list = [...cabors]
-    if(search) list=list.filter(c=>c.nama.toLowerCase().includes(search.toLowerCase()))
-    return list
-  },[cabors,search])
-
-  const displayedCabors = showAll ? filteredCabors : filteredCabors.slice(0,10)
-  const maxAtlet        = cabors[0]?.total ?? 1
-  const verifiedPct     = kpi.total_atlet>0 ? Math.round(kpi.verified/kpi.total_atlet*100) : 0
-  const lokalPct        = kpi.total_atlet>0 ? Math.round(kpi.lokal/kpi.total_atlet*100)    : 0
-  const totalMedali     = kpi.emas+kpi.perak+kpi.perunggu
-
-  // Top conversion rate cabor
-  const topConversion = [...cabors].filter(c=>c.total>5).sort((a,b)=>b.conversion-a.conversion).slice(0,8)
-  // Gender dominan
-  const dominanPutra  = cabors.filter(c=>c.putra/c.total>0.8 && c.total>5).slice(0,5)
-  const dominanPutri  = cabors.filter(c=>c.putri/c.total>0.6 && c.total>5).slice(0,5)
-
-  const ani=(d=0)=>({
-    style:{transitionDelay:`${d}ms`,transition:'all 0.55s cubic-bezier(0.16,1,0.3,1)'},
-    className:animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-5',
+  const ani = (d=0) => ({
+    style:     { transitionDelay:`${d}ms`, transition:'all 0.8s cubic-bezier(0.16,1,0.3,1)' },
+    className: animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8',
   })
 
-  if(loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{background:'#020617'}}>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#020a14]">
       <div className="text-center">
-        <div className="w-10 h-10 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-3"/>
-        <p className="text-blue-400 font-mono text-xs uppercase tracking-widest">Sinkronisasi Database...</p>
+        <div className="w-16 h-16 border-2 rounded-full animate-spin mx-auto mb-6"
+          style={{ borderColor:`${ACCENT}20`, borderTopColor:ACCENT, boxShadow: `0 0 30px ${ACCENT}20` }}/>
+        <p className="font-mono text-xs uppercase tracking-widest" style={{ color:ACCENT }}>Memuat Dashboard...</p>
+        <p className="text-[10px] mt-2 text-zinc-500">Kab. Bandung · PORPROV XV 2026</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen text-slate-300" style={{background:'linear-gradient(135deg,#020617 0%,#0a0f1a 100%)'}}>
+    <div className="min-h-screen text-zinc-300 font-sans selection:bg-[#38bdf8]/30" style={{ background:'linear-gradient(145deg, #02060f 0%, #04121f 100%)' }}>
 
-      {/* Grid bg */}
-      <div className="fixed inset-0 pointer-events-none"
-        style={{backgroundImage:'linear-gradient(rgba(37,99,235,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,0.04) 1px,transparent 1px)',backgroundSize:'32px 32px',zIndex:0}}/>
+      {/* Grid bg & Radial glow */}
+      <div className="fixed inset-0 pointer-events-none opacity-40 mix-blend-overlay" style={{ zIndex:0,
+        backgroundImage:`linear-gradient(${ACCENT}08 1px,transparent 1px),linear-gradient(90deg,${ACCENT}08 1px,transparent 1px)`,
+        backgroundSize:'60px 60px' }}/>
+      <div className="fixed pointer-events-none" style={{
+        top:'-30%', left:'50%', transform:'translateX(-50%)',
+        width:'100vw', height:'80vh',
+        background:`radial-gradient(ellipse, ${ACCENT}08 0%, transparent 60%)`,
+        zIndex:0 }}/>
 
       {/* ── HEADER ── */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b border-slate-800 backdrop-blur-xl"
-        style={{background:'rgba(2,6,23,0.93)'}}>
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center"
-            style={{background:'rgba(37,99,235,0.15)',border:'1px solid rgba(37,99,235,0.35)',boxShadow:'0 0 20px rgba(37,99,235,0.15)'}}>
-            <span className="text-white font-black text-sm">KBD</span>
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-5 border-b backdrop-blur-xl bg-[#020a14]/80 shadow-lg shadow-black/20"
+        style={{ borderColor:`${ACCENT}15` }}>
+        <div className="flex items-center gap-5">
+          <div className="relative w-12 h-12">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
+              style={{ background:`linear-gradient(135deg, ${PRIMARY}, ${ACCENT}30)`, border:`1px solid ${ACCENT}40`, boxShadow:`0 0 20px ${ACCENT}30` }}>
+              <span className="text-white font-black text-sm">KB</span>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-[3px] border-[#020a14]"
+              style={{ background:ACCENT, boxShadow: `0 0 10px ${ACCENT}` }}/>
           </div>
           <div>
-            <h1 className="text-white font-black text-base tracking-wide">DASHBOARD KONTINGEN KAB. BANDUNG</h1>
-            <div className="text-[10px] font-mono text-blue-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
-              <Zap size={10} className="text-amber-400"/> Intelligence Command · PORPROV XV 2026
+            <div className="flex items-center gap-3">
+              <h1 className="text-white font-black text-xl tracking-wide text-shadow-sm">DASHBOARD KAB. BANDUNG</h1>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
+                <div className={`w-1.5 h-1.5 rounded-full bg-red-400 transition-opacity duration-300 ${pulse?'opacity-100 shadow-[0_0_8px_rgba(248,113,113,0.8)]':'opacity-30'}`}/>
+                <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Live</span>
+              </div>
+            </div>
+            <div className="text-[11px] font-mono uppercase tracking-widest mt-1 flex items-center gap-2" style={{ color:`${ACCENT}90` }}>
+              <Zap size={10} className="text-amber-400 drop-shadow-md"/> Intelligence Command · PORPROV XV Jabar 2026
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{background:'rgba(37,99,235,0.08)',border:'1px solid rgba(37,99,235,0.2)'}}>
-            <Clock size={13} style={{color:PRIMARY}}/><LiveClock/>
+        <div className="flex items-center gap-4">
+          <div className="hidden xl:flex items-center gap-2">
+            {[
+              { l:'Total Atlet', v:kpi.total,         c:ACCENT    },
+              { l:'Verifikasi',  v:`${kpi.vpct}%`,    c:'#22d3ee' },
+              { l:'Ranking',     v:`#${kpi.myRank||'—'}`, c:'#ffd700' },
+              { l:'Medali Emas', v:myMedali.emas,     c:'#ffd700' },
+            ].map(s => (
+              <div key={s.l} className="px-4 py-2 rounded-xl text-center backdrop-blur-md transition-colors hover:bg-white/5"
+                style={{ background:`${s.c}0a`, border:`1px solid ${s.c}20` }}>
+                <div className="text-sm font-black drop-shadow-sm" style={{ color:s.c }}>{s.v}</div>
+                <div className="text-[10px] text-zinc-500 mt-0.5">{s.l}</div>
+              </div>
+            ))}
           </div>
-          <button onClick={()=>window.location.reload()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all"
-            style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'rgba(255,255,255,0.4)'}}>
-            <RefreshCw size={12}/> Refresh
+          <div className="w-[1px] h-8 bg-white/10 hidden xl:block mx-2"></div>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-inner bg-black/20 border border-white/5">
+            <Clock size={14} style={{ color:ACCENT }}/><LiveClock/>
+          </div>
+          <button onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-white/10 transition-all border border-white/10 bg-white/5 text-zinc-300 hover:text-white">
+            <RefreshCw size={12}/> Segarkan
           </button>
         </div>
       </nav>
 
-      <main className="p-5 max-w-[1600px] mx-auto space-y-5 relative z-10">
+      <main className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 lg:space-y-8 relative z-10">
 
-        {/* ── EXECUTIVE BRIEF ── */}
-        <div {...ani(0)} className="p-4 rounded-2xl flex items-start gap-4"
-          style={{background:'rgba(37,99,235,0.07)',border:'1px solid rgba(37,99,235,0.2)'}}>
-          <Info size={18} style={{color:PRIMARY,flexShrink:0,marginTop:1}}/>
-          <div>
-            <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Kesimpulan Eksekutif</div>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              <strong className="text-white">{kpi.total_atlet} atlet</strong> terdaftar dari{' '}
-              <strong className="text-white">{kpi.total_cabor} cabor</strong>.{' '}
-              <strong style={{color:'#4ade80'}}>{verifiedPct}% sudah verified</strong>.{' '}
-              {kpi.non_lokal>0 && <><strong className="text-rose-400">{kpi.non_lokal} atlet non-lokal</strong> ({Math.round(kpi.non_lokal/kpi.total_atlet*100)}%) memerlukan validasi mutasi. </>}
-              Posisi klasemen saat ini <strong className="text-amber-400">#{kpi.rank>0?kpi.rank:'—'}</strong> dengan{' '}
-              <strong className="text-yellow-400">🥇{kpi.emas} emas</strong>.
-            </p>
+        {/* ── BRIEF / BANNER ── */}
+        <div {...ani(0)} className="px-5 py-4 rounded-2xl flex items-center gap-4 shadow-lg backdrop-blur-md bg-gradient-to-r from-[#38bdf808] to-transparent border border-[#38bdf815]">
+          <div className="p-2 rounded-full bg-[#38bdf810] shrink-0">
+            <Info size={18} style={{ color:ACCENT }}/>
           </div>
+          <p className="text-sm text-zinc-300 leading-relaxed">
+            <strong className="text-white">{kpi.total.toLocaleString('id')} atlet</strong> terdaftar dari{' '}
+            <strong className="text-white">{cabors.length} cabor</strong>. Saat ini{' '}
+            <strong style={{ color:'#22d3ee' }}>{kpi.vpct}% terverifikasi</strong>
+            {kpi.pending>0 && <> dengan <strong className="text-amber-400">{kpi.pending} pending</strong></>}.{' '}
+            {kpi.nonLokal>0 && <><strong className="text-rose-400">{kpi.nonLokal} non-lokal</strong> ({Math.round(kpi.nonLokal/kpi.total*100)}%) butuh atensi. </>}
+            Ranking saat ini <strong className="text-amber-400 drop-shadow-md">#{kpi.myRank>0?kpi.myRank:'—'}</strong> dengan{' '}
+            <strong className="text-yellow-400">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</strong>.
+          </p>
         </div>
 
-        {/* ── KPI 8 CARDS ── */}
-        <div {...ani(40)} className="grid grid-cols-4 gap-3">
-          {/* Big cards */}
-          <div className="col-span-2 rounded-2xl p-5 relative overflow-hidden"
-            style={{background:'rgba(37,99,235,0.08)',border:'1px solid rgba(37,99,235,0.2)'}}>
-            <div className="absolute top-0 right-0 opacity-5"><Users size={100}/></div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Total Atlet Terdaftar</div>
-            <div className="text-5xl font-light text-white mb-3">{kpi.total_atlet}</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="flex justify-between text-[10px] mb-1">
-                  <span className="text-blue-400">Putra</span>
-                  <span className="text-white font-bold">{kpi.putra} ({Math.round(kpi.putra/kpi.total_atlet*100)}%)</span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,0.06)'}}>
-                  <div className="h-full rounded-full" style={{width:`${kpi.putra/kpi.total_atlet*100}%`,background:PRIMARY}}/>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-[10px] mb-1">
-                  <span className="text-pink-400">Putri</span>
-                  <span className="text-white font-bold">{kpi.putri} ({Math.round(kpi.putri/kpi.total_atlet*100)}%)</span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{background:'rgba(255,255,255,0.06)'}}>
-                  <div className="h-full rounded-full" style={{width:`${kpi.putri/kpi.total_atlet*100}%`,background:'#f472b6'}}/>
-                </div>
-              </div>
+        {/* ── KPI STRIP ── */}
+        <div {...ani(5)} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+
+          {/* Total Atlet */}
+          <div className="rounded-2xl p-4 flex items-center gap-3 bg-[#38bdf808] border border-[#38bdf818]">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[#38bdf815]">
+              <Users size={16} style={{ color:ACCENT }}/>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Total Atlet</div>
+              <div className="text-xl font-black text-white leading-none">{kpi.total.toLocaleString('id')}</div>
+              <div className="text-[10px] mt-0.5" style={{ color:`${ACCENT}60` }}>{cabors.length} cabor</div>
             </div>
           </div>
 
-          <div className="rounded-2xl p-4" style={{background:'rgba(255,255,255,0.025)',border:'1px solid rgba(255,255,255,0.07)'}}>
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-3">Status Verifikasi</div>
-            <div className="space-y-2.5">
-              {[
-                {l:'Verified',  v:kpi.verified, c:'#4ade80'},
-                {l:'Pending',   v:kpi.pending,  c:'#fbbf24'},
-                {l:'Ditolak',   v:kpi.ditolak,  c:'#f87171'},
-              ].map(s=>(
-                <div key={s.l}>
-                  <div className="flex justify-between text-[10px] mb-1">
-                    <span style={{color:s.c}}>{s.l}</span>
-                    <span className="text-white font-bold font-mono">{s.v}</span>
-                  </div>
-                  <HeatBar value={s.v} max={kpi.total_atlet} color={s.c}/>
-                </div>
-              ))}
+          {/* Gender */}
+          <div className="rounded-2xl p-4 flex items-center gap-3 bg-white/[0.03] border border-white/[0.07]">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-500/10">
+              <Users size={16} className="text-blue-400"/>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Gender</div>
+              <div className="flex items-baseline gap-1.5 leading-none">
+                <span className="text-base font-black text-blue-300">{kpi.putra}</span>
+                <span className="text-[10px] text-zinc-500">♂</span>
+                <span className="text-zinc-600 mx-0.5">/</span>
+                <span className="text-base font-black text-pink-300">{kpi.putri}</span>
+                <span className="text-[10px] text-zinc-500">♀</span>
+              </div>
+              <div className="text-[10px] mt-0.5 text-zinc-500">{kpi.total>0?Math.round(kpi.putra/kpi.total*100):0}% putra</div>
             </div>
           </div>
 
-          <div className="rounded-2xl p-4" style={{background:'rgba(255,255,255,0.025)',border:'1px solid rgba(255,255,255,0.07)'}}>
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-3">Medali & Ranking</div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="text-3xl font-black text-yellow-400">#{kpi.rank>0?kpi.rank:'—'}</div>
-              <div className="text-xs text-slate-500">Klasemen<br/>PORPROV XV</div>
+          {/* Status Data */}
+          <div className="rounded-2xl p-4 flex items-center gap-3 bg-white/[0.03] border border-white/[0.07]">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-green-500/10">
+              <CheckCircle size={16} className="text-green-400"/>
             </div>
-            <div className="flex gap-2">
-              <div className="flex-1 text-center rounded-lg py-2" style={{background:'rgba(255,215,0,0.1)',border:'1px solid rgba(255,215,0,0.2)'}}>
-                <div className="text-lg font-black text-yellow-400">{kpi.emas}</div>
-                <div className="text-[9px] text-slate-500">Emas</div>
-              </div>
-              <div className="flex-1 text-center rounded-lg py-2" style={{background:'rgba(192,192,192,0.08)'}}>
-                <div className="text-lg font-black text-slate-400">{kpi.perak}</div>
-                <div className="text-[9px] text-slate-500">Perak</div>
-              </div>
-              <div className="flex-1 text-center rounded-lg py-2" style={{background:'rgba(205,127,50,0.1)'}}>
-                <div className="text-lg font-black" style={{color:'#cd7f32'}}>{kpi.perunggu}</div>
-                <div className="text-[9px] text-slate-500">Perunggu</div>
-              </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Status Data</div>
+              <div className="text-xl font-black text-green-400 leading-none">{kpi.vpct}%</div>
+              <div className="text-[10px] mt-0.5 text-zinc-500">{kpi.pending>0?`${kpi.pending} pending`:'semua ok'}</div>
             </div>
-          </div>
-        </div>
-
-        {/* ── ROW 2: Lokal/Non-lokal + Klasemen ── */}
-        <div {...ani(80)} className="grid grid-cols-3 gap-5">
-
-          {/* Lokal vs Non-lokal */}
-          <div className="rounded-2xl p-5" style={{background:'rgba(255,255,255,0.025)',border:'1px solid rgba(255,255,255,0.07)'}}>
-            <div className="flex items-center gap-2 mb-4">
-              <Shield size={14} style={{color:PRIMARY}}/>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kemandirian Daerah</span>
-            </div>
-            <div className="flex items-center gap-4 mb-4">
-              <MiniDonut putra={kpi.lokal} putri={kpi.non_lokal} size={64}/>
-              <div>
-                <div className="text-3xl font-light text-white">{lokalPct}%</div>
-                <div className="text-xs text-slate-500">Atlet Lokal</div>
-              </div>
-            </div>
-            <div className="space-y-2.5">
-              <div>
-                <div className="flex justify-between text-[10px] mb-1">
-                  <span style={{color:PRIMARY}}>Lokal (KTP 3204)</span>
-                  <span className="text-white font-bold">{kpi.lokal}</span>
-                </div>
-                <HeatBar value={kpi.lokal} max={kpi.total_atlet} color={PRIMARY}/>
-              </div>
-              <div>
-                <div className="flex justify-between text-[10px] mb-1">
-                  <span className="text-rose-400">Non-Lokal / Cabutan</span>
-                  <span className="text-white font-bold">{kpi.non_lokal}</span>
-                </div>
-                <HeatBar value={kpi.non_lokal} max={kpi.total_atlet} color="#f87171"/>
-              </div>
-            </div>
-            {kpi.non_lokal > kpi.total_atlet*0.2 && (
-              <div className="mt-3 flex items-start gap-2 p-2.5 rounded-lg"
-                style={{background:'rgba(248,113,113,0.08)',border:'1px solid rgba(248,113,113,0.2)'}}>
-                <AlertTriangle size={11} style={{color:'#f87171',flexShrink:0,marginTop:1}}/>
-                <span className="text-[10px] text-rose-400">Perlu validasi SK mutasi untuk {kpi.non_lokal} atlet</span>
-              </div>
-            )}
           </div>
 
           {/* Klasemen */}
-          <div className="rounded-2xl p-5" style={{background:'rgba(255,255,255,0.025)',border:'1px solid rgba(255,215,0,0.1)'}}>
-            <div className="flex items-center gap-2 mb-4">
-              <Trophy size={14} style={{color:'#ffd700'}}/>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Klasemen PORPROV XV</span>
+          <div className="rounded-2xl p-4 flex items-center gap-3 bg-[#ffd70008] border border-[#ffd70020]">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-yellow-500/10">
+              <Trophy size={16} className="text-yellow-400"/>
             </div>
-            <div className="space-y-2">
-              {klasemen.map((k:any,i)=>{
-                const nama = (k.kontingen as any)?.nama??'-'
-                const isUs = nama.toUpperCase().includes('BANDUNG') && !nama.toUpperCase().includes('BARAT') && !nama.toUpperCase().includes('KOTA')
-                return (
-                  <div key={i} className="flex items-center gap-2.5 p-2.5 rounded-xl"
-                    style={{background:isUs?'rgba(37,99,235,0.1)':'rgba(255,255,255,0.02)',border:`1px solid ${isUs?'rgba(37,99,235,0.25)':'rgba(255,255,255,0.04)'}`}}>
-                    <span className="text-xs w-5 text-center font-mono flex-shrink-0"
-                      style={{color:i===0?'#ffd700':i===1?'#c0c0c0':i===2?'#cd7f32':'rgba(255,255,255,0.25)'}}>
-                      {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`}
-                    </span>
-                    <span className="flex-1 text-xs truncate font-medium"
-                      style={{color:isUs?'#60a5fa':'rgba(255,255,255,0.6)'}}>
-                      {nama}{isUs?' ✦':''}
-                    </span>
-                    <div className="flex gap-1.5 text-[11px] font-mono font-bold flex-shrink-0">
-                      <span style={{color:'#ffd700'}}>{k.emas}</span>
-                      <span style={{color:'#9ca3af'}}>{k.perak}</span>
-                      <span style={{color:'#cd7f32'}}>{k.perunggu}</span>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Klasemen</div>
+              <div className="text-xl font-black text-yellow-400 leading-none">#{kpi.myRank>0?kpi.myRank:'—'}</div>
+              <div className="text-[10px] mt-0.5 text-zinc-500">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</div>
             </div>
           </div>
 
-          {/* Gender dominan */}
-          <div className="rounded-2xl p-5" style={{background:'rgba(255,255,255,0.025)',border:'1px solid rgba(255,255,255,0.07)'}}>
-            <div className="flex items-center gap-2 mb-4">
-              <Users size={14} style={{color:'#f472b6'}}/>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Peta Gender Cabor</span>
-            </div>
-            <div className="mb-3">
-              <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"/>Dominan Putra (80%+)
-              </div>
-              <div className="space-y-1.5">
-                {dominanPutra.map(c=>(
-                  <div key={c.nama} className="flex items-center gap-2">
-                    <span className="text-xs text-slate-300 flex-1 truncate">{c.nama}</span>
-                    <span className="text-[10px] font-bold" style={{color:PRIMARY}}>{c.putra}L/{c.putri}P</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="pt-3 border-t" style={{borderColor:'rgba(255,255,255,0.06)'}}>
-              <div className="text-[10px] font-bold text-pink-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-pink-400"/>Dominan Putri (60%+)
-              </div>
-              <div className="space-y-1.5">
-                {dominanPutri.map(c=>(
-                  <div key={c.nama} className="flex items-center gap-2">
-                    <span className="text-xs text-slate-300 flex-1 truncate">{c.nama}</span>
-                    <span className="text-[10px] font-bold text-pink-400">{c.putra}L/{c.putri}P</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* ── ROW 3: MEDAL CONVERSION RATE ── */}
-        <div {...ani(110)} className="rounded-2xl p-5"
-          style={{background:'rgba(255,255,255,0.025)',border:'1px solid rgba(255,215,0,0.12)'}}>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <Flame size={15} style={{color:'#f59e0b'}}/>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Medal Conversion Rate — Efisiensi Pembinaan per Cabor
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-500">
-              <Info size={11}/> Medali ÷ Total Atlet × 100
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {topConversion.map((c,i)=>{
-              const total_m = c.emas+c.perak+c.perunggu
-              const convColor = c.conversion>=50?'#4ade80':c.conversion>=25?'#fbbf24':'#f87171'
-              return (
-                <div key={c.nama} className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)'}}>
-                  <div className="w-6 text-center text-xs font-mono text-slate-600 flex-shrink-0">{i+1}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-slate-200 truncate">{c.nama}</div>
-                    <div className="text-[10px] text-slate-500">{c.total} atlet · 🥇{c.emas} 🥈{c.perak} 🥉{c.perunggu}</div>
-                    <div className="mt-1.5">
-                      <HeatBar value={c.conversion} max={100} color={convColor}/>
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0 text-right">
-                    <div className="text-lg font-black" style={{color:convColor}}>{c.conversion}%</div>
-                    <div className="text-[9px] text-slate-600">conversion</div>
-                  </div>
-                </div>
-              )
+        {/* ═══ CRITICAL ALERTS + MISSION CONTROL — tepat setelah KPI ═══ */}
+
+        {/* ── CRITICAL ALERTS + TIMELINE ── */}
+        <div {...ani(10)} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CriticalAlertsCard
+            primary={ACCENT}
+            alerts={buildAlertsFromData({
+              pendingVerifikasi: kpi.pending,
+              dnsAtlet: tesFisikData.dns,
+              lowSkorAtlet: tesFisikData.lowAtlet,
+              daysToEvent: Math.max(0, Math.ceil((new Date('2026-11-07').getTime()-Date.now())/86400000)),
+              nonLokal: kpi.nonLokal,
+              cabors_lemah_count: tesFisikData.lemahCount,
             })}
-          </div>
+          />
+          <CriticalPathTimeline
+            primary={ACCENT}
+            targetDate="2026-11-07"
+            targetLabel="OPENING PORPROV XV"
+            tasks={buildDefaultTimeline('2026-11-07')}
+          />
         </div>
 
-        {/* ── ROW 4: INTEL CABOR ── */}
-        <div {...ani(140)} className="rounded-2xl overflow-hidden"
-          style={{background:'rgba(15,23,42,0.6)',border:'1px solid rgba(255,255,255,0.07)'}}>
-
-          {/* Tab header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{borderColor:'rgba(255,255,255,0.07)'}}>
-            <div className="flex gap-1">
-              {[
-                {k:'cabor',   l:'Ranking Cabor'},
-                {k:'heatmap', l:'Heatmap Kategori'},
-                {k:'conversion',l:'Conversion'},
-              ].map(tab=>(
-                <button key={tab.k} onClick={()=>setActiveTab(tab.k as any)}
-                  className="px-4 py-2 rounded-lg text-xs font-bold transition-all"
-                  style={{
-                    background: activeTab===tab.k ? PRIMARY : 'transparent',
-                    color: activeTab===tab.k ? 'white' : 'rgba(255,255,255,0.4)',
-                  }}>
-                  {tab.l}
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"/>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari cabor..."
-                className="bg-transparent border rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none w-48"
-                style={{borderColor:'rgba(255,255,255,0.1)'}}
-                onFocus={e=>e.target.style.borderColor=PRIMARY}
-                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
-            </div>
-          </div>
-
-          {/* Tab: Ranking Cabor */}
-          {activeTab==='cabor' && (
-            <div className="max-h-[500px] overflow-y-auto"
-              style={{scrollbarWidth:'thin',scrollbarColor:'rgba(37,99,235,0.3) transparent'}}>
-              {displayedCabors.map((c,i)=>{
-                const pctCabutan = c.total>0 ? c.total-Math.round(c.total*0.83) : 0
-                const isSelected = selCabor?.nama===c.nama
-                return (
-                  <div key={c.nama} onClick={()=>setSelCabor(p=>p?.nama===c.nama?null:c)}
-                    className="flex items-center gap-4 px-5 py-3.5 border-b cursor-pointer transition-all"
-                    style={{
-                      borderColor:'rgba(255,255,255,0.04)',
-                      background: isSelected?'rgba(37,99,235,0.08)':'transparent',
-                      borderLeft: `3px solid ${isSelected?PRIMARY:'transparent'}`,
-                    }}
-                    onMouseEnter={e=>{if(!isSelected)(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,0.02)'}}
-                    onMouseLeave={e=>{if(!isSelected)(e.currentTarget as HTMLElement).style.background='transparent'}}>
-
-                    <span className="w-6 text-xs font-mono text-slate-600 flex-shrink-0">{i+1}</span>
-
-                    <div className="w-40 flex-shrink-0">
-                      <div className="text-sm font-bold text-slate-200 truncate">{c.nama}</div>
-                      <div className="text-[10px] text-slate-500">{c.kategori}</div>
-                    </div>
-
-                    {/* Atlet bar */}
-                    <div className="flex-1">
-                      <div className="flex justify-between text-[10px] mb-1">
-                        <span className="text-slate-500">Atlet</span>
-                        <span className="text-white font-bold">{c.total}</span>
-                      </div>
-                      <HeatBar value={c.total} max={maxAtlet} color={PRIMARY}/>
-                    </div>
-
-                    {/* Gender */}
-                    <div className="w-24 flex-shrink-0">
-                      <div className="flex justify-between text-[10px] mb-1">
-                        <span style={{color:PRIMARY}}>{c.putra}L</span>
-                        <span className="text-pink-400">{c.putri}P</span>
-                      </div>
-                      <div className="h-1.5 rounded-full overflow-hidden flex" style={{background:'rgba(255,255,255,0.06)'}}>
-                        <div style={{width:`${c.total>0?c.putra/c.total*100:50}%`,background:PRIMARY}}/>
-                        <div style={{flex:1,background:'#f472b6'}}/>
-                      </div>
-                    </div>
-
-                    {/* Verified */}
-                    <div className="w-20 flex-shrink-0 text-center">
-                      <div className="text-sm font-bold text-green-400">{c.verified}</div>
-                      <div className="text-[9px] text-slate-500">verified</div>
-                    </div>
-
-                    {/* Medali */}
-                    <div className="w-24 flex-shrink-0 text-right">
-                      <div className="text-xs font-bold">
-                        <span className="text-yellow-400">🥇{c.emas}</span>{' '}
-                        <span className="text-slate-400">🥈{c.perak}</span>{' '}
-                        <span style={{color:'#cd7f32'}}>🥉{c.perunggu}</span>
-                      </div>
-                      <div className="text-[9px]" style={{color:c.conversion>30?'#4ade80':'rgba(255,255,255,0.3)'}}>
-                        {c.conversion}% conv.
-                      </div>
-                    </div>
-
-                    {/* Status tag */}
-                    <div className="w-28 flex-shrink-0 flex justify-end">
-                      <span className="text-[9px] font-bold px-2 py-1 rounded-lg"
-                        style={
-                          c.emas>=c.target ? {background:'rgba(74,222,128,0.1)',color:'#4ade80',border:'1px solid rgba(74,222,128,0.2)'} :
-                          c.conversion>25  ? {background:'rgba(251,191,36,0.1)',color:'#fbbf24',border:'1px solid rgba(251,191,36,0.2)'} :
-                          {background:'rgba(248,113,113,0.08)',color:'#f87171',border:'1px solid rgba(248,113,113,0.15)'}
-                        }>
-                        {c.emas>=c.target?'✅ Target Tercapai':c.conversion>25?'🔥 Efisien':'⚠️ Perlu Perhatian'}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-
-              {/* Load more */}
-              {!showAll && filteredCabors.length>10 && (
-                <div className="p-5 flex justify-center border-t" style={{borderColor:'rgba(255,255,255,0.05)'}}>
-                  <button onClick={()=>setShowAll(true)}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all"
-                    style={{background:'rgba(37,99,235,0.1)',color:'#60a5fa',border:'1px solid rgba(37,99,235,0.2)'}}>
-                    Lihat {filteredCabors.length-10} Cabor Lainnya <ChevronRight size={13}/>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab: Heatmap Kategori */}
-          {activeTab==='heatmap' && (
-            <div className="p-5 grid grid-cols-3 gap-4">
-              {Object.entries(caborByKategori).map(([kat,list])=>{
-                const total = list.reduce((a,c)=>a+c.total,0)
-                const medali= list.reduce((a,c)=>a+c.emas+c.perak+c.perunggu,0)
-                const conv  = total>0 ? Math.round(medali/total*100) : 0
-                const color = total>100?'#3b82f6':total>50?'#22c55e':total>20?'#f59e0b':'#6b7280'
-                return (
-                  <div key={kat} className="rounded-xl p-4"
-                    style={{background:`${color}10`,border:`1px solid ${color}25`}}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold" style={{color}}>{kat}</span>
-                      <span className="text-[10px] font-mono text-slate-500">{list.length} cabor</span>
-                    </div>
-                    <div className="text-2xl font-light text-white mb-1">{total}</div>
-                    <div className="text-[10px] text-slate-500 mb-2">atlet · {conv}% conv.</div>
-                    <HeatBar value={total} max={400} color={color}/>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {list.slice(0,4).map(c=>(
-                        <span key={c.nama} className="text-[9px] px-1.5 py-0.5 rounded"
-                          style={{background:'rgba(255,255,255,0.05)',color:'rgba(255,255,255,0.4)'}}>
-                          {c.nama}
-                        </span>
-                      ))}
-                      {list.length>4 && <span className="text-[9px] text-slate-600">+{list.length-4}</span>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Tab: Conversion detail */}
-          {activeTab==='conversion' && (
-            <div className="p-5">
-              <div className="text-xs text-slate-500 mb-4 flex items-center gap-2">
-                <Info size={12}/> Medal Conversion Rate = (Total Medali ÷ Total Atlet) × 100. Semakin tinggi = semakin efisien pembinaan.
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[...cabors].filter(c=>c.total>3).sort((a,b)=>b.conversion-a.conversion).map((c,i)=>{
-                  const total_m = c.emas+c.perak+c.perunggu
-                  const grade = c.conversion>=50?{l:'S',c:'#4ade80'}:c.conversion>=25?{l:'A',c:'#fbbf24'}:c.conversion>=10?{l:'B',c:'#f87171'}:{l:'C',c:'#6b7280'}
-                  return (
-                    <div key={c.nama} className="flex items-center gap-3 p-3.5 rounded-xl"
-                      style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)'}}>
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0"
-                        style={{background:`${grade.c}20`,color:grade.c}}>
-                        {grade.l}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold text-slate-200 truncate">{c.nama}</div>
-                        <div className="text-[10px] text-slate-500">{c.total} atlet · {total_m} medali</div>
-                        <HeatBar value={c.conversion} max={100} color={grade.c}/>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-xl font-black" style={{color:grade.c}}>{c.conversion}%</div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+        {/* ── MISSION CONTROL ── */}
+        <div {...ani(15)}>
+          <MissionControlActions
+            primary={ACCENT}
+            actions={buildMissionActions({
+              pendingVerifikasi: kpi.pending,
+              dnsAtlet: tesFisikData.dns,
+              lowSkorAtlet: tesFisikData.lowAtlet,
+              topPerformers: tesFisikData.topAtlet,
+              cabors_lemah_count: tesFisikData.lemahCount,
+              nonLokal: kpi.nonLokal,
+            })}
+          />
         </div>
 
-        {/* ── ROW 5: Quick Actions ── */}
-        <div {...ani(170)} className="grid grid-cols-2 gap-4">
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+
+        {/* ── SPORT SCIENCE OVERVIEW ── */}
+        <div {...ani(20)}>
+          <SportScienceCard kontingenId={4} tenantSlug="kabbandung" primary="#0ea5e9"/>
+        </div>
+
+        {/* ── HEALTH INDEX COMPOSITE ── */}
+        <div {...ani(25)}>
+          <HealthIndexGauge
+            primary={ACCENT}
+            dimensions={[
+              { label:'Registrasi',  score: Math.round((kpi.total/1100)*100), weight: 0.20, icon: Users     },
+              { label:'Verifikasi',  score: kpi.vpct,                          weight: 0.25, icon: FileCheck },
+              { label:'Fisik UPI',   score: tesFisikData.avgSkor,              weight: 0.30, icon: Activity  },
+              { label:'Partisipasi', score: tesFisikData.hadir > 0 ? Math.round((tesFisikData.hadir/(tesFisikData.hadir+tesFisikData.dns))*100) : 0, weight: 0.15, icon: Trophy    },
+              { label:'Cabor Sehat', score: cabors.length>0 ? Math.max(0, Math.round(100 - (tesFisikData.lemahCount/cabors.length)*100)) : 0, weight: 0.10, icon: Target },
+            ]}
+          />
+        </div>
+
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* PATCH v2: PETA KOMPETITOR + TOP 5 KLASEMEN + TARGET REALISASI    */}
+        {/*          DIPINDAH ke War Room — section ini dihapus dari sini    */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+
+        {/* ── CABOR WATCHLIST (pengganti Intel Cabor) ── */}
+        {/* Operational tracker per cabor: status verifikasi + fitness UPI + alert demo */}
+        <div {...ani(120)}>
+          <CaborWatchlist
+            cabors={caborWatchList}
+            primary={ACCENT}
+            onClickCabor={(nama) => {
+              // Open detail panel sama kayak Intel Cabor lama
+              const target = cabors.find(c => c.nama === nama)
+              if (target) setSelCabor(target)
+            }}
+          />
+        </div>
+
+        {/* ── QUICK ACTIONS ── */}
+        <div {...ani(160)} className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {[
-            {l:'Laporan & SPJ', d:'Dokumen pertanggungjawaban harian', icon:Package, c:PRIMARY, href:'/konida/lappertandingan/kabbandung'},
-            {l:'Premium Export', d:'Buku hasil, piagam, SPJ bonus', icon:Award, c:'#f59e0b', href:'/konida/Premiumreport/kabbandung'},
-          ].map(a=>(
+            { l:'War Room Live', d:'Monitoring perolehan medali & prediksi', icon:Monitor,  c:ACCENT,    href:'/konida/warroom/kabbandung'          },
+            { l:'Laporan Tanding',d:'Jurnal dan hasil rekap harian lapangan',    icon:FileText, c:'#3b82f6', href:'/konida/lappertandingan/kabbandung' },
+            { l:'Premium Report', d:'Cetak SPJ, Piagam, dan Dokumen Resmi',      icon:Download, c:'#f59e0b', href:'/konida/Premiumreport/kabbandung'   },
+          ].map(a => (
             <a key={a.l} href={a.href}
-              className="flex items-center justify-between p-5 rounded-2xl transition-all group"
-              style={{background:'rgba(255,255,255,0.025)',border:`1px solid ${a.c}20`}}
-              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.borderColor=`${a.c}40`}
-              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.borderColor=`${a.c}20`}>
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl" style={{background:`${a.c}15`,border:`1px solid ${a.c}25`}}>
-                  <a.icon size={20} style={{color:a.c}}/>
+              className="flex items-center justify-between p-5 rounded-3xl transition-all duration-300 group relative overflow-hidden"
+              style={{ background:'rgba(255,255,255,0.02)', border:`1px solid ${a.c}20` }}>
+              
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{ background:`linear-gradient(to right, ${a.c}0a, transparent)` }} />
+                
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="p-3.5 rounded-2xl shadow-inner transition-transform group-hover:scale-110" 
+                  style={{ background:`${a.c}15`, border:`1px solid ${a.c}30` }}>
+                  <a.icon size={22} style={{ color:a.c }}/>
                 </div>
                 <div>
-                  <div className="font-bold text-white text-sm">{a.l}</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">{a.d}</div>
+                  <div className="font-bold text-white text-sm tracking-wide">{a.l}</div>
+                  <div className="text-xs text-zinc-400 mt-1">{a.d}</div>
                 </div>
               </div>
-              <ChevronRight size={18} style={{color:a.c}} className="group-hover:translate-x-1 transition-transform"/>
+              <div className="relative z-10 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors border border-white/5">
+                <ChevronRight size={16} style={{ color:a.c }} className="group-hover:translate-x-0.5 transition-transform"/>
+              </div>
             </a>
           ))}
         </div>
-
       </main>
 
-      {/* Detail panel slide-out */}
+      {/* ── SLIDE-OUT CABOR DETAIL ── */}
       {selCabor && (
-        <div className="fixed inset-0 z-50" onClick={()=>setSelCabor(null)}>
-          <div className="absolute inset-0" style={{background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)'}}/>
-          <div className="absolute right-0 top-0 h-full w-96 p-6 overflow-y-auto"
-            style={{background:'#0f172a',borderLeft:'1px solid rgba(255,255,255,0.08)'}}
-            onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <div className="text-[10px] text-blue-400 uppercase tracking-wider mb-1">Detail Cabor</div>
-                <h2 className="text-2xl font-black text-white">{selCabor.nama}</h2>
-              </div>
-              <button onClick={()=>setSelCabor(null)} style={{color:'rgba(255,255,255,0.4)'}}>
-                <X size={18}/>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {l:'Total Atlet', v:selCabor.total, c:PRIMARY},
-                  {l:'Verified',   v:selCabor.verified, c:'#4ade80'},
-                  {l:'Putra',      v:selCabor.putra, c:PRIMARY},
-                  {l:'Putri',      v:selCabor.putri, c:'#f472b6'},
-                ].map(s=>(
-                  <div key={s.l} className="rounded-xl p-3" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)'}}>
-                    <div className="text-[10px] text-slate-500 mb-1">{s.l}</div>
-                    <div className="text-2xl font-light" style={{color:s.c}}>{s.v}</div>
+        <div className="fixed inset-0 z-[100]" onClick={() => setSelCabor(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"/>
+          <div className="absolute right-0 top-0 h-full w-full sm:w-[420px] overflow-y-auto transform transition-transform duration-300 shadow-2xl"
+            style={{ background:'#02060f', borderLeft:`1px solid ${ACCENT}25` }}
+            onClick={e => e.stopPropagation()}>
+            <div className="p-8">
+              <div className="flex items-start justify-between mb-8">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest mb-2 px-2 py-1 rounded-md inline-block" style={{ background:`${ACCENT}15`, color:ACCENT }}>Detail Analisis Cabor</div>
+                  <h2 className="text-3xl font-black text-white tracking-tight">{selCabor.nama}</h2>
+                  <div className="text-sm text-zinc-400 mt-1 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+                    {selCabor.kategori}
                   </div>
-                ))}
+                </div>
+                <button onClick={() => setSelCabor(null)}
+                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors">
+                  <X size={18}/>
+                </button>
               </div>
-              {/* Medali */}
-              <div className="rounded-xl p-4" style={{background:'rgba(255,215,0,0.06)',border:'1px solid rgba(255,215,0,0.15)'}}>
-                <div className="text-[10px] text-slate-500 mb-3">Perolehan Medali</div>
-                <div className="flex gap-3 justify-between">
-                  {[{l:'Emas',v:selCabor.emas,c:'#ffd700'},{l:'Perak',v:selCabor.perak,c:'#c0c0c0'},{l:'Perunggu',v:selCabor.perunggu,c:'#cd7f32'}].map(m=>(
-                    <div key={m.l} className="flex-1 text-center">
-                      <div className="text-2xl font-black" style={{color:m.c}}>{m.v}</div>
-                      <div className="text-[10px] text-slate-500">{m.l}</div>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { l:'Total Atlet Terdaftar', v:selCabor.total,   c:ACCENT, icon:Users },
+                    { l:'Verifikasi Valid',      v:selCabor.verified, c:'#22d3ee', icon:CheckCircle },
+                    { l:'Atlet Putra',           v:selCabor.putra,    c:ACCENT, icon:null },
+                    { l:'Atlet Putri',           v:selCabor.putri,    c:'#f472b6', icon:null },
+                  ].map((s, i) => (
+                    <div key={s.l} className="rounded-2xl p-4 border shadow-inner"
+                      style={{ background:'rgba(255,255,255,0.02)', borderColor: i < 2 ? `${s.c}20` : 'rgba(255,255,255,0.05)' }}>
+                      <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider mb-2">
+                        {s.icon && <s.icon size={12} style={{ color:s.c }}/>} {s.l}
+                      </div>
+                      <div className="text-3xl font-light" style={{ color:s.c }}>{s.v}</div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 pt-3 border-t flex justify-between text-xs" style={{borderColor:'rgba(255,255,255,0.06)'}}>
-                  <span className="text-slate-500">Conversion Rate</span>
-                  <span className="font-bold" style={{color:selCabor.conversion>30?'#4ade80':'#f87171'}}>{selCabor.conversion}%</span>
+
+                <div className="rounded-2xl p-6 bg-gradient-to-br from-[#ffd70010] to-transparent border border-[#ffd70020] shadow-lg">
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-yellow-500 uppercase tracking-widest mb-5">
+                    <Trophy size={14}/> Perolehan Medali
+                  </div>
+                  <div className="flex gap-4">
+                    {[
+                      { l:'Emas',    v:selCabor.emas,     c:'#ffd700', bg:'#ffd70015' },
+                      { l:'Perak',   v:selCabor.perak,    c:'#e2e8f0', bg:'#e2e8f015' },
+                      { l:'Perunggu',v:selCabor.perunggu, c:'#cd7f32', bg:'#cd7f3215' },
+                    ].map(m => (
+                      <div key={m.l} className="flex-1 text-center bg-black/20 rounded-xl py-3 border border-white/5">
+                        <div className="text-3xl font-black drop-shadow-sm mb-1" style={{ color:m.c }}>{m.v}</div>
+                        <div className="text-[10px] text-zinc-400 uppercase tracking-wider">{m.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-5 pt-4 border-t border-white/10 flex justify-between items-center text-sm bg-black/10 px-4 py-2.5 rounded-xl">
+                    <span className="text-zinc-400 font-medium">Conversion Rate</span>
+                    <span className="font-black text-lg"
+                      style={{ color:selCabor.conversion>=25?'#22d3ee':'#f87171' }}>
+                      {selCabor.conversion}%
+                    </span>
+                  </div>
                 </div>
-              </div>
-              {/* Analisis */}
-              <div className="rounded-xl p-4" style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)'}}>
-                <div className="text-[10px] text-slate-500 mb-2">Analisis Sistem</div>
-                <div className="text-xs text-slate-300 leading-relaxed">
-                  {selCabor.conversion>=50 ? '✅ Efisiensi pembinaan sangat baik — cabor ini jadi unggulan perolehan medali.' :
-                   selCabor.conversion>=25 ? '🔥 Efisiensi baik, ada peluang meningkat dengan fokus ke atlet potensial.' :
-                   selCabor.total>30        ? '⚠️ Banyak atlet tapi konversi rendah — perlu evaluasi metode pembinaan.' :
-                   '📋 Data terbatas, perlu monitoring lebih lanjut.'}
+
+                <div className="rounded-2xl p-5 border border-[#38bdf815] bg-[#38bdf805]">
+                  <div className="text-[10px] font-bold text-[#38bdf8] uppercase tracking-widest mb-3">Sistem Intelijen Merangkum</div>
+                  <p className="text-sm text-zinc-300 leading-relaxed font-medium">
+                    {selCabor.conversion>=50?'✅ Efisiensi tingkat dewa. Ini adalah cabang olahraga unggulan penyumbang medali utama kontingen.'
+                    :selCabor.conversion>=25?'🔥 Efisiensi tergolong baik. Return on Investment (ROI) pembinaan atlet positif.'
+                    :selCabor.total>30?'⚠️ Warning: Jumlah atlet masif namun konversi medali minim. Perlu evaluasi program pembinaan.'
+                    :'📋 Data historis masih terbatas, perlu pengawasan dan pendampingan lebih lanjut.'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -772,10 +594,14 @@ export default function DashboardKabBandung() {
       )}
 
       <style>{`
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.3); border-radius: 4px; }
+        *{box-sizing:border-box}
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        ::-webkit-scrollbar{width:6px;height:6px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:${ACCENT}40;border-radius:10px}
+        ::-webkit-scrollbar-thumb:hover{background:${ACCENT}80}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
       `}</style>
     </div>
   )

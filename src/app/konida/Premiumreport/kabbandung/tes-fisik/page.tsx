@@ -9,7 +9,7 @@ export default function TesFisikKabBandungPage() {
       kontingenId={4}
       tenantName="Kab. Bandung"
       tenantSlug="kabbandung"
-      primary="#0369a1"
+      primary="#075985"
       backHref="/konida/Premiumreport/kabbandung"
     />
   )

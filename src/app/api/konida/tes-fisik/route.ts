@@ -9,6 +9,10 @@ const sb = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 )
 
+// Selalu ambil data live dari DB — jangan cache respons Supabase (cegah data basi).
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const kontingenId = parseInt(searchParams.get('kontingen_id') || '0')
