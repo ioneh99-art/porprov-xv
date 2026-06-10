@@ -4,8 +4,14 @@
 // Fix: getRedirect duplikat case
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { loginUser } from '@/lib/auth'
 import { getSubscription } from '@/lib/subscriptions'
+
+const sbAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+)
 
 // ─── Rate Limiter ─────────────────────────────────────────
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>()
@@ -87,6 +93,7 @@ function resolveLevel(user: {
 }): string {
   if (user.role === 'superadmin') return 'superadmin'
   if (user.role === 'koni_jabar') return 'koni_jabar'
+  if (user.role === 'operator_cabor' || user.role === 'operator') return 'level3'
   if (user.level && ['superadmin','koni_jabar','level1','level2','level3'].includes(user.level)) {
     return user.level
   }
@@ -125,11 +132,20 @@ function getRedirect(
   level: string,
   role: string,
   tenantId: string,
-  planId: string
+  planId: string,
+  username: string
 ): string {
   // Superadmin & KONI
   if (level === 'superadmin') return '/superadmin'
   if (level === 'koni_jabar') return '/dashboard'
+
+  // Operator cabor — jangan ke konida dashboard
+  if (role === 'operator_cabor') {
+    if (/pentathlon/i.test(username)) return '/operator/pentathlon'
+    if (/dayung/i.test(username))     return '/operator/dayung'
+    return '/operator/dashboard'
+  }
+  if (role === 'operator') return '/operator/dashboard'
 
   // Penyelenggara (level1 = kotabekasi)
   if (level === 'level1') {
@@ -205,7 +221,7 @@ export async function POST(req: NextRequest) {
   const planId = await resolvePlan(user.kontingen_id, tenantId)
 
   const loginOrigin = resolveLoginOrigin(tenantId, userLevel)
-  const redirect    = getRedirect(userLevel, user.role, tenantId, planId)
+  const redirect    = getRedirect(userLevel, user.role, tenantId, planId, user.username)
 
   if (process.env.NODE_ENV === 'development') {
     console.log('[login]', {
@@ -221,6 +237,17 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  // Lookup cabor_nama jika user punya cabor_id (operator_cabor)
+  let cabor_nama: string | null = null
+  if (user.cabor_id) {
+    const { data: cabor } = await sbAdmin
+      .from('cabang_olahraga')
+      .select('nama')
+      .eq('id', user.cabor_id)
+      .single()
+    cabor_nama = cabor?.nama ?? null
+  }
+
   const sessionData = JSON.stringify({
     id:           user.id,
     username:     user.username,
@@ -228,6 +255,7 @@ export async function POST(req: NextRequest) {
     role:         user.role,
     kontingen_id: user.kontingen_id,
     cabor_id:     user.cabor_id,
+    cabor_nama,
     level:        userLevel,
     plan_id:      planId,
   })

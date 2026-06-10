@@ -85,7 +85,7 @@ export default function DashboardKabBogor() {
 
   useEffect(() => {
     async function load() {
-      const [a, k, m, tf, tfi] = await Promise.allSettled([
+      const [a, k, m, tf] = await Promise.allSettled([
         sb.from('atlet')
           .select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir')
           .eq('kontingen_id', KONTINGEN_ID),
@@ -101,8 +101,6 @@ export default function DashboardKabBogor() {
         sb.from('atlet_tes_fisik')
           .select('kesimpulan_persen,status_tes,cabor_nama')
           .eq('kontingen_id', KONTINGEN_ID).eq('tahap', 3),
-        sb.from('atlet_tes_fisik_item')
-          .select('komponen,capaian_persen'),
       ])
 
       if (tf.status==='fulfilled' && tf.value.data) {

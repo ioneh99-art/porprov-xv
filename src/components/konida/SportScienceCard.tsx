@@ -42,22 +42,28 @@ export default function SportScienceCard({
   useEffect(() => {
     async function load() {
       try {
-        // Parallel fetch: header tes + items + atlet info
-        const [tesRes, itemsRes, atletRes] = await Promise.all([
+        // Step 1 — header tes + atlet info (parallel)
+        const [tesRes, atletRes] = await Promise.all([
           sb.from('atlet_tes_fisik')
             .select('id,atlet_id,kesimpulan_persen,kesimpulan_kategori,status_tes,bmi,cabor_nama')
             .eq('kontingen_id', kontingenId)
             .eq('tahap', 3),
-          sb.from('atlet_tes_fisik_item')
-            .select('tes_fisik_id,komponen,capaian_persen'),
           sb.from('atlet')
             .select('id,nama_lengkap,cabor_nama_raw')
             .eq('kontingen_id', kontingenId),
         ])
 
         const tes    = tesRes.data || []
-        const items  = itemsRes.data || []
         const atlets = atletRes.data || []
+
+        // Step 2 — items filtered by tes_fisik IDs (hindari limit 1000 tanpa filter)
+        const tesIds = tes.map((t: any) => t.id)
+        const { data: itemsRaw } = tesIds.length > 0
+          ? await sb.from('atlet_tes_fisik_item')
+              .select('tes_fisik_id,komponen,capaian_persen')
+              .in('tes_fisik_id', tesIds)
+          : { data: [] as any[] }
+        const items = itemsRaw || []
 
         // Build atlet map
         const atletMap: Record<number, any> = {}

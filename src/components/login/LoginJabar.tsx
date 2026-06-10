@@ -3,13 +3,14 @@
 // Multi-tenant login: isJabar → full cyan/green JARVIS, else → tenant colors on dark bg
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn, AlertCircle, Terminal, Shield } from 'lucide-react'
 import { useTenant, clearTenant, setTenantPersist } from '@/hooks/useTenant'
 
 export default function LoginPage() {
-  const router   = useRouter()
-  const tenant   = useTenant()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const tenant       = useTenant()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -50,7 +51,8 @@ export default function LoginPage() {
       const _origin = data.login_origin ?? 'jabar'
       document.cookie = `login_origin=${_origin}; path=/; max-age=${60*60*24*30}; samesite=lax`
       if (data.login_origin && data.login_origin !== 'jabar') setTenantPersist(data.login_origin)
-      router.push(data.redirect)
+      const nextParam = searchParams.get('next')
+      router.push(nextParam ?? data.redirect)
     } catch {
       setError('Tidak dapat terhubung ke server')
       setLoading(false)
@@ -330,11 +332,11 @@ export default function LoginPage() {
                 </p>
                 <div className="space-y-1">
                   {[
-                    { role:'Admin',           user:'admin',       pass:'admin123' },
-                    { role:'KONIDA Kab. Bogor',user:'kab.bogor',  pass:'admin123' },
-                    { role:'KONIDA Bandung',   user:'kota.bandung',pass:'admin123' },
-                    { role:'Op. Atletik',      user:'op.atletik',  pass:'admin123' },
-                    { role:'Op. Renang',       user:'op.akuatikrn',pass:'admin123' },
+                    { role:'Admin PORPROV',    user:'admin',        pass:'admin123'      },
+                    { role:'KONIDA Kab. Bandung', user:'kab.bandung', pass:'admin123'   },
+                    { role:'KONIDA Kab. Bogor',  user:'kab.bogor',   pass:'admin123'   },
+                    { role:'Op. Pentathlon',   user:'op.pentathlon',pass:'pentathlon2024'},
+                    { role:'Op. Dayung',       user:'op.dayung',    pass:'dayung2024'   },
                   ].map(a => (
                     <button key={a.role} type="button"
                       onClick={() => { setUsername(a.user); setPassword(a.pass) }}

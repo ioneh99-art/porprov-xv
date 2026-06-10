@@ -84,7 +84,7 @@ export default function LoginKabBandung() {
       <div className="hidden lg:flex w-[58%] relative overflow-hidden flex-col p-10 justify-between">
 
         {/* Background peta */}
-        <div className="absolute inset-0 z-0 opacity-50 pointer-events-none saturate-50 bg-[url('/logos/peta_kabbandung.jpg')] bg-cover bg-center"/>
+        <div className="absolute inset-0 z-0 opacity-50 pointer-events-none saturate-50 bg-[url('/logos/peta_kabbandung.webp')] bg-cover bg-center"/>
         <div className="absolute inset-0 z-[1] bg-gradient-to-br from-[#020a14]/85 via-[#061408]/65 to-[#020a14]/90 pointer-events-none"/>
         <div className="absolute inset-0 z-[1] pointer-events-none" style={{backgroundImage:'linear-gradient(rgba(52,211,153,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(52,211,153,0.06) 1px,transparent 1px)',backgroundSize:'40px 40px'}}/>
         <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,10,20,0.7)_100%)] pointer-events-none"/>
@@ -94,10 +94,10 @@ export default function LoginKabBandung() {
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-sky-900/35 border-2 border-sky-400/40 flex items-center justify-center overflow-hidden backdrop-blur-sm shadow-[0_0_15px_rgba(52,211,153,0.2)]">
-              <img src="/logos/kab-bogor.png" alt="" className="w-8 h-8 object-contain"
+              <img src="/logos/kab-bandung.png" alt="Lambang Kab. Bandung" className="w-8 h-8 object-contain"
                 onError={e=>{
                   const el=e.target as HTMLImageElement; el.style.display='none'
-                  if(el.parentElement) el.parentElement.innerHTML='<span class="text-sky-400 font-black text-xs">KBR</span>'
+                  if(el.parentElement) el.parentElement.innerHTML='<span class="text-sky-400 font-black text-xs">KBD</span>'
                 }}/>
             </div>
             <div>
@@ -117,8 +117,11 @@ export default function LoginKabBandung() {
             <MapPin size={12} className="text-sky-400"/> PUSAT KOMANDO KONTINGEN
           </div>
           <h1 className="text-white text-5xl font-extrabold leading-[1.1] mb-4 tracking-tight drop-shadow-[0_0_40px_rgba(52,211,153,0.25)]">
-            Tegar<br/><span className="text-sky-400">Beriman</span>
+            Kabupaten Bandung<br/><span className="text-sky-400">BEDAS</span>
           </h1>
+          <p className="text-sky-400/60 text-[10px] font-medium tracking-[0.12em] uppercase -mt-2 mb-2">
+            Bangkit · Edukatif · Dinamis · Agamis · Sejahtera
+          </p>
           <p className="text-white/60 text-[13px] leading-relaxed max-w-[320px] font-medium">
             Sistem manajemen kontingen premium<br/>
             Kabupaten Bandung · PORPROV XV 2026
@@ -258,11 +261,15 @@ export default function LoginKabBandung() {
 
           {/* Mobile Header */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl mb-3 bg-sky-900/20 border-2 border-sky-400/30 flex items-center justify-center">
-              <span className="text-sky-400 text-lg font-black">KBR</span>
+            <div className="w-14 h-14 rounded-2xl mb-3 bg-sky-900/20 border-2 border-sky-400/30 flex items-center justify-center overflow-hidden">
+              <img src="/logos/kab-bandung.png" alt="Lambang Kab. Bandung" className="w-12 h-12 object-contain"
+                onError={e=>{
+                  const el=e.target as HTMLImageElement; el.style.display='none'
+                  if(el.parentElement) el.parentElement.innerHTML='<span class="text-sky-400 text-lg font-black">KBD</span>'
+                }}/>
             </div>
             <div className="text-white text-lg font-extrabold tracking-tight">Kabupaten Bandung</div>
-            <div className="text-sky-400 text-[9px] tracking-[0.2em] mt-1 font-bold">TEGAR BERIMAN</div>
+            <div className="text-sky-400 text-[9px] tracking-[0.2em] mt-1 font-bold">BEDAS</div>
           </div>
 
           {/* Divider */}

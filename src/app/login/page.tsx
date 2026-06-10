@@ -1,6 +1,14 @@
 'use client'
 // src/app/login/page.tsx
-// Langsung render LoginJabar — dia sudah handle semua tenant via useTenant()
-// LoginJabar = multi-tenant login page (Jabar/Bekasi/Bogor/Depok)
+// Wrap dalam Suspense karena LoginJabar pakai useSearchParams()
 
-export { default } from '@/components/login/LoginJabar'
+import { Suspense } from 'react'
+import LoginJabar from '@/components/login/LoginJabar'
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginJabar />
+    </Suspense>
+  )
+}

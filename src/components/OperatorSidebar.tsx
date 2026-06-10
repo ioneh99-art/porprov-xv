@@ -1,122 +1,236 @@
 'use client'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import {
-  LayoutDashboard, ClipboardList, Trophy,
-  LogOut, ChevronRight, ShieldCheck, ClipboardCheck, Calendar, 
-  User
-} from 'lucide-react'
-import { useEffect, useState } from 'react'
 
-export default function OperatorSidebar() {
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import {
+  MessageSquare, FileText, TrendingUp, BarChart3,
+  Dna, Trophy, Search, GitBranch, ChevronDown,
+  ChevronRight, Sparkles, LogOut, User,
+  Edit3, Users, Medal, Settings, Calendar
+} from 'lucide-react'
+
+type TierBadge = 'BASIC' | 'PRO' | 'ELITE' | 'CHAMPION'
+
+type MenuItem = {
+  label: string
+  href: string
+  icon: any
+  tier: TierBadge
+  badge?: string
+}
+
+type MenuGroup = {
+  label: string
+  items: MenuItem[]
+}
+
+const MENU_GROUPS: MenuGroup[] = [
+  {
+    label: 'PENTATHLON MODULE',
+    items: [
+      { label: 'Dashboard Pentathlon', href: '/operator/pentathlon',           icon: Medal,          tier: 'BASIC' },
+      { label: 'Data Atlet',           href: '/operator/pentathlon/atlet',     icon: Users,          tier: 'BASIC' },
+      { label: 'Dokumen Atlet',        href: '/operator/pentathlon/dokumen',   icon: FileText,       tier: 'BASIC' },
+      { label: 'Jadwal Pertandingan',   href: '/operator/pentathlon/jadwal',   icon: Calendar,       tier: 'BASIC' },
+      { label: 'Lineup',               href: '/operator/pentathlon/lineup',    icon: Users,          tier: 'BASIC' },
+    ]
+  },
+  {
+    label: 'ANALYTICS',
+    items: [
+      { label: 'Performance Trends', href: '/operator/analytics/trends', icon: TrendingUp, tier: 'PRO' },
+      { label: 'Comparative Analysis', href: '/operator/analytics/compare', icon: BarChart3, tier: 'PRO' },
+    ]
+  },
+  {
+    label: 'INTELLIGENCE',
+    items: [
+      { label: 'Sport Intelligence', href: '/operator/sport-intel',      icon: MessageSquare, tier: 'PRO',      badge: 'AI' },
+      { label: 'Strategic Brief',    href: '/operator/strategic-brief',  icon: FileText,      tier: 'PRO',      badge: 'AI' },
+      { label: 'Athlete Genome', href: '/operator/intel/genome', icon: Dna, tier: 'ELITE', badge: 'AI' },
+      { label: 'Medal Predictor', href: '/operator/intel/predictor', icon: Trophy, tier: 'ELITE', badge: 'AI' },
+      { label: 'Talent Scout', href: '/operator/intel/scout', icon: Search, tier: 'CHAMPION', badge: 'AI' },
+      { label: 'Mutation Analytics', href: '/operator/intel/mutation', icon: GitBranch, tier: 'CHAMPION' },
+    ]
+  },
+  {
+    label: 'LIVE EVENT TOOLS',
+    items: [
+      { label: 'Input UIPM',       href: '/operator/pentathlon/input',    icon: Edit3,    tier: 'BASIC' },
+      { label: 'Klasemen Live',    href: '/operator/pentathlon/klasemen', icon: Trophy,   tier: 'BASIC' },
+      { label: 'Settings Formula', href: '/operator/pentathlon/settings', icon: Settings, tier: 'BASIC' },
+    ]
+  },
+]
+
+const TIER_COLORS: Record<TierBadge, string> = {
+  BASIC: 'bg-slate-700 text-slate-300',
+  PRO: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+  ELITE: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+  CHAMPION: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+}
+
+export default function OperatorSidebar({
+  user,
+  onLogout,
+}: {
+  user?: { username?: string; cabor?: string; tier?: TierBadge }
+  onLogout?: () => void
+}) {
   const pathname = usePathname()
-  const router = useRouter()
-  const [counts, setCounts] = useState<Record<string, number>>({})
-  const [user, setUser] = useState<any>(null)
+  const [collapsed, setCollapsed] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    'PENTATHLON MODULE': true,
+    ANALYTICS: true,
+    INTELLIGENCE: true,
+    'LIVE EVENT TOOLS': true,
+  })
 
   useEffect(() => {
-    // Ambil session user
-    fetch('/api/auth/me').then(r => r.json()).then(data => {
-      setUser(data)
-      fetchCounts(data)
-    })
-    const interval = setInterval(() => {
-      fetch('/api/auth/me').then(r => r.json()).then(data => fetchCounts(data))
-    }, 30000)
-    return () => clearInterval(interval)
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') : null
+    if (saved === '1') setCollapsed(true)
   }, [])
 
-  const fetchCounts = async (u?: any) => {
-    try {
-      const cabor_id = u?.cabor_id
-      if (!cabor_id) return
-      const res = await fetch(`/api/notifications?role=operator_cabor&cabor_id=${cabor_id}`)
-      const data = await res.json()
-      setCounts(data)
-    } catch {}
+  const toggleCollapsed = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebar_collapsed', next ? '1' : '0')
+    }
   }
 
-  const navItems = [
-    { label: 'Dashboard', href: '/operator/dashboard', icon: LayoutDashboard },
-    {
-      label: 'Verifikasi Atlet', href: '/operator/verifikasi',
-      icon: ShieldCheck, notif: counts.atlet ?? 0
-    },
-    {
-      label: 'Lineup', href: '/operator/kualifikasi',
-      icon: ClipboardCheck, notif: counts.kualifikasi ?? 0
-    },
-    {
-      label: 'Kejuaraan Atlet', href: '/operator/kejuaraan',
-      icon: Trophy, notif: counts.kejuaraan ?? 0
-    },
-    { label: 'Nomor Pertandingan', href: '/operator/nomor', icon: ClipboardList },
-    { label: 'Jadwal', href: '/operator/jadwal', icon: Calendar },
-    { label: 'Input Hasil', href: '/operator/hasil', icon: Trophy },
-  ]
-
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
-    router.refresh()
+  const toggleGroup = (label: string) => {
+    setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
   }
+
+  const userTier: TierBadge = user?.tier ?? 'CHAMPION'
+  const tierRank: Record<TierBadge, number> = { BASIC: 0, PRO: 1, ELITE: 2, CHAMPION: 3 }
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-56 bg-slate-900 border-r border-slate-800 flex flex-col z-20">
-      <div className="px-5 py-5 border-b border-slate-800">
-        <div className="text-white font-semibold text-sm">PORPROV XV</div>
-        <div className="text-slate-500 text-xs mt-0.5">Jawa Barat 2026</div>
-        <div className="flex items-center gap-2 mt-2">
-          <span className="inline-block bg-emerald-500/20 text-emerald-400 text-[9px] px-2 py-0.5 rounded font-semibold tracking-wider border border-emerald-500/20">
-            OPERATOR CABOR
-          </span>
-          {(counts.total ?? 0) > 0 && (
-            <span className="inline-flex items-center gap-1 bg-red-500/10 text-red-400 text-[9px] px-2 py-0.5 rounded-full font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-              {counts.total}
-            </span>
-          )}
-        </div>
-        {user?.cabor_nama && (
-          <div className="text-slate-500 text-[10px] mt-1 truncate">{user.cabor_nama}</div>
+    <aside className={`bg-slate-950 border-r border-slate-800 h-screen sticky top-0 flex flex-col transition-all ${collapsed ? 'w-16' : 'w-64'}`}>
+      {/* Header */}
+      <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+        {!collapsed && (
+          <div>
+            <div className="text-white font-bold text-sm">PORPROV XV</div>
+            <div className="text-slate-500 text-xs">Operator Cabor</div>
+          </div>
         )}
+        <button
+          onClick={toggleCollapsed}
+          className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition"
+          aria-label="Toggle sidebar"
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} className="rotate-90" />}
+        </button>
       </div>
 
-      <nav className="flex-1 px-3 pt-4 overflow-y-auto">
-        <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Menu</div>
-        {navItems.map(({ label, href, icon: Icon, notif }) => {
-          const active = pathname === href || pathname.startsWith(href + '/')
-          return (
-            <Link key={href} href={href}
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all
-                ${active
-                  ? 'bg-emerald-500/10 text-emerald-400'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-              <Icon size={16} />
-              <span className="flex-1">{label}</span>
-              {(notif ?? 0) > 0 && (
-                <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">
-                  {notif}
-                </span>
-              )}
-              {active && <ChevronRight size={12} />}
-            </Link>
-          )
-        })}
+      {/* User badge */}
+      {!collapsed && user && (
+        <div className="px-4 py-3 border-b border-slate-800">
+          <div className="flex items-center gap-2 mb-1">
+            <User size={14} className="text-slate-400" />
+            <div className="text-white text-sm font-medium truncate">{user.username ?? 'operator'}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 text-xs truncate">{user.cabor ?? '—'}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${TIER_COLORS[userTier]}`}>
+              {userTier}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Menu groups */}
+      <nav className="flex-1 overflow-y-auto py-3">
+        {MENU_GROUPS.map(group => (
+          <div key={group.label} className="mb-2">
+            {!collapsed && (
+              <button
+                onClick={() => toggleGroup(group.label)}
+                className="w-full px-4 py-1.5 flex items-center justify-between text-[10px] font-bold text-slate-500 hover:text-slate-300 uppercase tracking-wider"
+              >
+                <span>{group.label}</span>
+                {openGroups[group.label] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+            )}
+            {(collapsed || openGroups[group.label]) && (
+              <div className="space-y-0.5">
+                {group.items.map(item => {
+                  const Icon = item.icon
+                  const isActive = pathname === item.href
+                  const locked = tierRank[item.tier] > tierRank[userTier]
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={locked ? '#' : item.href}
+                      onClick={e => {
+                        if (locked) {
+                          e.preventDefault()
+                          alert(`Fitur ini butuh tier ${item.tier}. Upgrade dulu bos.`)
+                        }
+                      }}
+                      className={`mx-2 px-3 py-2 rounded-lg flex items-center gap-3 text-sm transition group ${
+                        isActive
+                          ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                          : locked
+                          ? 'text-slate-600 hover:bg-slate-900'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <Icon size={16} className="shrink-0" />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 truncate">{item.label}</span>
+                          {item.badge && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gradient-to-r from-violet-500/20 to-blue-500/20 text-violet-300 font-bold">
+                              {item.badge}
+                            </span>
+                          )}
+                          {locked && <span className="text-[10px]">🔒</span>}
+                        </>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ))}
       </nav>
 
-      <Link href="/operator/profil"
-        className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-all mb-1">
-        <User size={16} />
-        <span>Profil</span>
-      </Link>
-
-      <div className="px-3 pb-3 border-t border-slate-800 pt-3">
-        <button onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all">
-          <LogOut size={16} />
-          <span>Keluar</span>
-        </button>
+      {/* Footer */}
+      <div className="p-3 border-t border-slate-800">
+        {!collapsed ? (
+          <div>
+            <div className="flex items-center gap-2 px-2 py-1.5 mb-2 text-xs text-slate-500">
+              <Sparkles size={12} className="text-amber-400" />
+              <span>Powered by Claude + Groq</span>
+            </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-sm text-slate-400 hover:bg-slate-800 hover:text-red-400 transition"
+              >
+                <LogOut size={14} />
+                <span>Logout</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          onLogout && (
+            <button
+              onClick={onLogout}
+              className="w-full p-2 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-800 hover:text-red-400 transition"
+              title="Logout"
+            >
+              <LogOut size={14} />
+            </button>
+          )
+        )}
       </div>
     </aside>
   )

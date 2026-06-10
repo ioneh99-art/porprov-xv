@@ -117,8 +117,8 @@ export default function PageAtletKabBandung() {
   useEffect(()=>{
     async function fetchAtlet() {
       try {
-        // Parallel: atlet + tes_fisik (header) + tes_fisik items
-        const [atletRes, tesFisikRes, itemsRes] = await Promise.all([
+        // Step 1 — atlet + tes_fisik headers (parallel)
+        const [atletRes, tesFisikRes] = await Promise.all([
           sb.from('atlet')
             .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at')
             .eq('kontingen_id', KONTINGEN_ID)
@@ -128,14 +128,20 @@ export default function PageAtletKabBandung() {
             .select('id,atlet_id,bmi,berat_badan,tinggi_badan,kesimpulan_persen,kesimpulan_kategori,status_tes,cabor_nama,matching_method')
             .eq('kontingen_id', KONTINGEN_ID)
             .eq('tahap', 3),
-          sb.from('atlet_tes_fisik_item')
-            .select('tes_fisik_id,komponen,item_tes,capaian_persen,kategori'),
         ])
 
         if (atletRes.error) throw atletRes.error
         const atlets = (atletRes.data || []) as Atlet[]
         const tesFisikList = tesFisikRes.data || []
-        const itemsList = itemsRes.data || []
+
+        // Step 2 — items filtered by tes_fisik IDs (bukan fetch semua — kena limit 1000)
+        const tesFisikIds = tesFisikList.map((tf: any) => tf.id)
+        const { data: itemsRaw } = tesFisikIds.length > 0
+          ? await sb.from('atlet_tes_fisik_item')
+              .select('tes_fisik_id,komponen,item_tes,capaian_persen,kategori')
+              .in('tes_fisik_id', tesFisikIds)
+          : { data: [] as any[] }
+        const itemsList = itemsRaw || []
 
         // Build map: atlet_id → tes_fisik
         const tesMap: Record<number, TesFisikInfo> = {}
