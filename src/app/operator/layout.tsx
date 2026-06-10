@@ -5,7 +5,18 @@ import { redirect } from 'next/navigation'
 
 const OPERATOR_ROLES = ['operator_cabor', 'operator', 'admin', 'superadmin']
 
-export default function OperatorLayout({ children }: { children: React.ReactNode }) {
+type TierBadge = 'BASIC' | 'PRO' | 'ELITE' | 'CHAMPION'
+function resolveTier(user: any): TierBadge {
+  const id = parseInt(user?.plan_id) || 0
+  const lvl = (user?.level ?? '').toLowerCase()
+  if (id >= 4 || lvl === 'champion') return 'CHAMPION'
+  if (id === 3 || lvl === 'elite')   return 'ELITE'
+  if (id === 2 || lvl === 'pro')     return 'PRO'
+  if (id === 1 || lvl === 'basic')   return 'BASIC'
+  return 'CHAMPION' // default: operator aktif dapat akses penuh
+}
+
+export default async function OperatorLayout({ children }: { children: React.ReactNode }) {
   const session = cookies().get('porprov_session')?.value
   let user: any = null
   try { user = session ? JSON.parse(session) : null } catch {}
@@ -13,9 +24,24 @@ export default function OperatorLayout({ children }: { children: React.ReactNode
   if (!user) redirect('/login')
   if (!OPERATOR_ROLES.includes(user.role)) redirect('/')
 
+  async function logout() {
+    'use server'
+    cookies().delete('porprov_session')
+    cookies().delete('user_level')
+    cookies().delete('tenant_id')
+    redirect('/login')
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-950">
-      <OperatorSidebar />
+      <OperatorSidebar
+        user={{
+          username: user.nama ?? user.username,
+          cabor: user.cabor_nama ?? user.cabor_id,
+          tier: resolveTier(user),
+        }}
+        onLogout={logout}
+      />
       <main className="flex-1 p-7 min-w-0">
         {children}
       </main>

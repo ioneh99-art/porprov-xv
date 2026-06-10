@@ -104,9 +104,9 @@ export default function PentathlonDashboardPage() {
     const a: { id: string; type: 'error' | 'warning' | 'info'; msg: string; href: string; cta: string }[] = []
 
     if (stats.ditolak > 0)
-      a.push({ id: 'ditolak', type: 'error', msg: `${stats.ditolak} atlet ditolak admin — perlu revisi segera`, href: '/operator/verifikasi', cta: 'Lihat' })
+      a.push({ id: 'ditolak', type: 'error', msg: `${stats.ditolak} atlet ditolak admin — perlu revisi segera`, href: '/operator/pentathlon/atlet', cta: 'Lihat' })
     if (stats.menungguAdmin > 0)
-      a.push({ id: 'menunggu', type: 'warning', msg: `${stats.menungguAdmin} atlet menunggu verifikasi`, href: '/operator/verifikasi', cta: 'Verifikasi' })
+      a.push({ id: 'menunggu', type: 'warning', msg: `${stats.menungguAdmin} atlet menunggu verifikasi`, href: '/operator/pentathlon/atlet', cta: 'Verifikasi' })
     if (stats.totalAtlet > 0 && stats.totalLineup === 0)
       a.push({ id: 'lineup', type: 'warning', msg: 'Lineup belum dimulai — daftarkan atlet ke 5 nomor pentathlon', href: '/operator/pentathlon/lineup', cta: 'Mulai Lineup' })
     if (stats.totalJadwal === 0 && stats.totalNomor > 0)
