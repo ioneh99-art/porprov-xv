@@ -49,13 +49,23 @@ export interface KlasemenData {
 interface Props {
   klasemen: KlasemenData[]
   selectedCabor?: string | null
-  kbgEmas: number
+  myEmas: number
   height?: number
   center?: [number, number]
   zoom?: number
+  /** Kontingen "kita" yang disorot di peta (default Kab. Bogor) */
+  myKontingen?: string
+  /** Warna penanda "kita" (default accent hijau) */
+  myColor?: string
+  /** Label tampilan untuk "kita" di popup & legend (default Kab. Bogor) */
+  myLabel?: string
 }
 
-export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, height=280, center, zoom }: Props) {
+export default function PetaKompetitor({
+  klasemen, selectedCabor, myEmas, height=280, center, zoom,
+  myKontingen='KAB. BOGOR', myColor=ACCENT, myLabel='Kab. Bogor',
+}: Props) {
+  const MY = myKontingen.toUpperCase()
   const mapDiv = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap|null>(null)
 
@@ -98,24 +108,24 @@ export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, heigh
         if (!geo) return
 
         const [geoKey, geoVal] = geo
-        const isUs = namaUpper.includes('KAB. BOGOR') && !namaUpper.includes('BANDUNG')
+        const isUs = geoKey === MY
 
         // Threat level berdasarkan selisih emas vs kita
-        const selisih  = k.emas - kbgEmas
-        const threatPct = Math.min(Math.abs(selisih) / Math.max(kbgEmas, 1) * 100, 100)
+        const selisih  = k.emas - myEmas
+        const threatPct = Math.min(Math.abs(selisih) / Math.max(myEmas, 1) * 100, 100)
 
         let color: string
         let threatLabel: string
         if (isUs) {
-          color = ACCENT
+          color = myColor
           threatLabel = 'KITA'
-        } else if (k.emas > kbgEmas * 1.5) {
+        } else if (k.emas > myEmas * 1.5) {
           color = '#ef4444'  // Jauh di atas — sangat mengancam
           threatLabel = '🔴 ANCAMAN TINGGI'
-        } else if (k.emas > kbgEmas) {
+        } else if (k.emas > myEmas) {
           color = '#f97316'  // Di atas — waspada
           threatLabel = '🟠 WASPADA'
-        } else if (k.emas >= kbgEmas * 0.7) {
+        } else if (k.emas >= myEmas * 0.7) {
           color = '#fbbf24'  // Seimbang
           threatLabel = '🟡 SEIMBANG'
         } else {
@@ -169,7 +179,7 @@ export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, heigh
               </div>
               ${!isUs ? `
               <div style="padding-top:8px;border-top:1px solid #1e293b;font-size:11px;color:#6b7280">
-                Selisih emas vs Kab. Bogor:
+                Selisih emas vs ${myLabel}:
                 <span style="color:${selisih>0?'#ef4444':'#4ade80'};font-weight:700;margin-left:4px">
                   ${selisih > 0 ? '+' : ''}${selisih} emas
                 </span>
@@ -187,7 +197,7 @@ export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, heigh
             <div style="background:rgba(2,13,6,0.93);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;backdrop-filter:blur(10px);min-width:150px">
               <div style="font-size:9px;font-weight:800;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Threat Level</div>
               ${[
-                { c:'#00ffaa', l:'Kab. Bogor (Kita)' },
+                { c:myColor, l:`${myLabel} (Kita)` },
                 { c:'#ef4444', l:'Ancaman Tinggi' },
                 { c:'#f97316', l:'Waspada' },
                 { c:'#fbbf24', l:'Seimbang' },
@@ -213,7 +223,7 @@ export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, heigh
       cancelled = true
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
     }
-  }, [klasemen, kbgEmas])
+  }, [klasemen, myEmas, MY, myColor, myLabel])
 
   return (
     <>
@@ -224,7 +234,7 @@ export default function PetaKompetitor({ klasemen, selectedCabor, kbgEmas, heigh
         .leaflet-container{background:#020d06;font-family:system-ui}
         .leaflet-control-zoom{border:1px solid rgba(255,255,255,0.1)!important;border-radius:8px!important;overflow:hidden}
         .leaflet-control-zoom a{background:rgba(2,13,6,0.9)!important;color:#9ca3af!important;border-color:rgba(255,255,255,0.08)!important}
-        .leaflet-control-zoom a:hover{background:rgba(0,255,170,0.1)!important;color:#00ffaa!important}
+        .leaflet-control-zoom a:hover{background:${myColor}1a!important;color:${myColor}!important}
       `}</style>
       <div ref={mapDiv} style={{ width:'100%', height:'100%', background:'#020d06' }}/>
     </>

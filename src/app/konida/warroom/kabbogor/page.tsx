@@ -451,7 +451,10 @@ export default function PageWarRoom() {
           </div>
           <PetaKompetitor
             klasemen={klasemen}
-            kbgEmas={summary.emas}
+            myEmas={summary.emas}
+            myKontingen="KAB. BOGOR"
+            myColor={ACCENT}
+            myLabel="Kab. Bogor"
             height={490}
             center={[-6.75, 107.35]}
             zoom={8.5}
