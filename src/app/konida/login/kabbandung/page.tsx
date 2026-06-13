@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, ChevronRight, Activity,
-         MapPin, Shield, Loader2, BookOpen, Monitor, ExternalLink } from 'lucide-react'
+         MapPin, Shield, Loader2 } from 'lucide-react'
 
 const STATS = [
   { label:'Total Atlet',     value:'1.097', color:'text-sky-400', icon:'🏃' },
@@ -14,12 +14,6 @@ const STATS = [
   { label:'Kontingen',       value:'27',    color:'text-purple-400',  icon:'📍' },
 ]
 
-const VENUES = [
-  { nama:'Stadion Pakansari Cibinong', cabor:'Atletik',      status:'AKTIF' },
-  { nama:'Kolam Renang Pakansari',     cabor:'Akuatik',      status:'AKTIF' },
-  { nama:'GOR Laga Tangkas',           cabor:'Bulu Tangkis', status:'AKTIF' },
-  { nama:'Hall Silat Sentul City',     cabor:'Pencak Silat', status:'SIAP'  },
-]
 
 const ATLET_NAMES = [
   'Deni Firmansyah · Hockey','Putri Ayu · Akuatik','Hendra Kurnia · Silat',
@@ -136,74 +130,6 @@ export default function LoginKabBandung() {
             ))}
           </div>
 
-          {/* ── QUICK ACCESS PANEL (BARU) ── */}
-          <div className="mt-6 max-w-md space-y-2">
-            <div className="text-white/30 text-[9px] font-bold tracking-[0.2em] uppercase mb-3">
-              Dokumen Admin
-            </div>
-
-            {/* Download Manual Book */}
-            <a
-              href="/api/download/manual-book"
-             
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-900/20 border border-sky-400/20 hover:bg-sky-900/40 hover:border-sky-400/50 transition-all group"
-            >
-              <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-400/30 flex items-center justify-center flex-shrink-0 group-hover:bg-sky-500/25 transition-colors">
-                <BookOpen size={15} className="text-sky-400"/>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">
-                  Manual Book Sistem
-                </div>
-                <div className="text-white/35 text-[10px] mt-0.5">
-                  Petunjuk lengkap 10 Bab + Lampiran · .docx
-                </div>
-              </div>
-              <ExternalLink size={13} className="text-sky-400/60 flex-shrink-0 group-hover:text-sky-400 transition-colors"/>
-            </a>
-
-            {/* Portal Atlet */}
-            <a
-              href="/atlet/login"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-900/20 border border-amber-400/20 hover:bg-amber-900/40 hover:border-amber-400/50 transition-all group"
-            >
-              <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-400/30 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-500/25 transition-colors">
-                <span className="text-sm">🏆</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">
-                  Portal Atlet
-                </div>
-                <div className="text-white/35 text-[10px] mt-0.5">
-                  Login portal resmi untuk atlet · 768 aktif
-                </div>
-              </div>
-              <ExternalLink size={13} className="text-amber-400/60 flex-shrink-0 group-hover:text-amber-400 transition-colors"/>
-            </a>
-
-            {/* Open Presentation */}
-            <a
-              href="/presentation/porprov-xv"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-900/20 border border-blue-400/20 hover:bg-blue-900/40 hover:border-blue-400/50 transition-all group"
-            >
-              <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-400/30 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/25 transition-colors">
-                <Monitor size={15} className="text-blue-400"/>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-white/80 text-[12px] font-bold group-hover:text-white transition-colors">
-                  Presentasi Interaktif
-                </div>
-                <div className="text-white/35 text-[10px] mt-0.5">
-                  Intelligence Command Center · 14 Slide
-                </div>
-              </div>
-              <ExternalLink size={13} className="text-blue-400/60 flex-shrink-0 group-hover:text-blue-400 transition-colors"/>
-            </a>
-          </div>
         </div>
 
         {/* Bottom stats */}
@@ -214,18 +140,6 @@ export default function LoginKabBandung() {
                 <div className="text-[10px] mb-1">{s.icon}</div>
                 <div className={`text-xl font-extrabold tabular-nums ${s.color}`}>{s.value}</div>
                 <div className="text-white/40 text-[8px] uppercase tracking-[0.08em] mt-1 font-semibold">{s.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <div className="text-white/30 text-[9px] font-bold tracking-[0.15em] uppercase mb-1">Venue Unggulan</div>
-            {VENUES.map((v,i)=>(
-              <div key={v.nama} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-l-2 transition-all ${
-                i<2?'bg-sky-400/5 border-sky-400':'bg-transparent border-sky-400/10 hover:bg-white/5'
-              }`}>
-                <div className={`flex-1 text-[10px] font-medium ${i<2?'text-slate-200':'text-white/40'}`}>{v.nama}</div>
-                <span className="text-sky-400 text-[8px] font-bold tracking-wider">{v.status}</span>
               </div>
             ))}
           </div>
@@ -246,18 +160,6 @@ export default function LoginKabBandung() {
 
           <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-sky-400/30 rounded-tl-3xl pointer-events-none"/>
           <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-sky-400/30 rounded-br-3xl pointer-events-none"/>
-
-          {/* Mobile quick access */}
-          <div className="flex gap-2 mb-5 lg:hidden">
-            <a href="/api/download/manual-book"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-sky-900/30 border border-sky-400/20 text-sky-400 text-[10px] font-bold">
-              <BookOpen size={12}/> Manual Book
-            </a>
-            <a href="/presentation/porprov-xv" target="_blank"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-900/30 border border-blue-400/20 text-blue-400 text-[10px] font-bold">
-              <Monitor size={12}/> Presentasi
-            </a>
-          </div>
 
           {/* Mobile Header */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
