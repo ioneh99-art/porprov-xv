@@ -87,9 +87,11 @@ function getDefaultRedirect(level: string): string {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // ── Hostname-based tenant routing ──────────────────────────────────────────
-  const hostname = req.headers.get('host') ?? ''
-  const tenant   = HOSTNAME_TENANT[hostname]
+  // ── Tenant routing: env var (prioritas) atau hostname ────────────────────
+  const envTenant  = process.env.NEXT_PUBLIC_DEFAULT_TENANT ?? ''
+  const hostname   = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
+  const hostTenant = HOSTNAME_TENANT[hostname] ?? ''
+  const tenant     = envTenant || hostTenant
   if (tenant) {
     const tenantRes = resolveTenantRewrite(req, tenant)
     if (tenantRes) return tenantRes
