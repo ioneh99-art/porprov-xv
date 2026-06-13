@@ -21,9 +21,9 @@ const TENANT_MODULES = [
 function resolveTenantRewrite(req: NextRequest, tenant: string): NextResponse | null {
   const { pathname } = req.nextUrl
 
-  // / atau /konida → langsung ke dashboard tenant
+  // / atau /konida → ke login page tenant
   if (pathname === '/' || pathname === '/konida' || pathname === '/konida/') {
-    return NextResponse.redirect(new URL(`/konida/dashboard/${tenant}`, req.url))
+    return NextResponse.redirect(new URL(`/konida/login/${tenant}`, req.url))
   }
 
   // /login → ke login page tenant (bukan generic login)
