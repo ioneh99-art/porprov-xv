@@ -26,9 +26,14 @@ function resolveTenantRewrite(req: NextRequest, tenant: string): NextResponse | 
     return NextResponse.redirect(new URL(`/konida/login/${tenant}`, req.url))
   }
 
-  // /login → ke login page tenant (bukan generic login)
-  if (pathname === '/login' || pathname.startsWith('/login?')) {
+  // /login* → ke login page tenant (bukan generic login)
+  if (pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL(`/konida/login/${tenant}`, req.url))
+  }
+
+  // /konida/login/* → skip, jangan kena auth check (cegah loop)
+  if (pathname.startsWith('/konida/login')) {
+    return NextResponse.next()
   }
 
   // /konida/<module> (tanpa tenant) → rewrite ke /konida/<module>/<tenant>

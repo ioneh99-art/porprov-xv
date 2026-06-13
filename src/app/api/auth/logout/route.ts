@@ -8,22 +8,22 @@ import { NextRequest, NextResponse } from 'next/server'
 // Standard   → /login (generic)
 const LOGIN_PAGES: Record<string, string> = {
   // ── Enterprise (punya login page custom) ──
-  kabbogor:         '/login/kabbogor',
-  kotabekasi:       '/login/kotabekasi',
-  kabbekasi:        '/login/kabbekasi',
-  kotabandung:      '/login/kotabandung',
-  kabbandung:       '/login/kabbandung',
-  kotadepok:        '/login/kotadepok',
-  kotabogor:        '/login/kotabogor',
-  kabkarawang:      '/login/kabkarawang',
-  kabbandungbarat:  '/login/kabbandungbarat',
-  kotacirebon:      '/login/kotacirebon',
+  kabbogor:         '/konida/login/kabbogor',
+  kotabekasi:       '/konida/login/kotabekasi',
+  kabbekasi:        '/konida/login/kabbekasi',
+  kotabandung:      '/konida/login/kotabandung',
+  kabbandung:       '/konida/login/kabbandung',
+  kotadepok:        '/konida/login/kotadepok',
+  kotabogor:        '/konida/login/kotabogor',
+  kabkarawang:      '/konida/login/kabkarawang',
+  kabbandungbarat:  '/konida/login/kabbandungbarat',
+  kotacirebon:      '/konida/login/kotacirebon',
   // ── Admin ──
   superadmin:       '/login/superadmin',
   // ── Backward compat (slug lama) ──
-  bekasi:           '/login/kotabekasi',
-  bogor:            '/login/kotabogor',
-  depok:            '/login/kotadepok',
+  bekasi:           '/konida/login/kotabekasi',
+  bogor:            '/konida/login/kotabogor',
+  depok:            '/konida/login/kotadepok',
   // ── Default ──
   jabar:            '/login',
   konida:           '/login',
