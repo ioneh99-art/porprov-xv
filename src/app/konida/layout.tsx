@@ -1,7 +1,6 @@
 //app/konida/layout.tsx
 
-import KonidaSidebar from '@/components/KonidaSidebar'
-import ChatbotWidget from '@/components/ChatbotWidget'
+import KonidaLayoutShell from '@/components/KonidaLayoutShell'
 import { cookies } from 'next/headers'
 
 export default function KonidaLayout({ children }: { children: React.ReactNode }) {
@@ -10,12 +9,8 @@ export default function KonidaLayout({ children }: { children: React.ReactNode }
   try { user = session ? JSON.parse(session) : null } catch {}
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
-      <KonidaSidebar />
-      <main className="ml-56 flex-1 p-7">
-        {children}
-      </main>
-      <ChatbotWidget user={user} />
-    </div>
+    <KonidaLayoutShell user={user}>
+      {children}
+    </KonidaLayoutShell>
   )
 }
