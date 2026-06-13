@@ -30,7 +30,7 @@ export default function Home() {
   const origin     = jar.get('login_origin')?.value ?? ''
   const level      = jar.get('user_level')?.value ?? ''
   const tenantId   = jar.get('tenant_id')?.value ?? ''
-  const envTenant  = process.env.NEXT_PUBLIC_DEFAULT_TENANT ?? ''
+  const envTenant  = process.env.DEFAULT_TENANT ?? ''
 
   // Tentukan tenant yang aktif (env var prioritas, lalu cookie)
   const tenant = envTenant || tenantId || origin

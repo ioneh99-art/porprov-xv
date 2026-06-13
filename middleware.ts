@@ -88,7 +88,7 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // ── Tenant routing: env var (prioritas) atau hostname ────────────────────
-  const envTenant  = process.env.NEXT_PUBLIC_DEFAULT_TENANT ?? ''
+  const envTenant  = process.env.DEFAULT_TENANT ?? ''
   const hostname   = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
   const hostTenant = HOSTNAME_TENANT[hostname] ?? ''
   const tenant     = envTenant || hostTenant
