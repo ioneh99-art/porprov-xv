@@ -1,7 +1,41 @@
 // src/middleware.ts — FINAL
 // Handle: superadmin, koni_jabar, level1, level2, level3, operator_cabor
+// + hostname-based tenant routing (kab-bandung.vercel.app → /konida/.../kabbandung)
 
 import { NextRequest, NextResponse } from 'next/server'
+
+// ── Hostname → tenant slug ────────────────────────────────────────────────────
+const HOSTNAME_TENANT: Record<string, string> = {
+  'kab-bandung.vercel.app': 'kabbandung',
+  'kab-bogor.vercel.app':   'kabbogor',
+  // tambah kontingen lain di sini
+}
+
+// Module konida yang punya sub-folder per tenant
+const TENANT_MODULES = [
+  'dashboard','atlet','kejuaraan','kualifikasi',
+  'laporan','lappertandingan','export','dokumen',
+  'Premiumreport','warroom','sipa',
+]
+
+function resolveTenantRewrite(req: NextRequest, tenant: string): NextResponse | null {
+  const { pathname } = req.nextUrl
+
+  // / atau /konida → langsung ke dashboard tenant
+  if (pathname === '/' || pathname === '/konida' || pathname === '/konida/') {
+    return NextResponse.redirect(new URL(`/konida/dashboard/${tenant}`, req.url))
+  }
+
+  // /konida/<module> (tanpa tenant) → rewrite ke /konida/<module>/<tenant>
+  const moduleMatch = pathname.match(/^\/konida\/([^/]+)\/?$/)
+  if (moduleMatch && TENANT_MODULES.includes(moduleMatch[1])) {
+    const url = req.nextUrl.clone()
+    url.pathname = `/konida/${moduleMatch[1]}/${tenant}`
+    return NextResponse.rewrite(url)
+  }
+
+  return null
+}
 
 const ROUTE_RULES: { pattern: RegExp; allowed: string[] }[] = [
   // Superadmin only
@@ -42,6 +76,14 @@ function getDefaultRedirect(level: string): string {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+
+  // ── Hostname-based tenant routing ──────────────────────────────────────────
+  const hostname = req.headers.get('host') ?? ''
+  const tenant   = HOSTNAME_TENANT[hostname]
+  if (tenant) {
+    const tenantRes = resolveTenantRewrite(req, tenant)
+    if (tenantRes) return tenantRes
+  }
 
   // Skip
   if (
@@ -84,6 +126,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/konida/:path*', '/superadmin/:path*'],
+  matcher: ['/', '/konida/:path*', '/superadmin/:path*'],
 }
 
