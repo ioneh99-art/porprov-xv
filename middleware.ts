@@ -26,6 +26,11 @@ function resolveTenantRewrite(req: NextRequest, tenant: string): NextResponse | 
     return NextResponse.redirect(new URL(`/konida/dashboard/${tenant}`, req.url))
   }
 
+  // /login → ke login page tenant (bukan generic login)
+  if (pathname === '/login' || pathname.startsWith('/login?')) {
+    return NextResponse.redirect(new URL(`/konida/login/${tenant}`, req.url))
+  }
+
   // /konida/<module> (tanpa tenant) → rewrite ke /konida/<module>/<tenant>
   const moduleMatch = pathname.match(/^\/konida\/([^/]+)\/?$/)
   if (moduleMatch && TENANT_MODULES.includes(moduleMatch[1])) {
@@ -126,6 +131,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/konida/:path*', '/superadmin/:path*'],
+  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*'],
 }
 
