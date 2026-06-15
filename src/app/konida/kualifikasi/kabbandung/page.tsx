@@ -90,7 +90,8 @@ export default function PageKualifikasi() {
             .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,status_registrasi,no_registrasi_koni')
             .eq('kontingen_id', KONTINGEN_ID)
             .order('cabor_nama_raw',{ascending:true})
-            .order('nama_lengkap',{ascending:true}),
+            .order('nama_lengkap',{ascending:true})
+            .limit(9999),
           sb.from('v_cabor_kuota_summary')
             .select('*')
             .eq('kontingen_id', KONTINGEN_ID)

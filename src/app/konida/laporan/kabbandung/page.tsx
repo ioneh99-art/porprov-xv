@@ -228,7 +228,8 @@ export default function PageLaporan() {
             .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening')
             .eq('kontingen_id', KONTINGEN_ID)
             .order('cabor_nama_raw',{ascending:true})
-            .order('nama_lengkap',{ascending:true}),
+            .order('nama_lengkap',{ascending:true})
+            .limit(9999),
           sb.from('atlet_tes_fisik')
             .select('atlet_id,bmi,kesimpulan_persen,kesimpulan_kategori')
             .eq('kontingen_id', KONTINGEN_ID),

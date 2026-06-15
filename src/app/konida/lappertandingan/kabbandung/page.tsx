@@ -140,7 +140,7 @@ export default function PageLapPertandingan() {
   useEffect(()=>{
     sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id',KONTINGEN_ID).maybeSingle()
       .then(({data})=>{ if(data) setKlasemen(data) })
-    sb.from('atlet').select('cabor_nama_raw').eq('kontingen_id',KONTINGEN_ID).eq('status_registrasi','Verified')
+    sb.from('atlet').select('cabor_nama_raw').eq('kontingen_id',KONTINGEN_ID).eq('status_registrasi','Verified').limit(9999)
       .then(({data})=>{
         if(data){
           const cabors = Array.from(new Set((data as any[]).map(a=>a.cabor_nama_raw).filter(Boolean))).sort()

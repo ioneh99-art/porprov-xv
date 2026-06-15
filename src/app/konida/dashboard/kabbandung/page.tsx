@@ -88,7 +88,8 @@ export default function DashboardKabBandung() {
       const [a, k, m, tf] = await Promise.allSettled([
         sb.from('atlet')
           .select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir')
-          .eq('kontingen_id', KONTINGEN_ID),
+          .eq('kontingen_id', KONTINGEN_ID)
+          .limit(9999),
         sb.from('klasemen_medali')
           .select('emas,perak,perunggu,total,kontingen(nama)')
           .order('emas',{ ascending:false })

@@ -123,7 +123,8 @@ export default function PageAtletKabBandung() {
             .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at')
             .eq('kontingen_id', KONTINGEN_ID)
             .order('cabor_nama_raw', { ascending: true })
-            .order('nama_lengkap',   { ascending: true }),
+            .order('nama_lengkap',   { ascending: true })
+            .limit(9999),
           sb.from('atlet_tes_fisik')
             .select('id,atlet_id,bmi,berat_badan,tinggi_badan,kesimpulan_persen,kesimpulan_kategori,status_tes,cabor_nama,matching_method')
             .eq('kontingen_id', KONTINGEN_ID)

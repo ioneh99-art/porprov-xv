@@ -94,7 +94,7 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    sb.from('atlet').select('no_ktp').eq('kontingen_id', KONTINGEN_ID)
+    sb.from('atlet').select('no_ktp').eq('kontingen_id', KONTINGEN_ID).limit(9999)
       .then(({ data }) => { if (data) setExistingNIKs(new Set(data.map((a: any) => a.no_ktp||''))) })
   }, [])
 
@@ -181,7 +181,7 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
 
   async function exportMasterDump() {
     const { data } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID)
-      .order('cabor_nama_raw',{ascending:true}).order('nama_lengkap',{ascending:true})
+      .order('cabor_nama_raw',{ascending:true}).order('nama_lengkap',{ascending:true}).limit(9999)
     if (!data) return
     const XLSX = await import('xlsx')
     const header = ['ID','Nama Lengkap','No KTP','Tgl Lahir','Gender','Cabor','Kode Asal','Asal Daerah','Status','No Reg KONI','Kemeja','Sepatu','Bank','Rekening']
@@ -372,7 +372,7 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
               { l:'Master Dump Database',   d:`Export semua atlet Kab. Bandung — ${existingAtletCount} records`, icon:Database, c:ACCENT, badge:`${existingAtletCount} REC`, action: exportMasterDump },
               { l:'Export Atlet Verified',  d:'Hanya Verified/Posted — untuk SK Bupati', icon:Shield, c:'#60a5fa', badge:'SK KONTINGEN',
                 action: async () => {
-                  const { data } = await sb.from('atlet').select('*').eq('kontingen_id',KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true})
+                  const { data } = await sb.from('atlet').select('*').eq('kontingen_id',KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true}).limit(9999)
                   if (!data) return
                   const XLSX = await import('xlsx')
                   const cols = ['No','Nama','NIK','Tgl Lahir','Gender','Cabor','Asal','Status','No KONI']

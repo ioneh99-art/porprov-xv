@@ -157,7 +157,7 @@ export default function PagePremiumReport() {
   useEffect(()=>{
     async function load() {
       const [a, k, t, r, kuota, dok] = await Promise.allSettled([
-        sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).in('status_registrasi',['Verified','Posted']),
+        sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).limit(9999),
         sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id', KONTINGEN_ID).maybeSingle(),
         sb.from('atlet_tes_fisik').select('atlet_id,kesimpulan_persen,kesimpulan_kategori,bmi').eq('kontingen_id', KONTINGEN_ID),
         sb.from('riwayat_prestasi').select('atlet_id,hasil,tahun,event'),
