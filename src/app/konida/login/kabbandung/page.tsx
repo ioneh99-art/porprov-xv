@@ -8,7 +8,7 @@ import { Eye, EyeOff, AlertCircle, ChevronRight, Activity,
          MapPin, Shield, Loader2 } from 'lucide-react'
 
 const STATS = [
-  { label:'Total Atlet',     value:'1.097', color:'text-sky-400', icon:'🏃' },
+  { label:'Total Atlet',     value:'1.102', color:'text-sky-400', icon:'🏃' },
   { label:'Cabang Olahraga', value:'61',    color:'text-amber-400',   icon:'🏅' },
   { label:'Total Venue',     value:'55',    color:'text-blue-400',    icon:'🏟️' },
   { label:'Kontingen',       value:'27',    color:'text-purple-400',  icon:'📍' },
@@ -188,7 +188,7 @@ export default function LoginKabBandung() {
             Masuk ke<br/><span className="text-sky-400">War Room</span>
           </h2>
           <p className="text-white/70 text-xs mb-8 font-medium">
-            Kab. Bandung · Premium Kontingen · 1.097 Atlet
+            Kab. Bandung · Premium Kontingen · 1.102 Atlet
           </p>
 
           {/* Error */}

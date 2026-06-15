@@ -29,9 +29,9 @@ const DUMMY_RP = 'Rp xxx.xxx.xxx'
 
 // Bonus by medali
 const BONUS_NOMINAL: Record<string,number> = {
-  'Emas':     50000000,
-  'Perak':    30000000,
-  'Perunggu': 15000000,
+  'Emas':     10000000,
+  'Perak':     7500000,
+  'Perunggu':  5000000,
 }
 const UANG_SAKU_HARIAN = 250000  // per atlet per hari
 const TOTAL_HARI_PORPROV = 14
