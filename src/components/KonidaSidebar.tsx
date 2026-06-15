@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, BarChart2, LogOut, ChevronRight,
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
-  Download, Lock, Activity, Database, FileCheck,
+  Download, Lock, Activity, Database, FileCheck, TrendingUp,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -325,6 +325,10 @@ export default function KonidaSidebar() {
           ? <NavItem label="Sport Intelligence" href="/konida/sipa" icon={Cpu}/>
           : <LockedNavItem label="Sport Intelligence" icon={Cpu} plan="Premium"/>
         }
+        {/* Baseline Performance — khusus Kab. Bandung */}
+        {tenantId === 'kabbandung' && (
+          <NavItem label="Baseline Performance" href="/konida/cabor-baseline" icon={TrendingUp}/>
+        )}
         <div className="h-px bg-slate-800 my-3"/>
 
         {/* ── KONTINGEN ── */}
