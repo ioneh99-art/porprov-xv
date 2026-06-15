@@ -28,6 +28,10 @@ const KODE_LOKAL   = '3204'
 const ACCENT       = '#38bdf8'
 const PRIMARY      = '#075985'
 
+// Referensi historis POPDA XIV Jawa Barat 2025 (simaung.jabarprov.go.id · 24 Sep 2025)
+// Kab. Bandung meraih peringkat #2 dari 27 kontingen
+const POPDA_REF = { rank:2, emas:23, perak:10, perunggu:14, total:47 }
+
 const CABOR_KATEGORI: Record<string, string> = {
   'Sepak Bola':'Permainan','Bola Basket':'Permainan','Bola Voli':'Permainan',
   'Hockey':'Permainan','Floorball':'Permainan','Rugby':'Permainan','Futsal':'Permainan',
@@ -85,11 +89,19 @@ export default function DashboardKabBandung() {
 
   useEffect(() => {
     async function load() {
-      const [a, k, m, tf] = await Promise.allSettled([
-        sb.from('atlet')
+      // Pagination karena PostgREST max_rows=1000 — .limit() tidak bisa override
+      let allAtlet: AtletRaw[] = []
+      for (let page = 0; ; page++) {
+        const { data: pageData } = await sb.from('atlet')
           .select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir')
           .eq('kontingen_id', KONTINGEN_ID)
-          .limit(9999),
+          .range(page * 1000, (page + 1) * 1000 - 1)
+        if (!pageData || pageData.length === 0) break
+        allAtlet = allAtlet.concat(pageData)
+        if (pageData.length < 1000) break
+      }
+
+      const [k, m, tf] = await Promise.allSettled([
         sb.from('klasemen_medali')
           .select('emas,perak,perunggu,total,kontingen(nama)')
           .order('emas',{ ascending:false })
@@ -135,8 +147,8 @@ export default function DashboardKabBandung() {
         })
       }
 
-      if (a.status==='fulfilled' && a.value.data) {
-        const data = a.value.data as AtletRaw[]
+      if (allAtlet.length > 0) {
+        const data = allAtlet
         setAtlets(data)
         const cmap: Record<string,{total:number;putra:number;putri:number;verified:number}> = {}
         data.forEach(x => {
@@ -146,12 +158,8 @@ export default function DashboardKabBandung() {
           if (x.gender==='L') cmap[c].putra++; else cmap[c].putri++
           if (x.status_registrasi==='Verified') cmap[c].verified++
         })
-        const MEDALI: Record<string,{e:number;p:number;pg:number}> = {
-          'Hockey':{e:1,p:0,pg:0},'Dayung':{e:2,p:1,pg:1},'Atletik':{e:3,p:1,pg:0},
-          'Taekwondo':{e:2,p:0,pg:1},'Karate':{e:1,p:2,pg:0},'Renang':{e:0,p:1,pg:2},
-          'Menembak':{e:1,p:1,pg:1},'Panahan':{e:0,p:1,pg:1},'Pencak Silat':{e:1,p:0,pg:2},
-          'Bulutangkis':{e:0,p:1,pg:0},'Sepak Bola':{e:0,p:0,pg:1},
-        }
+        // TODO: isi prediksi medali per cabor setelah ada data target/historis resmi
+        const MEDALI: Record<string,{e:number;p:number;pg:number}> = {}
         const clist: CaborStat[] = Object.entries(cmap).map(([nama,s]) => {
           const med = MEDALI[nama] ?? { e:0, p:0, pg:0 }
           const tm  = med.e+med.p+med.pg
@@ -196,7 +204,7 @@ export default function DashboardKabBandung() {
     const lokal    = atlets.filter(a => a.kode_asal_daerah?.startsWith(KODE_LOKAL)).length
     const nonLokal = total - lokal
     const myRank   = klasemen.findIndex(k =>
-      k.nama?.toUpperCase().includes('KAB. BANDUNG')
+      k.nama?.toUpperCase() === 'KAB. BANDUNG'
     ) + 1
     return {
       total, putra, putri, verified, pending, ditolak, posted, lokal, nonLokal,
@@ -302,7 +310,7 @@ export default function DashboardKabBandung() {
             {[
               { l:'Total Atlet', v:kpi.total,         c:ACCENT    },
               { l:'Verifikasi',  v:`${kpi.vpct}%`,    c:'#22d3ee' },
-              { l:'Ranking',     v:`#${kpi.myRank||'—'}`, c:'#ffd700' },
+              { l:'Ranking',     v:`#${POPDA_REF.rank}`, c:'#ffd700' },
               { l:'Medali Emas', v:myMedali.emas,     c:'#ffd700' },
             ].map(s => (
               <div key={s.l} className="px-4 py-2 rounded-xl text-center backdrop-blur-md transition-colors hover:bg-white/5"
@@ -336,7 +344,8 @@ export default function DashboardKabBandung() {
             <strong style={{ color:'#22d3ee' }}>{kpi.vpct}% terverifikasi</strong>
             {kpi.pending>0 && <> dengan <strong className="text-amber-400">{kpi.pending} pending</strong></>}.{' '}
             {kpi.nonLokal>0 && <><strong className="text-rose-400">{kpi.nonLokal} non-lokal</strong> ({Math.round(kpi.nonLokal/kpi.total*100)}%) butuh atensi. </>}
-            Ranking saat ini <strong className="text-amber-400 drop-shadow-md">#{kpi.myRank>0?kpi.myRank:'—'}</strong> dengan{' '}
+            Ranking referensi <strong className="text-amber-400 drop-shadow-md">#{POPDA_REF.rank}</strong>
+            <span className="text-[10px] text-zinc-500"> (POPDA XIV 2025)</span> dengan{' '}
             <strong className="text-yellow-400">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</strong>.
           </p>
         </div>
@@ -387,14 +396,35 @@ export default function DashboardKabBandung() {
           </div>
 
           {/* Klasemen */}
-          <div className="rounded-2xl p-4 flex items-center gap-3 bg-[#ffd70008] border border-[#ffd70020]">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-yellow-500/10">
-              <Trophy size={16} className="text-yellow-400"/>
+          <div className="rounded-2xl p-4 bg-[#ffd70008] border border-[#ffd70020]">
+            <div className="flex items-center gap-3 mb-2.5">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-yellow-500/10">
+                <Trophy size={16} className="text-yellow-400"/>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Ref. POPDA XIV 2025</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-black text-yellow-400 leading-none">#{POPDA_REF.rank}</span>
+                  <span className="text-[10px] text-zinc-600">dari {klasemen.length||27}</span>
+                </div>
+                <div className="text-[10px] mt-0.5 text-zinc-500">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</div>
+              </div>
             </div>
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Klasemen</div>
-              <div className="text-xl font-black text-yellow-400 leading-none">#{kpi.myRank>0?kpi.myRank:'—'}</div>
-              <div className="text-[10px] mt-0.5 text-zinc-500">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</div>
+            {/* POPDA XIV Referensi */}
+            <div className="rounded-xl px-2.5 py-2 flex items-center gap-2.5"
+              style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)' }}>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest shrink-0"
+                style={{ background:'rgba(99,102,241,0.18)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)' }}>
+                POPDA XIV
+              </span>
+              <div className="flex items-center gap-2 text-[10px] flex-1">
+                <span className="text-indigo-300 font-black">#{POPDA_REF.rank}</span>
+                <span className="text-zinc-600">·</span>
+                <span className="text-yellow-400">🥇{POPDA_REF.emas}</span>
+                <span className="text-zinc-400">🥈{POPDA_REF.perak}</span>
+                <span className="text-amber-600">🥉{POPDA_REF.perunggu}</span>
+              </div>
+              <span className="text-[8px] text-zinc-600 shrink-0">2025</span>
             </div>
           </div>
 
@@ -450,7 +480,7 @@ export default function DashboardKabBandung() {
           <HealthIndexGauge
             primary={ACCENT}
             dimensions={[
-              { label:'Registrasi',  score: Math.round((kpi.total/1100)*100), weight: 0.20, icon: Users     },
+              { label:'Registrasi',  score: Math.min(100, Math.round((kpi.total/1102)*100)), weight: 0.20, icon: Users     },
               { label:'Verifikasi',  score: kpi.vpct,                          weight: 0.25, icon: FileCheck },
               { label:'Fisik UPI',   score: tesFisikData.avgSkor,              weight: 0.30, icon: Activity  },
               { label:'Partisipasi', score: tesFisikData.hadir > 0 ? Math.round((tesFisikData.hadir/(tesFisikData.hadir+tesFisikData.dns))*100) : 0, weight: 0.15, icon: Trophy    },

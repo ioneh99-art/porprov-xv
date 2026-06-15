@@ -321,15 +321,21 @@ export default function DashboardKONI() {
     const { createClient } = await import('@supabase/supabase-js')
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
+    let atletAll: any[] = []
+    for (let p = 0; ; p++) {
+      const { data: pg } = await sb.from('atlet').select('id, gender, status_registrasi, status_verifikasi, kontingen_id, cabor_id, created_at, cabang_olahraga(nama), kontingen(nama)').range(p * 1000, (p + 1) * 1000 - 1)
+      if (!pg || pg.length === 0) break
+      atletAll = atletAll.concat(pg)
+      if (pg.length < 1000) break
+    }
+
     const [
-      { data: atletAll },
       { data: kontingenList },
       { data: caborList },
       { data: medali },
       { data: kejuaraan },
       { data: nomorList },
     ] = await Promise.all([
-      sb.from('atlet').select('id, gender, status_registrasi, status_verifikasi, kontingen_id, cabor_id, created_at, cabang_olahraga(nama), kontingen(nama)').limit(9999),
       sb.from('kontingen').select('id, nama').order('nama'),
       sb.from('cabang_olahraga').select('id, nama').order('nama'),
       sb.from('klasemen_medali').select('*, kontingen(nama)').order('emas', { ascending:false }).limit(10),

@@ -27,14 +27,15 @@ const NAMA_KAB     = 'KABUPATEN BANDUNG'
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID')
 const DUMMY_RP = 'Rp xxx.xxx.xxx'
 
-// Bonus by medali
+// TODO: isi nominal bonus medali resmi dari SK Bupati Kab. Bandung
 const BONUS_NOMINAL: Record<string,number> = {
-  'Emas':     10000000,
-  'Perak':     7500000,
-  'Perunggu':  5000000,
+  'Emas':    0,
+  'Perak':   0,
+  'Perunggu':0,
 }
-const UANG_SAKU_HARIAN = 250000  // per atlet per hari
-const TOTAL_HARI_PORPROV = 14
+// TODO: isi nominal uang saku harian per atlet
+const UANG_SAKU_HARIAN = 0
+const TOTAL_HARI_PORPROV = 14 // PORPROV XV: 7–21 November 2026
 
 interface AtletDB {
   id:                 number
@@ -224,12 +225,22 @@ export default function PageLaporan() {
     async function load() {
       try {
         const [atletRes, tesRes, perlRes, riwayatRes, dokRes] = await Promise.all([
-          sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening')
-            .eq('kontingen_id', KONTINGEN_ID)
-            .order('cabor_nama_raw',{ascending:true})
-            .order('nama_lengkap',{ascending:true})
-            .limit(9999),
+          (async () => {
+            let all: any[] = []
+            for (let p = 0; ; p++) {
+              const { data, error } = await sb.from('atlet')
+                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening')
+                .eq('kontingen_id', KONTINGEN_ID)
+                .order('cabor_nama_raw',{ascending:true})
+                .order('nama_lengkap',{ascending:true})
+                .range(p * 1000, (p + 1) * 1000 - 1)
+              if (error) return { data: null, error }
+              if (!data || data.length === 0) break
+              all = all.concat(data)
+              if (data.length < 1000) break
+            }
+            return { data: all, error: null }
+          })(),
           sb.from('atlet_tes_fisik')
             .select('atlet_id,bmi,kesimpulan_persen,kesimpulan_kategori')
             .eq('kontingen_id', KONTINGEN_ID),
@@ -735,7 +746,7 @@ export default function PageLaporan() {
     },
     {
       id:'estimasi-bonus', title:'Estimasi Bonus Medali', category:'Keuangan',
-      desc:'Prediksi bonus Rp 50jt/emas, Rp 30jt/perak, Rp 15jt/perunggu × track record.',
+      desc:'Prediksi bonus Rp 10jt/emas, Rp 7.5jt/perak, Rp 5jt/perunggu × track record.',
       icon:DollarSign, color:'#fbbf24', isFeatured:true, isDemo:true,
       count:analytics.atletDenganPrestasi, countLabel:'atlet potensial',
       completion:analytics.total>0?Math.round(analytics.atletDenganPrestasi/analytics.total*100):0,

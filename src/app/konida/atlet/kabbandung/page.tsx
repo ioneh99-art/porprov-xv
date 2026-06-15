@@ -119,12 +119,22 @@ export default function PageAtletKabBandung() {
       try {
         // Step 1 — atlet + tes_fisik headers (parallel)
         const [atletRes, tesFisikRes] = await Promise.all([
-          sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at')
-            .eq('kontingen_id', KONTINGEN_ID)
-            .order('cabor_nama_raw', { ascending: true })
-            .order('nama_lengkap',   { ascending: true })
-            .limit(9999),
+          (async () => {
+            let all: any[] = []
+            for (let p = 0; ; p++) {
+              const { data, error } = await sb.from('atlet')
+                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at')
+                .eq('kontingen_id', KONTINGEN_ID)
+                .order('cabor_nama_raw', { ascending: true })
+                .order('nama_lengkap',   { ascending: true })
+                .range(p * 1000, (p + 1) * 1000 - 1)
+              if (error) return { data: null, error }
+              if (!data || data.length === 0) break
+              all = all.concat(data)
+              if (data.length < 1000) break
+            }
+            return { data: all, error: null }
+          })(),
           sb.from('atlet_tes_fisik')
             .select('id,atlet_id,bmi,berat_badan,tinggi_badan,kesimpulan_persen,kesimpulan_kategori,status_tes,cabor_nama,matching_method')
             .eq('kontingen_id', KONTINGEN_ID)

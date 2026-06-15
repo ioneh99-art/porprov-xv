@@ -26,12 +26,12 @@ const sb = createClient(
 
 const ACCENT = '#38bdf8'
 
-const LAGA_LIVE = [
-  { cabor:'Hockey',      laga:'vs Kota Depok',          venue:'Lap. Hoki PKS',        status:'LIVE' },
-  { cabor:'Dayung',      laga:'K-2 500m Final',          venue:'Situ Cikaret',          status:'LIVE' },
-  { cabor:'Bulutangkis', laga:'Tunggal Putra SF',        venue:'Laga Tangkas',          status:'LIVE' },
-  { cabor:'Sepak Bola',  laga:'QF vs Kota Bandung',      venue:'Stadion PKS',           status:'LIVE' },
-]
+// Referensi historis POPDA XIV Jawa Barat 2025 (simaung.jabarprov.go.id · 24 Sep 2025)
+// Kab. Bandung meraih peringkat #2 dari 27 kontingen
+const POPDA_REF = { rank:2, emas:23, perak:10, perunggu:14, total:47 }
+
+// TODO: isi data laga aktif dari DB saat PORPROV mulai (7 Nov 2026)
+const LAGA_LIVE: {cabor:string;laga:string;venue:string;status:string}[] = []
 
 function LiveClock() {
   const [t, setT] = useState('')
@@ -69,9 +69,17 @@ export default function PageWarRoom() {
             .select('emas,perak,perunggu,total')
             .eq('kontingen_id', 4)
             .maybeSingle(),
-          sb.from('atlet')
-            .select('status_registrasi,cabor_nama_raw')
-            .eq('kontingen_id', 4),
+          (async () => {
+            let all: any[] = []
+            for (let p = 0; ; p++) {
+              const { data, error } = await sb.from('atlet').select('status_registrasi,cabor_nama_raw').eq('kontingen_id', 4).range(p * 1000, (p + 1) * 1000 - 1)
+              if (error) return { data: null, error }
+              if (!data || data.length === 0) break
+              all = all.concat(data)
+              if (data.length < 1000) break
+            }
+            return { data: all, error: null }
+          })(),
           sb.from('atlet_tes_fisik')
             .select('kesimpulan_persen,status_tes,cabor_nama,atlet_id')
             .eq('kontingen_id', 4).eq('tahap', 3),
@@ -142,10 +150,11 @@ export default function PageWarRoom() {
   }, [])
 
   const myRank = klasemen.findIndex(k =>
-    String(k.nama ?? '').toUpperCase().includes('BANDUNG')
+    String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG'
   ) + 1
 
-  const TARGET = { emas: 50, perak: 40, perunggu: 30 }
+  // TODO: isi target medali resmi dari Bupati Kab. Bandung
+  const TARGET = { emas: 0, perak: 0, perunggu: 0 }
 
   const ani = (d=0) => ({
     style:     { transitionDelay:`${d}ms`, transition:'all 0.8s cubic-bezier(0.16,1,0.3,1)' },
@@ -208,7 +217,7 @@ export default function PageWarRoom() {
         {/* ════ 1. KPI STRIP — 5 panel ════ */}
         <div {...ani(0)} className="grid grid-cols-5 gap-2">
           {([
-            { l:'Ranking',      v:`#${myRank>0?myRank:'—'}`, c:'#ffd700', sub:'klasemen',          icon:'👑' },
+            { l:'Ranking',      v:`#${POPDA_REF.rank}`, c:'#ffd700', sub:'POPDA XIV',  icon:'👑' },
             { l:'Medali Emas',  v:summary.emas,               c:'#ffd700', sub:`/ ${TARGET.emas}`,  icon:'🥇' },
             { l:'Total Medali', v:summary.total_medali,       c:'#3b82f6', sub:'semua jenis',       icon:'🏅' },
             { l:'Laga Live',    v:LAGA_LIVE.length,           c:'#ef4444', sub:'berlangsung',       icon:null  },
@@ -326,45 +335,63 @@ export default function PageWarRoom() {
               </div>
             )}
 
-            {/* ── Col 2: Target Bupati vs Realisasi ── */}
-            <div className="p-5" style={{ background:'rgba(168,85,247,0.03)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Target size={11} className="text-purple-400"/>
-                <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">Target Bupati</span>
-                <span className="text-[8px] px-1.5 py-0.5 rounded font-bold"
-                  style={{ background:'rgba(251,191,36,0.12)', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.2)' }}>⚠ Demo</span>
+            {/* ── Col 2: Referensi POPDA XIV 2025 ── */}
+            <div className="p-5" style={{ background:'rgba(99,102,241,0.04)' }}>
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <Target size={11} className="text-indigo-400"/>
+                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Referensi Historis</span>
+                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest"
+                  style={{ background:'rgba(99,102,241,0.18)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.35)' }}>
+                  📊 POPDA XIV 2025
+                </span>
               </div>
-              <div className="space-y-3">
+
+              {/* Peringkat POPDA */}
+              <div className="mb-4 p-3 rounded-xl" style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)' }}>
+                <div className="text-[9px] text-indigo-300/60 uppercase tracking-widest mb-1">Peringkat POPDA XIV Jabar</div>
+                <div className="flex items-end gap-2">
+                  <span className="text-5xl font-black leading-none text-indigo-300"
+                    style={{ textShadow:'0 0 24px rgba(99,102,241,0.5)' }}>#{POPDA_REF.rank}</span>
+                  <div className="mb-1">
+                    <div className="text-[10px] text-zinc-400 font-semibold">dari 27 kontingen</div>
+                    <div className="text-[9px] text-zinc-600">24 Sep 2025</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Medali POPDA vs PORPROV XV saat ini */}
+              <div className="space-y-2.5">
                 {([
-                  { l:'Emas',     v:summary.emas,     t:TARGET.emas,     c:'#ffd700' as const, icon:'🥇' },
-                  { l:'Perak',    v:summary.perak,    t:TARGET.perak,    c:'#e2e8f0' as const, icon:'🥈' },
-                  { l:'Perunggu', v:summary.perunggu, t:TARGET.perunggu, c:'#cd7f32' as const, icon:'🥉' },
-                ]).map(m => {
-                  const pct = m.t > 0 ? Math.round((m.v / m.t) * 100) : 0
-                  const sc  = pct >= 80 ? '#0ea5e9' : pct >= 50 ? '#fbbf24' : '#ef4444'
-                  return (
-                    <div key={m.l}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm leading-none">{m.icon}</span>
-                          <span className="text-xs font-bold" style={{ color:m.c }}>{m.l}</span>
-                        </div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-2xl font-black leading-none" style={{ color:m.c, textShadow:`0 0 14px ${m.c}40` }}>{m.v}</span>
-                          <span className="text-[10px] text-zinc-600">/{m.t}</span>
-                          <span className="text-[10px] font-black" style={{ color:sc }}>{pct}%</span>
-                        </div>
+                  { l:'Emas',     popda:POPDA_REF.emas,     now:summary.emas,     c:'#ffd700' as const, icon:'🥇' },
+                  { l:'Perak',    popda:POPDA_REF.perak,    now:summary.perak,    c:'#c0c0c0' as const, icon:'🥈' },
+                  { l:'Perunggu', popda:POPDA_REF.perunggu, now:summary.perunggu, c:'#cd7f32' as const, icon:'🥉' },
+                ]).map(m => (
+                  <div key={m.l}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm leading-none">{m.icon}</span>
+                        <span className="text-[11px] font-bold text-zinc-300">{m.l}</span>
                       </div>
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.05)' }}>
-                        <div className="h-full rounded-full transition-all duration-1000"
-                          style={{ width:`${Math.min(pct,100)}%`, background:m.c, boxShadow:`0 0 6px ${m.c}50` }}/>
+                      <div className="flex items-center gap-3 text-[10px]">
+                        <span className="text-zinc-500">PORPROV: <span className="text-zinc-300 font-bold">{m.now}</span></span>
+                        <span className="font-black" style={{ color:m.c }}>POPDA: {m.popda}</span>
                       </div>
                     </div>
-                  )
-                })}
-                <div className="pt-2.5 border-t border-white/[0.05] flex items-center justify-between">
-                  <span className="text-[9px] text-zinc-500">Total target {TARGET.emas+TARGET.perak+TARGET.perunggu}</span>
-                  <span className="text-xs font-black" style={{ color:ACCENT }}>{summary.total_medali} / {TARGET.emas+TARGET.perak+TARGET.perunggu}</span>
+                    {/* Bar: progress PORPROV vs POPDA reference */}
+                    <div className="h-1 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.05)' }}>
+                      <div className="h-full rounded-full" style={{
+                        width:`${Math.min(m.popda > 0 ? (m.now/m.popda)*100 : 0, 100)}%`,
+                        background:m.c, opacity:0.6
+                      }}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-indigo-500/10">
+                <div className="text-[9px] text-zinc-600 leading-relaxed">
+                  Sumber: simaung.jabarprov.go.id<br/>
+                  <span className="text-indigo-400/50">* POPDA = Pekan Olahraga Pelajar Daerah · beda kategori/cabor dengan PORPROV</span>
                 </div>
               </div>
             </div>
@@ -377,7 +404,7 @@ export default function PageWarRoom() {
                   <span className="text-[9px] font-black uppercase tracking-widest text-yellow-400">Top Klasemen</span>
                 </div>
                 <span className="text-[8px] font-mono font-bold border border-yellow-500/20 text-yellow-500/70 px-2 py-0.5 rounded-full">
-                  #{myRank>0?myRank:'—'} / {klasemen.length}
+                  #{POPDA_REF.rank} / {klasemen.length||27}
                 </span>
               </div>
               <div className="space-y-1.5">

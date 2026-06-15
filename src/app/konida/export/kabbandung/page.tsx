@@ -94,8 +94,16 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    sb.from('atlet').select('no_ktp').eq('kontingen_id', KONTINGEN_ID).limit(9999)
-      .then(({ data }) => { if (data) setExistingNIKs(new Set(data.map((a: any) => a.no_ktp||''))) })
+    ;(async () => {
+      let all: any[] = []
+      for (let p = 0; ; p++) {
+        const { data } = await sb.from('atlet').select('no_ktp').eq('kontingen_id', KONTINGEN_ID).range(p * 1000, (p + 1) * 1000 - 1)
+        if (!data || data.length === 0) break
+        all = all.concat(data)
+        if (data.length < 1000) break
+      }
+      setExistingNIKs(new Set(all.map((a: any) => a.no_ktp||'')))
+    })()
   }, [])
 
   const stats = useMemo(() => {
@@ -180,9 +188,15 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
   }
 
   async function exportMasterDump() {
-    const { data } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID)
-      .order('cabor_nama_raw',{ascending:true}).order('nama_lengkap',{ascending:true}).limit(9999)
-    if (!data) return
+    let data: any[] = []
+    for (let p = 0; ; p++) {
+      const { data: pg } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID)
+        .order('cabor_nama_raw',{ascending:true}).order('nama_lengkap',{ascending:true}).range(p * 1000, (p + 1) * 1000 - 1)
+      if (!pg || pg.length === 0) break
+      data = data.concat(pg)
+      if (pg.length < 1000) break
+    }
+    if (!data.length) return
     const XLSX = await import('xlsx')
     const header = ['ID','Nama Lengkap','No KTP','Tgl Lahir','Gender','Cabor','Kode Asal','Asal Daerah','Status','No Reg KONI','Kemeja','Sepatu','Bank','Rekening']
     const rows = (data as any[]).map(a=>[a.id,a.nama_lengkap,a.no_ktp,a.tgl_lahir,a.gender,a.cabor_nama_raw,a.kode_asal_daerah,a.nama_asal_daerah,a.status_registrasi,a.no_registrasi_koni,a.ukuran_kemeja,a.ukuran_sepatu,a.nama_bank,a.no_rekening])
@@ -372,8 +386,14 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
               { l:'Master Dump Database',   d:`Export semua atlet Kab. Bandung — ${existingAtletCount} records`, icon:Database, c:ACCENT, badge:`${existingAtletCount} REC`, action: exportMasterDump },
               { l:'Export Atlet Verified',  d:'Hanya Verified/Posted — untuk SK Bupati', icon:Shield, c:'#60a5fa', badge:'SK KONTINGEN',
                 action: async () => {
-                  const { data } = await sb.from('atlet').select('*').eq('kontingen_id',KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true}).limit(9999)
-                  if (!data) return
+                  let data: any[] = []
+                  for (let p = 0; ; p++) {
+                    const { data: pg } = await sb.from('atlet').select('*').eq('kontingen_id',KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true}).range(p * 1000, (p + 1) * 1000 - 1)
+                    if (!pg || pg.length === 0) break
+                    data = data.concat(pg)
+                    if (pg.length < 1000) break
+                  }
+                  if (!data.length) return
                   const XLSX = await import('xlsx')
                   const cols = ['No','Nama','NIK','Tgl Lahir','Gender','Cabor','Asal','Status','No KONI']
                   const rows = (data as any[]).map((a,i)=>[i+1,a.nama_lengkap,a.no_ktp,a.tgl_lahir,a.gender,a.cabor_nama_raw,a.nama_asal_daerah||'Lokal',a.status_registrasi,a.no_registrasi_koni||'-'])

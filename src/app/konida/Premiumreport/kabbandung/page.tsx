@@ -22,8 +22,10 @@ const KONTINGEN_ID = 4
 const LS_KEY       = 'porprov_jurnal_v1'
 const KONTINGEN_NAME = 'Kab. Bandung'
 
-const TARIF_BONUS = { Emas: 10_000_000, Perak: 7_500_000, Perunggu: 5_000_000 }
-const TARGET_BUPATI = { emas: 50, perak: 40, perunggu: 30 }
+// TODO: isi tarif bonus medali resmi dari SK Bupati Kab. Bandung
+const TARIF_BONUS = { Emas: 0, Perak: 0, Perunggu: 0 }
+// TODO: isi target medali resmi dari Bupati Kab. Bandung
+const TARGET_BUPATI = { emas: 0, perak: 0, perunggu: 0 }
 
 interface AtletDB {
   id: number; nama_lengkap: string; gender: string
@@ -157,7 +159,17 @@ export default function PagePremiumReport() {
   useEffect(()=>{
     async function load() {
       const [a, k, t, r, kuota, dok] = await Promise.allSettled([
-        sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).limit(9999),
+        (async () => {
+          let all: any[] = []
+          for (let p = 0; ; p++) {
+            const { data, error } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).range(p * 1000, (p + 1) * 1000 - 1)
+            if (error) return { data: null, error }
+            if (!data || data.length === 0) break
+            all = all.concat(data)
+            if (data.length < 1000) break
+          }
+          return { data: all, error: null }
+        })(),
         sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id', KONTINGEN_ID).maybeSingle(),
         sb.from('atlet_tes_fisik').select('atlet_id,kesimpulan_persen,kesimpulan_kategori,bmi').eq('kontingen_id', KONTINGEN_ID),
         sb.from('riwayat_prestasi').select('atlet_id,hasil,tahun,event'),
@@ -374,7 +386,8 @@ export default function PagePremiumReport() {
     atlets.forEach(a=>{ caborCount[a.cabor_nama_raw]=(caborCount[a.cabor_nama_raw]||0)+1 })
     const topCabor = Object.entries(caborCount).sort((a,b)=>b[1]-a[1]).slice(0,5)
     const caborRisk = kuotaSummary.filter(k=>k.status_kuota==='OVER'||k.status_kuota==='KRITIS').slice(0,5)
-    const uangSaku = stats.total * 250000 * 14
+    // TODO: ganti 0 dengan (UANG_SAKU_HARIAN * TOTAL_HARI) setelah data resmi tersedia
+    const uangSaku = 0
     const totalAnggaran = uangSaku + TARGET_BUPATI.emas*TARIF_BONUS.Emas + TARGET_BUPATI.perak*TARIF_BONUS.Perak + TARGET_BUPATI.perunggu*TARIF_BONUS.Perunggu
 
     const html = `<!DOCTYPE html><html><head><title>Executive Briefing — ${KONTINGEN_NAME}</title>
@@ -465,7 +478,7 @@ export default function PagePremiumReport() {
 <div class="slide"><div class="grid-bg"></div>
   <h3>ANGGARAN</h3><h2>Estimasi Pengeluaran</h2>
   <table><thead><tr><th>Komponen</th><th>Volume</th><th>Tarif</th><th>Subtotal</th></tr></thead><tbody>
-    <tr><td><strong>Uang Saku</strong></td><td>${stats.total}×14 hr</td><td>Rp 250.000</td><td><strong>Rp ${uangSaku.toLocaleString('id')}</strong></td></tr>
+    <tr><td><strong>Uang Saku</strong></td><td>${stats.total}×14 hr</td><td>Belum ditetapkan</td><td><strong>Rp ${uangSaku.toLocaleString('id')}</strong></td></tr>
     <tr><td class="gold">Bonus Emas</td><td>${TARGET_BUPATI.emas}</td><td>Rp ${TARIF_BONUS.Emas.toLocaleString('id')}</td><td><strong>Rp ${(TARGET_BUPATI.emas*TARIF_BONUS.Emas).toLocaleString('id')}</strong></td></tr>
     <tr><td class="silver">Bonus Perak</td><td>${TARGET_BUPATI.perak}</td><td>Rp ${TARIF_BONUS.Perak.toLocaleString('id')}</td><td><strong>Rp ${(TARGET_BUPATI.perak*TARIF_BONUS.Perak).toLocaleString('id')}</strong></td></tr>
     <tr><td class="bronze">Bonus Perunggu</td><td>${TARGET_BUPATI.perunggu}</td><td>Rp ${TARIF_BONUS.Perunggu.toLocaleString('id')}</td><td><strong>Rp ${(TARGET_BUPATI.perunggu*TARIF_BONUS.Perunggu).toLocaleString('id')}</strong></td></tr>

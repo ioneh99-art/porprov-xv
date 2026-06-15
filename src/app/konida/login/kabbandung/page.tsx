@@ -16,9 +16,15 @@ const STATS = [
 
 
 const ATLET_NAMES = [
-  'Deni Firmansyah · Hockey','Putri Ayu · Akuatik','Hendra Kurnia · Silat',
-  'Reza Maulana · BT','Sri Wahyuni · Karate','Bayu Nugraha · Panahan',
-  'Ahmad Fauzi · Menembak','Siti Rahayu · Dayung','Kevin Pratama · Taekwondo',
+  'Marcelline Natasha Hartanto · Equestrian',
+  'Bidadari Husyaina Damira · Sepak Bola',
+  'Aziel Bhadra Widhy Putra · Menembak',
+  'Adzim Ade Putra · Hockey',
+  'Agni Sakina Rahmi · Bola Voli',
+  'Muhamad Zulfa Aditia · Gulat',
+  'Paulus Rafael Timisela · Anggar',
+  'Abdul Latif Hidayat · Gulat',
+  'M. Dzikry Ramdhani · Drumband',
 ]
 
 function AtletTicker() {
@@ -122,7 +128,7 @@ export default function LoginKabBandung() {
           </p>
 
           <div className="flex gap-4 mt-8 p-4 bg-[#040f1c]/60 rounded-xl border border-sky-400/10 backdrop-blur-md max-w-md">
-            {[{v:'40',l:'Kecamatan'},{v:'19',l:'Kelurahan'},{v:'416',l:'Desa'},{v:'2.710',l:'km²'}].map(s=>(
+            {[{v:'31',l:'Kecamatan'},{v:'10',l:'Kelurahan'},{v:'270',l:'Desa'},{v:'1.768',l:'km²'}].map(s=>(
               <div key={s.l} className="text-center flex-1 border-r border-white/5 last:border-0">
                 <div className="text-sky-400 text-base font-extrabold">{s.v}</div>
                 <div className="text-white/40 text-[9px] mt-1 font-medium tracking-wide uppercase">{s.l}</div>

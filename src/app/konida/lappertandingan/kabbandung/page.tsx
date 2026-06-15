@@ -57,46 +57,11 @@ const EMPTY_FORM: Omit<JurnalLaga,'id'> = {
 
 const LS_KEY = 'porprov_jurnal_v2'  // Bump version karena format berubah (tambah isDemo)
 
-// ═════════ DEMO DATA — 7 hari pertama dengan jadwal realistik ═════════
+// TODO: isi data pertandingan real saat PORPROV mulai (7 Nov 2026)
+// Format: { [hari: number]: JurnalLaga[] }
+// Contoh entry: { id:'real-1-1', waktu:'08:00', cabor:'Hockey', hasil:'...', medali:'Emas', catatan:'...', isDemo:false }
 function generateDemoData(): Record<number, JurnalLaga[]> {
-  return {
-    1: [
-      { id:'demo-1-1', waktu:'08:00', cabor:'Atletik',     hasil:'Heat 100m Putra — Lolos ke Semifinal',                medali:'Tanpa Medali', catatan:'Performa stabil, Rama catat waktu 10.92s', isDemo:true },
-      { id:'demo-1-2', waktu:'10:00', cabor:'Hockey',      hasil:'Babak 1 vs Kota Depok — Menang 3-1',                  medali:'Tanpa Medali', catatan:'Tim solid, defense kuat', isDemo:true },
-      { id:'demo-1-3', waktu:'14:00', cabor:'Dayung',      hasil:'Penyisihan K-2 500m — Posisi #2 Grup A',             medali:'Tanpa Medali', catatan:'Riko + Taufik on track ke final', isDemo:true },
-    ],
-    2: [
-      { id:'demo-2-1', waktu:'09:00', cabor:'Dayung',      hasil:'FINAL K-2 500m — Juara 1, beat Kab. Sukabumi',        medali:'Emas',         catatan:'🏆 Riko & Taufik dominan dari start, finish 1:42.3', isDemo:true },
-      { id:'demo-2-2', waktu:'11:30', cabor:'Karate',      hasil:'Quarter-Final Kumite -60kg Putra — Menang 5-2',       medali:'Tanpa Medali', catatan:'Razandra advance ke semifinal', isDemo:true },
-      { id:'demo-2-3', waktu:'13:00', cabor:'Atletik',     hasil:'FINAL 100m Putra — Juara 3 (10.78s)',                 medali:'Perunggu',     catatan:'Catat PB, tipis dari runner-up Kota Bandung 0.04s', isDemo:true },
-      { id:'demo-2-4', waktu:'16:00', cabor:'Renang',      hasil:'100m Gaya Bebas Putra — Runner-up',                   medali:'Perak',        catatan:'Selisih 0.3s dari juara 1 Bandung', isDemo:true },
-    ],
-    3: [
-      { id:'demo-3-1', waktu:'08:30', cabor:'Menembak',    hasil:'10m Air Rifle Putra — Juara 3 (621.5)',               medali:'Perunggu',     catatan:'Konsistensi shot tinggi', isDemo:true },
-      { id:'demo-3-2', waktu:'11:00', cabor:'Panahan',     hasil:'Recurve Putra FINAL — Juara 1',                       medali:'Emas',         catatan:'🏆 Score 145-140, comeback dari behind di set ke-4', isDemo:true },
-      { id:'demo-3-3', waktu:'13:30', cabor:'Karate',      hasil:'Semifinal Kumite -60kg — Menang 4-1',                 medali:'Tanpa Medali', catatan:'Tinggal final besok pagi', isDemo:true },
-      { id:'demo-3-4', waktu:'15:00', cabor:'Pencak Silat',hasil:'Tunggal Putra FINAL — Juara 2',                       medali:'Perak',        catatan:'Joenov tampil ekspresif, kurang 5 poin', isDemo:true },
-    ],
-    4: [
-      { id:'demo-4-1', waktu:'09:00', cabor:'Karate',      hasil:'FINAL Kumite -60kg Putra — Juara 1',                  medali:'Emas',         catatan:'🏆 Razandra raih emas pertama Karate Bandung', isDemo:true },
-      { id:'demo-4-2', waktu:'10:30', cabor:'Bulutangkis', hasil:'Tunggal Putra Semifinal — Kalah 0-2',                 medali:'Tanpa Medali', catatan:'Lawan kuat juara bertahan', isDemo:true },
-      { id:'demo-4-3', waktu:'14:00', cabor:'Atletik',     hasil:'Lompat Jauh Putra FINAL — 7.32m, Juara 2',            medali:'Perak',        catatan:'PB baru, kalah 8cm dari juara', isDemo:true },
-    ],
-    5: [
-      { id:'demo-5-1', waktu:'08:00', cabor:'Renang',      hasil:'200m Gaya Dada Putri — Juara 3',                      medali:'Perunggu',     catatan:'Sinta tampil agresif di 50m terakhir', isDemo:true },
-      { id:'demo-5-2', waktu:'11:00', cabor:'Hockey',      hasil:'Semifinal vs Kab. Bandung — Menang 2-1',              medali:'Tanpa Medali', catatan:'Tim lolos ke final besok!', isDemo:true },
-      { id:'demo-5-3', waktu:'15:00', cabor:'Taekwondo',   hasil:'Kyorugi -54kg Putra FINAL — Juara 1',                 medali:'Emas',         catatan:'🏆 Ahmad lebih dominan teknik di ronde ke-3', isDemo:true },
-    ],
-    6: [
-      { id:'demo-6-1', waktu:'09:00', cabor:'Hockey',      hasil:'FINAL vs Kota Bandung — Menang 3-2',                  medali:'Emas',         catatan:'🏆🏆 EMAS BESAR! Comeback dari 0-2 di babak ke-2', isDemo:true },
-      { id:'demo-6-2', waktu:'13:00', cabor:'Anggar',      hasil:'Sabel Putra FINAL — Juara 2 (Skor 14-15)',            medali:'Perak',        catatan:'Final super ketat, tipis sekali', isDemo:true },
-    ],
-    7: [
-      { id:'demo-7-1', waktu:'10:00', cabor:'Atletik',     hasil:'4x100m Estafet Putra FINAL — Juara 3',                medali:'Perunggu',     catatan:'Tim bagus, baton change perlu evaluasi', isDemo:true },
-      { id:'demo-7-2', waktu:'14:30', cabor:'Pencak Silat',hasil:'Ganda Putra FINAL — Juara 1',                         medali:'Emas',         catatan:'🏆 Sinkronisasi gerakan sempurna', isDemo:true },
-    ],
-    // Hari 8-14 sengaja kosong (siap diisi data real)
-  }
+  return {}
 }
 
 function loadFromLS(): Record<number, JurnalLaga[]> {
@@ -140,7 +105,16 @@ export default function PageLapPertandingan() {
   useEffect(()=>{
     sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id',KONTINGEN_ID).maybeSingle()
       .then(({data})=>{ if(data) setKlasemen(data) })
-    sb.from('atlet').select('cabor_nama_raw').eq('kontingen_id',KONTINGEN_ID).eq('status_registrasi','Verified').limit(9999)
+    ;(async () => {
+      let all: any[] = []
+      for (let p = 0; ; p++) {
+        const { data } = await sb.from('atlet').select('cabor_nama_raw').eq('kontingen_id',KONTINGEN_ID).eq('status_registrasi','Verified').range(p * 1000, (p + 1) * 1000 - 1)
+        if (!data || data.length === 0) break
+        all = all.concat(data)
+        if (data.length < 1000) break
+      }
+      return { data: all }
+    })()
       .then(({data})=>{
         if(data){
           const cabors = Array.from(new Set((data as any[]).map(a=>a.cabor_nama_raw).filter(Boolean))).sort()
