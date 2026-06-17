@@ -1,6 +1,6 @@
 'use client'
 import { useRef, useEffect } from 'react'
-import { X, Send, Sparkles, RefreshCw, Minus } from 'lucide-react'
+import { X, Send, Sparkles, RefreshCw, Minus, Download } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -16,6 +16,32 @@ interface Props {
   onSend: () => void
   onClose: () => void
   onMinimize: () => void
+}
+
+// Parse [DOWNLOAD:type:Label] tags → render sebagai tombol download
+function renderContent(content: string) {
+  const parts = content.split(/\[DOWNLOAD:([^:\]]+):([^\]]+)\]/)
+  if (parts.length === 1) return <>{content}</>
+
+  const nodes: React.ReactNode[] = []
+  for (let i = 0; i < parts.length; i += 3) {
+    if (parts[i]) nodes.push(<span key={`t${i}`}>{parts[i]}</span>)
+    if (i + 1 < parts.length) {
+      const type  = parts[i + 1]
+      const label = parts[i + 2] || 'Download'
+      nodes.push(
+        <a key={`d${i}`}
+          href={`/api/jarvis/export?type=${type}&kontingen_id=4`}
+          download
+          className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.02] w-fit no-underline"
+          style={{ background: 'linear-gradient(135deg, #059669, #0d9488)', boxShadow: '0 2px 10px rgba(5,150,105,0.3)' }}>
+          <Download size={11} />
+          {label}
+        </a>
+      )
+    }
+  }
+  return <>{nodes}</>
 }
 
 export function JarvisChatModal({ messages, input, loading, onInputChange, onSend, onClose, onMinimize }: Props) {
@@ -72,7 +98,7 @@ export function JarvisChatModal({ messages, input, loading, onInputChange, onSen
                 style={msg.role === 'user'
                   ? { background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#fff' }
                   : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#cbd5e1' }}>
-                {msg.content}
+                {renderContent(msg.content)}
               </div>
             </div>
           ))}
