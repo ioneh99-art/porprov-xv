@@ -50,6 +50,7 @@ interface AtletRaw {
   tes_fisik_rating: string | null
   tes_fisik_persen: number | null
   tes_fisik_status: string | null
+  is_locked: boolean | null
 }
 interface CaborStat {
   nama:string; total:number; putra:number; putri:number
@@ -98,7 +99,7 @@ export default function DashboardKabBandung() {
       let allAtlet: AtletRaw[] = []
       for (let page = 0; ; page++) {
         const { data: pageData } = await sb.from('atlet')
-          .select('status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status')
+          .select('status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked')
           .eq('kontingen_id', KONTINGEN_ID)
           .range(page * 1000, (page + 1) * 1000 - 1)
         if (!pageData || pageData.length === 0) break
@@ -221,6 +222,59 @@ export default function DashboardKabBandung() {
       myRank,
     }
   }, [atlets, klasemen])
+
+  // ── Strategic Intelligence (computed dari atlets — no extra fetch) ──
+  const intelligence = useMemo(() => {
+    type CMap = { total:number; tested:number; sumSkor:number; elite:number }
+    const caborMap: Record<string, CMap> = {}
+    let tf_elite = 0, tf_ready = 0, tf_needs_work = 0, tf_sub_par = 0, tf_kritis = 0, tf_tidak_hadir = 0
+    let total_tested = 0, anomali_count = 0
+
+    atlets.forEach(a => {
+      const c = a.cabor_nama_raw || 'Lainnya'
+      if (!caborMap[c]) caborMap[c] = { total:0, tested:0, sumSkor:0, elite:0 }
+      caborMap[c].total++
+      if (a.tes_fisik_persen != null) {
+        caborMap[c].tested++
+        caborMap[c].sumSkor += a.tes_fisik_persen
+        total_tested++
+        if (a.tes_fisik_rating === '⭐ ELITE')       { caborMap[c].elite++; tf_elite++ }
+        else if (a.tes_fisik_rating === '✅ READY')   tf_ready++
+        else if (a.tes_fisik_rating === '🟡 NEEDS WORK') tf_needs_work++
+        else if (a.tes_fisik_rating === '🔴 SUB-PAR') tf_sub_par++
+        else if (a.tes_fisik_rating === '🚨 KRITIS')  tf_kritis++
+        else if (a.tes_fisik_rating === '⚠️ Tidak Hadir') tf_tidak_hadir++
+      }
+      if (a.is_locked && a.tes_fisik_persen != null) anomali_count++
+    })
+
+    const top_cabors = Object.entries(caborMap)
+      .filter(([, v]) => v.tested > 0)
+      .map(([nama, v]) => ({
+        nama, rata_skor: Math.round(v.sumSkor / v.tested * 10) / 10,
+        elite: v.elite, tested: v.tested, total: v.total,
+      }))
+      .sort((a, b) => b.rata_skor - a.rata_skor)
+      .slice(0, 5)
+
+    const backlog_cabors = Object.entries(caborMap)
+      .filter(([, v]) => v.total >= 10)
+      .map(([nama, v]) => ({
+        nama, total: v.total,
+        belum_tes: v.total - v.tested,
+        coverage: Math.round(v.tested / v.total * 100),
+      }))
+      .sort((a, b) => b.belum_tes - a.belum_tes)
+      .slice(0, 5)
+
+    const tf_belum = atlets.length - total_tested
+    const coverage_persen = atlets.length > 0 ? Math.round(total_tested / atlets.length * 100) : 0
+
+    return {
+      tf_elite, tf_ready, tf_needs_work, tf_sub_par, tf_kritis, tf_tidak_hadir, tf_belum,
+      total_tested, coverage_persen, top_cabors, backlog_cabors, anomali_count,
+    }
+  }, [atlets])
 
   // ── Alert breakdowns (computed dari atlets yang sudah diload) ──
   const alertBreakdown = useMemo(() => {
@@ -591,6 +645,114 @@ export default function DashboardKabBandung() {
             </div>
           </div>
         </div>
+
+        {/* ═══ STRATEGIC INTELLIGENCE ═══ */}
+        {atlets.length > 0 && (
+        <div {...ani(9)} className="rounded-2xl p-6 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg,rgba(139,92,246,0.07) 0%,rgba(14,165,233,0.05) 50%,rgba(16,185,129,0.06) 100%)', border: '1px solid rgba(139,92,246,0.2)' }}>
+
+          <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full blur-3xl pointer-events-none"
+            style={{ background: 'rgba(139,92,246,0.10)' }} />
+
+          <div className="relative">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  <span>🎯</span> Strategic Intelligence
+                </h2>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Insight dari Data Quality Engine + Tes Biomotorik FPOK UPI
+                </p>
+              </div>
+              <a href="/konida/intelligence/kabbandung"
+                className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                style={{ background: 'rgba(139,92,246,0.15)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.35)' }}>
+                Detail Lengkap →
+              </a>
+            </div>
+
+            {/* 4 KPI cards */}
+            <div className="grid grid-cols-4 gap-3 mb-5">
+              {([
+                { emoji:'⭐', value: intelligence.tf_elite,        label:'Atlet ELITE',      sub:'Skor ≥80% (backbone)',    col:'rgba(251,191,36,0.15)',  bord:'rgba(251,191,36,0.3)',  txt:'#fcd34d' },
+                { emoji:'📊', value:`${intelligence.coverage_persen}%`, label:'Coverage Tes Fisik', sub:`${intelligence.total_tested}/${atlets.length} atlet`, col:'rgba(14,165,233,0.1)', bord:'rgba(14,165,233,0.25)', txt:'#38bdf8' },
+                { emoji:'⏳', value: intelligence.tf_belum,        label:'Belum Tes',        sub:'Backlog dijadwalkan',      col:'rgba(139,92,246,0.1)',  bord:'rgba(139,92,246,0.25)', txt:'#c4b5fd' },
+                { emoji:'🚨', value: intelligence.tf_kritis,       label:'Skor KRITIS',      sub:'Perlu evaluasi medis',     col:'rgba(244,63,94,0.1)',   bord:'rgba(244,63,94,0.25)',  txt:'#fb7185' },
+              ] as const).map(s => (
+                <div key={s.label} className="p-4 rounded-xl"
+                  style={{ background: s.col, border: `1px solid ${s.bord}` }}>
+                  <div className="text-xl mb-1">{s.emoji}</div>
+                  <div className="text-2xl font-black" style={{ color: s.txt }}>{s.value}</div>
+                  <div className="text-[11px] text-zinc-300 mt-0.5">{s.label}</div>
+                  <div className="text-[10px] text-zinc-600">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Two columns: Top Cabor + Backlog */}
+            <div className="grid grid-cols-2 gap-4">
+
+              {/* Top 5 Cabor */}
+              <div className="p-4 rounded-xl" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                <p className="text-xs font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
+                  <span>🏅</span> Top 5 Cabor Unggulan
+                </p>
+                <div className="space-y-2.5">
+                  {intelligence.top_cabors.map((c, i) => (
+                    <div key={c.nama} className="flex items-center gap-2 text-xs">
+                      <span className="text-zinc-600 w-4 shrink-0 text-center font-mono">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-white truncate font-medium text-[11px]">{c.nama}</span>
+                          <span className="text-emerald-400 text-[9px] shrink-0">⭐{c.elite}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                          <div className="h-full rounded-full" style={{ width:`${c.rata_skor}%`, background:'linear-gradient(90deg,#10b981,#34d399)' }}/>
+                        </div>
+                      </div>
+                      <span className="text-emerald-300 font-mono text-[11px] shrink-0 w-11 text-right">{c.rata_skor}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Backlog Priority */}
+              <div className="p-4 rounded-xl" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                <p className="text-xs font-bold text-purple-400 mb-3 flex items-center gap-1.5">
+                  <span>⚡</span> Prioritas Penjadwalan Tes
+                </p>
+                <div className="space-y-2.5">
+                  {intelligence.backlog_cabors.map(c => (
+                    <div key={c.nama} className="flex items-center gap-2 text-xs">
+                      <span className={`text-[9px] px-1 py-0.5 rounded font-bold shrink-0 ${c.coverage < 20 ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                        {c.coverage < 20 ? '🔴' : '⚠️'}
+                      </span>
+                      <span className="text-white flex-1 truncate font-medium text-[11px]">{c.nama}</span>
+                      <span className="text-zinc-500 text-[10px] shrink-0">{c.belum_tes}/{c.total}</span>
+                      <span className="text-purple-300 font-mono text-[10px] w-9 text-right shrink-0">{c.coverage}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Anomali alert */}
+            {intelligence.anomali_count > 0 && (
+              <div className="mt-4 p-3 rounded-xl flex items-center gap-3"
+                style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                <span className="text-lg shrink-0">🔬</span>
+                <div className="flex-1 text-xs">
+                  <span className="text-amber-300 font-semibold">{intelligence.anomali_count} anomali:</span>
+                  <span className="text-amber-500/80 ml-1">atlet dengan tes fisik valid tapi NIK perlu verifikasi KONI</span>
+                </div>
+                <a href="/konida/intelligence/kabbandung"
+                  className="text-xs text-amber-300 hover:underline shrink-0">Lihat →</a>
+              </div>
+            )}
+          </div>
+        </div>
+        )}
 
         {/* ═══ CRITICAL ALERTS + MISSION CONTROL — tepat setelah KPI ═══ */}
 
