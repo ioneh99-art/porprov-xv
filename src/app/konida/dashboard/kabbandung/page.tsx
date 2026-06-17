@@ -216,7 +216,7 @@ export default function DashboardKabBandung() {
       total, putra, putri, verified, pending, ditolak, posted,
       koni_verified, koni_approved, koni_rejected,
       lokal, nonLokal, kritis, elite,
-      vpct: total>0 ? Math.round(koni_verified/total*100) : 0,
+      vpct: total>0 ? Math.round((verified+posted)/total*100) : 0,
       lpct: total>0 ? Math.round(lokal/total*100)         : 0,
       myRank,
     }

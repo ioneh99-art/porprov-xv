@@ -448,25 +448,25 @@ export default function PageAtletKabBandung() {
               <div className="flex justify-between text-[11px] text-zinc-500 mb-2 uppercase font-mono font-bold">
                 <span>Progress Verifikasi</span>
                 <span style={{color:ACCENT}}>
-                  {summary.total>0?Math.round(summary.koni_verified/summary.total*100):0}%
+                  {summary.total>0?Math.round((summary.verified+summary.posted)/summary.total*100):0}%
                 </span>
               </div>
               <div className="h-2.5 w-full rounded-full overflow-hidden" style={{background:'rgba(255,255,255,0.06)'}}>
                 <div className="h-full rounded-full transition-all duration-1000"
-                  style={{width:`${summary.total>0?summary.koni_verified/summary.total*100:0}%`,background:ACCENT}}/>
+                  style={{width:`${summary.total>0?(summary.verified+summary.posted)/summary.total*100:0}%`,background:ACCENT}}/>
               </div>
               <div className="flex justify-between text-[9px] mt-1.5" style={{color:'rgba(255,255,255,0.3)'}}>
-                <span>{summary.koni_verified} KONI Verified · {summary.koni_approved} Approved Cabor</span>
+                <span>{summary.verified} verified · {summary.posted} posted</span>
                 <span className="text-rose-400">{summary.nonLokal} non-lokal</span>
               </div>
             </div>
           </div>
 
           {[
-            {l:'KONI Verified',  v:summary.koni_verified, c:'#22d3ee', sub:'Terverifikasi KONI',    icon:CheckCircle  },
-            {l:'Approved Cabor', v:summary.koni_approved, c:'#fbbf24', sub:'Disetujui Cabor',       icon:Clock        },
-            {l:'Rejected',       v:summary.koni_rejected, c:'#f87171', sub:'Perlu perbaikan data',  icon:XCircle      },
-            {l:'Anomali NIK',    v:summary.nonLokal,      c:'#fb923c', sub:'Atlet non-lokal KBR',   icon:AlertTriangle},
+            {l:'Verified',    v:summary.verified, c:'#22d3ee', sub:'Terverifikasi admin',     icon:CheckCircle  },
+            {l:'Posted',      v:summary.posted,   c:'#60a5fa', sub:'Diterbitkan KONI',        icon:FileCheck    },
+            {l:'Pending',     v:summary.pending,  c:'#fbbf24', sub:'Menunggu verifikasi',     icon:Clock        },
+            {l:'Anomali NIK', v:summary.nonLokal, c:'#fb923c', sub:'Atlet non-lokal KBR',    icon:AlertTriangle},
           ].map(s=>(
             <div key={s.l} className="rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden"
               style={{background:'rgba(255,255,255,0.025)',border:`1px solid ${s.c}18`}}>

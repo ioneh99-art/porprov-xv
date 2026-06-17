@@ -279,7 +279,7 @@ export default function PageLaporan() {
   // ── Analytics ─────────────────────────────────────────────
   const analytics = useMemo(()=>{
     const total       = atlets.length
-    const verified    = atlets.filter(a=>a.status_verifikasi==='Verified').length
+    const verified    = atlets.filter(a=>a.status_registrasi==='Verified'||a.status_registrasi==='Posted').length
     const hasApparel  = atlets.filter(a=>a.ukuran_kemeja&&a.ukuran_sepatu).length
     const hasRek      = atlets.filter(a=>a.nama_bank&&a.no_rekening).length
     const hasNIK      = atlets.filter(a=>a.no_ktp&&a.no_ktp.length===16).length

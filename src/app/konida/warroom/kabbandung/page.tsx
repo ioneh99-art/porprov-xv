@@ -112,7 +112,7 @@ export default function PageWarRoom() {
           setSummary(prev => ({
             ...prev,
             total:    atlets.length,
-            verified: atlets.filter(x => x.status_verifikasi==='Verified').length,
+            verified: atlets.filter(x => x.status_registrasi==='Verified' || x.status_registrasi==='Posted').length,
           }))
 
           const caborAtletMap: Record<string, number> = {}
