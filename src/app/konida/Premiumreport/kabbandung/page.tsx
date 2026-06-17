@@ -162,7 +162,7 @@ export default function PagePremiumReport() {
         (async () => {
           let all: any[] = []
           for (let p = 0; ; p++) {
-            const { data, error } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).range(p * 1000, (p + 1) * 1000 - 1)
+            const { data, error } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).range(p * 1000, (p + 1) * 1000 - 1)
             if (error) return { data: null, error }
             if (!data || data.length === 0) break
             all = all.concat(data)

@@ -48,6 +48,7 @@ interface AtletDB {
   nama_asal_daerah:   string
   no_registrasi_koni: number|null
   status_registrasi:  string
+  status_verifikasi:  string|null
   ukuran_kemeja:      string|null
   ukuran_sepatu:      string|null
   nama_bank:          string|null
@@ -229,7 +230,7 @@ export default function PageLaporan() {
             let all: any[] = []
             for (let p = 0; ; p++) {
               const { data, error } = await sb.from('atlet')
-                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening')
+                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .order('cabor_nama_raw',{ascending:true})
                 .order('nama_lengkap',{ascending:true})
@@ -278,7 +279,7 @@ export default function PageLaporan() {
   // ── Analytics ─────────────────────────────────────────────
   const analytics = useMemo(()=>{
     const total       = atlets.length
-    const verified    = atlets.filter(a=>a.status_registrasi==='Verified'||a.status_registrasi==='Posted').length
+    const verified    = atlets.filter(a=>a.status_verifikasi==='Verified').length
     const hasApparel  = atlets.filter(a=>a.ukuran_kemeja&&a.ukuran_sepatu).length
     const hasRek      = atlets.filter(a=>a.nama_bank&&a.no_rekening).length
     const hasNIK      = atlets.filter(a=>a.no_ktp&&a.no_ktp.length===16).length

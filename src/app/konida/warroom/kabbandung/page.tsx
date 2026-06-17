@@ -72,7 +72,7 @@ export default function PageWarRoom() {
           (async () => {
             let all: any[] = []
             for (let p = 0; ; p++) {
-              const { data, error } = await sb.from('atlet').select('status_registrasi,cabor_nama_raw').eq('kontingen_id', 4).range(p * 1000, (p + 1) * 1000 - 1)
+              const { data, error } = await sb.from('atlet').select('status_registrasi,status_verifikasi,cabor_nama_raw').eq('kontingen_id', 4).range(p * 1000, (p + 1) * 1000 - 1)
               if (error) return { data: null, error }
               if (!data || data.length === 0) break
               all = all.concat(data)
@@ -112,7 +112,7 @@ export default function PageWarRoom() {
           setSummary(prev => ({
             ...prev,
             total:    atlets.length,
-            verified: atlets.filter(x => x.status_registrasi==='Verified').length,
+            verified: atlets.filter(x => x.status_verifikasi==='Verified').length,
           }))
 
           const caborAtletMap: Record<string, number> = {}
