@@ -551,10 +551,10 @@ export default function DashboardKabBandung() {
             {/* 4 Stat Cards */}
             <div className="grid grid-cols-4 gap-3 mb-4">
               {([
-                { emoji: '🔧', value: 1196, label: 'Total Koreksi Otomatis', sub: 'Auto-fix dijalankan', color: 'sky'     },
-                { emoji: '👤', value: 25,   label: 'Gender Dikoreksi',        sub: 'Dari validasi NIK',  color: 'emerald' },
-                { emoji: '📅', value: 107,  label: 'Tgl Lahir Dikoreksi',     sub: 'Dari validasi NIK',  color: 'emerald' },
-                { emoji: '🏆', value: 1064, label: 'Cabor Disinkronisasi',    sub: 'Dari rekap KONI',    color: 'sky'     },
+                { emoji: '🔧', value: 1196, label: 'Tindakan Koreksi Otomatis', sub: '1 atlet bisa ≥1 koreksi', color: 'sky'     },
+                { emoji: '👤', value: 25,   label: 'Atlet Gender Dikoreksi',   sub: 'Dari validasi NIK',       color: 'emerald' },
+                { emoji: '📅', value: 107,  label: 'Atlet Tgl Lahir Dikoreksi',sub: 'Dari validasi NIK',       color: 'emerald' },
+                { emoji: '🏆', value: 1064, label: 'Atlet Cabor Disinkronisasi',sub: 'Dari rekap KONI',        color: 'sky'     },
               ] as const).map(s => {
                 const col = s.color === 'sky'
                   ? { text: 'text-sky-300',     border: 'rgba(14,165,233,0.2)'  }
