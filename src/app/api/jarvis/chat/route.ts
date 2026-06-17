@@ -15,7 +15,63 @@ const GROQ_KEYS = [
 ].filter(Boolean) as string[]
 
 let keyIdx = 0
-function nextKey() { const k = GROQ_KEYS[keyIdx % GROQ_KEYS.length]; keyIdx++; return k }
+function nextGroqKey() { const k = GROQ_KEYS[keyIdx % GROQ_KEYS.length]; keyIdx++; return k }
+
+// Panggil Anthropic Claude (primary)
+async function callClaude(systemPrompt: string, msgs: { role: string; content: string }[]) {
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) throw new Error('ANTHROPIC_API_KEY tidak tersedia')
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'x-api-key':         key,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system:     systemPrompt,
+      messages:   msgs,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Claude error ${res.status}: ${err}`)
+  }
+  const data = await res.json()
+  return {
+    text:       (data.content?.[0]?.text || '').trim(),
+    tokens:     (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+    model_used: 'claude-haiku-4-5',
+  }
+}
+
+// Fallback ke Groq jika Claude gagal
+async function callGroq(systemPrompt: string, msgs: { role: string; content: string }[]) {
+  const key = nextGroqKey()
+  if (!key) throw new Error('GROQ_API_KEY tidak tersedia')
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model:       'llama-3.3-70b-versatile',
+      messages:    [{ role: 'system', content: systemPrompt }, ...msgs],
+      temperature: 0.7,
+      max_tokens:  900,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Groq error ${res.status}: ${err}`)
+  }
+  const data = await res.json()
+  return {
+    text:       (data.choices?.[0]?.message?.content || '').trim(),
+    tokens:     data.usage?.total_tokens || 0,
+    model_used: 'groq-llama-3.3-70b',
+  }
+}
 
 const ISSUE_TYPE_LABEL: Record<string, string> = {
   nik_format:             'NIK format tidak valid',
@@ -156,34 +212,22 @@ GAYA:
 - Jangan auto-fix — semua via approval Iwan
 - Maksimal 3 paragraf pendek`
 
-    const messages = [
-      { role: 'system', content: systemPrompt },
+    // Messages untuk LLM (tanpa system — sistem prompt dikirim terpisah untuk Anthropic)
+    const llmMessages = [
       ...historyMessages,
       { role: 'user', content: message },
     ]
 
-    const apiKey = nextKey()
-    if (!apiKey) return NextResponse.json({ success: false, error: 'GROQ_API_KEY tidak tersedia' }, { status: 500 })
-
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages,
-        temperature: 0.7,
-        max_tokens: 700,
-      }),
-    })
-
-    if (!res.ok) {
-      const err = await res.text()
-      throw new Error(`Groq error ${res.status}: ${err}`)
+    // Coba Claude dulu, fallback ke Groq
+    let result: { text: string; tokens: number; model_used: string }
+    try {
+      result = await callClaude(systemPrompt, llmMessages)
+    } catch (claudeErr: any) {
+      console.warn('Claude gagal, fallback ke Groq:', claudeErr.message)
+      result = await callGroq(systemPrompt, llmMessages)
     }
 
-    const groqData = await res.json()
-    const response = groqData.choices?.[0]?.message?.content?.trim() || ''
-    const tokensUsed = groqData.usage?.total_tokens || 0
+    const { text: response, tokens: tokensUsed, model_used } = result
 
     // Save assistant response
     await sb.from('jarvis_chat_history').insert({
@@ -191,7 +235,7 @@ GAYA:
       role: 'assistant',
       content: response,
       current_page: currentPage,
-      ai_model: 'groq-llama-3.3-70b',
+      ai_model: model_used,
       tokens_used: tokensUsed,
     })
 

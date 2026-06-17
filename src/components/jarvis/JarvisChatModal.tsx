@@ -18,30 +18,106 @@ interface Props {
   onMinimize: () => void
 }
 
-// Parse [DOWNLOAD:type:Label] tags → render sebagai tombol download
-function renderContent(content: string) {
-  const parts = content.split(/\[DOWNLOAD:([^:\]]+):([^\]]+)\]/)
-  if (parts.length === 1) return <>{content}</>
+// Render teks inline: **bold** dan [DOWNLOAD:type:label]
+function renderInline(text: string, baseKey: string): React.ReactNode {
+  // Pecah berdasarkan bold dan download tags
+  const parts = text.split(/(\*\*[^*]+\*\*|\[DOWNLOAD:[^\]]+\])/)
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={`${baseKey}-b${i}`}>{part.slice(2, -2)}</strong>
+        }
+        const dl = part.match(/^\[DOWNLOAD:([^:\]]+):([^\]]+)\]$/)
+        if (dl) {
+          return (
+            <a key={`${baseKey}-d${i}`}
+              href={`/api/jarvis/export?type=${dl[1]}&kontingen_id=4`}
+              download
+              className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.02] w-fit no-underline"
+              style={{ background: 'linear-gradient(135deg, #059669, #0d9488)', boxShadow: '0 2px 10px rgba(5,150,105,0.3)' }}>
+              <Download size={11} />
+              {dl[2]}
+            </a>
+          )
+        }
+        return <span key={`${baseKey}-t${i}`}>{part}</span>
+      })}
+    </>
+  )
+}
 
-  const nodes: React.ReactNode[] = []
-  for (let i = 0; i < parts.length; i += 3) {
-    if (parts[i]) nodes.push(<span key={`t${i}`}>{parts[i]}</span>)
-    if (i + 1 < parts.length) {
-      const type  = parts[i + 1]
-      const label = parts[i + 2] || 'Download'
-      nodes.push(
-        <a key={`d${i}`}
-          href={`/api/jarvis/export?type=${type}&kontingen_id=4`}
-          download
-          className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-all hover:opacity-90 hover:scale-[1.02] w-fit no-underline"
-          style={{ background: 'linear-gradient(135deg, #059669, #0d9488)', boxShadow: '0 2px 10px rgba(5,150,105,0.3)' }}>
-          <Download size={11} />
-          {label}
-        </a>
-      )
+// Deteksi baris tabel markdown: | col | col |
+function isTableRow(line: string) { return line.trim().startsWith('|') && line.trim().endsWith('|') }
+function isSepRow(line: string) { return /^\|[\s|:-]+\|$/.test(line.trim()) }
+
+// Parse konten lengkap: tabel, bold, download tags, newlines
+function renderContent(content: string) {
+  const lines = content.split('\n')
+  const result: React.ReactNode[] = []
+  let tableLines: string[] = []
+  let keyIdx = 0
+
+  const flushTable = () => {
+    if (tableLines.length < 2) {
+      tableLines.forEach(l => {
+        result.push(<span key={`tbl-f-${keyIdx++}`}>{l}</span>)
+        result.push(<br key={`tbl-fbr-${keyIdx++}`} />)
+      })
+      tableLines = []
+      return
+    }
+    const headers = tableLines[0].split('|').filter((_, i, a) => i > 0 && i < a.length - 1).map(h => h.trim())
+    const dataRows = tableLines.slice(2).filter(l => !isSepRow(l))
+    result.push(
+      <div key={`tbl-${keyIdx++}`} className="overflow-x-auto my-2">
+        <table className="text-[11px] border-collapse w-full">
+          <thead>
+            <tr>
+              {headers.map((h, hi) => (
+                <th key={hi} className="px-2 py-1 text-left font-bold text-purple-300 border-b"
+                  style={{ borderColor: 'rgba(139,92,246,0.3)' }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dataRows.map((row, ri) => {
+              const cells = row.split('|').filter((_, i, a) => i > 0 && i < a.length - 1).map(c => c.trim())
+              return (
+                <tr key={ri} className={ri % 2 === 0 ? '' : ''} style={{ background: ri % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
+                  {cells.map((cell, ci) => (
+                    <td key={ci} className="px-2 py-1 text-zinc-300" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      {renderInline(cell, `tbl-cell-${ri}-${ci}`)}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+    tableLines = []
+  }
+
+  for (const line of lines) {
+    if (isTableRow(line)) {
+      tableLines.push(line)
+    } else {
+      if (tableLines.length > 0) flushTable()
+      if (line === '') {
+        result.push(<br key={`br-${keyIdx++}`} />)
+      } else {
+        result.push(<span key={`ln-${keyIdx}`}>{renderInline(line, `ln-${keyIdx}`)}</span>)
+        result.push(<br key={`lnbr-${keyIdx++}`} />)
+      }
     }
   }
-  return <>{nodes}</>
+  if (tableLines.length > 0) flushTable()
+
+  return <>{result}</>
 }
 
 export function JarvisChatModal({ messages, input, loading, onInputChange, onSend, onClose, onMinimize }: Props) {
