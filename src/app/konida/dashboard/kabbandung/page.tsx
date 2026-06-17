@@ -430,9 +430,6 @@ export default function DashboardKabBandung() {
               </span>
               {' '}perlu tindak lanjut.{' '}
             </>}
-            Ranking referensi <strong className="text-amber-400 drop-shadow-md">#{POPDA_REF.rank}</strong>
-            <span className="text-[10px] text-zinc-500"> (POPDA XIV 2025)</span> dengan{' '}
-            <strong className="text-yellow-400">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</strong>.
           </p>
         </div>
 
