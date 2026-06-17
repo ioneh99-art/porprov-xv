@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import { readFileSync } from 'fs'
 
 export interface RekapAtlet {
   koni_id: number
@@ -9,7 +10,8 @@ export interface RekapAtlet {
 }
 
 export function parseRekapFile(filePath: string): RekapAtlet[] {
-  const wb   = XLSX.readFile(filePath)
+  const buf   = readFileSync(filePath)
+  const wb    = XLSX.read(buf, { type: 'buffer' })
   const sheet = wb.Sheets['Export']
   if (!sheet) throw new Error('Sheet "Export" tidak ditemukan di rekap file')
 

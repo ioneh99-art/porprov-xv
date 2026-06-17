@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runDataQualitySync } from '@/lib/data-quality/auto-fix-engine'
 
-export const dynamic = 'force-dynamic'
+export const dynamic    = 'force-dynamic'
+export const runtime    = 'nodejs'
 export const maxDuration = 300 // 5 menit — sync bisa lama untuk 1100+ atlet
 
 export async function POST(req: NextRequest) {
