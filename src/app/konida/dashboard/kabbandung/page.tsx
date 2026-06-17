@@ -390,23 +390,44 @@ export default function DashboardKabBandung() {
             <strong className="text-white">{cabors.length} cabor</strong>. Saat ini{' '}
             <strong style={{ color:'#22d3ee' }}>{kpi.vpct}% terverifikasi</strong>
             {kpi.pending>0 && <> dengan{' '}
-              <button onClick={() => setAlertPanel('pending')}
-                className="font-bold text-amber-400 underline decoration-dotted underline-offset-2 hover:text-amber-300 transition-colors cursor-pointer">
-                {kpi.pending} pending
-              </button>
+              <span className="inline-flex items-center gap-1">
+                <Link href="/konida/atlet/kabbandung?status=Menunggu+Admin"
+                  className="font-bold text-amber-400 underline underline-offset-2 hover:text-amber-300 transition-colors">
+                  {kpi.pending} pending
+                </Link>
+                <button onClick={() => setAlertPanel('pending')}
+                  className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-amber-400/20 transition-colors"
+                  title="Lihat breakdown">
+                  <Info size={11} className="text-amber-500/60 hover:text-amber-400" />
+                </button>
+              </span>
             </>}.{' '}
             {kpi.nonLokal>0 && <>
-              <button onClick={() => setAlertPanel('nonlokal')}
-                className="font-bold text-rose-400 underline decoration-dotted underline-offset-2 hover:text-rose-300 transition-colors cursor-pointer">
-                {kpi.nonLokal} non-lokal
-              </button>
+              <span className="inline-flex items-center gap-1">
+                <Link href="/konida/atlet/kabbandung"
+                  className="font-bold text-rose-400 underline underline-offset-2 hover:text-rose-300 transition-colors">
+                  {kpi.nonLokal} non-lokal
+                </Link>
+                <button onClick={() => setAlertPanel('nonlokal')}
+                  className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-rose-400/20 transition-colors"
+                  title="Lihat breakdown">
+                  <Info size={11} className="text-rose-500/60 hover:text-rose-400" />
+                </button>
+              </span>
               {' '}({Math.round(kpi.nonLokal/kpi.total*100)}%) butuh atensi.{' '}
             </>}
             {kpi.ditolak>0 && <>
-              <button onClick={() => setAlertPanel('ditolak')}
-                className="font-bold text-red-400 underline decoration-dotted underline-offset-2 hover:text-red-300 transition-colors cursor-pointer">
-                {kpi.ditolak} ditolak
-              </button>
+              <span className="inline-flex items-center gap-1">
+                <Link href="/konida/atlet/kabbandung?status=Ditolak+Admin"
+                  className="font-bold text-red-400 underline underline-offset-2 hover:text-red-300 transition-colors">
+                  {kpi.ditolak} ditolak
+                </Link>
+                <button onClick={() => setAlertPanel('ditolak')}
+                  className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-400/20 transition-colors"
+                  title="Lihat breakdown">
+                  <Info size={11} className="text-red-500/60 hover:text-red-400" />
+                </button>
+              </span>
               {' '}perlu tindak lanjut.{' '}
             </>}
             Ranking referensi <strong className="text-amber-400 drop-shadow-md">#{POPDA_REF.rank}</strong>
