@@ -53,20 +53,21 @@ export async function POST(req: NextRequest) {
       content: h.content,
     }))
 
-    // Fetch ringkasan data atlet ditolak untuk konteks akurat
-    const { data: ditolakSample } = await sb
+    // Fetch SEMUA atlet ditolak (max 100, aktual hanya 53)
+    const { data: ditolakAll, count: ditolakTotal } = await sb
       .from('atlet')
-      .select('nama_lengkap, cabor_nama_raw, catatan_verifikasi, no_ktp')
+      .select('nama_lengkap, cabor_nama_raw, catatan_verifikasi, no_ktp', { count: 'exact' })
       .eq('kontingen_id', kontingenId)
       .eq('status_registrasi', 'Ditolak Admin')
-      .limit(10)
+      .order('cabor_nama_raw')
+      .limit(100)
 
-    const ditolakCtx = ditolakSample?.length
-      ? `${ditolakSample.length} sample dari ${ditolakSample.length} ditampilkan:\n` +
-        ditolakSample.map((a: any) =>
-          `  - ${a.nama_lengkap} (${a.cabor_nama_raw}) | NIK: ${a.no_ktp || 'kosong'} | Catatan: ${a.catatan_verifikasi || 'NULL'}`
+    const ditolakCtx = ditolakAll?.length
+      ? `Total: ${ditolakTotal} atlet ditolak. Daftar lengkap:\n` +
+        ditolakAll.map((a: any) =>
+          `  - ${a.nama_lengkap} (${a.cabor_nama_raw}) | NIK: ${a.no_ktp || 'kosong'} | Catatan: ${a.catatan_verifikasi || 'NULL — tidak ada alasan penolakan'}`
         ).join('\n')
-      : 'Tidak ada data ditolak.'
+      : 'Tidak ada data atlet ditolak.'
 
     const systemPrompt = `Kamu adalah Jarvis, AI QA companion untuk PORPROV XV - Kabupaten Bandung.
 
