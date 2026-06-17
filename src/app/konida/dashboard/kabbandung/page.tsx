@@ -3,20 +3,20 @@
 // PATCH: Hapus Peta Kompetitor + Top 5 Klasemen + Target Realisasi
 // KONTINGEN_ID=4, KODE_LOKAL='3204', ACCENT=#38bdf8
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import {
   Users, Trophy, Target, CheckCircle, Clock, AlertTriangle,
-  Zap, Shield, ChevronRight, RefreshCw, Info,
-  Search, X, FileText, Download, Monitor,
+  Zap, ChevronRight, RefreshCw, Info,
+  X, FileText, Download, Monitor,
   Activity, FileCheck,
 } from 'lucide-react'
 import SportScienceCard from '@/components/konida/SportScienceCard'
 import CaborWatchlist, { CaborWatchData } from '@/components/konida/CaborWatchlist'
 import {
-  HealthIndexGauge, CriticalAlertsCard, CriticalPathTimeline, MissionControlActions,
-  buildAlertsFromData, buildMissionActions, buildDefaultTimeline,
+  HealthIndexGauge,
+  buildAlertsFromData,
 } from '@/components/konida/DashboardHelpers'
 
 const sb = createClient(
@@ -78,8 +78,7 @@ export default function DashboardKabBandung() {
   const [myMedali,  setMyMedali]  = useState({ emas:0, perak:0, perunggu:0, total:0 })
   const [loading,   setLoading]   = useState(true)
   const [animIn,    setAnimIn]    = useState(false)
-  const [search,    setSearch]    = useState('')
-  const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
+const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   const [pulse,     setPulse]     = useState(true)
   const [alertPanel, setAlertPanel] = useState<'pending'|'nonlokal'|'ditolak'|null>(null)
   const [tesFisikData, setTesFisikData] = useState<{
@@ -321,6 +320,16 @@ export default function DashboardKabBandung() {
     return { pendingByCabor, ditolakByCabor, nonLokalByDaerah }
   }, [atlets])
 
+  // ── Alert strip untuk KPI+DQ card ──
+  const dashAlerts = useMemo(() => buildAlertsFromData({
+    pendingVerifikasi: kpi.pending,
+    dnsAtlet:          tesFisikData.dns,
+    lowSkorAtlet:      kpi.kritis,
+    daysToEvent:       Math.max(0, Math.ceil((new Date('2026-11-07').getTime()-Date.now())/86400000)),
+    lockedNik:         8,
+    cabors_lemah_count: tesFisikData.lemahCount,
+  }), [kpi, tesFisikData])
+
   // ── Build CaborWatchData for Watchlist component ──
   const caborWatchList = useMemo<CaborWatchData[]>(() => {
     // Aggregate per cabor from raw atlets
@@ -462,20 +471,6 @@ export default function DashboardKabBandung() {
                 </button>
               </span>
             </>}.{' '}
-            {kpi.nonLokal>0 && <>
-              <span className="inline-flex items-center gap-1">
-                <Link href="/konida/atlet/kabbandung"
-                  className="font-bold text-rose-400 underline underline-offset-2 hover:text-rose-300 transition-colors">
-                  {kpi.nonLokal} non-lokal
-                </Link>
-                <button onClick={() => setAlertPanel('nonlokal')}
-                  className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-rose-400/20 transition-colors"
-                  title="Lihat breakdown">
-                  <Info size={11} className="text-rose-500/60 hover:text-rose-400" />
-                </button>
-              </span>
-              {' '}({Math.round(kpi.nonLokal/kpi.total*100)}%) butuh atensi.{' '}
-            </>}
             {kpi.ditolak>0 && <>
               <span className="inline-flex items-center gap-1">
                 <Link href="/konida/atlet/kabbandung?status=Ditolak+Admin"
@@ -493,157 +488,151 @@ export default function DashboardKabBandung() {
           </p>
         </div>
 
-        {/* ── KPI STRIP ── */}
-        <div {...ani(5)} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* ── KPI + DATA QUALITY ENGINE (UNIFIED) ── */}
+        <div {...ani(5)} className="rounded-2xl overflow-hidden"
+          style={{ background:'rgba(14,165,233,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
 
-          {/* Total Atlet */}
-          <div className="rounded-2xl p-4 flex items-center gap-3 bg-[#38bdf808] border border-[#38bdf818]">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[#38bdf815]">
-              <Users size={16} style={{ color:ACCENT }}/>
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Total Atlet</div>
-              <div className="text-xl font-black text-white leading-none">{kpi.total.toLocaleString('id')}</div>
-              <div className="text-[10px] mt-0.5" style={{ color:`${ACCENT}60` }}>{cabors.length} cabor</div>
-            </div>
-          </div>
+          {/* 4 KPI cells */}
+          <div className="grid grid-cols-2 lg:grid-cols-4">
 
-          {/* Gender */}
-          <div className="rounded-2xl p-4 flex items-center gap-3 bg-white/[0.03] border border-white/[0.07]">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-500/10">
-              <Users size={16} className="text-blue-400"/>
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Gender</div>
-              <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-base font-black text-blue-300">{kpi.putra}</span>
-                <span className="text-[10px] text-zinc-500">♂</span>
-                <span className="text-zinc-600 mx-0.5">/</span>
-                <span className="text-base font-black text-pink-300">{kpi.putri}</span>
-                <span className="text-[10px] text-zinc-500">♀</span>
+            {/* Total Atlet */}
+            <div className="px-4 py-3 flex items-center gap-2.5 border-b border-r border-white/[0.06] lg:border-b-0">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-sky-500/10">
+                <Users size={14} style={{ color:ACCENT }}/>
               </div>
-              <div className="text-[10px] mt-0.5 text-zinc-500">{kpi.total>0?Math.round(kpi.putra/kpi.total*100):0}% putra</div>
-            </div>
-          </div>
-
-          {/* Status Data */}
-          <div className="rounded-2xl p-4 flex items-center gap-3 bg-white/[0.03] border border-white/[0.07]">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-green-500/10">
-              <CheckCircle size={16} className="text-green-400"/>
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Status Data</div>
-              <div className="text-xl font-black text-green-400 leading-none">{kpi.vpct}%</div>
-              <div className="text-[10px] mt-0.5 text-zinc-500">{kpi.pending>0?`${kpi.pending} pending`:'semua ok'}</div>
-            </div>
-          </div>
-
-          {/* Klasemen */}
-          <div className="rounded-2xl p-4 bg-[#ffd70008] border border-[#ffd70020]">
-            <div className="flex items-center gap-3 mb-2.5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-yellow-500/10">
-                <Trophy size={16} className="text-yellow-400"/>
+              <div className="min-w-0">
+                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Total Atlet</div>
+                <div className="text-lg font-black text-white leading-none">{kpi.total.toLocaleString('id')}</div>
+                <div className="text-[9px] mt-0.5" style={{ color:`${ACCENT}70` }}>{cabors.length} cabor</div>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Ref. POPDA XIV 2025</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-black text-yellow-400 leading-none">#{POPDA_REF.rank}</span>
-                  <span className="text-[10px] text-zinc-600">dari {klasemen.length||27}</span>
+            </div>
+
+            {/* Gender */}
+            <div className="px-4 py-3 flex items-center gap-2.5 border-b border-white/[0.06] lg:border-b-0 lg:border-r">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-blue-500/10">
+                <Users size={14} className="text-blue-400"/>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Gender</div>
+                <div className="flex items-baseline gap-1 leading-none mt-0.5">
+                  <span className="text-base font-black text-blue-300">{kpi.putra}</span>
+                  <span className="text-[9px] text-zinc-500">♂</span>
+                  <span className="text-zinc-600 mx-0.5">/</span>
+                  <span className="text-base font-black text-pink-300">{kpi.putri}</span>
+                  <span className="text-[9px] text-zinc-500">♀</span>
                 </div>
-                <div className="text-[10px] mt-0.5 text-zinc-500">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</div>
+                <div className="text-[9px] mt-0.5 text-zinc-500">{kpi.total>0?Math.round(kpi.putra/kpi.total*100):0}% putra</div>
               </div>
             </div>
-            {/* POPDA XIV Referensi */}
-            <div className="rounded-xl px-2.5 py-2 flex items-center gap-2.5"
-              style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)' }}>
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest shrink-0"
-                style={{ background:'rgba(99,102,241,0.18)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)' }}>
-                POPDA XIV
-              </span>
-              <div className="flex items-center gap-2 text-[10px] flex-1">
-                <span className="text-indigo-300 font-black">#{POPDA_REF.rank}</span>
-                <span className="text-zinc-600">·</span>
-                <span className="text-yellow-400">🥇{POPDA_REF.emas}</span>
-                <span className="text-zinc-400">🥈{POPDA_REF.perak}</span>
-                <span className="text-amber-600">🥉{POPDA_REF.perunggu}</span>
+
+            {/* Status Data */}
+            <div className="px-4 py-3 flex items-center gap-2.5 border-r border-white/[0.06]">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-green-500/10">
+                <CheckCircle size={14} className="text-green-400"/>
               </div>
-              <span className="text-[8px] text-zinc-600 shrink-0">2025</span>
+              <div className="min-w-0">
+                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Status Data</div>
+                <div className="text-lg font-black text-green-400 leading-none">{kpi.vpct}%</div>
+                <div className="text-[9px] mt-0.5 text-zinc-500">{kpi.pending>0?`${kpi.pending} pending`:'semua ok'}</div>
+              </div>
+            </div>
+
+            {/* Ref POPDA */}
+            <div className="px-4 py-3 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-yellow-500/10">
+                <Trophy size={14} className="text-yellow-400"/>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Ref. POPDA XIV</div>
+                <div className="flex items-baseline gap-1.5 leading-none mt-0.5">
+                  <span className="text-lg font-black text-yellow-400">#{POPDA_REF.rank}</span>
+                  <span className="text-[9px] text-zinc-600">dari {klasemen.length||27}</span>
+                </div>
+                <div className="text-[9px] mt-0.5 text-zinc-500">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</div>
+              </div>
             </div>
           </div>
 
-        </div>
-
-        {/* ═══ DATA QUALITY ENGINE — SELLING POINT ═══ */}
-        <div {...ani(8)} className="rounded-2xl p-6 relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg,rgba(14,165,233,0.07) 0%,rgba(16,185,129,0.05) 50%,rgba(245,158,11,0.06) 100%)', border: '1px solid rgba(14,165,233,0.2)' }}>
-
-          {/* Glow */}
-          <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full blur-3xl pointer-events-none"
-            style={{ background: 'rgba(14,165,233,0.12)' }} />
-
-          <div className="relative">
+          {/* DQ Engine — expanded */}
+          <div className="border-t border-white/[0.06]" style={{ background:'rgba(14,165,233,0.03)' }}>
             {/* Header */}
-            <div className="flex items-start justify-between mb-5">
-              <div>
-                <h2 className="text-base font-black text-white flex items-center gap-2">
-                  <span>⚙️</span> Data Quality Engine
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse"
-                    style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' }}>
-                    LIVE
-                  </span>
-                </h2>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Cross-validate otomatis: NIK → gender &amp; tgl lahir · Rekap KONI → cabang olahraga
-                </p>
-              </div>
-              <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg"
-                style={{ background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' }}>
+            <div className="px-4 pt-3 pb-2 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-black text-sky-400">⚙️ Data Quality Engine</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse"
+                style={{ background:'rgba(16,185,129,0.12)', color:'#34d399', border:'1px solid rgba(16,185,129,0.25)' }}>LIVE</span>
+              <span className="text-xs text-zinc-500 hidden lg:inline">
+                — Cross-validate otomatis: NIK → gender &amp; tgl lahir · Rekap KONI → cabang olahraga
+              </span>
+              <span className="ml-auto text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0"
+                style={{ background:'rgba(16,185,129,0.1)', color:'#34d399', border:'1px solid rgba(16,185,129,0.2)' }}>
                 99.3% AKURASI
               </span>
             </div>
-
-            {/* 4 Stat Cards */}
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            {/* 5 Stat cards */}
+            <div className="px-4 pb-3 grid grid-cols-2 lg:grid-cols-5 gap-2.5">
               {([
-                { emoji: '🔧', value: 1196, label: 'Tindakan Koreksi Otomatis', sub: '1 atlet bisa ≥1 koreksi', color: 'sky'     },
-                { emoji: '👤', value: 25,   label: 'Atlet Gender Dikoreksi',   sub: 'Dari validasi NIK',       color: 'emerald' },
-                { emoji: '📅', value: 107,  label: 'Atlet Tgl Lahir Dikoreksi',sub: 'Dari validasi NIK',       color: 'emerald' },
-                { emoji: '🏆', value: 1064, label: 'Atlet Cabor Disinkronisasi',sub: 'Dari rekap KONI',        color: 'sky'     },
-              ] as const).map(s => {
-                const col = s.color === 'sky'
-                  ? { text: 'text-sky-300',     border: 'rgba(14,165,233,0.2)'  }
-                  : { text: 'text-emerald-300', border: 'rgba(16,185,129,0.2)'  }
+                { emoji:'🔧', value:'1.196', label:'Tindakan Koreksi',     sub:'Total aksi perbaikan data otomatis oleh sistem',   color:'#38bdf8' },
+                { emoji:'👤', value:'25',    label:'Gender Dikoreksi',     sub:'NIK ↔ gender tidak cocok, diperbaiki otomatis',    color:'#34d399' },
+                { emoji:'📅', value:'107',   label:'Tgl Lahir Dikoreksi',  sub:'NIK ↔ tgl lahir tidak cocok, diperbaiki otomatis', color:'#34d399' },
+                { emoji:'🏆', value:'1.064', label:'Cabor Disinkronisasi', sub:'Nama cabor diselaraskan dari rekap resmi KONI',    color:'#38bdf8' },
+                { emoji:'🔐', value:'8',     label:'NIK Perlu Verifikasi', sub:'Format NIK invalid — diisolasi, tunggu KONI',      color:'#fbbf24' },
+              ] as const).map(s => (
+                <div key={s.label} className="rounded-xl p-3"
+                  style={{ background:'rgba(0,0,0,0.2)', border:`1px solid ${s.color}25` }}>
+                  <div className="text-base mb-1.5">{s.emoji}</div>
+                  <div className="text-2xl font-black leading-none" style={{ color:s.color }}>{s.value}</div>
+                  <div className="text-xs font-bold text-white mt-1.5 leading-tight">{s.label}</div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5 leading-snug">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Alert strip — 4 kolom */}
+          {dashAlerts.length > 0 && (
+            <div className="px-4 py-3 border-t border-white/[0.06] grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {dashAlerts.slice(0, 4).map((a, i) => {
+                const cfg = a.severity === 'urgent'
+                  ? { color:'#ef4444', bg:'rgba(239,68,68,0.08)',  border:'rgba(239,68,68,0.25)',  label:'URGENT'  }
+                  : { color:'#f97316', bg:'rgba(249,115,22,0.08)', border:'rgba(249,115,22,0.25)', label:'PENTING' }
+                const Icon = a.icon || AlertTriangle
                 return (
-                  <div key={s.label} className="p-4 rounded-xl"
-                    style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${col.border}` }}>
-                    <div className="text-xl mb-1">{s.emoji}</div>
-                    <div className={`text-2xl font-black ${col.text}`}>
-                      {s.value.toLocaleString('id-ID')}
+                  <div key={i} className="rounded-xl px-3.5 py-3 flex items-center gap-3"
+                    style={{ background:cfg.bg, border:`1px solid ${cfg.border}` }}>
+                    <Icon size={18} style={{ color:cfg.color, flexShrink:0 }}/>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-black uppercase tracking-widest leading-none"
+                        style={{ color:cfg.color }}>{cfg.label}</div>
+                      <div className="text-sm font-bold text-white leading-snug mt-1">{a.title}</div>
                     </div>
-                    <div className="text-[11px] text-zinc-300 mt-0.5">{s.label}</div>
-                    <div className="text-[10px] text-zinc-600">{s.sub}</div>
+                    {a.actionHref && (
+                      <a href={a.actionHref} className="shrink-0 text-xs font-bold transition-colors hover:opacity-80"
+                        style={{ color:cfg.color }}>→</a>
+                    )}
                   </div>
                 )
               })}
             </div>
+          )}
+        </div>
 
-            {/* Alert 8 locked */}
-            <div className="p-4 rounded-xl flex items-center gap-4"
-              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
-              <span className="text-2xl shrink-0">🔐</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-amber-300">8 Atlet Menunggu Verifikasi Manual KONI</p>
-                <p className="text-[11px] text-amber-500/80 mt-0.5">
-                  NIK tidak valid secara format — diisolasi sistem, tidak bisa diedit sampai KTP/Akta diverifikasi KONI
-                </p>
-              </div>
-              <a href="/konida/atlet/kabbandung"
-                className="shrink-0 text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors"
-                style={{ background: 'rgba(245,158,11,0.15)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.35)' }}>
-                Lihat Detail →
-              </a>
-            </div>
-          </div>
+        {/* ── KOMPOSISI SKOR ── */}
+        <div {...ani(8)}>
+          <HealthIndexGauge
+            primary={ACCENT}
+            dimensions={[
+              { label:'Registrasi',  score: Math.min(100, Math.round((kpi.total/1102)*100)), weight: 0.20, icon: Users     },
+              { label:'Verifikasi',  score: kpi.vpct,                          weight: 0.25, icon: FileCheck },
+              { label:'Fisik UPI',   score: tesFisikData.avgSkor,              weight: 0.30, icon: Activity  },
+              { label:'Partisipasi', score: tesFisikData.hadir > 0 ? Math.round((tesFisikData.hadir/(tesFisikData.hadir+tesFisikData.dns))*100) : 0, weight: 0.15, icon: Trophy    },
+              { label:'Cabor Sehat', score: cabors.length>0 ? Math.max(0, Math.round(100 - (tesFisikData.lemahCount/cabors.length)*100)) : 0, weight: 0.10, icon: Target },
+            ]}
+          />
+        </div>
+
+        {/* ── SPORT SCIENCE OVERVIEW ── */}
+        <div {...ani(9)}>
+          <SportScienceCard kontingenId={4} tenantSlug="kabbandung" primary="#0ea5e9"/>
         </div>
 
         {/* ═══ STRATEGIC INTELLIGENCE ═══ */}
@@ -754,67 +743,7 @@ export default function DashboardKabBandung() {
         </div>
         )}
 
-        {/* ═══ CRITICAL ALERTS + MISSION CONTROL — tepat setelah KPI ═══ */}
-
-        {/* ── CRITICAL ALERTS + TIMELINE ── */}
-        <div {...ani(10)} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CriticalAlertsCard
-            primary={ACCENT}
-            alerts={buildAlertsFromData({
-              pendingVerifikasi: kpi.pending,
-              dnsAtlet: tesFisikData.dns,
-              lowSkorAtlet: kpi.kritis,
-              daysToEvent: Math.max(0, Math.ceil((new Date('2026-11-07').getTime()-Date.now())/86400000)),
-              nonLokal: kpi.nonLokal,
-              cabors_lemah_count: tesFisikData.lemahCount,
-            })}
-          />
-          <CriticalPathTimeline
-            primary={ACCENT}
-            targetDate="2026-11-07"
-            targetLabel="OPENING PORPROV XV"
-            tasks={buildDefaultTimeline('2026-11-07')}
-          />
-        </div>
-
-        {/* ── MISSION CONTROL ── */}
-        <div {...ani(15)}>
-          <MissionControlActions
-            primary={ACCENT}
-            actions={buildMissionActions({
-              pendingVerifikasi: kpi.pending,
-              dnsAtlet: tesFisikData.dns,
-              lowSkorAtlet: kpi.kritis,
-              topPerformers: kpi.elite,
-              cabors_lemah_count: tesFisikData.lemahCount,
-              nonLokal: kpi.nonLokal,
-            })}
-          />
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-
-        {/* ── SPORT SCIENCE OVERVIEW ── */}
-        <div {...ani(20)}>
-          <SportScienceCard kontingenId={4} tenantSlug="kabbandung" primary="#0ea5e9"/>
-        </div>
-
-        {/* ── HEALTH INDEX COMPOSITE ── */}
-        <div {...ani(25)}>
-          <HealthIndexGauge
-            primary={ACCENT}
-            dimensions={[
-              { label:'Registrasi',  score: Math.min(100, Math.round((kpi.total/1102)*100)), weight: 0.20, icon: Users     },
-              { label:'Verifikasi',  score: kpi.vpct,                          weight: 0.25, icon: FileCheck },
-              { label:'Fisik UPI',   score: tesFisikData.avgSkor,              weight: 0.30, icon: Activity  },
-              { label:'Partisipasi', score: tesFisikData.hadir > 0 ? Math.round((tesFisikData.hadir/(tesFisikData.hadir+tesFisikData.dns))*100) : 0, weight: 0.15, icon: Trophy    },
-              { label:'Cabor Sehat', score: cabors.length>0 ? Math.max(0, Math.round(100 - (tesFisikData.lemahCount/cabors.length)*100)) : 0, weight: 0.10, icon: Target },
-            ]}
-          />
-        </div>
-
-
-        {/* ════════════════════════════════════════════════════════════════ */}
+{/* ════════════════════════════════════════════════════════════════ */}
         {/* PATCH v2: PETA KOMPETITOR + TOP 5 KLASEMEN + TARGET REALISASI    */}
         {/*          DIPINDAH ke War Room — section ini dihapus dari sini    */}
         {/* ════════════════════════════════════════════════════════════════ */}

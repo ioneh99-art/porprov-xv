@@ -177,12 +177,13 @@ export interface CriticalAlert {
 }
 
 export function CriticalAlertsCard({
-  alerts, primary = '#10b981', maxShow = 3, title = 'Critical Alerts Hari Ini',
+  alerts, primary = '#10b981', maxShow = 3, title = 'Critical Alerts Hari Ini', columns = 1,
 }: {
   alerts: CriticalAlert[]
   primary?: string
   maxShow?: number
   title?: string
+  columns?: number
 }) {
   const sorted = [...alerts].sort((a, b) => {
     const order = { urgent: 0, important: 1, info: 2 }
@@ -221,7 +222,8 @@ export function CriticalAlertsCard({
           <div className="text-xs text-zinc-500 mt-1">Tidak ada action item urgent</div>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className={columns > 1 ? `grid gap-2.5` : 'space-y-2.5'}
+          style={columns > 1 ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}>
           {shown.map((a, i) => {
             const cfg = sevConfig[a.severity]
             const Icon = a.icon || AlertTriangle
@@ -448,7 +450,7 @@ export function buildAlertsFromData(d: {
   dnsAtlet: number
   lowSkorAtlet: number
   daysToEvent: number
-  nonLokal: number
+  lockedNik?: number
   cabors_lemah_count: number
   apparelIncomplete?: number
 }): CriticalAlert[] {
@@ -498,15 +500,15 @@ export function buildAlertsFromData(d: {
       count: d.dnsAtlet,
     })
   }
-  if (d.nonLokal > 50) {
+  if ((d.lockedNik ?? 0) > 0) {
     alerts.push({
       severity: 'important',
       icon: AlertTriangle,
-      title: `${d.nonLokal} Atlet Non-Lokal`,
-      message: `${d.nonLokal} atlet NIK bukan dari Kab. Bogor (3201). Perlu re-validation domisili.`,
-      action: 'Review NIK',
-      actionHref: '/konida/atlet/kabbogor',
-      count: d.nonLokal,
+      title: `${d.lockedNik} NIK Perlu Verifikasi KONI`,
+      message: `${d.lockedNik} atlet NIK tidak valid — diisolasi sistem, menunggu verifikasi manual KTP/Akta oleh KONI.`,
+      action: 'Lihat Detail',
+      actionHref: '/konida/atlet/kabbandung',
+      count: d.lockedNik,
     })
   }
   if (d.daysToEvent <= 14) {
