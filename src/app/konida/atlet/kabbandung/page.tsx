@@ -17,6 +17,9 @@ import {
   CriticalAlertsCard, MissionControlActions,
   buildAlertsFromData, buildMissionActions,
 } from '@/components/konida/DashboardHelpers'
+import { QualityBadge } from '@/components/data-quality/QualityBadge'
+import { QualityDashboard } from '@/components/data-quality/QualityDashboard'
+import { QualityDetailModal } from '@/components/data-quality/QualityDetailModal'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts'
@@ -68,7 +71,12 @@ interface Atlet {
   catatan_verifikasi:  string | null
   kontingen_id:        number
   created_at:          string
-  tes_fisik?:          TesFisikInfo | null    // NEW
+  tes_fisik?:          TesFisikInfo | null
+  data_quality_status?: string | null
+  data_quality_notes?:  any[] | null
+  is_locked?:           boolean | null
+  locked_reason?:       string | null
+  original_data?:       any | null
 }
 
 const KATEGORI_COLOR: Record<string, string> = {
@@ -114,8 +122,9 @@ export default function PageAtletKabBandung() {
   const [rejectNote,   setRejectNote]   = useState('')
   const [isUpdating,   setIsUpdating]   = useState(false)
   const [animIn,           setAnimIn]           = useState(false)
-  const [showExport,       setShowExport]       = useState(false)
-  const [caborListExpanded, setCaborListExpanded] = useState(false)
+  const [showExport,          setShowExport]          = useState(false)
+  const [caborListExpanded,   setCaborListExpanded]   = useState(false)
+  const [qualityAtlet,        setQualityAtlet]        = useState<Atlet|null>(null)
 
   useEffect(()=>{ const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
 
@@ -129,7 +138,7 @@ export default function PageAtletKabBandung() {
             let all: any[] = []
             for (let p = 0; ; p++) {
               const { data, error } = await sb.from('atlet')
-                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at')
+                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at,data_quality_status,data_quality_notes,is_locked,locked_reason,original_data')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .order('cabor_nama_raw', { ascending: true })
                 .order('nama_lengkap',   { ascending: true })
@@ -363,6 +372,9 @@ export default function PageAtletKabBandung() {
       </div>
 
       <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative z-10 space-y-5">
+
+        {/* ── DATA QUALITY DASHBOARD ── */}
+        <QualityDashboard />
 
         {/* ── KPI CARDS ── */}
         <div {...ani(0)} className="grid grid-cols-5 gap-4">
@@ -684,6 +696,7 @@ export default function PageAtletKabBandung() {
                                 <th className="px-3 py-2.5 font-bold">Usia & Gender</th>
                                 <th className="px-3 py-2.5 font-bold">Asal Daerah</th>
                                 <th className="px-3 py-2.5 font-bold">Status</th>
+                                <th className="px-3 py-2.5 font-bold">Quality</th>
                                 <th className="px-3 py-2.5 font-bold text-center">Skor Fisik</th>
                                 <th className="px-3 py-2.5 font-bold text-center">Aksi</th>
                               </tr>
@@ -721,6 +734,15 @@ export default function PageAtletKabBandung() {
                                       <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-bold uppercase border ${st.bg} ${st.text} ${st.border}`}>
                                         <Icon size={9}/> {st.label}
                                       </div>
+                                    </td>
+                                    <td className="px-3 py-2.5">
+                                      <QualityBadge
+                                        status={a.data_quality_status}
+                                        notesCount={a.data_quality_notes?.filter((n:any)=>n.field!=='general').length}
+                                        isLocked={a.is_locked ?? false}
+                                        lockedReason={a.locked_reason ?? null}
+                                        onClick={() => setQualityAtlet(a)}
+                                      />
                                     </td>
                                     <td className="px-3 py-2.5 text-center">
                                       {a.tes_fisik ? (
@@ -796,6 +818,11 @@ export default function PageAtletKabBandung() {
           )}
         </div>
       </main>
+
+      {/* ── QUALITY DETAIL MODAL ── */}
+      {qualityAtlet && (
+        <QualityDetailModal atlet={qualityAtlet} onClose={() => setQualityAtlet(null)} />
+      )}
 
       {/* ── BACKDROP ── */}
       <div className={`fixed inset-0 z-50 transition-opacity duration-300 ${selectedAtlet?'opacity-100':'opacity-0 pointer-events-none'}`}
