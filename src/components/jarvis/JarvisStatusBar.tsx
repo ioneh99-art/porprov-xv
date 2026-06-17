@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { AlertTriangle, CheckCircle2, Sparkles, RefreshCw, X, AlertCircle, Info } from 'lucide-react'
 
 const KONTINGEN_ID = 4
@@ -26,6 +26,7 @@ export function JarvisStatusBar() {
   const [scanning,    setScanning]    = useState(false)
   const [showPanel,   setShowPanel]   = useState(false)
   const [lastScanned, setLastScanned] = useState<Date | null>(null)
+  const scanningRef = useRef(false)
 
   const fetchIssues = useCallback(async () => {
     try {
@@ -37,6 +38,8 @@ export function JarvisStatusBar() {
   }, [])
 
   const triggerScan = useCallback(async () => {
+    if (scanningRef.current) return
+    scanningRef.current = true
     setScanning(true)
     try {
       await fetch('/api/jarvis/validate', {
@@ -47,7 +50,10 @@ export function JarvisStatusBar() {
       await fetchIssues()
       setLastScanned(new Date())
     } catch {}
-    finally { setScanning(false) }
+    finally {
+      setScanning(false)
+      scanningRef.current = false
+    }
   }, [fetchIssues])
 
   const handleAction = async (id: number, action: string) => {
@@ -61,9 +67,7 @@ export function JarvisStatusBar() {
 
   useEffect(() => {
     fetchIssues()
-    // Trigger scan awal
     triggerScan()
-    // Poll issues setiap 30 detik
     const interval = setInterval(fetchIssues, 30_000)
     return () => clearInterval(interval)
   }, [])

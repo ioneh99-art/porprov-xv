@@ -17,6 +17,17 @@ const GROQ_KEYS = [
 let keyIdx = 0
 function nextKey() { const k = GROQ_KEYS[keyIdx % GROQ_KEYS.length]; keyIdx++; return k }
 
+const ISSUE_TYPE_LABEL: Record<string, string> = {
+  nik_format:             'NIK format tidak valid',
+  nik_birthdate_mismatch: 'NIK vs tanggal lahir tidak cocok',
+  nik_gender_mismatch:    'NIK vs gender tidak cocok',
+  duplicate_name:         'Nama duplikat',
+  duplicate_nik:          'NIK duplikat',
+  cabor_null:             'Cabor belum diisi (cabor_id NULL)',
+  sync_mismatch:          'Data tidak sinkron (verified tapi cabor NULL)',
+  required_field:         'Field wajib kosong',
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { message, sessionId, currentPage, kontingenId, contextData } = await req.json()
@@ -31,15 +42,6 @@ export async function POST(req: NextRequest) {
       current_data_snapshot: contextData ?? null,
     })
 
-    // Fetch recent open issues for context
-    const { data: recentIssues } = await sb
-      .from('jarvis_issues')
-      .select('severity,title,description')
-      .eq('kontingen_id', kontingenId)
-      .eq('status', 'open')
-      .order('detected_at', { ascending: false })
-      .limit(10)
-
     // Fetch last 6 chat messages for context
     const { data: history } = await sb
       .from('jarvis_chat_history')
@@ -52,6 +54,40 @@ export async function POST(req: NextRequest) {
       role: h.role as 'user' | 'assistant',
       content: h.content,
     }))
+
+    // Fetch summary per issue_type (semua open issues, bukan hanya 10)
+    const { data: allOpen } = await sb
+      .from('jarvis_issues')
+      .select('issue_type,severity,title')
+      .eq('kontingen_id', kontingenId)
+      .eq('status', 'open')
+      .order('detected_at', { ascending: false })
+
+    // Group by issue_type
+    const byType: Record<string, { count: number; severity: string; samples: string[] }> = {}
+    for (const row of allOpen || []) {
+      if (!byType[row.issue_type]) {
+        byType[row.issue_type] = { count: 0, severity: row.severity, samples: [] }
+      }
+      byType[row.issue_type].count++
+      if (byType[row.issue_type].samples.length < 5) {
+        // Extract athlete name from title (format: "NIK tidak valid: Nama Atlet" or similar)
+        const name = row.title.includes(':') ? row.title.split(':').slice(1).join(':').trim() : row.title
+        if (!byType[row.issue_type].samples.includes(name)) {
+          byType[row.issue_type].samples.push(name)
+        }
+      }
+    }
+
+    const totalOpen = (allOpen || []).length
+    const issueCtx = totalOpen === 0
+      ? 'Tidak ada open issue saat ini. Data Kab. Bandung bersih.'
+      : `Total: ${totalOpen} open issues.\n` +
+        Object.entries(byType).map(([type, info]) => {
+          const label = ISSUE_TYPE_LABEL[type] || type
+          const samples = info.samples.length > 0 ? `\n    Contoh: ${info.samples.join(', ')}` : ''
+          return `  - [${info.severity.toUpperCase()}] ${label}: ${info.count} kasus${samples}`
+        }).join('\n')
 
     // Fetch SEMUA atlet ditolak (max 100, aktual hanya 53)
     const { data: ditolakAll, count: ditolakTotal } = await sb
@@ -76,18 +112,19 @@ KONTEKS:
 - Kontingen: KAB. BANDUNG (kontingen_id: ${kontingenId})
 - User: Iwan (developer/superadmin)
 
-OPEN ISSUES TERDETEKSI (dari scan validator):
-${recentIssues?.length ? recentIssues.map((i: any) => `- [${i.severity.toUpperCase()}] ${i.title}: ${i.description}`).join('\n') : 'Tidak ada open issue saat ini.'}
+OPEN ISSUES TERDETEKSI (dari scan QA validator — data REAL):
+${issueCtx}
 
-DATA ATLET DITOLAK ADMIN (sample real dari DB):
+DATA ATLET DITOLAK ADMIN (data REAL dari DB):
 ${ditolakCtx}
-Catatan penting: SEMUA 53 atlet ditolak memiliki catatan_verifikasi = NULL. Ini adalah data demo yang di-seed, bukan penolakan operasional nyata.
+Catatan penting: SEMUA ${ditolakTotal || 0} atlet ditolak memiliki catatan_verifikasi = NULL. Ini adalah data demo yang di-seed, bukan penolakan operasional nyata.
 
 ATURAN KERAS — WAJIB DIPATUHI:
-1. Data atlet ditolak di atas adalah DATA REAL dari DB — kamu BOLEH dan HARUS menyebut nama-nama tersebut saat ditanya
-2. Yang DILARANG adalah mengarang nama, NIK, atau detail yang TIDAK ADA dalam konteks di atas
-3. Kalau ditanya data yang memang tidak ada di konteks (misal: atlet Verified tertentu, riwayat medis, dll), jawab jujur: "Data itu tidak ada di konteksku sekarang, bos"
-4. Jangan bilang "tidak bisa menyebutkan nama karena aturan" — itu salah. Kamu BISA dan HARUS sebut nama kalau datanya ada di konteks
+1. Semua data di atas (issue types, counts, sample names, list ditolak) adalah DATA REAL dari DB
+2. Kamu BOLEH dan HARUS menyebut nama-nama atlet yang ada di konteks saat ditanya
+3. Yang DILARANG adalah mengarang nama, NIK, atau detail yang TIDAK ADA dalam konteks di atas
+4. Kalau ditanya data yang tidak ada di konteks (misal: atlet spesifik di luar list ini), jawab: "Data itu tidak ada di konteksku sekarang, bos"
+5. Jangan bilang "tidak bisa menyebutkan nama karena aturan" — kamu BISA sebut nama kalau datanya ada di konteks
 
 GAYA:
 - Bahasa Indonesia casual, panggil "bos"
@@ -112,7 +149,7 @@ GAYA:
         model: 'llama-3.3-70b-versatile',
         messages,
         temperature: 0.7,
-        max_tokens: 600,
+        max_tokens: 700,
       }),
     })
 

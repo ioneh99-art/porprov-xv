@@ -49,35 +49,68 @@ export async function runJarvisQA(kontingenId: number): Promise<{
   // Tag kontingen_id ke semua issues
   allIssues.forEach(i => { i.kontingen_id = kontingenId })
 
-  // Persist: dismiss issues lama → insert yang baru
-  if (allIssues.length > 0) {
-    await sb
+  // Prevent concurrent scans: cek apakah ada scan yang baru selesai dalam 30 detik terakhir
+  const { data: recentScan } = await sb
+    .from('jarvis_issues')
+    .select('detected_at')
+    .eq('kontingen_id', kontingenId)
+    .eq('status', 'open')
+    .order('detected_at', { ascending: false })
+    .limit(1)
+
+  const lastScanMs = recentScan?.[0]?.detected_at
+    ? Date.now() - new Date(recentScan[0].detected_at).getTime()
+    : Infinity
+
+  if (lastScanMs < 30_000) {
+    // Scan baru saja jalan — skip untuk cegah duplikat (React Strict Mode double-invoke)
+    const existing = await sb
       .from('jarvis_issues')
-      .update({ status: 'dismissed' })
+      .select('*')
       .eq('kontingen_id', kontingenId)
       .eq('status', 'open')
+    const existingData = existing.data || []
+    return {
+      issues: existingData as unknown as JarvisIssue[],
+      summary: {
+        total:    existingData.length,
+        critical: existingData.filter((i: any) => i.severity === 'critical').length,
+        warning:  existingData.filter((i: any) => i.severity === 'warning').length,
+        info:     existingData.filter((i: any) => i.severity === 'info').length,
+      }
+    }
+  }
+
+  // Persist: dismiss issues lama → insert yang baru (dedup by title)
+  await sb
+    .from('jarvis_issues')
+    .update({ status: 'dismissed' })
+    .eq('kontingen_id', kontingenId)
+    .eq('status', 'open')
+
+  if (allIssues.length > 0) {
+    // Dedup by title sebelum insert
+    const seen = new Set<string>()
+    const unique = allIssues.filter(i => {
+      if (seen.has(i.title)) return false
+      seen.add(i.title)
+      return true
+    })
 
     await sb.from('jarvis_issues').insert(
-      allIssues.map(i => ({
-        issue_type:        i.issue_type,
-        severity:          i.severity,
-        source_record_id:  i.source_record_id ?? null,
+      unique.map(i => ({
+        issue_type:         i.issue_type,
+        severity:           i.severity,
+        source_record_id:   i.source_record_id ?? null,
         related_record_ids: i.related_record_ids ? JSON.stringify(i.related_record_ids) : null,
-        kontingen_id:      i.kontingen_id,
-        title:             i.title,
-        description:       i.description,
-        suggested_action:  i.suggested_action,
-        raw_data:          i.raw_data ?? null,
-        status:            'open',
+        kontingen_id:       i.kontingen_id,
+        title:              i.title,
+        description:        i.description,
+        suggested_action:   i.suggested_action,
+        raw_data:           i.raw_data ?? null,
+        status:             'open',
       }))
     )
-  } else {
-    // Kalau bersih, dismiss semua open
-    await sb
-      .from('jarvis_issues')
-      .update({ status: 'dismissed' })
-      .eq('kontingen_id', kontingenId)
-      .eq('status', 'open')
   }
 
   const summary: JarvisSummary = {
