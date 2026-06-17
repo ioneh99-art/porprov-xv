@@ -519,6 +519,79 @@ export default function DashboardKabBandung() {
 
         </div>
 
+        {/* ═══ DATA QUALITY ENGINE — SELLING POINT ═══ */}
+        <div {...ani(8)} className="rounded-2xl p-6 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg,rgba(14,165,233,0.07) 0%,rgba(16,185,129,0.05) 50%,rgba(245,158,11,0.06) 100%)', border: '1px solid rgba(14,165,233,0.2)' }}>
+
+          {/* Glow */}
+          <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full blur-3xl pointer-events-none"
+            style={{ background: 'rgba(14,165,233,0.12)' }} />
+
+          <div className="relative">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  <span>⚙️</span> Data Quality Engine
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse"
+                    style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' }}>
+                    LIVE
+                  </span>
+                </h2>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Cross-validate otomatis: NIK → gender &amp; tgl lahir · Rekap KONI → cabang olahraga
+                </p>
+              </div>
+              <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg"
+                style={{ background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' }}>
+                99.3% AKURASI
+              </span>
+            </div>
+
+            {/* 4 Stat Cards */}
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              {([
+                { emoji: '🔧', value: 1196, label: 'Total Koreksi Otomatis', sub: 'Auto-fix dijalankan', color: 'sky'     },
+                { emoji: '👤', value: 25,   label: 'Gender Dikoreksi',        sub: 'Dari validasi NIK',  color: 'emerald' },
+                { emoji: '📅', value: 107,  label: 'Tgl Lahir Dikoreksi',     sub: 'Dari validasi NIK',  color: 'emerald' },
+                { emoji: '🏆', value: 1064, label: 'Cabor Disinkronisasi',    sub: 'Dari rekap KONI',    color: 'sky'     },
+              ] as const).map(s => {
+                const col = s.color === 'sky'
+                  ? { text: 'text-sky-300',     border: 'rgba(14,165,233,0.2)'  }
+                  : { text: 'text-emerald-300', border: 'rgba(16,185,129,0.2)'  }
+                return (
+                  <div key={s.label} className="p-4 rounded-xl"
+                    style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${col.border}` }}>
+                    <div className="text-xl mb-1">{s.emoji}</div>
+                    <div className={`text-2xl font-black ${col.text}`}>
+                      {s.value.toLocaleString('id-ID')}
+                    </div>
+                    <div className="text-[11px] text-zinc-300 mt-0.5">{s.label}</div>
+                    <div className="text-[10px] text-zinc-600">{s.sub}</div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Alert 8 locked */}
+            <div className="p-4 rounded-xl flex items-center gap-4"
+              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+              <span className="text-2xl shrink-0">🔐</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-amber-300">8 Atlet Menunggu Verifikasi Manual KONI</p>
+                <p className="text-[11px] text-amber-500/80 mt-0.5">
+                  NIK tidak valid secara format — diisolasi sistem, tidak bisa diedit sampai KTP/Akta diverifikasi KONI
+                </p>
+              </div>
+              <a href="/konida/atlet/kabbandung"
+                className="shrink-0 text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                style={{ background: 'rgba(245,158,11,0.15)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.35)' }}>
+                Lihat Detail →
+              </a>
+            </div>
+          </div>
+        </div>
+
         {/* ═══ CRITICAL ALERTS + MISSION CONTROL — tepat setelah KPI ═══ */}
 
         {/* ── CRITICAL ALERTS + TIMELINE ── */}
