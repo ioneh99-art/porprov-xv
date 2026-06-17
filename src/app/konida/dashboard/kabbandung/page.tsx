@@ -4,6 +4,7 @@
 // KONTINGEN_ID=4, KODE_LOKAL='3204', ACCENT=#38bdf8
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import {
   Users, Trophy, Target, CheckCircle, Clock, AlertTriangle,
@@ -754,14 +755,13 @@ export default function DashboardKabBandung() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl p-4 border border-slate-700/50 bg-slate-900/40">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Rekomendasi Tindakan</div>
-                    <ul className="text-xs text-zinc-400 space-y-1.5 leading-relaxed">
-                      <li>• Login ke akun KONI Jabar dan bulk-approve atlet yang sudah lengkap datanya</li>
-                      <li>• Pastikan operator KONI Kab. Bandung ikut proses verifikasi bersama</li>
-                      <li>• Deadline verifikasi idealnya H-30 sebelum PORPROV (Oktober 2026)</li>
-                    </ul>
-                  </div>
+                  <Link href="/konida/atlet/kabbandung?status=Menunggu+Admin"
+                    onClick={() => setAlertPanel(null)}
+                    className="flex items-center justify-between w-full px-5 py-3.5 rounded-2xl transition-colors font-semibold text-sm"
+                    style={{ background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.3)', color:'#fbbf24' }}>
+                    Lihat & proses atlet pending
+                    <ChevronRight size={16} />
+                  </Link>
                 </div>
               )}
 
@@ -814,6 +814,14 @@ export default function DashboardKabBandung() {
                       })}
                     </div>
                   </div>
+
+                  <Link href="/konida/atlet/kabbandung"
+                    onClick={() => setAlertPanel(null)}
+                    className="flex items-center justify-between w-full px-5 py-3.5 rounded-2xl transition-colors font-semibold text-sm"
+                    style={{ background:'rgba(251,113,133,0.1)', border:'1px solid rgba(251,113,133,0.3)', color:'#fb7185' }}>
+                    Cek dossier atlet non-lokal
+                    <ChevronRight size={16} />
+                  </Link>
                 </div>
               )}
 
@@ -851,14 +859,13 @@ export default function DashboardKabBandung() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl p-4 border border-slate-700/50 bg-slate-900/40">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Langkah Eskalasi</div>
-                    <ul className="text-xs text-zinc-400 space-y-1.5 leading-relaxed">
-                      <li>• Hubungi admin KONI Jabar untuk meminta penjelasan per atlet ditolak</li>
-                      <li>• Minta catatan verifikasi diisi sebelum finalisasi roster PORPROV</li>
-                      <li>• Dokument semua komunikasi sebagai bukti keberatan resmi jika diperlukan</li>
-                    </ul>
-                  </div>
+                  <Link href="/konida/atlet/kabbandung?status=Ditolak+Admin"
+                    onClick={() => setAlertPanel(null)}
+                    className="flex items-center justify-between w-full px-5 py-3.5 rounded-2xl transition-colors font-semibold text-sm"
+                    style={{ background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.3)', color:'#f87171' }}>
+                    Lihat semua atlet ditolak
+                    <ChevronRight size={16} />
+                  </Link>
                 </div>
               )}
 

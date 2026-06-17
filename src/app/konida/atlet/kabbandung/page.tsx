@@ -3,6 +3,7 @@
 // Fix: filter kontingen_id=4, tambah search nama, status Posted, dossier lengkap, export CSV
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import {
   Search, ShieldAlert, CheckCircle, Clock, X, User, MapPin,
@@ -96,11 +97,16 @@ const STATUS_CFG: Record<string, { bg:string; text:string; border:string; icon:a
 type FilterStatus = 'semua'|'Verified'|'Menunggu Admin'|'Ditolak Admin'|'Posted'
 
 export default function PageAtletKabBandung() {
+  const searchParams = useSearchParams()
   const [data,         setData]         = useState<Atlet[]>([])
   const [loading,      setLoading]      = useState(true)
   const [searchCabor,  setSearchCabor]  = useState('')
   const [searchNama,   setSearchNama]   = useState('')
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('semua')
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(() => {
+    const s = searchParams.get('status')
+    const valid: FilterStatus[] = ['semua','Verified','Menunggu Admin','Ditolak Admin','Posted']
+    return valid.includes(s as FilterStatus) ? (s as FilterStatus) : 'semua'
+  })
   const [filterTesFisik, setFilterTesFisik] = useState<'semua'|'sudah'|'belum'|'top'>('semua')
   const [expandedCabor,setExpandedCabor]= useState<string|null>(null)
   const [selectedAtlet,setSelectedAtlet]= useState<Atlet|null>(null)
