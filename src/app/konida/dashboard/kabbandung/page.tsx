@@ -76,6 +76,7 @@ export default function DashboardKabBandung() {
   const [search,    setSearch]    = useState('')
   const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   const [pulse,     setPulse]     = useState(true)
+  const [alertPanel, setAlertPanel] = useState<'pending'|'nonlokal'|'ditolak'|null>(null)
   const [tesFisikData, setTesFisikData] = useState<{
     hadir: number; dns: number; avgSkor: number;
     topAtlet: number; lowAtlet: number;
@@ -214,6 +215,51 @@ export default function DashboardKabBandung() {
     }
   }, [atlets, klasemen])
 
+  // ── Alert breakdowns (computed dari atlets yang sudah diload) ──
+  const alertBreakdown = useMemo(() => {
+    // Pending per cabor
+    const pendingMap: Record<string,number> = {}
+    const ditolakMap: Record<string,number> = {}
+    const nonLokalMap: Record<string,{jumlah:number;cabors:Set<string>}> = {}
+
+    atlets.forEach(a => {
+      if (a.status_registrasi === 'Menunggu Admin') {
+        pendingMap[a.cabor_nama_raw||'Lainnya'] = (pendingMap[a.cabor_nama_raw||'Lainnya']||0) + 1
+      }
+      if (a.status_registrasi === 'Ditolak Admin') {
+        ditolakMap[a.cabor_nama_raw||'Lainnya'] = (ditolakMap[a.cabor_nama_raw||'Lainnya']||0) + 1
+      }
+      if (!a.kode_asal_daerah?.startsWith(KODE_LOKAL)) {
+        const key = a.nama_asal_daerah || 'Tidak diketahui'
+        if (!nonLokalMap[key]) nonLokalMap[key] = { jumlah:0, cabors:new Set() }
+        nonLokalMap[key].jumlah++
+        nonLokalMap[key].cabors.add(a.cabor_nama_raw||'?')
+      }
+    })
+
+    const pendingByCabor = Object.entries(pendingMap)
+      .map(([cabor,jumlah]) => ({ cabor, jumlah }))
+      .sort((a,b) => b.jumlah - a.jumlah)
+
+    const ditolakByCabor = Object.entries(ditolakMap)
+      .map(([cabor,jumlah]) => ({ cabor, jumlah }))
+      .sort((a,b) => b.jumlah - a.jumlah)
+
+    const LOKAL_TETANGGA = ['3273','3217','3277'] // Kota Bandung, KBB, Cimahi
+    const nonLokalByDaerah = Object.entries(nonLokalMap)
+      .map(([daerah,v]) => {
+        const kode = atlets.find(a => a.nama_asal_daerah === daerah)?.kode_asal_daerah ?? ''
+        const risk = !kode ? 'tinggi'
+          : LOKAL_TETANGGA.includes(kode) ? 'rendah'
+          : kode.startsWith('32') ? 'sedang'
+          : 'tinggi'
+        return { daerah, jumlah: v.jumlah, cabors: v.cabors.size, risk, kode }
+      })
+      .sort((a,b) => b.jumlah - a.jumlah)
+
+    return { pendingByCabor, ditolakByCabor, nonLokalByDaerah }
+  }, [atlets])
+
   // ── Build CaborWatchData for Watchlist component ──
   const caborWatchList = useMemo<CaborWatchData[]>(() => {
     // Aggregate per cabor from raw atlets
@@ -342,8 +388,26 @@ export default function DashboardKabBandung() {
             <strong className="text-white">{kpi.total.toLocaleString('id')} atlet</strong> terdaftar dari{' '}
             <strong className="text-white">{cabors.length} cabor</strong>. Saat ini{' '}
             <strong style={{ color:'#22d3ee' }}>{kpi.vpct}% terverifikasi</strong>
-            {kpi.pending>0 && <> dengan <strong className="text-amber-400">{kpi.pending} pending</strong></>}.{' '}
-            {kpi.nonLokal>0 && <><strong className="text-rose-400">{kpi.nonLokal} non-lokal</strong> ({Math.round(kpi.nonLokal/kpi.total*100)}%) butuh atensi. </>}
+            {kpi.pending>0 && <> dengan{' '}
+              <button onClick={() => setAlertPanel('pending')}
+                className="font-bold text-amber-400 underline decoration-dotted underline-offset-2 hover:text-amber-300 transition-colors cursor-pointer">
+                {kpi.pending} pending
+              </button>
+            </>}.{' '}
+            {kpi.nonLokal>0 && <>
+              <button onClick={() => setAlertPanel('nonlokal')}
+                className="font-bold text-rose-400 underline decoration-dotted underline-offset-2 hover:text-rose-300 transition-colors cursor-pointer">
+                {kpi.nonLokal} non-lokal
+              </button>
+              {' '}({Math.round(kpi.nonLokal/kpi.total*100)}%) butuh atensi.{' '}
+            </>}
+            {kpi.ditolak>0 && <>
+              <button onClick={() => setAlertPanel('ditolak')}
+                className="font-bold text-red-400 underline decoration-dotted underline-offset-2 hover:text-red-300 transition-colors cursor-pointer">
+                {kpi.ditolak} ditolak
+              </button>
+              {' '}perlu tindak lanjut.{' '}
+            </>}
             Ranking referensi <strong className="text-amber-400 drop-shadow-md">#{POPDA_REF.rank}</strong>
             <span className="text-[10px] text-zinc-500"> (POPDA XIV 2025)</span> dengan{' '}
             <strong className="text-yellow-400">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</strong>.
@@ -617,6 +681,187 @@ export default function DashboardKabBandung() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ALERT DETAIL PANEL ── */}
+      {alertPanel && (
+        <div className="fixed inset-0 z-[110]" onClick={() => setAlertPanel(null)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="absolute right-0 top-0 h-full w-full sm:w-[480px] overflow-y-auto shadow-2xl"
+            style={{ background:'#02060f', borderLeft:'1px solid rgba(56,189,248,0.2)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="p-7">
+
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  {alertPanel === 'pending' && <>
+                    <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md inline-block mb-2" style={{ background:'rgba(251,191,36,0.12)', color:'#fbbf24' }}>Analisa Pending</div>
+                    <h2 className="text-2xl font-black text-white">276 Atlet Menunggu Verifikasi</h2>
+                    <p className="text-xs text-zinc-500 mt-1">Breakdown per cabang olahraga</p>
+                  </>}
+                  {alertPanel === 'nonlokal' && <>
+                    <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md inline-block mb-2" style={{ background:'rgba(251,113,133,0.12)', color:'#fb7185' }}>Analisa Non-Lokal</div>
+                    <h2 className="text-2xl font-black text-white">360 Atlet Non-Lokal</h2>
+                    <p className="text-xs text-zinc-500 mt-1">Klasifikasi risiko by daerah asal</p>
+                  </>}
+                  {alertPanel === 'ditolak' && <>
+                    <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md inline-block mb-2" style={{ background:'rgba(248,113,113,0.12)', color:'#f87171' }}>Analisa Ditolak</div>
+                    <h2 className="text-2xl font-black text-white">53 Atlet Ditolak</h2>
+                    <p className="text-xs text-zinc-500 mt-1">Breakdown per cabang olahraga</p>
+                  </>}
+                </div>
+                <button onClick={() => setAlertPanel(null)}
+                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors mt-1">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* ── PENDING CONTENT ── */}
+              {alertPanel === 'pending' && (
+                <div className="space-y-5">
+                  <div className="rounded-2xl p-4 border border-amber-500/20 bg-amber-500/5">
+                    <div className="flex items-start gap-2.5">
+                      <Info size={14} className="text-amber-400 mt-0.5 shrink-0" />
+                      <div className="text-xs text-amber-200/80 leading-relaxed">
+                        <strong className="text-amber-300">Konteks:</strong> Status "Menunggu Admin" berarti atlet sudah submit pendaftaran dan menunggu approval KONI. Pada fase demo ini, semua syarat administrasi (NIK, biodata, dll.) sudah diisi — pending bukan karena data kurang, melainkan karena proses approval belum dijalankan oleh KONI Jabar.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Distribusi per Cabor</div>
+                    <div className="space-y-1.5">
+                      {alertBreakdown.pendingByCabor.length === 0 ? (
+                        <div className="text-xs text-zinc-600 py-4 text-center">Tidak ada data pending</div>
+                      ) : alertBreakdown.pendingByCabor.map(row => {
+                        const pct = Math.round(row.jumlah / 276 * 100)
+                        return (
+                          <div key={row.cabor} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-white/5 transition-colors">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs text-white font-medium truncate">{row.cabor}</div>
+                              <div className="h-1 rounded-full bg-slate-800 mt-1.5 overflow-hidden">
+                                <div className="h-full rounded-full bg-amber-400/60" style={{ width:`${Math.min(pct*3,100)}%` }} />
+                              </div>
+                            </div>
+                            <div className="text-sm font-bold text-amber-400 tabular-nums w-8 text-right">{row.jumlah}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl p-4 border border-slate-700/50 bg-slate-900/40">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Rekomendasi Tindakan</div>
+                    <ul className="text-xs text-zinc-400 space-y-1.5 leading-relaxed">
+                      <li>• Login ke akun KONI Jabar dan bulk-approve atlet yang sudah lengkap datanya</li>
+                      <li>• Pastikan operator KONI Kab. Bandung ikut proses verifikasi bersama</li>
+                      <li>• Deadline verifikasi idealnya H-30 sebelum PORPROV (Oktober 2026)</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* ── NON-LOKAL CONTENT ── */}
+              {alertPanel === 'nonlokal' && (
+                <div className="space-y-5">
+                  {/* Risk legend */}
+                  <div className="flex gap-3 flex-wrap">
+                    {[
+                      { label:'Risiko Rendah', color:'#22c55e', desc:'Kab/Kota tetangga (Kota Bdg, KBB, Cimahi)' },
+                      { label:'Risiko Sedang', color:'#f59e0b', desc:'Dalam Jawa Barat (non-tetangga)' },
+                      { label:'Risiko Tinggi', color:'#ef4444', desc:'Luar Jawa Barat' },
+                    ].map(r => (
+                      <div key={r.label} className="flex items-start gap-2 text-[11px]">
+                        <span className="w-2.5 h-2.5 rounded-full mt-0.5 shrink-0" style={{ background:r.color }} />
+                        <div>
+                          <div className="font-bold" style={{ color:r.color }}>{r.label}</div>
+                          <div className="text-zinc-600 text-[10px]">{r.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-2xl p-4 border border-rose-500/20 bg-rose-500/5">
+                    <div className="flex items-start gap-2.5">
+                      <Info size={14} className="text-rose-400 mt-0.5 shrink-0" />
+                      <div className="text-xs text-rose-200/80 leading-relaxed">
+                        Atlet non-lokal berpotensi pindah ke kontingen asal saat event PORPROV berlangsung. Prioritaskan komunikasi dengan atlet dari luar Jabar (risiko tinggi) sejak dini.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Daerah Asal Atlet</div>
+                    <div className="space-y-1.5">
+                      {alertBreakdown.nonLokalByDaerah.length === 0 ? (
+                        <div className="text-xs text-zinc-600 py-4 text-center">Tidak ada atlet non-lokal terdeteksi</div>
+                      ) : alertBreakdown.nonLokalByDaerah.map(row => {
+                        const riskColor = row.risk === 'rendah' ? '#22c55e' : row.risk === 'sedang' ? '#f59e0b' : '#ef4444'
+                        return (
+                          <div key={row.daerah} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-white/5 transition-colors">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background:riskColor }} />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs text-white font-medium truncate">{row.daerah || 'Tidak diketahui'}</div>
+                              <div className="text-[10px] text-zinc-600">{row.cabors} cabor</div>
+                            </div>
+                            <div className="text-sm font-bold tabular-nums w-8 text-right" style={{ color:riskColor }}>{row.jumlah}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── DITOLAK CONTENT ── */}
+              {alertPanel === 'ditolak' && (
+                <div className="space-y-5">
+                  <div className="rounded-2xl p-4 border border-red-500/30 bg-red-500/8">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+                      <div className="text-xs text-red-200/80 leading-relaxed">
+                        <strong className="text-red-300">Perhatian Kritis:</strong> Seluruh 53 atlet yang berstatus "Ditolak Admin" tidak memiliki <code className="px-1 bg-red-900/40 rounded text-[10px]">catatan_verifikasi</code>. Artinya, atlet dan operator Kab. Bandung tidak tahu alasan penolakan — ini adalah gap proses di level KONI Jabar yang perlu segera dikomunikasikan.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Distribusi per Cabor</div>
+                    <div className="space-y-1.5">
+                      {alertBreakdown.ditolakByCabor.length === 0 ? (
+                        <div className="text-xs text-zinc-600 py-4 text-center">Tidak ada data ditolak</div>
+                      ) : alertBreakdown.ditolakByCabor.map(row => {
+                        const pct = Math.round(row.jumlah / 53 * 100)
+                        return (
+                          <div key={row.cabor} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-white/5 transition-colors">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs text-white font-medium truncate">{row.cabor}</div>
+                              <div className="h-1 rounded-full bg-slate-800 mt-1.5 overflow-hidden">
+                                <div className="h-full rounded-full bg-red-400/60" style={{ width:`${Math.min(pct*4,100)}%` }} />
+                              </div>
+                            </div>
+                            <div className="text-sm font-bold text-red-400 tabular-nums w-8 text-right">{row.jumlah}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl p-4 border border-slate-700/50 bg-slate-900/40">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Langkah Eskalasi</div>
+                    <ul className="text-xs text-zinc-400 space-y-1.5 leading-relaxed">
+                      <li>• Hubungi admin KONI Jabar untuk meminta penjelasan per atlet ditolak</li>
+                      <li>• Minta catatan verifikasi diisi sebelum finalisasi roster PORPROV</li>
+                      <li>• Dokument semua komunikasi sebagai bukti keberatan resmi jika diperlukan</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
