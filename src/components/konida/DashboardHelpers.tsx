@@ -470,7 +470,7 @@ export function buildAlertsFromData(d: {
       severity: 'urgent',
       icon: Activity,
       title: `${d.lowSkorAtlet} Atlet Skor Fisik Kritis`,
-      message: `${d.lowSkorAtlet} atlet dengan skor <40% perlu evaluasi medis sebelum kompetisi.`,
+      message: `${d.lowSkorAtlet} atlet dengan skor <35% (KRITIS) perlu evaluasi medis sebelum kompetisi.`,
       action: 'Jadwalkan Evaluasi',
       actionHref: '/konida/Premiumreport/kabbogor/tes-fisik',
       count: d.lowSkorAtlet,
@@ -598,7 +598,7 @@ export function buildMissionActions(d: {
     actions.push({
       type: 'urgent',
       title: 'Evaluasi Medis Atlet',
-      description: 'Atlet skor <40% perlu konsultasi medis',
+      description: 'Atlet skor <35% (KRITIS) perlu konsultasi medis',
       count: d.lowSkorAtlet,
       href: '/konida/Premiumreport/kabbogor/tes-fisik',
       icon: AlertTriangle,

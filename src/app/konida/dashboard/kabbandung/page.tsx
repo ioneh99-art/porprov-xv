@@ -47,6 +47,7 @@ const CABOR_KATEGORI: Record<string, string> = {
 interface AtletRaw {
   status_registrasi:string; gender:string; cabor_nama_raw:string
   kode_asal_daerah:string; nama_asal_daerah:string; tgl_lahir:string
+  tes_fisik_rating: string | null
 }
 interface CaborStat {
   nama:string; total:number; putra:number; putri:number
@@ -95,7 +96,7 @@ export default function DashboardKabBandung() {
       let allAtlet: AtletRaw[] = []
       for (let page = 0; ; page++) {
         const { data: pageData } = await sb.from('atlet')
-          .select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir')
+          .select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating')
           .eq('kontingen_id', KONTINGEN_ID)
           .range(page * 1000, (page + 1) * 1000 - 1)
         if (!pageData || pageData.length === 0) break
@@ -205,11 +206,13 @@ export default function DashboardKabBandung() {
     const posted   = atlets.filter(a => a.status_registrasi==='Posted').length
     const lokal    = atlets.filter(a => a.kode_asal_daerah?.startsWith(KODE_LOKAL)).length
     const nonLokal = total - lokal
+    const kritis   = atlets.filter(a => a.tes_fisik_rating === '🚨 KRITIS').length
+    const elite    = atlets.filter(a => a.tes_fisik_rating === '⭐ ELITE').length
     const myRank   = klasemen.findIndex(k =>
       k.nama?.toUpperCase() === 'KAB. BANDUNG'
     ) + 1
     return {
-      total, putra, putri, verified, pending, ditolak, posted, lokal, nonLokal,
+      total, putra, putri, verified, pending, ditolak, posted, lokal, nonLokal, kritis, elite,
       vpct: total>0 ? Math.round(verified/total*100) : 0,
       lpct: total>0 ? Math.round(lokal/total*100)    : 0,
       myRank,
@@ -522,7 +525,7 @@ export default function DashboardKabBandung() {
             alerts={buildAlertsFromData({
               pendingVerifikasi: kpi.pending,
               dnsAtlet: tesFisikData.dns,
-              lowSkorAtlet: tesFisikData.lowAtlet,
+              lowSkorAtlet: kpi.kritis,
               daysToEvent: Math.max(0, Math.ceil((new Date('2026-11-07').getTime()-Date.now())/86400000)),
               nonLokal: kpi.nonLokal,
               cabors_lemah_count: tesFisikData.lemahCount,
@@ -543,8 +546,8 @@ export default function DashboardKabBandung() {
             actions={buildMissionActions({
               pendingVerifikasi: kpi.pending,
               dnsAtlet: tesFisikData.dns,
-              lowSkorAtlet: tesFisikData.lowAtlet,
-              topPerformers: tesFisikData.topAtlet,
+              lowSkorAtlet: kpi.kritis,
+              topPerformers: kpi.elite,
               cabors_lemah_count: tesFisikData.lemahCount,
               nonLokal: kpi.nonLokal,
             })}
@@ -719,17 +722,17 @@ export default function DashboardKabBandung() {
                 <div>
                   {alertPanel === 'pending' && <>
                     <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md inline-block mb-2" style={{ background:'rgba(251,191,36,0.12)', color:'#fbbf24' }}>Analisa Pending</div>
-                    <h2 className="text-2xl font-black text-white">276 Atlet Menunggu Verifikasi</h2>
+                    <h2 className="text-2xl font-black text-white">{kpi.pending} Atlet Menunggu Verifikasi</h2>
                     <p className="text-xs text-zinc-500 mt-1">Breakdown per cabang olahraga</p>
                   </>}
                   {alertPanel === 'nonlokal' && <>
                     <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md inline-block mb-2" style={{ background:'rgba(251,113,133,0.12)', color:'#fb7185' }}>Analisa Non-Lokal</div>
-                    <h2 className="text-2xl font-black text-white">360 Atlet Non-Lokal</h2>
+                    <h2 className="text-2xl font-black text-white">{kpi.nonLokal} Atlet Non-Lokal</h2>
                     <p className="text-xs text-zinc-500 mt-1">Klasifikasi risiko by daerah asal</p>
                   </>}
                   {alertPanel === 'ditolak' && <>
                     <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md inline-block mb-2" style={{ background:'rgba(248,113,113,0.12)', color:'#f87171' }}>Analisa Ditolak</div>
-                    <h2 className="text-2xl font-black text-white">53 Atlet Ditolak</h2>
+                    <h2 className="text-2xl font-black text-white">{kpi.ditolak} Atlet Ditolak</h2>
                     <p className="text-xs text-zinc-500 mt-1">Breakdown per cabang olahraga</p>
                   </>}
                 </div>
@@ -757,7 +760,7 @@ export default function DashboardKabBandung() {
                       {alertBreakdown.pendingByCabor.length === 0 ? (
                         <div className="text-xs text-zinc-600 py-4 text-center">Tidak ada data pending</div>
                       ) : alertBreakdown.pendingByCabor.map(row => {
-                        const pct = Math.round(row.jumlah / 276 * 100)
+                        const pct = kpi.pending > 0 ? Math.round(row.jumlah / kpi.pending * 100) : 0
                         return (
                           <div key={row.cabor} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-white/5 transition-colors">
                             <div className="min-w-0 flex-1">
@@ -861,7 +864,7 @@ export default function DashboardKabBandung() {
                       {alertBreakdown.ditolakByCabor.length === 0 ? (
                         <div className="text-xs text-zinc-600 py-4 text-center">Tidak ada data ditolak</div>
                       ) : alertBreakdown.ditolakByCabor.map(row => {
-                        const pct = Math.round(row.jumlah / 53 * 100)
+                        const pct = kpi.ditolak > 0 ? Math.round(row.jumlah / kpi.ditolak * 100) : 0
                         return (
                           <div key={row.cabor} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-white/5 transition-colors">
                             <div className="min-w-0 flex-1">

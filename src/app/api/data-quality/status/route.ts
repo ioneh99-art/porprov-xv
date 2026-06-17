@@ -14,10 +14,17 @@ export async function GET(req: NextRequest) {
     const kontingenId = parseInt(searchParams.get('kontingen_id') || '0')
     if (!kontingenId) return NextResponse.json({ success: false, error: 'kontingen_id required' }, { status: 400 })
 
-    const { data: athletes } = await sb
-      .from('atlet')
-      .select('data_quality_status, is_locked')
-      .eq('kontingen_id', kontingenId)
+    let athletes: any[] = []
+    for (let p = 0; ; p++) {
+      const { data: page } = await sb
+        .from('atlet')
+        .select('data_quality_status, is_locked')
+        .eq('kontingen_id', kontingenId)
+        .range(p * 1000, (p + 1) * 1000 - 1)
+      if (!page || page.length === 0) break
+      athletes = athletes.concat(page)
+      if (page.length < 1000) break
+    }
 
     const breakdown = {
       total:                  0,
