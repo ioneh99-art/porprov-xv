@@ -45,9 +45,11 @@ const CABOR_KATEGORI: Record<string, string> = {
 }
 
 interface AtletRaw {
-  status_registrasi:string; gender:string; cabor_nama_raw:string
+  status_registrasi:string; status_verifikasi:string|null; gender:string; cabor_nama_raw:string
   kode_asal_daerah:string; nama_asal_daerah:string; tgl_lahir:string
   tes_fisik_rating: string | null
+  tes_fisik_persen: number | null
+  tes_fisik_status: string | null
 }
 interface CaborStat {
   nama:string; total:number; putra:number; putri:number
@@ -96,7 +98,7 @@ export default function DashboardKabBandung() {
       let allAtlet: AtletRaw[] = []
       for (let page = 0; ; page++) {
         const { data: pageData } = await sb.from('atlet')
-          .select('status_registrasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating')
+          .select('status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status')
           .eq('kontingen_id', KONTINGEN_ID)
           .range(page * 1000, (page + 1) * 1000 - 1)
         if (!pageData || pageData.length === 0) break
@@ -104,7 +106,7 @@ export default function DashboardKabBandung() {
         if (pageData.length < 1000) break
       }
 
-      const [k, m, tf] = await Promise.allSettled([
+      const [k, m] = await Promise.allSettled([
         sb.from('klasemen_medali')
           .select('emas,perak,perunggu,total,kontingen(nama)')
           .order('emas',{ ascending:false })
@@ -114,27 +116,23 @@ export default function DashboardKabBandung() {
           .select('emas,perak,perunggu,total')
           .eq('kontingen_id', KONTINGEN_ID)
           .maybeSingle(),
-        sb.from('atlet_tes_fisik')
-          .select('kesimpulan_persen,status_tes,cabor_nama')
-          .eq('kontingen_id', KONTINGEN_ID).eq('tahap', 3),
       ])
 
-      if (tf.status==='fulfilled' && tf.value.data) {
-        const tfData = tf.value.data
-        const hadir = tfData.filter((t:any) => t.status_tes === 'Hadir')
-        const valid = hadir.filter((t:any) => t.kesimpulan_persen != null)
+      // Compute tes fisik dari denormalized fields — no atlet_tes_fisik JOIN needed
+      if (allAtlet.length > 0) {
+        const hadir = allAtlet.filter(a => a.tes_fisik_status === 'Hadir')
+        const valid = hadir.filter(a => a.tes_fisik_persen != null)
         const avgSkor = valid.length
-          ? Math.round(valid.reduce((s:number,t:any) => s + t.kesimpulan_persen, 0) / valid.length)
+          ? Math.round(valid.reduce((s, a) => s + (a.tes_fisik_persen || 0), 0) / valid.length)
           : 0
         const caborMap: Record<string,{sum:number;n:number}> = {}
-        valid.forEach((t:any) => {
-          const c = t.cabor_nama || 'Unknown'
+        valid.forEach(a => {
+          const c = a.cabor_nama_raw || 'Unknown'
           if (!caborMap[c]) caborMap[c] = {sum:0,n:0}
-          caborMap[c].sum += t.kesimpulan_persen
+          caborMap[c].sum += a.tes_fisik_persen!
           caborMap[c].n++
         })
         const lemahCabor = Object.values(caborMap).filter(c => c.n>=2 && c.sum/c.n < 55).length
-        // Populate per-cabor fitness map for CaborWatchlist
         const fitnessMap: Record<string,{hadir:number;avg:number}> = {}
         Object.entries(caborMap).forEach(([nama, v]) => {
           fitnessMap[nama] = { hadir: v.n, avg: Math.round(v.sum / v.n) }
@@ -142,10 +140,10 @@ export default function DashboardKabBandung() {
         setCaborFitness(fitnessMap)
         setTesFisikData({
           hadir: hadir.length,
-          dns: tfData.length - hadir.length,
+          dns: allAtlet.filter(a => a.tes_fisik_status != null && a.tes_fisik_status !== 'Hadir').length,
           avgSkor,
-          topAtlet: valid.filter((t:any) => t.kesimpulan_persen >= 80).length,
-          lowAtlet: valid.filter((t:any) => t.kesimpulan_persen < 40).length,
+          topAtlet: valid.filter(a => (a.tes_fisik_persen || 0) >= 80).length,
+          lowAtlet: valid.filter(a => (a.tes_fisik_persen || 0) < 40).length,
           lemahCount: lemahCabor,
         })
       }
@@ -197,24 +195,29 @@ export default function DashboardKabBandung() {
   }, [])
 
   const kpi = useMemo(() => {
-    const total    = atlets.length
-    const putra    = atlets.filter(a => a.gender==='L').length
-    const putri    = atlets.filter(a => a.gender==='P').length
-    const verified = atlets.filter(a => a.status_registrasi==='Verified').length
-    const pending  = atlets.filter(a => a.status_registrasi==='Menunggu Admin').length
-    const ditolak  = atlets.filter(a => a.status_registrasi==='Ditolak Admin').length
-    const posted   = atlets.filter(a => a.status_registrasi==='Posted').length
-    const lokal    = atlets.filter(a => a.kode_asal_daerah?.startsWith(KODE_LOKAL)).length
-    const nonLokal = total - lokal
-    const kritis   = atlets.filter(a => a.tes_fisik_rating === '🚨 KRITIS').length
-    const elite    = atlets.filter(a => a.tes_fisik_rating === '⭐ ELITE').length
-    const myRank   = klasemen.findIndex(k =>
+    const total         = atlets.length
+    const putra         = atlets.filter(a => a.gender==='L').length
+    const putri         = atlets.filter(a => a.gender==='P').length
+    const verified      = atlets.filter(a => a.status_registrasi==='Verified').length
+    const pending       = atlets.filter(a => a.status_registrasi==='Menunggu Admin').length
+    const ditolak       = atlets.filter(a => a.status_registrasi==='Ditolak Admin').length
+    const posted        = atlets.filter(a => a.status_registrasi==='Posted').length
+    const koni_verified = atlets.filter(a => a.status_verifikasi==='Verified').length
+    const koni_approved = atlets.filter(a => a.status_verifikasi==='Approved Cabor').length
+    const koni_rejected = atlets.filter(a => a.status_verifikasi==='Rejected').length
+    const lokal         = atlets.filter(a => a.kode_asal_daerah?.startsWith(KODE_LOKAL)).length
+    const nonLokal      = total - lokal
+    const kritis        = atlets.filter(a => a.tes_fisik_rating === '🚨 KRITIS').length
+    const elite         = atlets.filter(a => a.tes_fisik_rating === '⭐ ELITE').length
+    const myRank        = klasemen.findIndex(k =>
       k.nama?.toUpperCase() === 'KAB. BANDUNG'
     ) + 1
     return {
-      total, putra, putri, verified, pending, ditolak, posted, lokal, nonLokal, kritis, elite,
-      vpct: total>0 ? Math.round(verified/total*100) : 0,
-      lpct: total>0 ? Math.round(lokal/total*100)    : 0,
+      total, putra, putri, verified, pending, ditolak, posted,
+      koni_verified, koni_approved, koni_rejected,
+      lokal, nonLokal, kritis, elite,
+      vpct: total>0 ? Math.round(koni_verified/total*100) : 0,
+      lpct: total>0 ? Math.round(lokal/total*100)         : 0,
       myRank,
     }
   }, [atlets, klasemen])

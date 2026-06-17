@@ -230,6 +230,7 @@ export default function PageAtletKabBandung() {
   // ── Summary ───────────────────────────────────────────────
   const summary = useMemo(()=>{
     let total=0, verified=0, pending=0, ditolak=0, posted=0, nonLokal=0
+    let koni_verified=0, koni_approved=0, koni_rejected=0
     let sudahTes=0, belumTes=0, totalSkor=0, topAtlet=0, lowAtlet=0
     const caborSkorMap: Record<string, {sum:number; n:number}> = {}
     data.forEach(a=>{
@@ -238,6 +239,9 @@ export default function PageAtletKabBandung() {
       if(a.status_registrasi==='Menunggu Admin') pending++
       if(a.status_registrasi==='Ditolak Admin')  ditolak++
       if(a.status_registrasi==='Posted')         posted++
+      if(a.status_verifikasi==='Verified')       koni_verified++
+      if(a.status_verifikasi==='Approved Cabor') koni_approved++
+      if(a.status_verifikasi==='Rejected')       koni_rejected++
       if(isNonLokal(a.kode_asal_daerah))         nonLokal++
       if(a.tes_fisik) {
         sudahTes++
@@ -257,6 +261,7 @@ export default function PageAtletKabBandung() {
     const caborLemahCount = Object.values(caborSkorMap)
       .filter(v => v.n >= 2 && v.sum / v.n < 55).length
     return { total, verified, pending, ditolak, posted, nonLokal,
+             koni_verified, koni_approved, koni_rejected,
              sudahTes, belumTes, avgSkor, topAtlet, lowAtlet, caborLemahCount }
   },[data])
 
@@ -443,25 +448,25 @@ export default function PageAtletKabBandung() {
               <div className="flex justify-between text-[11px] text-zinc-500 mb-2 uppercase font-mono font-bold">
                 <span>Progress Verifikasi</span>
                 <span style={{color:ACCENT}}>
-                  {summary.total>0?Math.round((summary.verified+summary.posted)/summary.total*100):0}%
+                  {summary.total>0?Math.round(summary.koni_verified/summary.total*100):0}%
                 </span>
               </div>
               <div className="h-2.5 w-full rounded-full overflow-hidden" style={{background:'rgba(255,255,255,0.06)'}}>
                 <div className="h-full rounded-full transition-all duration-1000"
-                  style={{width:`${summary.total>0?(summary.verified+summary.posted)/summary.total*100:0}%`,background:ACCENT}}/>
+                  style={{width:`${summary.total>0?summary.koni_verified/summary.total*100:0}%`,background:ACCENT}}/>
               </div>
               <div className="flex justify-between text-[9px] mt-1.5" style={{color:'rgba(255,255,255,0.3)'}}>
-                <span>{summary.verified} verified · {summary.posted} posted</span>
+                <span>{summary.koni_verified} KONI Verified · {summary.koni_approved} Approved Cabor</span>
                 <span className="text-rose-400">{summary.nonLokal} non-lokal</span>
               </div>
             </div>
           </div>
 
           {[
-            {l:'Data Valid',       v:summary.verified, c:'#22d3ee', sub:'Siap diterbitkan ID',   icon:CheckCircle },
-            {l:'Menunggu Audit',   v:summary.pending,  c:'#fbbf24', sub:'Perlu tindakan admin',  icon:Clock       },
-            {l:'Ditolak Admin',    v:summary.ditolak,  c:'#f87171', sub:'Perlu perbaikan data',  icon:XCircle     },
-            {l:'Anomali NIK',      v:summary.nonLokal, c:'#fb923c', sub:'Atlet non-lokal KBR',   icon:AlertTriangle},
+            {l:'KONI Verified',  v:summary.koni_verified, c:'#22d3ee', sub:'Terverifikasi KONI',    icon:CheckCircle  },
+            {l:'Approved Cabor', v:summary.koni_approved, c:'#fbbf24', sub:'Disetujui Cabor',       icon:Clock        },
+            {l:'Rejected',       v:summary.koni_rejected, c:'#f87171', sub:'Perlu perbaikan data',  icon:XCircle      },
+            {l:'Anomali NIK',    v:summary.nonLokal,      c:'#fb923c', sub:'Atlet non-lokal KBR',   icon:AlertTriangle},
           ].map(s=>(
             <div key={s.l} className="rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden"
               style={{background:'rgba(255,255,255,0.025)',border:`1px solid ${s.c}18`}}>

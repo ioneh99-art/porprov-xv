@@ -1,6 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { Download, RefreshCw, Sparkles, CheckCircle2, Wrench, Lock, AlertTriangle, HelpCircle } from 'lucide-react'
+
+const sb = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+)
 
 const KONTINGEN_ID = 4
 
@@ -21,9 +27,38 @@ export function QualityDashboard() {
   const [syncResult, setSyncResult] = useState<any>(null)
 
   const fetchStatus = async () => {
-    const res  = await fetch(`/api/data-quality/status?kontingen_id=${KONTINGEN_ID}`)
-    const data = await res.json()
-    if (data.success) { setBreakdown(data.breakdown); setLastImport(data.last_import) }
+    // Direct Supabase query — no API route, no server-side env var dependency
+    let all: any[] = []
+    for (let p = 0; ; p++) {
+      const { data } = await sb
+        .from('atlet')
+        .select('data_quality_status, is_locked')
+        .eq('kontingen_id', KONTINGEN_ID)
+        .range(p * 1000, (p + 1) * 1000 - 1)
+      if (!data || data.length === 0) break
+      all = all.concat(data)
+      if (data.length < 1000) break
+    }
+
+    const bd: Breakdown = {
+      total: all.length,
+      ok: 0, fixed_by_system: 0,
+      manual_review_required: 0, investigation_required: 0,
+      unverified: 0, locked: 0,
+    }
+    for (const a of all) {
+      const s = (a.data_quality_status || 'unverified') as keyof Breakdown
+      if (s in bd) (bd[s] as number)++
+      if (a.is_locked) bd.locked++
+    }
+    setBreakdown(bd)
+
+    // Last import log tetap dari API (butuh service key untuk rekap_import_log)
+    try {
+      const res  = await fetch(`/api/data-quality/status?kontingen_id=${KONTINGEN_ID}`)
+      const json = await res.json()
+      if (json.last_import) setLastImport(json.last_import)
+    } catch { /* skip */ }
   }
 
   const triggerSync = async () => {

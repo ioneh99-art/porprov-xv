@@ -3,11 +3,16 @@ import { SupabaseClient } from '@supabase/supabase-js'
 export interface AtletStatsBandung {
   total: number
 
-  // Status registrasi (field: status_registrasi)
+  // Status registrasi (field: status_registrasi) — admin workflow
   verified: number
   pending: number
   ditolak: number
   posted: number
+
+  // Status verifikasi KONI (field: status_verifikasi)
+  koni_verified: number
+  koni_approved: number
+  koni_rejected: number
 
   // Data Quality (field: data_quality_status)
   dq_ok: number
@@ -41,7 +46,7 @@ export async function getAtletStatsBandung(
   for (let p = 0; ; p++) {
     const { data, error } = await supabase
       .from('atlet')
-      .select('status_registrasi,data_quality_status,is_locked,tes_fisik_rating,no_ktp,gender,kode_asal_daerah')
+      .select('status_registrasi,status_verifikasi,data_quality_status,is_locked,tes_fisik_rating,no_ktp,gender,kode_asal_daerah')
       .eq('kontingen_id', kontingenId)
       .range(p * 1000, (p + 1) * 1000 - 1)
     if (error || !data || data.length === 0) break
@@ -56,6 +61,10 @@ export async function getAtletStatsBandung(
     pending:   all.filter(a => a.status_registrasi === 'Menunggu Admin').length,
     ditolak:   all.filter(a => a.status_registrasi === 'Ditolak Admin').length,
     posted:    all.filter(a => a.status_registrasi === 'Posted').length,
+
+    koni_verified: all.filter(a => a.status_verifikasi === 'Verified').length,
+    koni_approved: all.filter(a => a.status_verifikasi === 'Approved Cabor').length,
+    koni_rejected: all.filter(a => a.status_verifikasi === 'Rejected').length,
 
     dq_ok:     all.filter(a => a.data_quality_status === 'ok').length,
     dq_locked: all.filter(a => a.data_quality_status === 'manual_review_required').length,
