@@ -53,15 +53,40 @@ export async function POST(req: NextRequest) {
       content: h.content,
     }))
 
+    // Fetch ringkasan data atlet ditolak untuk konteks akurat
+    const { data: ditolakSample } = await sb
+      .from('atlet')
+      .select('nama_lengkap, cabor_nama_raw, catatan_verifikasi, no_ktp')
+      .eq('kontingen_id', kontingenId)
+      .eq('status_registrasi', 'Ditolak Admin')
+      .limit(10)
+
+    const ditolakCtx = ditolakSample?.length
+      ? `${ditolakSample.length} sample dari ${ditolakSample.length} ditampilkan:\n` +
+        ditolakSample.map((a: any) =>
+          `  - ${a.nama_lengkap} (${a.cabor_nama_raw}) | NIK: ${a.no_ktp || 'kosong'} | Catatan: ${a.catatan_verifikasi || 'NULL'}`
+        ).join('\n')
+      : 'Tidak ada data ditolak.'
+
     const systemPrompt = `Kamu adalah Jarvis, AI QA companion untuk PORPROV XV - Kabupaten Bandung.
 
 KONTEKS:
 - Page saat ini: ${currentPage || 'unknown'}
-- Kontingen: KAB. BANDUNG (ID: ${kontingenId})
+- Kontingen: KAB. BANDUNG (kontingen_id: ${kontingenId})
 - User: Iwan (developer/superadmin)
 
-OPEN ISSUES (terbaru):
+OPEN ISSUES TERDETEKSI (dari scan validator):
 ${recentIssues?.length ? recentIssues.map((i: any) => `- [${i.severity.toUpperCase()}] ${i.title}: ${i.description}`).join('\n') : 'Tidak ada open issue saat ini.'}
+
+DATA ATLET DITOLAK ADMIN (sample real dari DB):
+${ditolakCtx}
+Catatan penting: SEMUA 53 atlet ditolak memiliki catatan_verifikasi = NULL. Ini adalah data demo yang di-seed, bukan penolakan operasional nyata.
+
+ATURAN KERAS — WAJIB DIPATUHI:
+1. DILARANG KERAS menyebut nama atlet, NIK, atau data spesifik yang TIDAK ADA dalam konteks di atas
+2. Kalau ditanya nama-nama atlet bermasalah tapi tidak ada di konteks, jawab JUJUR: "Gw tidak punya data detail itu di konteks saat ini, bos. Coba trigger re-scan dulu atau cek langsung di halaman Atlet."
+3. JANGAN mengarang, mengira-ngira, atau mengisi dengan contoh fiktif
+4. Hanya berikan info yang bisa diverifikasi dari open issues atau data sample di atas
 
 GAYA:
 - Bahasa Indonesia casual, panggil "bos"
