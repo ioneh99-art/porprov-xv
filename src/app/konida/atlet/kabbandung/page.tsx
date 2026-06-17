@@ -72,11 +72,30 @@ interface Atlet {
   kontingen_id:        number
   created_at:          string
   tes_fisik?:          TesFisikInfo | null
+  tes_fisik_status?:   string | null
+  tes_fisik_kategori?: string | null
+  tes_fisik_persen?:   number | null
+  tes_fisik_rating?:   string | null
+  tes_fisik_id?:       number | null
   data_quality_status?: string | null
   data_quality_notes?:  any[] | null
   is_locked?:           boolean | null
   locked_reason?:       string | null
   original_data?:       any | null
+}
+
+const RATING_COLOR: Record<string, { bg: string; text: string; border: string }> = {
+  '⭐ ELITE':       { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/30' },
+  '✅ READY':       { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  '🟡 NEEDS WORK':  { bg: 'bg-amber-500/10',  text: 'text-amber-400',  border: 'border-amber-500/30'  },
+  '🔴 SUB-PAR':     { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/30' },
+  '🚨 KRITIS':      { bg: 'bg-rose-500/10',   text: 'text-rose-400',   border: 'border-rose-500/30'   },
+  '⚠️ Tidak Hadir': { bg: 'bg-slate-500/10',  text: 'text-slate-400',  border: 'border-slate-500/30'  },
+}
+
+const RATING_PRIORITY: Record<string, number> = {
+  '⭐ ELITE': 1, '✅ READY': 2, '🟡 NEEDS WORK': 3,
+  '🔴 SUB-PAR': 4, '🚨 KRITIS': 5, '⚠️ Tidak Hadir': 6,
 }
 
 const KATEGORI_COLOR: Record<string, string> = {
@@ -116,6 +135,7 @@ export default function PageAtletKabBandung() {
     return valid.includes(s as FilterStatus) ? (s as FilterStatus) : 'semua'
   })
   const [filterTesFisik, setFilterTesFisik] = useState<'semua'|'sudah'|'belum'|'top'>('semua')
+  const [filterRating,   setFilterRating]   = useState<string>('all')
   const [expandedCabor,setExpandedCabor]= useState<string|null>(null)
   const [selectedAtlet,setSelectedAtlet]= useState<Atlet|null>(null)
   const [modalTab,     setModalTab]     = useState<'profil'|'fisik'>('profil')
@@ -138,7 +158,7 @@ export default function PageAtletKabBandung() {
             let all: any[] = []
             for (let p = 0; ; p++) {
               const { data, error } = await sb.from('atlet')
-                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at,data_quality_status,data_quality_notes,is_locked,locked_reason,original_data')
+                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at,data_quality_status,data_quality_notes,is_locked,locked_reason,original_data,tes_fisik_status,tes_fisik_kategori,tes_fisik_persen,tes_fisik_rating,tes_fisik_id')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .order('cabor_nama_raw', { ascending: true })
                 .order('nama_lengkap',   { ascending: true })
@@ -248,6 +268,21 @@ export default function PageAtletKabBandung() {
       .slice(0, 3)
   },[data])
 
+  // ── Tes Fisik Rating Stats ────────────────────────────────
+  const tesFisikStats = useMemo(()=>{
+    const s = { elite:0, ready:0, needs_work:0, sub_par:0, kritis:0, tidak_hadir:0, belum_tes:0 }
+    data.forEach(a => {
+      if      (a.tes_fisik_rating === '⭐ ELITE')       s.elite++
+      else if (a.tes_fisik_rating === '✅ READY')       s.ready++
+      else if (a.tes_fisik_rating === '🟡 NEEDS WORK')  s.needs_work++
+      else if (a.tes_fisik_rating === '🔴 SUB-PAR')     s.sub_par++
+      else if (a.tes_fisik_rating === '🚨 KRITIS')      s.kritis++
+      else if (a.tes_fisik_rating === '⚠️ Tidak Hadir') s.tidak_hadir++
+      else                                               s.belum_tes++
+    })
+    return s
+  }, [data])
+
   // ── Group by cabor + filter ───────────────────────────────
   const groupedCabors = useMemo(()=>{
     // Filter status dulu
@@ -255,10 +290,27 @@ export default function PageAtletKabBandung() {
       ? data
       : data.filter(a=>a.status_registrasi===filterStatus)
 
-    // Filter tes fisik
+    // Filter tes fisik (existing)
     if (filterTesFisik === 'sudah') filtered = filtered.filter(a => a.tes_fisik != null)
     else if (filterTesFisik === 'belum') filtered = filtered.filter(a => a.tes_fisik == null)
     else if (filterTesFisik === 'top')   filtered = filtered.filter(a => (a.tes_fisik?.kesimpulan_persen || 0) >= 80)
+
+    // Filter by rating (new)
+    if (filterRating !== 'all') {
+      const ratingMap: Record<string, string | null> = {
+        'elite':        '⭐ ELITE',
+        'ready':        '✅ READY',
+        'needs_work':   '🟡 NEEDS WORK',
+        'sub_par':      '🔴 SUB-PAR',
+        'kritis':       '🚨 KRITIS',
+        'tidak_hadir':  '⚠️ Tidak Hadir',
+        'belum_tes':    null,
+      }
+      const target = ratingMap[filterRating]
+      filtered = filtered.filter(a =>
+        target === null ? a.tes_fisik_rating == null : a.tes_fisik_rating === target
+      )
+    }
 
     const caborMap: Record<string, Atlet[]> = {}
     filtered.forEach(a=>{
@@ -289,7 +341,7 @@ export default function PageAtletKabBandung() {
     }
 
     return list
-  },[data, searchCabor, searchNama, filterStatus])
+  },[data, searchCabor, searchNama, filterStatus, filterTesFisik, filterRating])
 
   // ── Export CSV ────────────────────────────────────────────
   const handleExport = useCallback(()=>{
@@ -555,6 +607,24 @@ export default function PageAtletKabBandung() {
             </div>
           </div>
 
+          {/* Filter Rating Fisik */}
+          <div className="flex items-center gap-2 pl-3 ml-1 border-l border-white/5">
+            <select
+              value={filterRating}
+              onChange={e => setFilterRating(e.target.value)}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold outline-none transition-all"
+              style={{background:'rgba(255,255,255,0.04)',border:`1px solid ${filterRating!=='all'?'rgba(234,179,8,0.4)':'rgba(255,255,255,0.08)'}`,color:filterRating!=='all'?'#fbbf24':'rgba(255,255,255,0.4)'}}>
+              <option value="all">Rating Fisik: Semua</option>
+              <option value="elite">⭐ ELITE ({tesFisikStats.elite})</option>
+              <option value="ready">✅ READY ({tesFisikStats.ready})</option>
+              <option value="needs_work">🟡 NEEDS WORK ({tesFisikStats.needs_work})</option>
+              <option value="sub_par">🔴 SUB-PAR ({tesFisikStats.sub_par})</option>
+              <option value="kritis">🚨 KRITIS ({tesFisikStats.kritis})</option>
+              <option value="tidak_hadir">⚠️ Tidak Hadir ({tesFisikStats.tidak_hadir})</option>
+              <option value="belum_tes">— Belum Tes ({tesFisikStats.belum_tes})</option>
+            </select>
+          </div>
+
           <div className="flex items-center gap-3 ml-auto">
             {/* Search nama atlet */}
             <div className="relative">
@@ -580,6 +650,56 @@ export default function PageAtletKabBandung() {
             </div>
           </div>
         </div>
+
+        {/* ── TES FISIK ALERT BANNER ── */}
+        {(tesFisikStats.kritis > 0 || tesFisikStats.sub_par > 0 || tesFisikStats.tidak_hadir > 0 || tesFisikStats.elite > 0) && (
+          <div {...ani(55)} className="p-4 rounded-xl"
+            style={{background:'linear-gradient(135deg,rgba(239,68,68,0.08),rgba(249,115,22,0.06),rgba(100,116,139,0.06))',border:'1px solid rgba(239,68,68,0.25)'}}>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span className="text-sm font-semibold text-white">Tes Fisik — Butuh Perhatian:</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {tesFisikStats.kritis > 0 && (
+                  <button onClick={() => setFilterRating(filterRating === 'kritis' ? 'all' : 'kritis')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{background: filterRating==='kritis'?'rgba(239,68,68,0.3)':'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#f87171'}}>
+                    🚨 {tesFisikStats.kritis} KRITIS
+                  </button>
+                )}
+                {tesFisikStats.sub_par > 0 && (
+                  <button onClick={() => setFilterRating(filterRating === 'sub_par' ? 'all' : 'sub_par')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{background: filterRating==='sub_par'?'rgba(249,115,22,0.3)':'rgba(249,115,22,0.15)',border:'1px solid rgba(249,115,22,0.4)',color:'#fb923c'}}>
+                    🔴 {tesFisikStats.sub_par} SUB-PAR
+                  </button>
+                )}
+                {tesFisikStats.tidak_hadir > 0 && (
+                  <button onClick={() => setFilterRating(filterRating === 'tidak_hadir' ? 'all' : 'tidak_hadir')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{background: filterRating==='tidak_hadir'?'rgba(100,116,139,0.3)':'rgba(100,116,139,0.15)',border:'1px solid rgba(100,116,139,0.4)',color:'#94a3b8'}}>
+                    ⚠️ {tesFisikStats.tidak_hadir} Tidak Hadir
+                  </button>
+                )}
+                {tesFisikStats.elite > 0 && (
+                  <button onClick={() => setFilterRating(filterRating === 'elite' ? 'all' : 'elite')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{background: filterRating==='elite'?'rgba(234,179,8,0.3)':'rgba(234,179,8,0.15)',border:'1px solid rgba(234,179,8,0.4)',color:'#fbbf24'}}>
+                    ⭐ {tesFisikStats.elite} ELITE
+                  </button>
+                )}
+                {filterRating !== 'all' && (
+                  <button onClick={() => setFilterRating('all')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.5)'}}>
+                    ✕ Reset
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── CRITICAL ALERTS + MISSION CONTROL ── */}
         <div {...ani(65)} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -745,21 +865,19 @@ export default function PageAtletKabBandung() {
                                       />
                                     </td>
                                     <td className="px-3 py-2.5 text-center">
-                                      {a.tes_fisik ? (
+                                      {a.tes_fisik_rating ? (
                                         <button
                                           onClick={()=>{ setSelectedAtlet(a); setModalTab('fisik') }}
-                                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
-                                          style={{
-                                            background: `${KATEGORI_COLOR[a.tes_fisik.kesimpulan_kategori || ''] || ACCENT}20`,
-                                            color:      KATEGORI_COLOR[a.tes_fisik.kesimpulan_kategori || ''] || ACCENT,
-                                            border:     `1px solid ${KATEGORI_COLOR[a.tes_fisik.kesimpulan_kategori || ''] || ACCENT}40`,
-                                          }}>
-                                          <Activity size={9}/>
-                                          {a.tes_fisik.kesimpulan_persen != null ? `${a.tes_fisik.kesimpulan_persen}%` : '—'}
+                                          title={`${a.tes_fisik_kategori || ''} · ${a.tes_fisik_persen ?? 0}%`}
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all hover:opacity-80 ${RATING_COLOR[a.tes_fisik_rating]?.bg||'bg-slate-500/10'} ${RATING_COLOR[a.tes_fisik_rating]?.text||'text-slate-400'} ${RATING_COLOR[a.tes_fisik_rating]?.border||'border-slate-500/30'}`}>
+                                          {a.tes_fisik_rating}
+                                          {a.tes_fisik_persen != null && (
+                                            <span className="opacity-75 ml-0.5">{a.tes_fisik_persen}%</span>
+                                          )}
                                         </button>
                                       ) : (
                                         <span className="text-[10px] font-bold" style={{color:'rgba(255,255,255,0.2)'}}>
-                                          Belum tes
+                                          — Belum Tes
                                         </span>
                                       )}
                                     </td>
