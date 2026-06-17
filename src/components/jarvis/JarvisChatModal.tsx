@@ -1,9 +1,6 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
-import { X, Send, Sparkles, RefreshCw } from 'lucide-react'
-import { usePathname } from 'next/navigation'
-
-const KONTINGEN_ID = 4
+import { useRef, useEffect } from 'react'
+import { X, Send, Sparkles, RefreshCw, Minus } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -11,55 +8,30 @@ interface Message {
   ts: string
 }
 
-export function JarvisChatModal({ onClose }: { onClose: () => void }) {
-  const pathname = usePathname()
-  const [messages, setMessages] = useState<Message[]>([{
-    role: 'assistant',
-    content: 'Halo bos! Gw Jarvis, QA companion lo. Lagi monitor data Bandung nih. Ada yang mau ditanya atau dibantu?',
-    ts: new Date().toISOString(),
-  }])
-  const [input,     setInput]     = useState('')
-  const [loading,   setLoading]   = useState(false)
-  const [sessionId] = useState(() => `jarvis-${Date.now()}`)
-  const bottomRef   = useRef<HTMLDivElement>(null)
+interface Props {
+  messages: Message[]
+  input: string
+  loading: boolean
+  onInputChange: (v: string) => void
+  onSend: () => void
+  onClose: () => void
+  onMinimize: () => void
+}
+
+export function JarvisChatModal({ messages, input, loading, onInputChange, onSend, onClose, onMinimize }: Props) {
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const send = async () => {
-    if (!input.trim() || loading) return
-    const text = input.trim()
-    setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: text, ts: new Date().toISOString() }])
-    setLoading(true)
-
-    try {
-      const res  = await fetch('/api/jarvis/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId, currentPage: pathname, kontingenId: KONTINGEN_ID }),
-      })
-      const data = await res.json()
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.success ? data.response : `Error: ${data.error}`,
-        ts: new Date().toISOString(),
-      }])
-    } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Network error: ${e.message}`, ts: new Date().toISOString() }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() }
   }
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}>
+      onClick={e => e.target === e.currentTarget && onMinimize()}>
       <div className="w-full max-w-2xl mx-4 flex flex-col rounded-2xl shadow-2xl overflow-hidden"
         style={{ height: '700px', maxHeight: '90vh', background: '#060b18', border: '1px solid rgba(139,92,246,0.3)' }}>
 
@@ -76,10 +48,20 @@ export function JarvisChatModal({ onClose }: { onClose: () => void }) {
               <div className="text-[10px] text-zinc-500">Monitoring data Bandung · Online</div>
             </div>
           </div>
-          <button onClick={onClose}
-            className="p-2 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Minimize → bubble */}
+            <button onClick={onMinimize}
+              className="p-2 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+              title="Minimize">
+              <Minus size={16} />
+            </button>
+            {/* Close completely */}
+            <button onClick={onClose}
+              className="p-2 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+              title="Tutup">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Messages */}
@@ -114,18 +96,20 @@ export function JarvisChatModal({ onClose }: { onClose: () => void }) {
         {/* Input */}
         <div className="px-4 pb-4 pt-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex gap-2">
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey}
+            <input value={input} onChange={e => onInputChange(e.target.value)} onKeyDown={onKey}
               placeholder="Tanya Jarvis…"
               disabled={loading}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-purple-500/50 disabled:opacity-50"
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            <button onClick={send} disabled={!input.trim() || loading}
+            <button onClick={onSend} disabled={!input.trim() || loading}
               className="px-4 py-2.5 rounded-xl transition-all disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
-              {loading ? <RefreshCw size={16} className="text-white animate-spin" /> : <Send size={16} className="text-white" />}
+              {loading
+                ? <RefreshCw size={16} className="text-white animate-spin" />
+                : <Send size={16} className="text-white" />}
             </button>
           </div>
-          <p className="text-[10px] text-zinc-700 mt-2 text-center">Enter kirim · Shift+Enter baris baru</p>
+          <p className="text-[10px] text-zinc-700 mt-2 text-center">Enter kirim · — minimize · × tutup</p>
         </div>
       </div>
     </div>
