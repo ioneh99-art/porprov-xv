@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import KonidaSidebar from './KonidaSidebar'
 import ChatbotWidget from './ChatbotWidget'
+import { JarvisWrapper } from './jarvis/JarvisWrapper'
 
 interface Props {
   children: React.ReactNode
@@ -18,8 +19,10 @@ export default function KonidaLayoutShell({ children, user }: Props) {
   return (
     <div className="flex min-h-screen bg-slate-950">
       <KonidaSidebar />
-      <main className="ml-56 flex-1 p-7">
-        {children}
+      <main className="ml-56 flex-1">
+        <JarvisWrapper>
+          <div className="p-7">{children}</div>
+        </JarvisWrapper>
       </main>
       <ChatbotWidget user={user} />
     </div>
