@@ -89,11 +89,15 @@ export async function runJarvisQA(kontingenId: number): Promise<{
     .eq('status', 'open')
 
   if (allIssues.length > 0) {
-    // Dedup by title sebelum insert
+    // Dedup by issue_type+source_record_id (bukan title — nama atlet bisa sama!)
+    // Untuk group issues (duplicate) yang tidak punya source_record_id unik, fallback ke title
     const seen = new Set<string>()
     const unique = allIssues.filter(i => {
-      if (seen.has(i.title)) return false
-      seen.add(i.title)
+      const key = i.source_record_id != null
+        ? `${i.issue_type}|${i.source_record_id}`
+        : i.title
+      if (seen.has(key)) return false
+      seen.add(key)
       return true
     })
 
