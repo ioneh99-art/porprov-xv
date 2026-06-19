@@ -5,7 +5,7 @@
 
 import Link from 'next/link'
 import { ChevronRight, Trophy } from 'lucide-react'
-import { getCaborAccent, getCaborIcon, caborToSlug, hasBaselineData } from '@/lib/kejuaraan/cabor-accent-map'
+import { getCaborAccent, getCaborIcon, caborToSlug } from '@/lib/kejuaraan/cabor-accent-map'
 
 export interface CaborKejuaraanData {
   nama:           string
@@ -32,12 +32,6 @@ export function KejuaraanCaborCard({ cabor, basePath }: Props) {
   const slug    = caborToSlug(cabor.nama)
   const total   = cabor.emas + cabor.perak + cabor.perunggu
   const hasData = cabor.totalRecords > 0
-  const baseline= hasBaselineData(cabor.nama)
-  
-  // Data quality indicator
-  const realPct = cabor.totalRecords > 0
-    ? Math.round((cabor.realRecords / cabor.totalRecords) * 100)
-    : 0
   
   return (
     <Link href={`${basePath}/${slug}`}
@@ -53,22 +47,10 @@ export function KejuaraanCaborCard({ cabor, basePath }: Props) {
           <div className="min-w-0">
             <div className="text-lg font-bold text-white truncate">{cabor.nama}</div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              {baseline && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
-                  style={{ background: `${accent}15`, color: accent, border: `1px solid ${accent}30` }}>
-                  🌟 Baseline Ready
-                </span>
-              )}
-              {hasData && cabor.demoRecords > cabor.realRecords && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
-                  style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>
-                  DEMO
-                </span>
-              )}
               {cabor.pendingRecords > 0 && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
                   style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}>
-                  {cabor.pendingRecords} pending
+                  {cabor.pendingRecords} menunggu verifikasi
                 </span>
               )}
             </div>
@@ -136,16 +118,6 @@ export function KejuaraanCaborCard({ cabor, basePath }: Props) {
             </div>
           </div>
           
-          {/* Data quality indicator */}
-          {cabor.totalRecords > 0 && (
-            <div className="mt-2 flex items-center gap-1.5 text-[9px] text-slate-600">
-              <div className="flex-1 h-0.5 rounded-full bg-slate-800 overflow-hidden">
-                <div className="h-full transition-all"
-                  style={{ width: `${realPct}%`, background: realPct >= 70 ? '#22c55e' : realPct >= 30 ? '#f59e0b' : '#ef4444' }}/>
-              </div>
-              <span className="tabular-nums">{realPct}% real</span>
-            </div>
-          )}
         </>
       )}
     </Link>
