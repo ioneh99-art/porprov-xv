@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/jarvis-validate",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }
