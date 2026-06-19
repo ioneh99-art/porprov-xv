@@ -16,22 +16,6 @@ const nextConfig = {
         destination: '/konida/performance/kabbandung',
         permanent: true,
       },
-      // Kejuaraan lama → Performance
-      {
-        source: '/konida/kejuaraan/kabbandung',
-        destination: '/konida/performance/kabbandung',
-        permanent: true,
-      },
-      {
-        source: '/konida/kejuaraan/kabbandung/:cabor_slug',
-        destination: '/konida/performance/kabbandung/:cabor_slug',
-        permanent: true,
-      },
-      {
-        source: '/konida/kejuaraan/kabbandung/:cabor_slug/:atlet_id',
-        destination: '/konida/performance/kabbandung/:cabor_slug/:atlet_id',
-        permanent: true,
-      },
     ]
   },
 }
