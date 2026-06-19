@@ -131,9 +131,8 @@ export default function KejuaraanAtletDossierPage() {
   const filteredRecords = useMemo(() => {
     return records.filter(r => {
       if (filterLevel !== 'Semua' && r.level_event !== filterLevel) return false
-      if (filterSource === 'Real'    && (r.is_demo || r.submission_status === 'rejected')) return false
-      if (filterSource === 'Demo'    && !r.is_demo) return false
-      if (filterSource === 'Pending' && r.submission_status !== 'pending') return false
+      if (filterSource === 'Terverifikasi'       && r.submission_status === 'pending') return false
+      if (filterSource === 'Menunggu Verifikasi' && r.submission_status !== 'pending') return false
       return true
     })
   }, [records, filterLevel, filterSource])
@@ -407,10 +406,9 @@ export default function KejuaraanAtletDossierPage() {
             </select>
             <select value={filterSource} onChange={e => setFilterSource(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-200 outline-none">
-              <option value="Semua">Semua sumber</option>
-              <option value="Real">Real</option>
-              <option value="Demo">Demo</option>
-              <option value="Pending">Pending</option>
+              <option value="Semua">Semua</option>
+              <option value="Terverifikasi">Terverifikasi</option>
+              <option value="Menunggu Verifikasi">Menunggu Verifikasi</option>
             </select>
           </div>
         </div>
@@ -439,14 +437,13 @@ export default function KejuaraanAtletDossierPage() {
             {filteredRecords.map(r => {
               const hCfg = HASIL_CFG[r.hasil] || HASIL_CFG['Peserta']
               const lCfg = LEVEL_CFG[r.level_event] || LEVEL_CFG['Lokal']
-              const sourceLabel = 
-                r.submission_status === 'pending' ? 'Pending verifikasi' :
+              const sourceLabel =
+                r.submission_status === 'pending'  ? 'Menunggu verifikasi' :
                 r.submission_status === 'rejected' ? 'Ditolak' :
-                r.is_demo ? 'Demo data' :
-                r.submitted_by === 'atlet' ? 'Self-reported (verified)' :
-                r.submitted_by === 'admin' ? 'Admin input (verified)' :
-                r.submitted_by === 'import' ? 'Bulk import (verified)' :
-                'Verified'
+                r.submitted_by === 'atlet'         ? 'Diinput atlet' :
+                r.submitted_by === 'admin'         ? 'Diinput admin' :
+                r.submitted_by === 'import'        ? 'Import data' :
+                'Terverifikasi'
               return (
                 <div key={r.id} className="rounded-xl bg-slate-800/30 border border-slate-800 p-3">
                   <div className="flex items-start gap-3">

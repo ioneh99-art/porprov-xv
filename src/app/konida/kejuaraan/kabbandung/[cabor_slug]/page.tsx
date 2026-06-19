@@ -11,7 +11,7 @@ import {
   Search, ChevronRight, ArrowLeft, SlidersHorizontal,
   Trophy, Calendar, Filter, X,
 } from 'lucide-react'
-import { getCaborAccent, getCaborIcon, caborToSlug, slugToCaborName, hasBaselineData } from '@/lib/kejuaraan/cabor-accent-map'
+import { getCaborAccent, getCaborIcon, caborToSlug, slugToCaborName } from '@/lib/kejuaraan/cabor-accent-map'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,9 +138,8 @@ export default function KejuaraanRosterPage() {
     records.forEach(r => {
       if (fLevel !== 'Semua' && r.level_event !== fLevel) return
       if (fHasil !== 'Semua' && r.hasil !== fHasil) return
-      if (fSource === 'Real'    && (r.is_demo || r.submission_status === 'rejected')) return
-      if (fSource === 'Demo'    && !r.is_demo) return
-      if (fSource === 'Pending' && r.submission_status !== 'pending') return
+      if (fSource === 'Terverifikasi'       && r.submission_status === 'pending') return
+      if (fSource === 'Menunggu Verifikasi' && r.submission_status !== 'pending') return
       if (!map[r.atlet_id]) map[r.atlet_id] = []
       map[r.atlet_id].push(r)
     })
@@ -240,12 +239,6 @@ export default function KejuaraanRosterPage() {
             <div>
               <div className="flex items-center gap-2 mb-0.5">
                 <h1 className="text-2xl font-black text-white">{caborNama}</h1>
-                {hasBaselineData(caborNama) && (
-                  <span className="text-[9px] px-2 py-0.5 rounded-full font-bold"
-                    style={{ background: `${accent}15`, color: accent, border: `1px solid ${accent}30` }}>
-                    🌟 Baseline ready
-                  </span>
-                )}
               </div>
               <p className="text-xs text-slate-500">
                 {atlets.length} atlet · {records.length} records prestasi
@@ -301,8 +294,8 @@ export default function KejuaraanRosterPage() {
                   value={fHasil} onChange={setFHasil} color={accent}/>
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Sumber Data</div>
-                <PillGroup options={['Semua', 'Real', 'Demo', 'Pending']}
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Status</div>
+                <PillGroup options={['Semua', 'Terverifikasi', 'Menunggu Verifikasi']}
                   value={fSource} onChange={setFSource} color={accent}/>
               </div>
             </div>
