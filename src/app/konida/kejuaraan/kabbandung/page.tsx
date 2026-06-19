@@ -77,7 +77,6 @@ export default function KejuaraanLandingPage() {
           })(),
           sb.from('riwayat_prestasi')
             .select('id,atlet_id,event,tahun,hasil,level_event,is_demo,submitted_by,submission_status')
-            .eq('is_demo', false)
             .order('tahun', { ascending: false }),
         ])
         setAtlets(atletData)
