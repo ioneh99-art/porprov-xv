@@ -7,8 +7,9 @@ import { createClient } from '@supabase/supabase-js'
 import {
   BarChart3, Search, RefreshCw, Users, Activity, Award,
   AlertCircle, Info, X, Zap, TrendingUp, Clock,
-  AlertTriangle, Trophy,
+  AlertTriangle, Trophy, Upload,
 } from 'lucide-react'
+import Link from 'next/link'
 import { PerformanceCaborCard, type PerformanceCaborData } from '@/components/konida/performance/PerformanceCaborCard'
 import { hasBaselineData } from '@/lib/performance/cabor-accent-map'
 
@@ -460,6 +461,11 @@ export default function PerformancePage() {
               style={{ background: 'rgba(0,0,0,0.25)', borderColor: 'rgba(255,255,255,0.06)' }}>
               <Clock size={13} style={{ color: ACCENT }}/><LiveClock/>
             </div>
+            <Link href={`${BASE_PATH}/import`}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border"
+              style={{ background: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.35)', color: '#a5b4fc' }}>
+              <Upload size={11}/> Import Data
+            </Link>
             <button onClick={() => window.location.reload()}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border text-zinc-300 hover:text-white hover:bg-white/10"
               style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}>
