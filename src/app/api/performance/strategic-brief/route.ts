@@ -46,7 +46,8 @@ Berikan strategic brief dalam format JSON valid, PERSIS struktur ini (jangan tam
 }
 
 Buat tepat 3 prioritas (urutkan dari dampak tertinggi), 2-3 peluang emas, 1-2 area risiko.
-Gunakan angka dari data yang diberikan. Tulis dalam Bahasa Indonesia profesional.`
+Gunakan angka dari data yang diberikan. Tulis dalam Bahasa Indonesia profesional.
+PENTING: Output harus JSON valid murni — jangan ada newline di dalam nilai string, jangan ada karakter khusus yang tidak di-escape, jangan tambahkan teks apapun di luar JSON.`
 
   try {
     const message = await client.messages.create({
@@ -56,12 +57,42 @@ Gunakan angka dari data yang diberikan. Tulis dalam Bahasa Indonesia profesional
     })
 
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      return NextResponse.json({ error: 'Format respons tidak valid dari AI' }, { status: 500 })
+
+    // Extract JSON: handle markdown code fences first, then bare object
+    let jsonStr: string | null = null
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim()
+    } else {
+      // Find outermost { ... } — use index tracking to handle nested objects
+      const start = text.indexOf('{')
+      if (start !== -1) {
+        let depth = 0, end = -1
+        for (let i = start; i < text.length; i++) {
+          if (text[i] === '{') depth++
+          else if (text[i] === '}') { depth--; if (depth === 0) { end = i; break } }
+        }
+        if (end !== -1) jsonStr = text.slice(start, end + 1)
+      }
     }
 
-    return NextResponse.json(JSON.parse(jsonMatch[0]))
+    if (!jsonStr) {
+      return NextResponse.json({ error: 'AI tidak mengembalikan JSON yang valid' }, { status: 500 })
+    }
+
+    try {
+      return NextResponse.json(JSON.parse(jsonStr))
+    } catch {
+      // Last resort: sanitize common issues (unescaped newlines inside strings)
+      const sanitized = jsonStr.replace(/(?<=":\ *"[^"]*)\n(?=[^"]*")/g, ' ')
+      try {
+        return NextResponse.json(JSON.parse(sanitized))
+      } catch (e2) {
+        return NextResponse.json({
+          error: `JSON parse gagal: ${e2 instanceof Error ? e2.message : 'unknown'}`,
+        }, { status: 500 })
+      }
+    }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
     return NextResponse.json({ error: msg }, { status: 500 })
