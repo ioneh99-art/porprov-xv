@@ -471,6 +471,46 @@ export default function PerformancePage() {
 
       <main className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 relative z-10">
 
+        {/* ════ HERO IDENTITY ════ */}
+        <div {...ani(0)} className="rounded-2xl p-6"
+          style={{ background: `linear-gradient(135deg, ${ACCENT}08 0%, rgba(2,10,20,0) 100%)`, border: `1px solid ${ACCENT}18` }}>
+          <div className="flex items-start justify-between flex-wrap gap-6">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 size={14} style={{ color: ACCENT }}/>
+                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: ACCENT }}>
+                  Intelligence Center
+                </span>
+              </div>
+              <h2 className="text-2xl font-black text-white mb-2">Peta Jalan Menuju Medali</h2>
+              <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl">
+                Analisis ilmiah berbasis data — seberapa jauh atlet Kab. Bandung dari rekor PORPROV,
+                siapa yang paling siap meraih emas, dan di mana pelatih perlu intervensi sebelum PORPROV XV 2026.
+              </p>
+            </div>
+
+            {/* Gap% legend */}
+            <div className="rounded-xl p-4 shrink-0"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="text-[9px] uppercase tracking-widest text-zinc-600 mb-2.5 font-bold">
+                GAP% — Jarak ke Rekor PORPROV
+              </div>
+              {[
+                { range: '≤ 3%',  label: 'Peluang Emas',       color: '#10b981' },
+                { range: '3–7%',  label: 'Peluang Perak',      color: '#06b6d4' },
+                { range: '7–12%', label: 'Peluang Perunggu',   color: '#f59e0b' },
+                { range: '> 12%', label: 'Perlu Kerja Keras',  color: '#ef4444' },
+              ].map(g => (
+                <div key={g.range} className="flex items-center gap-2 mb-1.5">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: g.color }}/>
+                  <span className="text-[10px] font-mono font-bold w-12" style={{ color: g.color }}>{g.range}</span>
+                  <span className="text-[10px] text-zinc-500">{g.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* ════ STRATEGIC OVERVIEW ════ */}
         {oRows.length > 0 && (
           <div {...ani(0)} className="rounded-3xl overflow-hidden relative"
@@ -485,7 +525,7 @@ export default function PerformancePage() {
               </span>
               <span className="h-3 w-px bg-white/10"/>
               <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">
-                Kontingen Kab. Bandung · Target Medali PORPROV 2022
+                Proyeksi Medali Berdasarkan Data Baseline 2022 · Diperbarui Menjelang PORPROV XV
               </span>
               {importedFiles.length > 0 && (
                 <>
@@ -523,7 +563,7 @@ export default function PerformancePage() {
                   ))}
                   <div className="flex items-start gap-1.5 text-[10px] text-zinc-700 px-1">
                     <Info size={10} className="shrink-0 mt-0.5"/>
-                    <span>Data target PORPROV 2022. Perlu refresh proyeksi menjelang 2026.</span>
+                    <span>Proyeksi berdasarkan data baseline 2022. Angkat Berat & cabor lain menyusul saat data kualifikasi 2025 masuk.</span>
                   </div>
                 </div>
               )}
@@ -653,9 +693,9 @@ export default function PerformancePage() {
                 })}
               </div>
 
-              {/* Cabor grid — hanya tampilkan yang punya data baseline */}
+              {/* Cabor grid — tampilkan yang punya baseline ATAU data prestasi */}
               {(() => {
-                const withData = caborAggregates.filter(c => c.baselineEvents > 0)
+                const withData = caborAggregates.filter(c => c.baselineEvents > 0 || c.totalMedals > 0)
                 if (withData.length === 0) return (
                   <div className="py-16 text-center rounded-2xl"
                     style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>

@@ -43,10 +43,6 @@ export function PerformanceCaborCard({ cabor, basePath }: Props) {
   const hasAnyData   = hasBase || hasAnyRecord
   const baseline = hasBaselineData(cabor.nama)
   
-  const realPct = cabor.totalMedals > 0
-    ? Math.round((cabor.realRecords / cabor.totalMedals) * 100)
-    : 0
-  
   return (
     <Link href={`${basePath}/${slug}`}
       className="group rounded-2xl p-5 bg-slate-900/70 border border-slate-800 hover:border-slate-600 transition-all block">
@@ -76,7 +72,7 @@ export function PerformanceCaborCard({ cabor, basePath }: Props) {
               {cabor.pendingRecords > 0 && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
                   style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}>
-                  {cabor.pendingRecords} pending
+                  {cabor.pendingRecords} menunggu verifikasi
                 </span>
               )}
             </div>
@@ -164,15 +160,6 @@ export function PerformanceCaborCard({ cabor, basePath }: Props) {
             </div>
           </div>
           
-          {/* Data quality bar */}
-          {cabor.totalMedals > 0 && (
-            <div className="mt-2 flex items-center gap-1.5 text-[8px] text-slate-600">
-              <div className="flex-1 h-0.5 rounded-full bg-slate-800 overflow-hidden">
-                <div className="h-full" style={{ width: `${realPct}%`, background: realPct >= 70 ? '#22c55e' : realPct >= 30 ? '#f59e0b' : '#ef4444' }}/>
-              </div>
-              <span className="tabular-nums">{realPct}% real</span>
-            </div>
-          )}
         </>
       )}
     </Link>
