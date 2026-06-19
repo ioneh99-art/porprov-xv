@@ -129,7 +129,7 @@ export default function KejuaraanLandingPage() {
       }
     })
 
-    return Object.entries(caborMap).map(([nama, d]) => {
+    return Object.entries(caborMap).filter(([, d]) => d.records.length > 0).map(([nama, d]) => {
       const records  = d.records
       const emas     = records.filter(r => r.hasil === 'Emas').length
       const perak    = records.filter(r => r.hasil === 'Perak').length
