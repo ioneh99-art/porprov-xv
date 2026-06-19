@@ -22,10 +22,10 @@ const KONTINGEN_ID = 4
 const LS_KEY       = 'porprov_jurnal_v1'
 const KONTINGEN_NAME = 'Kab. Bandung'
 
-// TODO: isi tarif bonus medali resmi dari SK Bupati Kab. Bandung
-const TARIF_BONUS = { Emas: 0, Perak: 0, Perunggu: 0 }
-// TODO: isi target medali resmi dari Bupati Kab. Bandung
-const TARGET_BUPATI = { emas: 0, perak: 0, perunggu: 0 }
+// Placeholder tarif — update setelah SK Bupati terbit
+const TARIF_BONUS = { Emas: 10_000_000, Perak: 7_500_000, Perunggu: 5_000_000 }
+// Placeholder target — update setelah SK Bupati terbit
+const TARGET_BUPATI = { emas: 45, perak: 38, perunggu: 32 }
 
 interface AtletDB {
   id: number; nama_lengkap: string; gender: string

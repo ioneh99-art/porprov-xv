@@ -57,11 +57,27 @@ const EMPTY_FORM: Omit<JurnalLaga,'id'> = {
 
 const LS_KEY = 'porprov_jurnal_v2'  // Bump version karena format berubah (tambah isDemo)
 
-// TODO: isi data pertandingan real saat PORPROV mulai (7 Nov 2026)
-// Format: { [hari: number]: JurnalLaga[] }
-// Contoh entry: { id:'real-1-1', waktu:'08:00', cabor:'Hockey', hasil:'...', medali:'Emas', catatan:'...', isDemo:false }
 function generateDemoData(): Record<number, JurnalLaga[]> {
-  return {}
+  return {
+    1: [
+      { id:'demo-1-1', waktu:'09:00', cabor:'Pencak Silat', hasil:'Final Kelas D Putra — Menang Poin 3-2 vs Kab. Garut', medali:'Emas', catatan:'Atlet: Rizky Maulana — tampil dominan di babak final', isDemo:true },
+      { id:'demo-1-2', waktu:'11:30', cabor:'Karate', hasil:'Semi Final Kata Putri — Skor 24.6 (Medali Perunggu otomatis)', medali:'Perunggu', catatan:'Atlet: Siti Nurhaliza — lolos ke final kata putri', isDemo:true },
+      { id:'demo-1-3', waktu:'14:00', cabor:'Renang', hasil:'100m Gaya Bebas Putra — Peringkat 2 waktu 52.4 detik', medali:'Perak', catatan:'Selisih 0.3 detik dari juara — performa terbaik musim ini', isDemo:true },
+      { id:'demo-1-4', waktu:'16:00', cabor:'Atletik', hasil:'Lompat Jauh Putri — Lompatan 5.82m (Tanpa Medali)', medali:'Tanpa Medali', catatan:'Peringkat 5 — perlu peningkatan awalan', isDemo:true },
+    ],
+    2: [
+      { id:'demo-2-1', waktu:'08:30', cabor:'Taekwondo', hasil:'Final -58kg Putra — Menang KO Ronde 2 vs Kab. Bogor', medali:'Emas', catatan:'Atlet: Dimas Prasetyo — teknik dollyo chagi terbaik', isDemo:true },
+      { id:'demo-2-2', waktu:'10:00', cabor:'Karate', hasil:'Final Kata Putri — Skor 25.1 (Kalah tipis 0.2 poin)', medali:'Perak', catatan:'Penampilan teknis sangat bagus, kalah poin saja', isDemo:true },
+      { id:'demo-2-3', waktu:'13:00', cabor:'Bulutangkis', hasil:'Perempat Final Ganda Putra — Menang 21-18 21-15', medali:'Tanpa Medali', catatan:'Lanjut ke semi final besok vs Kab. Bandung Barat', isDemo:true },
+      { id:'demo-2-4', waktu:'15:30', cabor:'Pencak Silat', hasil:'Final Kelas F Putri — Menang Mutlak', medali:'Emas', catatan:'Atlet: Dewi Rahayu — dominasi penuh seluruh babak', isDemo:true },
+    ],
+    3: [
+      { id:'demo-3-1', waktu:'09:30', cabor:'Bulutangkis', hasil:'Semi Final Ganda Putra — Kalah 19-21 18-21 vs Kota Bandung', medali:'Perunggu', catatan:'Performa bagus tapi belum bisa imbangi teknik Kota Bandung', isDemo:true },
+      { id:'demo-3-2', waktu:'11:00', cabor:'Angkat Besi', hasil:'69kg Putri — Total Angkatan 185kg (Peringkat 2)', medali:'Perak', catatan:'Atlet: Yuni Rahayu — personal best baru!', isDemo:true },
+      { id:'demo-3-3', waktu:'14:30', cabor:'Panahan', hasil:'Recurve Putri 50m — Skor 630/720 (Peringkat 3)', medali:'Perunggu', catatan:'Konsisten di semua end, angin tidak mempengaruhi', isDemo:true },
+      { id:'demo-3-4', waktu:'16:00', cabor:'Renang', hasil:'200m Gaya Dada Putri — Waktu 2:42.1 (Peringkat 4)', medali:'Tanpa Medali', catatan:'Kurang 0.8 detik dari perunggu — potensial untuk estafet', isDemo:true },
+    ],
+  }
 }
 
 function loadFromLS(): Record<number, JurnalLaga[]> {

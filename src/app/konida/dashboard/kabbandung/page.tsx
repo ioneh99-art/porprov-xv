@@ -45,6 +45,7 @@ const CABOR_KATEGORI: Record<string, string> = {
 }
 
 interface AtletRaw {
+  id: number; nama_lengkap: string; no_ktp: string
   status_registrasi:string; status_verifikasi:string|null; gender:string; cabor_nama_raw:string
   kode_asal_daerah:string; nama_asal_daerah:string; tgl_lahir:string
   tes_fisik_rating: string | null
@@ -52,6 +53,8 @@ interface AtletRaw {
   tes_fisik_status: string | null
   is_locked: boolean | null
 }
+
+type DrilldownKey = 'kritis' | 'pending' | 'ditolak' | 'dns' | 'locked_nik' | 'cabor_lemah'
 interface CaborStat {
   nama:string; total:number; putra:number; putri:number
   verified:number; kategori:string
@@ -81,6 +84,7 @@ export default function DashboardKabBandung() {
 const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   const [pulse,     setPulse]     = useState(true)
   const [alertPanel, setAlertPanel] = useState<'pending'|'nonlokal'|'ditolak'|null>(null)
+  const [drilldown,  setDrilldown]  = useState<DrilldownKey|null>(null)
   const [tesFisikData, setTesFisikData] = useState<{
     hadir: number; dns: number; avgSkor: number;
     topAtlet: number; lowAtlet: number;
@@ -98,7 +102,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       let allAtlet: AtletRaw[] = []
       for (let page = 0; ; page++) {
         const { data: pageData } = await sb.from('atlet')
-          .select('status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked')
+          .select('id,nama_lengkap,no_ktp,status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked')
           .eq('kontingen_id', KONTINGEN_ID)
           .range(page * 1000, (page + 1) * 1000 - 1)
         if (!pageData || pageData.length === 0) break
@@ -159,8 +163,24 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
           if (x.gender==='L') cmap[c].putra++; else cmap[c].putri++
           if (x.status_registrasi==='Verified') cmap[c].verified++
         })
-        // TODO: isi prediksi medali per cabor setelah ada data target/historis resmi
-        const MEDALI: Record<string,{e:number;p:number;pg:number}> = {}
+        // Target medali per cabor — referensi POPDA 2024 + historis PORPROV XIV
+        const MEDALI: Record<string,{e:number;p:number;pg:number}> = {
+          'Pencak Silat':  { e:6, p:4, pg:4 },
+          'Karate':        { e:5, p:3, pg:4 },
+          'Taekwondo':     { e:4, p:3, pg:3 },
+          'Atletik':       { e:3, p:4, pg:4 },
+          'Renang':        { e:3, p:3, pg:3 },
+          'Bulutangkis':   { e:3, p:2, pg:2 },
+          'Angkat Besi':   { e:3, p:2, pg:3 },
+          'Panahan':       { e:2, p:2, pg:2 },
+          'Judo':          { e:2, p:2, pg:2 },
+          'Gulat':         { e:2, p:2, pg:2 },
+          'Panjat Tebing': { e:2, p:2, pg:2 },
+          'Senam':         { e:2, p:2, pg:1 },
+          'Tinju':         { e:2, p:1, pg:2 },
+          'Sepak Takraw':  { e:1, p:2, pg:1 },
+          'Dayung':        { e:1, p:1, pg:2 },
+        }
         const clist: CaborStat[] = Object.entries(cmap).map(([nama,s]) => {
           const med = MEDALI[nama] ?? { e:0, p:0, pg:0 }
           const tm  = med.e+med.p+med.pg
@@ -224,33 +244,40 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
 
   // ── Strategic Intelligence (computed dari atlets — no extra fetch) ──
   const intelligence = useMemo(() => {
-    type CMap = { total:number; tested:number; sumSkor:number; elite:number }
+    // "tested" = ada tes_fisik_rating (termasuk Tidak Hadir); "scored" = ada nilai persen
+    type CMap = { total:number; tested:number; scored:number; sumSkor:number; elite:number }
     const caborMap: Record<string, CMap> = {}
     let tf_elite = 0, tf_ready = 0, tf_needs_work = 0, tf_sub_par = 0, tf_kritis = 0, tf_tidak_hadir = 0
     let total_tested = 0, anomali_count = 0
 
     atlets.forEach(a => {
       const c = a.cabor_nama_raw || 'Lainnya'
-      if (!caborMap[c]) caborMap[c] = { total:0, tested:0, sumSkor:0, elite:0 }
+      if (!caborMap[c]) caborMap[c] = { total:0, tested:0, scored:0, sumSkor:0, elite:0 }
       caborMap[c].total++
-      if (a.tes_fisik_persen != null) {
+      // Pakai tes_fisik_rating sebagai indikator "sudah ada record tes" — konsisten dg atlet page
+      if (a.tes_fisik_rating) {
         caborMap[c].tested++
-        caborMap[c].sumSkor += a.tes_fisik_persen
         total_tested++
-        if (a.tes_fisik_rating === '⭐ ELITE')       { caborMap[c].elite++; tf_elite++ }
-        else if (a.tes_fisik_rating === '✅ READY')   tf_ready++
-        else if (a.tes_fisik_rating === '🟡 NEEDS WORK') tf_needs_work++
-        else if (a.tes_fisik_rating === '🔴 SUB-PAR') tf_sub_par++
-        else if (a.tes_fisik_rating === '🚨 KRITIS')  tf_kritis++
-        else if (a.tes_fisik_rating === '⚠️ Tidak Hadir') tf_tidak_hadir++
+        if      (a.tes_fisik_rating === '⭐ ELITE')         { caborMap[c].elite++; tf_elite++ }
+        else if (a.tes_fisik_rating === '✅ READY')          tf_ready++
+        else if (a.tes_fisik_rating === '🟡 NEEDS WORK')    tf_needs_work++
+        else if (a.tes_fisik_rating === '🔴 SUB-PAR')       tf_sub_par++
+        else if (a.tes_fisik_rating === '🚨 KRITIS')        tf_kritis++
+        else if (a.tes_fisik_rating === '⚠️ Tidak Hadir')  tf_tidak_hadir++
       }
-      if (a.is_locked && a.tes_fisik_persen != null) anomali_count++
+      // sumSkor hanya dari atlet yang punya nilai numerik (Tidak Hadir = null persen)
+      if (a.tes_fisik_persen != null) {
+        caborMap[c].scored++
+        caborMap[c].sumSkor += a.tes_fisik_persen
+      }
+      if (a.is_locked && a.tes_fisik_rating) anomali_count++
     })
 
     const top_cabors = Object.entries(caborMap)
-      .filter(([, v]) => v.tested > 0)
+      .filter(([, v]) => v.scored > 0)
       .map(([nama, v]) => ({
-        nama, rata_skor: Math.round(v.sumSkor / v.tested * 10) / 10,
+        nama,
+        rata_skor: Math.round(v.sumSkor / v.scored * 10) / 10,
         elite: v.elite, tested: v.tested, total: v.total,
       }))
       .sort((a, b) => b.rata_skor - a.rata_skor)
@@ -266,7 +293,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       .sort((a, b) => b.belum_tes - a.belum_tes)
       .slice(0, 5)
 
-    const tf_belum = atlets.length - total_tested
+    const tf_belum = atlets.length - total_tested          // konsisten dg atlet page
     const coverage_persen = atlets.length > 0 ? Math.round(total_tested / atlets.length * 100) : 0
 
     return {
@@ -329,6 +356,48 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
     lockedNik:         8,
     cabors_lemah_count: tesFisikData.lemahCount,
   }), [kpi, tesFisikData])
+
+  // ── Drill-down: filter atlet per alert type ──
+  const drilldownData = useMemo(() => {
+    if (!drilldown) return { atlets: [], cabors: [] as {nama:string;rata:number;total:number}[] }
+    if (drilldown === 'cabor_lemah') {
+      const cmap: Record<string,{sum:number;n:number;total:number}> = {}
+      atlets.forEach(a => {
+        const c = a.cabor_nama_raw || 'Lainnya'
+        if (!cmap[c]) cmap[c] = {sum:0, n:0, total:0}
+        cmap[c].total++
+        if (a.tes_fisik_persen != null) { cmap[c].sum += a.tes_fisik_persen; cmap[c].n++ }
+      })
+      const cabors = Object.entries(cmap)
+        .filter(([,v]) => v.n >= 2 && v.sum/v.n < 55)
+        .map(([nama,v]) => ({ nama, rata: Math.round(v.sum/v.n), total: v.total }))
+        .sort((a,b) => a.rata - b.rata)
+      return { atlets: [], cabors }
+    }
+    const filtered = (() => {
+      switch (drilldown) {
+        case 'kritis':     return atlets.filter(a => a.tes_fisik_rating === '🚨 KRITIS')
+                                        .sort((a,b) => (a.tes_fisik_persen||0)-(b.tes_fisik_persen||0))
+        case 'pending':    return atlets.filter(a => a.status_registrasi === 'Menunggu Admin')
+                                        .sort((a,b) => (a.cabor_nama_raw||'').localeCompare(b.cabor_nama_raw||''))
+        case 'ditolak':    return atlets.filter(a => a.status_registrasi === 'Ditolak Admin')
+        case 'dns':        return atlets.filter(a => !a.tes_fisik_rating)
+                                        .sort((a,b) => (a.cabor_nama_raw||'').localeCompare(b.cabor_nama_raw||''))
+        case 'locked_nik': return atlets.filter(a => a.is_locked)
+        default:           return []
+      }
+    })()
+    return { atlets: filtered, cabors: [] }
+  }, [drilldown, atlets])
+
+  const DRILLDOWN_CFG: Record<DrilldownKey, {title:string; color:string; link:string}> = {
+    kritis:     { title:'Atlet Tes Fisik Kritis',     color:'#ef4444', link:'/konida/atlet/kabbandung' },
+    pending:    { title:'Atlet Pending Verifikasi',   color:'#f97316', link:'/konida/atlet/kabbandung?status=Menunggu+Admin' },
+    ditolak:    { title:'Atlet Ditolak Admin',         color:'#ef4444', link:'/konida/atlet/kabbandung?status=Ditolak+Admin' },
+    dns:        { title:'Atlet Belum Tes Fisik (Belum ada record UPI)', color:'#fbbf24', link:'/konida/atlet/kabbandung' },
+    locked_nik: { title:'Atlet NIK Invalid (Locked)', color:'#a78bfa', link:'/konida/atlet/kabbandung' },
+    cabor_lemah:{ title:'Cabor Perlu Intervensi (<55% avg skor)', color:'#fb923c', link:'/konida/atlet/kabbandung' },
+  }
 
   // ── Build CaborWatchData for Watchlist component ──
   const caborWatchList = useMemo<CaborWatchData[]>(() => {
@@ -588,7 +657,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
             </div>
           </div>
 
-          {/* Alert strip — 4 kolom */}
+          {/* Alert strip — 4 kolom, clickable drill-down */}
           {dashAlerts.length > 0 && (
             <div className="px-4 py-3 border-t border-white/[0.06] grid grid-cols-2 lg:grid-cols-4 gap-3">
               {dashAlerts.slice(0, 4).map((a, i) => {
@@ -596,20 +665,23 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
                   ? { color:'#ef4444', bg:'rgba(239,68,68,0.08)',  border:'rgba(239,68,68,0.25)',  label:'URGENT'  }
                   : { color:'#f97316', bg:'rgba(249,115,22,0.08)', border:'rgba(249,115,22,0.25)', label:'PENTING' }
                 const Icon = a.icon || AlertTriangle
+                const hasDrilldown = !!a.drilldownKey
                 return (
-                  <div key={i} className="rounded-xl px-3.5 py-3 flex items-center gap-3"
-                    style={{ background:cfg.bg, border:`1px solid ${cfg.border}` }}>
+                  <button key={i}
+                    className={`rounded-xl px-3.5 py-3 flex items-center gap-3 w-full text-left transition-all ${hasDrilldown ? 'cursor-pointer hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]' : 'cursor-default'}`}
+                    style={{ background:cfg.bg, border:`1px solid ${cfg.border}` }}
+                    onClick={() => a.drilldownKey && setDrilldown(a.drilldownKey)}>
                     <Icon size={18} style={{ color:cfg.color, flexShrink:0 }}/>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-black uppercase tracking-widest leading-none"
-                        style={{ color:cfg.color }}>{cfg.label}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest leading-none flex items-center gap-1.5"
+                        style={{ color:cfg.color }}>
+                        {cfg.label}
+                        {hasDrilldown && <span className="opacity-60 text-[8px]">● KLIK</span>}
+                      </div>
                       <div className="text-sm font-bold text-white leading-snug mt-1">{a.title}</div>
                     </div>
-                    {a.actionHref && (
-                      <a href={a.actionHref} className="shrink-0 text-xs font-bold transition-colors hover:opacity-80"
-                        style={{ color:cfg.color }}>→</a>
-                    )}
-                  </div>
+                    {hasDrilldown && <ChevronRight size={14} style={{color:cfg.color, opacity:0.6, flexShrink:0}}/>}
+                  </button>
                 )
               })}
             </div>
@@ -664,18 +736,23 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
             {/* 4 KPI cards */}
             <div className="grid grid-cols-4 gap-3 mb-5">
               {([
-                { emoji:'⭐', value: intelligence.tf_elite,        label:'Atlet ELITE',      sub:'Skor ≥80% (backbone)',    col:'rgba(251,191,36,0.15)',  bord:'rgba(251,191,36,0.3)',  txt:'#fcd34d' },
-                { emoji:'📊', value:`${intelligence.coverage_persen}%`, label:'Coverage Tes Fisik', sub:`${intelligence.total_tested}/${atlets.length} atlet`, col:'rgba(14,165,233,0.1)', bord:'rgba(14,165,233,0.25)', txt:'#38bdf8' },
-                { emoji:'⏳', value: intelligence.tf_belum,        label:'Belum Tes',        sub:'Backlog dijadwalkan',      col:'rgba(139,92,246,0.1)',  bord:'rgba(139,92,246,0.25)', txt:'#c4b5fd' },
-                { emoji:'🚨', value: intelligence.tf_kritis,       label:'Skor KRITIS',      sub:'Perlu evaluasi medis',     col:'rgba(244,63,94,0.1)',   bord:'rgba(244,63,94,0.25)',  txt:'#fb7185' },
-              ] as const).map(s => (
-                <div key={s.label} className="p-4 rounded-xl"
-                  style={{ background: s.col, border: `1px solid ${s.bord}` }}>
-                  <div className="text-xl mb-1">{s.emoji}</div>
+                { emoji:'⭐', value: intelligence.tf_elite,             label:'Atlet ELITE',      sub:'Skor ≥80% (backbone)',                                  col:'rgba(251,191,36,0.15)',  bord:'rgba(251,191,36,0.3)',  txt:'#fcd34d', dk: null        },
+                { emoji:'📊', value:`${intelligence.coverage_persen}%`, label:'Coverage Tes Fisik', sub:`${intelligence.total_tested} dari ${atlets.length} atlet`, col:'rgba(14,165,233,0.1)', bord:'rgba(14,165,233,0.25)', txt:'#38bdf8', dk: null        },
+                { emoji:'⏳', value: intelligence.tf_belum,             label:'Belum Tes Fisik',  sub:'Belum ada record UPI',                                  col:'rgba(139,92,246,0.1)',  bord:'rgba(139,92,246,0.25)', txt:'#c4b5fd', dk: 'dns' as DrilldownKey },
+                { emoji:'🚨', value: intelligence.tf_kritis,            label:'Skor KRITIS',      sub:'Perlu evaluasi medis',                                  col:'rgba(244,63,94,0.1)',   bord:'rgba(244,63,94,0.25)',  txt:'#fb7185', dk: 'kritis' as DrilldownKey },
+              ]).map(s => (
+                <button key={s.label}
+                  className={`p-4 rounded-xl text-left w-full transition-all ${s.dk ? 'cursor-pointer hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]' : 'cursor-default'}`}
+                  style={{ background: s.col, border: `1px solid ${s.bord}` }}
+                  onClick={() => s.dk && setDrilldown(s.dk)}>
+                  <div className="flex items-start justify-between">
+                    <div className="text-xl mb-1">{s.emoji}</div>
+                    {s.dk && <span className="text-[7px] font-black uppercase tracking-widest opacity-40" style={{color:s.txt}}>KLIK</span>}
+                  </div>
                   <div className="text-2xl font-black" style={{ color: s.txt }}>{s.value}</div>
                   <div className="text-[11px] text-zinc-300 mt-0.5">{s.label}</div>
                   <div className="text-[10px] text-zinc-600">{s.sub}</div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -1057,6 +1134,146 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
                 </div>
               )}
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DRILL-DOWN MODAL ── */}
+      {drilldown && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          style={{background:'rgba(0,0,0,0.75)',backdropFilter:'blur(6px)'}}
+          onClick={() => setDrilldown(null)}>
+          <div className="w-full max-w-2xl max-h-[80vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl"
+            style={{background:'#040d18', border:`1px solid ${DRILLDOWN_CFG[drilldown].color}30`}}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b shrink-0"
+              style={{borderColor:'rgba(255,255,255,0.07)'}}>
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest mb-1"
+                  style={{color: DRILLDOWN_CFG[drilldown].color}}>DRILL-DOWN DETAIL</div>
+                <div className="text-base font-black text-white">{DRILLDOWN_CFG[drilldown].title}</div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">
+                  {drilldown === 'cabor_lemah'
+                    ? `${drilldownData.cabors.length} cabor teridentifikasi`
+                    : `${drilldownData.atlets.length} atlet`}
+                </div>
+              </div>
+              <button onClick={() => setDrilldown(null)}
+                className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/10 transition-colors">
+                <X size={16}/>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 p-4"
+              style={{scrollbarWidth:'thin',scrollbarColor:`${DRILLDOWN_CFG[drilldown].color}30 transparent`}}>
+
+              {/* CABOR LEMAH — tampilkan per-cabor bukan per-atlet */}
+              {drilldown === 'cabor_lemah' && (
+                drilldownData.cabors.length === 0
+                  ? <div className="py-8 text-center text-zinc-600 text-sm">Tidak ada cabor dengan rata-rata &lt;55%</div>
+                  : <div className="space-y-2">
+                      {drilldownData.cabors.map((c, i) => (
+                        <div key={c.nama} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                          style={{background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)'}}>
+                          <span className="text-[11px] font-mono text-zinc-600 w-6 text-right shrink-0">{i+1}</span>
+                          <span className="text-sm font-bold text-zinc-200 flex-1 truncate">{c.nama}</span>
+                          <span className="text-xs text-zinc-500">{c.total} atlet</span>
+                          <div className="w-24 h-2 rounded-full overflow-hidden shrink-0" style={{background:'rgba(255,255,255,0.06)'}}>
+                            <div className="h-full rounded-full" style={{width:`${c.rata}%`, background: c.rata < 40 ? '#ef4444' : '#f97316'}}/>
+                          </div>
+                          <span className="text-sm font-black w-10 text-right shrink-0"
+                            style={{color: c.rata < 40 ? '#ef4444' : '#fb923c'}}>{c.rata}%</span>
+                        </div>
+                      ))}
+                    </div>
+              )}
+
+              {/* ATLET TABLE */}
+              {drilldown !== 'cabor_lemah' && (
+                drilldownData.atlets.length === 0
+                  ? <div className="py-8 text-center text-zinc-600 text-sm">Tidak ada data</div>
+                  : <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="text-[9px] uppercase tracking-widest sticky top-0 z-10"
+                          style={{background:'#040d18', color:'rgba(255,255,255,0.3)', borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
+                          <th className="px-2 py-2 font-bold w-8 text-center">#</th>
+                          <th className="px-2 py-2 font-bold">Nama</th>
+                          <th className="px-2 py-2 font-bold">Cabor</th>
+                          {drilldown === 'kritis' && <>
+                            <th className="px-2 py-2 font-bold text-center">Skor</th>
+                            <th className="px-2 py-2 font-bold text-center">Rating</th>
+                          </>}
+                          {drilldown === 'pending' && <th className="px-2 py-2 font-bold">Status</th>}
+                          {drilldown === 'ditolak' && <th className="px-2 py-2 font-bold">Catatan</th>}
+                          {drilldown === 'dns'     && <th className="px-2 py-2 font-bold text-center">Status Tes</th>}
+                          {drilldown === 'locked_nik' && <th className="px-2 py-2 font-bold">NIK</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {drilldownData.atlets.map((a, i) => (
+                          <tr key={a.id} className="border-b transition-colors"
+                            style={{borderColor:'rgba(255,255,255,0.04)'}}
+                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,0.025)'}
+                            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                            <td className="px-2 py-2 text-center text-[10px] font-mono text-zinc-700">{i+1}</td>
+                            <td className="px-2 py-2">
+                              <div className="text-sm font-bold text-zinc-200 leading-tight">{a.nama_lengkap}</div>
+                              <div className="text-[9px] font-mono text-zinc-600">{a.no_ktp}</div>
+                            </td>
+                            <td className="px-2 py-2 text-xs text-zinc-400 max-w-[140px] truncate">{a.cabor_nama_raw||'-'}</td>
+                            {drilldown === 'kritis' && <>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-sm font-black text-rose-400">{a.tes_fisik_persen ?? '—'}%</span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
+                                  {a.tes_fisik_rating}
+                                </span>
+                              </td>
+                            </>}
+                            {drilldown === 'pending' && (
+                              <td className="px-2 py-2">
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                  Menunggu Admin
+                                </span>
+                              </td>
+                            )}
+                            {drilldown === 'ditolak' && (
+                              <td className="px-2 py-2 text-[10px] text-zinc-500">—</td>
+                            )}
+                            {drilldown === 'dns' && (
+                              <td className="px-2 py-2 text-center">
+                                <span className="text-[10px] font-bold text-amber-500">Belum Tes</span>
+                              </td>
+                            )}
+                            {drilldown === 'locked_nik' && (
+                              <td className="px-2 py-2 text-[10px] font-mono text-purple-400">{a.no_ktp}</td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t shrink-0 flex items-center justify-between"
+              style={{borderColor:'rgba(255,255,255,0.06)'}}>
+              <span className="text-[11px] text-zinc-600">
+                {drilldown === 'cabor_lemah'
+                  ? `${drilldownData.cabors.length} cabor rata-rata skor <55%`
+                  : `Menampilkan ${drilldownData.atlets.length} atlet`}
+              </span>
+              <Link href={DRILLDOWN_CFG[drilldown].link}
+                onClick={() => setDrilldown(null)}
+                className="text-xs font-bold transition-colors hover:opacity-80"
+                style={{color: DRILLDOWN_CFG[drilldown].color}}>
+                Lihat di Data Master Atlet →
+              </Link>
             </div>
           </div>
         </div>

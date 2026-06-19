@@ -52,29 +52,33 @@ export async function GET(req: NextRequest) {
   const wb = XLSX.utils.book_new()
   let filename = 'jarvis-report'
 
-  // ── Atlet Ditolak Admin ───────────────────────────────────────────────────
+  // ── Atlet Ditolak (Admin + Cabor) ────────────────────────────────────────
   if (type === 'ditolak') {
     const { data } = await sb
       .from('atlet')
-      .select('nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,catatan_verifikasi,created_at')
+      .select('nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,status_registrasi,catatan_verifikasi,created_at')
       .eq('kontingen_id', kontingenId)
-      .eq('status_registrasi', 'Ditolak Admin')
+      .in('status_registrasi', ['Ditolak Admin', 'Ditolak Cabor'])
+      .order('status_registrasi')
       .order('cabor_nama_raw')
 
-    const rows = (data || []).map((a: any, i: number) => ({
-      'No':                 i + 1,
-      'Nama Lengkap':       a.nama_lengkap,
-      'NIK':                a.no_ktp || '',
-      'Cabor':              a.cabor_nama_raw || '',
-      'Tgl Lahir':          a.tgl_lahir || '',
-      'Gender':             a.gender || '',
-      'Catatan Verifikasi': a.catatan_verifikasi || 'Tidak ada catatan',
-      'Tanggal Daftar':     fmtDate(a.created_at),
-    }))
+    const rows = (data || []).length === 0
+      ? [{ 'No': '', 'Nama Lengkap': '✅ Tidak ada atlet ditolak per ' + new Date().toLocaleDateString('id-ID'), 'NIK': '', 'Status Ditolak': '', 'Cabor': '', 'Tgl Lahir': '', 'Gender': '', 'Catatan Verifikasi': '', 'Tanggal Daftar': '' }]
+      : (data || []).map((a: any, i: number) => ({
+          'No':                 i + 1,
+          'Nama Lengkap':       a.nama_lengkap,
+          'NIK':                a.no_ktp || '',
+          'Status Ditolak':     a.status_registrasi,
+          'Cabor':              a.cabor_nama_raw || '',
+          'Tgl Lahir':          a.tgl_lahir || '',
+          'Gender':             a.gender || '',
+          'Catatan Verifikasi': a.catatan_verifikasi || 'Tidak ada catatan',
+          'Tanggal Daftar':     fmtDate(a.created_at),
+        }))
 
     const ws = XLSX.utils.json_to_sheet(rows)
     autoWidth(ws)
-    XLSX.utils.book_append_sheet(wb, ws, 'Atlet Ditolak Admin')
+    XLSX.utils.book_append_sheet(wb, ws, 'Atlet Ditolak')
     filename = `laporan-atlet-ditolak-kabbandung-${dateStr}`
 
   // ── Issues NIK ────────────────────────────────────────────────────────────

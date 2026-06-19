@@ -96,7 +96,7 @@ export function JarvisWrapper({ children }: { children: React.ReactNode }) {
       {/* Tombol buka chat (saat closed) */}
       {isActive && chatState === 'closed' && (
         <button onClick={() => setChatState('open')}
-          className="fixed top-4 right-6 z-[150] flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm text-white transition-all hover:scale-105"
+          className="fixed top-10 right-6 z-[150] flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm text-white transition-all hover:scale-105"
           style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', boxShadow: '0 4px 20px rgba(124,58,237,0.4)' }}>
           <Sparkles size={14} />
           Ask Jarvis

@@ -173,7 +173,8 @@ export interface CriticalAlert {
   message: string
   action?: string
   actionHref?: string
-  count?: number     // optional badge count
+  count?: number
+  drilldownKey?: 'kritis' | 'pending' | 'ditolak' | 'dns' | 'locked_nik' | 'cabor_lemah'
 }
 
 export function CriticalAlertsCard({
@@ -462,20 +463,22 @@ export function buildAlertsFromData(d: {
       icon: FileCheck,
       title: `${d.pendingVerifikasi} Atlet Pending Verifikasi`,
       message: `${d.pendingVerifikasi} atlet menunggu verifikasi admin >7 hari. Closing pendaftaran semakin dekat.`,
-      action: 'Selesaikan Audit',
-      actionHref: '/konida/atlet/kabbogor',
+      action: 'Lihat Atlet',
+      actionHref: '/konida/atlet/kabbandung?status=Menunggu+Admin',
       count: d.pendingVerifikasi,
+      drilldownKey: 'pending',
     })
   }
   if (d.lowSkorAtlet > 0) {
     alerts.push({
       severity: 'urgent',
       icon: Activity,
-      title: `${d.lowSkorAtlet} Atlet Skor Fisik Kritis`,
+      title: `${d.lowSkorAtlet} Atlet Tes Fisik Kritis`,
       message: `${d.lowSkorAtlet} atlet dengan skor <35% (KRITIS) perlu evaluasi medis sebelum kompetisi.`,
-      action: 'Jadwalkan Evaluasi',
-      actionHref: '/konida/Premiumreport/kabbogor/tes-fisik',
+      action: 'Lihat Atlet',
+      actionHref: '/konida/atlet/kabbandung',
       count: d.lowSkorAtlet,
+      drilldownKey: 'kritis',
     })
   }
   if (d.cabors_lemah_count > 0) {
@@ -483,10 +486,11 @@ export function buildAlertsFromData(d: {
       severity: 'important',
       icon: Activity,
       title: `${d.cabors_lemah_count} Cabor Perlu Intervensi`,
-      message: `Rata-rata fitness <55%. Program latihan stamina 8 minggu direkomendasikan.`,
-      action: 'Lihat Detail',
-      actionHref: '/konida/Premiumreport/kabbogor/tes-fisik',
+      message: `Rata-rata fitness <55%. Program latihan intensif direkomendasikan.`,
+      action: 'Lihat Cabor',
+      actionHref: '/konida/atlet/kabbandung',
       count: d.cabors_lemah_count,
+      drilldownKey: 'cabor_lemah',
     })
   }
   if (d.dnsAtlet > 0) {
@@ -494,10 +498,11 @@ export function buildAlertsFromData(d: {
       severity: 'important',
       icon: Clock,
       title: `${d.dnsAtlet} Atlet Belum Tes Fisik`,
-      message: `${d.dnsAtlet} atlet DNS (tidak hadir tes). Perlu dijadwalkan tes susulan.`,
-      action: 'Jadwalkan Tes',
-      actionHref: '/konida/Premiumreport/kabbogor/tes-fisik',
+      message: `${d.dnsAtlet} atlet belum / tidak hadir tes fisik. Perlu dijadwalkan tes susulan.`,
+      action: 'Lihat Atlet',
+      actionHref: '/konida/atlet/kabbandung',
       count: d.dnsAtlet,
+      drilldownKey: 'dns',
     })
   }
   if ((d.lockedNik ?? 0) > 0) {
@@ -509,6 +514,7 @@ export function buildAlertsFromData(d: {
       action: 'Lihat Detail',
       actionHref: '/konida/atlet/kabbandung',
       count: d.lockedNik,
+      drilldownKey: 'locked_nik',
     })
   }
   if (d.daysToEvent <= 14) {

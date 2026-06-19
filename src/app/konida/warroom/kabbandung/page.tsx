@@ -153,8 +153,8 @@ export default function PageWarRoom() {
     String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG'
   ) + 1
 
-  // TODO: isi target medali resmi dari Bupati Kab. Bandung
-  const TARGET = { emas: 0, perak: 0, perunggu: 0 }
+  // Placeholder target — update setelah SK Bupati terbit
+  const TARGET = { emas: 45, perak: 38, perunggu: 32 }
 
   const ani = (d=0) => ({
     style:     { transitionDelay:`${d}ms`, transition:'all 0.8s cubic-bezier(0.16,1,0.3,1)' },

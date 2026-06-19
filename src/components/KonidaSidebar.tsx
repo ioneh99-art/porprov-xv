@@ -5,9 +5,9 @@ import {
   LayoutDashboard, Users, BarChart2, LogOut, ChevronRight,
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
-  Download, Lock, Activity, Database, FileCheck, TrendingUp,
+  Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const TENANT_COLORS: Record<string, { primary: string; dark: string; nama: string }> = {
   kabbogor:       { primary: '#065f46', dark: '#047857', nama: 'Kab. Bogor'          },
@@ -89,6 +89,47 @@ function getLoginTarget(tenantId: string): string {
   return map[tenantId] ?? '/login'
 }
 
+function NavItemVIP({ label, href, icon: Icon }: { label: string; href: string; icon: any }) {
+  const pathname = usePathname()
+  const tc       = TENANT_COLORS['kabbandung']
+  const active   = pathname === href || pathname.startsWith(href + '/')
+  return (
+    <Link href={href}
+      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
+        active ? 'text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+      }`}
+      style={active ? { background: `${tc.primary}20`, color: tc.primary } : {}}>
+      <Icon size={16}/>
+      <span className="flex-1">{label}</span>
+      <span className="text-[8px] font-black px-1.5 py-0.5 rounded tracking-wider leading-none shrink-0"
+        style={{ background:'rgba(139,92,246,0.18)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.35)' }}>
+        VIP
+      </span>
+      {active && <ChevronRight size={12}/>}
+    </Link>
+  )
+}
+
+function NavItemPremium({ label, href, icon: Icon, tc }: { label: string; href: string; icon: any; tc: { primary: string } }) {
+  const pathname = usePathname()
+  const active   = pathname === href || pathname.startsWith(href + '/')
+  return (
+    <Link href={href}
+      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
+        active ? 'text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+      }`}
+      style={active ? { background: `${tc.primary}20`, color: tc.primary } : {}}>
+      <Icon size={16}/>
+      <span className="flex-1">{label}</span>
+      <span className="text-[8px] font-black px-1.5 py-0.5 rounded tracking-wider leading-none shrink-0"
+        style={{ background: 'rgba(245,197,24,0.12)', color: '#F5C518', border: '1px solid rgba(245,197,24,0.25)' }}>
+        PRE
+      </span>
+      {active && <ChevronRight size={12}/>}
+    </Link>
+  )
+}
+
 function LockedNavItem({ label, icon: Icon, plan }: { label: string; icon: any; plan: string }) {
   return (
     <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 cursor-not-allowed opacity-40 relative group">
@@ -114,6 +155,7 @@ export default function KonidaSidebar() {
   const [userLevel, setUserLevel] = useState<string>('level3')
   const [tenantId,  setTenantId]  = useState<string>('jabar')
   const [mounted,   setMounted]   = useState(false)
+  const kontingenIdRef = useRef<number | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -140,6 +182,7 @@ export default function KonidaSidebar() {
           'jabar'
         setTenantId(resolvedTenant)
         if (data?.kontingen_id) {
+          kontingenIdRef.current = data.kontingen_id
           fetch(`/api/notifications?role=konida&kontingen_id=${data.kontingen_id}`)
             .then(r => r.json()).then(setCounts).catch(() => {})
         }
@@ -151,7 +194,11 @@ export default function KonidaSidebar() {
       const tid = getCookieVal('tenant_id')
       if (lvl) setUserLevel(lvl)
       if (tid) setTenantId(tid)
-    }, 10000)
+      if (kontingenIdRef.current) {
+        fetch(`/api/notifications?role=konida&kontingen_id=${kontingenIdRef.current}`)
+          .then(r => r.json()).then(setCounts).catch(() => {})
+      }
+    }, 30_000)
     return () => clearInterval(iv)
   }, [pathname])
 
@@ -287,68 +334,110 @@ export default function KonidaSidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 pt-3 overflow-y-auto space-y-0.5">
 
-        {/* ── PREMIUM — tampil pertama di atas ── */}
-        {isPremiumNonPenye && (
+        {/* ── KAB. BANDUNG — Kontingen di atas, Command Center di bawah ── */}
+        {tenantId === 'kabbandung' ? (
           <>
-            <div className="flex items-center gap-1.5 px-2 mb-2">
-              <Trophy size={10} style={{ color: tc.primary }}/>
-              <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: tc.primary }}>
-                Premium
-              </span>
+            {/* ── 1. Kontingen ── */}
+            <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
+            <NavItem label="Dashboard"       href={dashboardHref}                     icon={LayoutDashboard}/>
+            <NavItem label="Data Atlet"      href="/konida/atlet/kabbandung"           icon={Users}/>
+            <NavItem label="Dokumen Atlet"   href="/konida/dokumen/kabbandung"         icon={FileCheck}/>
+            {can('kualifikasi')
+              ? <NavItem label="Kualifikasi" href="/konida/kualifikasi/kabbandung"     icon={ClipboardCheck}/>
+              : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
+            }
+            <NavItem label="Kejuaraan Atlet" href="/konida/kejuaraan/kabbandung"       icon={Trophy} notif={counts.kejuaraan ?? 0}/>
+            {can('laporan')
+              ? <NavItem label="Laporan"     href="/konida/laporan/kabbandung"         icon={BarChart2}/>
+              : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
+            }
+
+            {/* ── 2. Premium ── */}
+            <div className="flex items-center gap-2 px-2 mt-3 mb-2">
+              <div className="flex-1 h-px bg-slate-800"/>
+              <span className="text-[9px] font-black uppercase tracking-widest"
+                style={{ color: '#F5C518', opacity: 0.6 }}>Premium</span>
+              <div className="flex-1 h-px bg-slate-800"/>
             </div>
-            <NavItem label="War Room"         href={tp('/konida/warroom', tenantId)}                         icon={Monitor}  />
-            <NavItem label="Tes Biomotorik"   href={tp('/konida/Premiumreport', tenantId) + '/tes-fisik'}      icon={Activity} />
-            <NavItem label="Heatmap Cabor"    href={tp('/konida/Premiumreport', tenantId) + '/heatmap-cabor'} icon={BarChart2}/>
-            <NavItem label="Premium Report"   href={tp('/konida/Premiumreport', tenantId)}                    icon={Download} />
-            {/* Report Pertandingan — badge Live/Offline otomatis */}
-            <Link href={tp('/konida/lappertandingan', tenantId)}
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
-                pathname.startsWith(tp('/konida/lappertandingan', tenantId))
-                  ? 'text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }`}
-              style={pathname.startsWith(tp('/konida/lappertandingan', tenantId))
-                ? { background: `${tc.primary}20`, color: tc.primary } : {}}>
-              <FileText size={16}/>
-              <span className="flex-1 text-sm">Report Pertandingan</span>
-              {Date.now() >= new Date('2026-11-07').getTime() && Date.now() <= new Date('2026-11-20').getTime()
-                ? <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 animate-pulse leading-none">LIVE</span>
-                : <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-500 leading-none">OFFLINE</span>
-              }
-            </Link>
+            <NavItemPremium label="Data Gateway"   href="/konida/export/kabbandung"                          icon={Database}  tc={tc}/>
+            <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
+            <NavItemPremium label="Heatmap Cabor"  href="/konida/Premiumreport/kabbandung/heatmap-cabor"      icon={BarChart2} tc={tc}/>
+            <NavItemPremium label="Performance"    href="/konida/performance/kabbandung"                      icon={BarChart3} tc={tc}/>
+
             <div className="h-px bg-slate-800 my-3"/>
+
+            {/* ── 3. Command Center ── */}
+            <div className="flex items-center gap-2 px-2 mt-1 mb-2">
+              <div className="flex-1 h-px bg-slate-800"/>
+              <span className="text-[9px] font-black uppercase tracking-widest"
+                style={{ color: '#a78bfa', opacity: 0.7 }}>Command Center</span>
+              <div className="flex-1 h-px bg-slate-800"/>
+            </div>
+            <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  />
+            <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
+            <NavItemVIP label="Premium Report"      href="/konida/Premiumreport/kabbandung"    icon={Download} />
+          </>
+        ) : (
+          <>
+            {/* ── PREMIUM — untuk tenant lain ── */}
+            {isPremiumNonPenye && (
+              <>
+                <div className="flex items-center gap-1.5 px-2 mb-2">
+                  <Trophy size={10} style={{ color: tc.primary }}/>
+                  <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: tc.primary }}>
+                    Premium
+                  </span>
+                </div>
+                <NavItem label="War Room"         href={tp('/konida/warroom', tenantId)}                          icon={Monitor}  />
+                <NavItem label="Tes Biomotorik"   href={tp('/konida/Premiumreport', tenantId) + '/tes-fisik'}     icon={Activity} />
+                <NavItem label="Heatmap Cabor"    href={tp('/konida/Premiumreport', tenantId) + '/heatmap-cabor'} icon={BarChart2}/>
+                <NavItem label="Premium Report"   href={tp('/konida/Premiumreport', tenantId)}                    icon={Download} />
+                <Link href={tp('/konida/lappertandingan', tenantId)}
+                  className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
+                    pathname.startsWith(tp('/konida/lappertandingan', tenantId))
+                      ? 'text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                  }`}
+                  style={pathname.startsWith(tp('/konida/lappertandingan', tenantId))
+                    ? { background: `${tc.primary}20`, color: tc.primary } : {}}>
+                  <FileText size={16}/>
+                  <span className="flex-1 text-sm">Report Pertandingan</span>
+                  {Date.now() >= new Date('2026-11-07').getTime() && Date.now() <= new Date('2026-11-20').getTime()
+                    ? <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 animate-pulse leading-none">LIVE</span>
+                    : <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-500 leading-none">OFFLINE</span>
+                  }
+                </Link>
+                <div className="h-px bg-slate-800 my-3"/>
+              </>
+            )}
+
+            {/* ── AI / SPORT INTELLIGENCE ── */}
+            <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">AI</div>
+            {can('sipa_full')
+              ? <NavItem label="Sport Intelligence" href="/konida/sipa" icon={Cpu}/>
+              : <LockedNavItem label="Sport Intelligence" icon={Cpu} plan="Premium"/>
+            }
+            <div className="h-px bg-slate-800 my-3"/>
+
+            {/* ── KONTINGEN ── */}
+            <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
+            <NavItem label="Dashboard"       href={dashboardHref}                       icon={LayoutDashboard}/>
+            <NavItem label="Data Atlet"      href={tp('/konida/atlet', tenantId)}        icon={Users}/>
+            <NavItem label="Dokumen Atlet"   href={tp('/konida/dokumen', tenantId)}      icon={FileCheck}/>
+            {can('kualifikasi')
+              ? <NavItem label="Kualifikasi" href={tp('/konida/kualifikasi', tenantId)}  icon={ClipboardCheck}/>
+              : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
+            }
+            <NavItem label="Kejuaraan Atlet" href={tp('/konida/kejuaraan', tenantId)}    icon={Trophy} notif={counts.kejuaraan ?? 0}/>
+            {can('laporan')
+              ? <NavItem label="Laporan"     href={tp('/konida/laporan', tenantId)}      icon={BarChart2}/>
+              : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
+            }
+            {can('export_pdf')
+              ? <NavItem label="Data Gateway"  href={tp('/konida/export', tenantId)} icon={Database}/>
+              : <LockedNavItem label="Data Gateway" icon={Database} plan="Premium"/>
+            }
           </>
         )}
-
-        {/* ── SPORT INTELLIGENCE ── */}
-        <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">AI</div>
-        {can('sipa_full')
-          ? <NavItem label="Sport Intelligence" href="/konida/sipa" icon={Cpu}/>
-          : <LockedNavItem label="Sport Intelligence" icon={Cpu} plan="Premium"/>
-        }
-        {/* Baseline Performance — khusus Kab. Bandung */}
-        {tenantId === 'kabbandung' && (
-          <NavItem label="Baseline Performance" href="/konida/cabor-baseline" icon={TrendingUp}/>
-        )}
-        <div className="h-px bg-slate-800 my-3"/>
-
-        {/* ── KONTINGEN ── */}
-        <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
-        <NavItem label="Dashboard"       href={dashboardHref}                       icon={LayoutDashboard}/>
-        <NavItem label="Data Atlet"      href={tp('/konida/atlet', tenantId)}        icon={Users}/>
-        <NavItem label="Dokumen Atlet"   href={tp('/konida/dokumen', tenantId)}      icon={FileCheck}/>
-        {can('kualifikasi')
-          ? <NavItem label="Kualifikasi" href={tp('/konida/kualifikasi', tenantId)}  icon={ClipboardCheck}/>
-          : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
-        }
-        <NavItem label="Kejuaraan Atlet" href={tp('/konida/kejuaraan', tenantId)}    icon={Trophy} notif={counts.kejuaraan ?? 0}/>
-        {can('laporan')
-          ? <NavItem label="Laporan"     href={tp('/konida/laporan', tenantId)}      icon={BarChart2}/>
-          : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
-        }
-        {can('export_pdf')
-          ? <NavItem label="Data Gateway"  href={tp('/konida/export', tenantId)} icon={Database}/>
-          : <LockedNavItem label="Data Gateway" icon={Database} plan="Premium"/>
-        }
 
         {/* Penyelenggara */}
         {isPenyelenggara && (

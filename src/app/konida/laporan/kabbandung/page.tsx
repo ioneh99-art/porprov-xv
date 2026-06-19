@@ -28,13 +28,13 @@ const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID')
 const DUMMY_RP = 'Rp xxx.xxx.xxx'
 
 // TODO: isi nominal bonus medali resmi dari SK Bupati Kab. Bandung
+// Placeholder nominal — update setelah SK Bupati terbit
 const BONUS_NOMINAL: Record<string,number> = {
-  'Emas':    0,
-  'Perak':   0,
-  'Perunggu':0,
+  'Emas':    10_000_000,
+  'Perak':    7_500_000,
+  'Perunggu': 5_000_000,
 }
-// TODO: isi nominal uang saku harian per atlet
-const UANG_SAKU_HARIAN = 0
+const UANG_SAKU_HARIAN = 250_000 // per atlet per hari — referensi standar Jabar
 const TOTAL_HARI_PORPROV = 14 // PORPROV XV: 7–21 November 2026
 
 interface AtletDB {
@@ -287,11 +287,16 @@ export default function PageLaporan() {
     const nonLokal    = total-lokal
 
     // Sport Science stats
+    // sudahTes = has any UPI record (termasuk "Tidak Hadir" yg persen=null)
+    // scored   = punya skor aktual (bukan Tidak Hadir)
     const sudahTes    = tesFisikData.length
-    const skorTinggi  = tesFisikData.filter(t=>(t.kesimpulan_persen||0) >= 80).length
-    const skorRendah  = tesFisikData.filter(t=>(t.kesimpulan_persen||0) < 50).length
-    const avgSkor     = sudahTes > 0
-      ? Math.round(tesFisikData.reduce((s,t)=>s+(t.kesimpulan_persen||0),0)/sudahTes)
+    const scored      = tesFisikData.filter(t => t.kesimpulan_persen != null)
+    const scoredCount = scored.length
+    const tidakHadir  = sudahTes - scoredCount
+    const skorTinggi  = scored.filter(t => t.kesimpulan_persen! >= 80).length
+    const skorRendah  = scored.filter(t => t.kesimpulan_persen! < 50).length
+    const avgSkor     = scoredCount > 0
+      ? Math.round(scored.reduce((s, t) => s + t.kesimpulan_persen!, 0) / scoredCount)
       : 0
 
     // Prestasi
@@ -308,7 +313,7 @@ export default function PageLaporan() {
 
     return {
       total, verified, hasApparel, hasRek, hasNIK, lokal, nonLokal,
-      sudahTes, skorTinggi, skorRendah, avgSkor,
+      sudahTes, scoredCount, tidakHadir, skorTinggi, skorRendah, avgSkor,
       totalEmas, totalPerak, totalPerunggu, atletDenganPrestasi,
       adaPerlengkapan, totalDokumen,
     }
@@ -821,7 +826,7 @@ export default function PageLaporan() {
       desc:'Ranking atlet berdasarkan skor biomotorik tertinggi.',
       icon:Star, color:'#fbbf24', isDemo:false,
       count:analytics.skorTinggi, countLabel:'atlet elit',
-      completion:analytics.sudahTes>0?Math.round(analytics.skorTinggi/analytics.sudahTes*100):0,
+      completion:analytics.scoredCount>0?Math.round(analytics.skorTinggi/analytics.scoredCount*100):0,
       completionLabel:'skor ≥ 80%',
     },
     {
@@ -829,7 +834,7 @@ export default function PageLaporan() {
       desc:'Atlet dengan skor < 50% — butuh latihan tambahan.',
       icon:AlertTriangle, color:'#ef4444', isDemo:false,
       count:analytics.skorRendah, countLabel:'atlet risk',
-      completion:analytics.sudahTes>0?Math.round(analytics.skorRendah/analytics.sudahTes*100):0,
+      completion:analytics.scoredCount>0?Math.round(analytics.skorRendah/analytics.scoredCount*100):0,
       completionLabel:'butuh attention',
     },
 

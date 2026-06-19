@@ -20,7 +20,7 @@ export async function runJarvisQA(kontingenId: number): Promise<{
   for (let page = 0; ; page++) {
     const { data } = await sb
       .from('atlet')
-      .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,kontingen_id,cabor_id,status_verifikasi,status_registrasi')
+      .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,kontingen_id,cabor_id,cabor_nama_raw,status_verifikasi,status_registrasi')
       .eq('kontingen_id', kontingenId)
       .range(page * 1000, (page + 1) * 1000 - 1)
     if (!data || data.length === 0) break

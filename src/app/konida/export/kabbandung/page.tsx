@@ -10,8 +10,8 @@ import {
   ArrowRight, Eye, Loader2, Info, FileText,
   Zap, Shield, ChevronDown, ChevronUp, Check,
   Upload, Table, Play, RotateCcw, Medal, Layers,
-  BarChart2, Edit3, Plus, Trash2, ToggleLeft, ToggleRight,
-  Save, X, Activity,
+  Edit3, Plus, Trash2, ToggleLeft, ToggleRight,
+  Save, X,
 } from 'lucide-react'
 
 const sb = createClient(
@@ -22,7 +22,7 @@ const sb = createClient(
 const KONTINGEN_ID = 4
 const ACCENT       = '#38bdf8'
 
-type Tab = 'import' | 'klasemen' | 'cabor' | 'stats'
+type Tab = 'import' | 'klasemen' | 'cabor'
 
 // ── Validasi import atlet ─────────────────────────────────
 const REQUIRED_COLS = ['nama_lengkap','no_ktp','tgl_lahir','gender','cabor_nama_raw']
@@ -885,119 +885,6 @@ function CaborTab() {
   )
 }
 
-// ════════════════════════════════════════════════════════
-// TAB 4: STATISTIK DB
-// ════════════════════════════════════════════════════════
-type StatRow = { table: string; label: string; count: number; error?: string }
-
-function StatsTab() {
-  const [stats,   setStats]   = useState<StatRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [lastFetch, setLastFetch] = useState<Date|null>(null)
-
-  async function load() {
-    setLoading(true)
-    const res  = await fetch('/api/admin/data-gateway?module=stats')
-    const data = await res.json()
-    setStats(data); setLastFetch(new Date()); setLoading(false)
-  }
-
-  useEffect(() => { void load() }, [])
-
-  const tableColors: Record<string, string> = {
-    atlet:           '#60a5fa',
-    kontingen:       '#a78bfa',
-    klasemen_medali: '#fbbf24',
-    cabang_olahraga: '#22d3ee',
-    atlet_tes_fisik: '#f472b6',
-  }
-
-  const tableIcons: Record<string, React.ElementType> = {
-    atlet:           Users2,
-    kontingen:       Building2Icon,
-    klasemen_medali: Medal,
-    cabang_olahraga: Layers,
-    atlet_tes_fisik: Activity,
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold text-white">Statistik Database</h2>
-          <p className="text-[11px] text-zinc-500 mt-0.5">
-            {lastFetch ? `Diperbarui: ${lastFetch.toLocaleTimeString('id-ID')}` : 'Memuat...'}
-          </p>
-        </div>
-        <button onClick={load} disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
-          style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)' }}>
-          <RefreshCw size={13} className={loading?'animate-spin':''}/> Refresh
-        </button>
-      </div>
-
-      {loading ? <LoadingSkel/> : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            {stats.map(s => {
-              const color = tableColors[s.table] ?? ACCENT
-              const Icon  = tableIcons[s.table] ?? Database
-              return (
-                <div key={s.table} className="rounded-2xl p-5 text-center"
-                  style={{ background:`${color}07`, border:`1px solid ${color}20` }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
-                    style={{ background:`${color}15`, border:`1px solid ${color}25` }}>
-                    <Icon size={18} style={{ color }}/>
-                  </div>
-                  <div className="text-3xl font-black mb-1" style={{ color }}>{s.count.toLocaleString('id')}</div>
-                  <div className="text-[11px] font-bold text-zinc-400 mb-1">{s.label}</div>
-                  <div className="text-[9px] font-mono text-zinc-600">{s.table}</div>
-                  {s.error && <div className="text-[9px] text-red-400 mt-1">{s.error}</div>}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Summary insight */}
-          {stats.length > 0 && (
-            <Card>
-              <CardHeader>
-                <BarChart2 size={14} style={{ color:ACCENT }}/>
-                <span className="text-sm font-bold text-white">Ringkasan Integritas Data</span>
-              </CardHeader>
-              <div className="p-5 space-y-4">
-                {stats.map(s => {
-                  const color = tableColors[s.table] ?? ACCENT
-                  const maxCount = Math.max(...stats.map(x => x.count), 1)
-                  return (
-                    <div key={s.table}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-zinc-300">{s.label}</span>
-                        <span className="text-xs font-bold font-mono" style={{ color }}>{s.count.toLocaleString('id')} rows</span>
-                      </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.06)' }}>
-                        <div className="h-full rounded-full transition-all duration-700"
-                          style={{ width:`${(s.count/maxCount)*100}%`, background:color }}/>
-                      </div>
-                    </div>
-                  )
-                })}
-                <div className="pt-3 border-t text-[10px] text-zinc-600 flex items-center gap-1.5" style={{ borderColor:'rgba(255,255,255,0.06)' }}>
-                  <Info size={11}/>
-                  Data real-time dari Supabase. Klik Refresh untuk perbarui.
-                </div>
-              </div>
-            </Card>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-// ── Placeholder icons (not in lucide) ────────────────────
-function Users2(p: any) { return <Database {...p}/> }
-function Building2Icon(p: any) { return <Database {...p}/> }
 
 // ── Shared UI fragments ───────────────────────────────────
 function StepRow({ n, color, children }: { n: string|number; color: string; children: React.ReactNode }) {
@@ -1045,7 +932,6 @@ export default function DataGatewayPage() {
     { id:'import',   label:'Import Atlet',    icon:UploadCloud, desc:'Excel → DB' },
     { id:'klasemen', label:'Klasemen Medali', icon:Medal,       desc:'Edit langsung' },
     { id:'cabor',    label:'Master Cabor',    icon:Layers,      desc:'Kelola cabor' },
-    { id:'stats',    label:'Statistik DB',    icon:BarChart2,   desc:'Jumlah rows' },
   ]
 
   return (
@@ -1104,7 +990,6 @@ export default function DataGatewayPage() {
         {tab === 'import'   && <ImportTab existingAtletCount={atletCount}/>}
         {tab === 'klasemen' && <KlasemenTab/>}
         {tab === 'cabor'    && <CaborTab/>}
-        {tab === 'stats'    && <StatsTab/>}
       </main>
     </div>
   )

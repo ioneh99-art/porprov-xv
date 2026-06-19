@@ -6,6 +6,7 @@ export interface Atlet {
   gender?: 'L' | 'P' | null
   kontingen_id: number
   cabor_id?: number | null
+  cabor_nama_raw?: string | null
   status_verifikasi?: string | null
   status_registrasi?: string | null
 }

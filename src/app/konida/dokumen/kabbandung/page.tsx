@@ -17,9 +17,12 @@ import {
 import {
   STATUS_CFG, COMPLIANCE_CFG,
   type ComplianceStats, type DokumenStats, type AtletDokumen, type JenisDokumen,
+  type AtletComplianceStatus,
   computeComplianceScore, checkExpiry, formatRelativeTime,
+  classifyAtletCompliance, countByAtletStatus, getDocCellState,
 } from '@/lib/dokumen-helpers'
 import { CriticalAlertsCard, type CriticalAlert } from '@/components/konida/DashboardHelpers'
+import { AtletDokumenRowV2, type AtletRowData } from '@/components/konida/AtletDokumenRowV2'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,7 +37,8 @@ const ICON_MAP: Record<string, any> = {
   Syringe, Receipt, Banknote, Camera, Image: ImageIcon,
 }
 
-type FilterCompliance = 'all' | 'complete' | 'pending_review' | 'partial' | 'empty'
+type FilterCompliance = 'all' | AtletComplianceStatus
+type SortMode        = 'urgency' | 'pct_asc' | 'pct_desc' | 'name' | 'cabor'
 type FilterPerlengkapan = 'all' | 'lengkap' | 'sebagian' | 'belum_diisi'
 type MainTab = 'dokumen' | 'perlengkapan'
 
@@ -94,6 +98,12 @@ export default function PageDokumenAtlet() {
   const [animIn, setAnimIn] = useState(false)
   const [search, setSearch] = useState('')
   const [filterCompliance, setFilterCompliance] = useState<FilterCompliance>('all')
+  const [sortMode, setSortMode]                           = useState<SortMode>('urgency')
+  const [filterMissingJenis, setFilterMissingJenis]       = useState<number | null>(null)
+  const [expandedAtletId, setExpandedAtletId]             = useState<number | null>(null)
+  const [listLimit, setListLimit]                         = useState(10)
+
+  useEffect(() => { setListLimit(10) }, [filterCompliance, filterMissingJenis, search, sortMode])
   const [filterPerlengkapan, setFilterPerlengkapan] = useState<FilterPerlengkapan>('all')
   const [selectedAtlet, setSelectedAtlet] = useState<AtletInfo | null>(null)
   const [modalType, setModalType] = useState<'dokumen' | 'perlengkapan'>('dokumen')
@@ -108,19 +118,29 @@ export default function PageDokumenAtlet() {
   useEffect(() => {
     async function load() {
       try {
-        const [jenisRes, dokRes, atletRes, statsRes, perlengkapanRes] = await Promise.all([
+        // Atlet fetch dengan pagination (>1000 records)
+        let allAtlets: any[] = []
+        for (let page = 0; ; page++) {
+          const { data, error } = await sb.from('atlet')
+            .select('id,nama_lengkap,no_ktp,cabor_nama_raw,status_registrasi')
+            .eq('kontingen_id', KONTINGEN_ID)
+            .range(page * 1000, (page + 1) * 1000 - 1)
+          if (error) throw error
+          if (!data || data.length === 0) break
+          allAtlets = allAtlets.concat(data)
+          if (data.length < 1000) break
+        }
+
+        const [jenisRes, dokRes, statsRes, perlengkapanRes] = await Promise.all([
           sb.from('dokumen_jenis').select('*').order('urutan'),
           sb.from('atlet_dokumen').select('*'),
-          sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,cabor_nama_raw,status_registrasi')
-            .eq('kontingen_id', KONTINGEN_ID),
           sb.from('v_dokumen_stats').select('*'),
           sb.from('atlet_perlengkapan').select('*'),
         ])
 
         if (jenisRes.data) setJenisList(jenisRes.data as JenisDokumen[])
         if (dokRes.data) setDokumens(dokRes.data as AtletDokumen[])
-        if (atletRes.data) setAtlets(atletRes.data as AtletInfo[])
+        setAtlets(allAtlets as AtletInfo[])
         if (statsRes.data) setDokumenStats(statsRes.data as DokumenStats[])
         if (perlengkapanRes.data) setPerlengkapanList(perlengkapanRes.data as Perlengkapan[])
       } catch (e) {
@@ -137,12 +157,30 @@ export default function PageDokumenAtlet() {
     jenisList.filter(j => j.is_mandatory).length,
   [jenisList])
 
-  const atletCompliance = useMemo(() => {
+  const atletCompliance = useMemo<AtletRowData[]>(() => {
     return atlets.map(a => {
-      const score = computeComplianceScore(a.id, dokumens, totalMandatory)
-      return { ...a, ...score }
+      const cls = classifyAtletCompliance({ atletId: a.id, dokumens, jenisList })
+      const pct = totalMandatory > 0
+        ? Math.round((cls.verified / totalMandatory) * 100)
+        : 0
+      return {
+        id:                a.id,
+        nama_lengkap:      a.nama_lengkap,
+        no_ktp:            a.no_ktp,
+        cabor_nama_raw:    a.cabor_nama_raw,
+        status_registrasi: a.status_registrasi,
+        pct,
+        status:            cls.status,
+        urgencyScore:      cls.urgencyScore,
+        verified:          cls.verified,
+        pendingReview:     cls.pendingReview,
+        rejected:          cls.rejected,
+        expired:           cls.expired,
+        expiringSoon:      cls.expiringSoon,
+        empty:             cls.empty,
+      }
     })
-  }, [atlets, dokumens, totalMandatory])
+  }, [atlets, dokumens, jenisList, totalMandatory])
 
   // ═════════ PERLENGKAPAN COMPUTATIONS ═════════
   const perlengkapanByAtlet = useMemo(() => {
@@ -182,11 +220,22 @@ export default function PageDokumenAtlet() {
     return stats
   }, [atletWithPerlengkapan])
 
-  // ═════════ FILTER + SEARCH ═════════
-  const displayedAtlets = useMemo(() => {
+  // ═════════ FILTER + SORT + SEARCH ═════════
+  const displayedAtlets = useMemo<any[]>(() => {
     if (mainTab === 'dokumen') {
-      let list = atletCompliance
-      if (filterCompliance !== 'all') list = list.filter(a => a.status === filterCompliance)
+      let list: AtletRowData[] = atletCompliance
+
+      if (filterCompliance !== 'all')
+        list = list.filter(a => a.status === filterCompliance)
+
+      if (filterMissingJenis !== null) {
+        list = list.filter(a => {
+          const atletDocs = dokumens.filter(d => d.atlet_id === a.id)
+          const state = getDocCellState({ id: filterMissingJenis! }, atletDocs)
+          return state !== 'verified'
+        })
+      }
+
       if (search) {
         const q = search.toLowerCase()
         list = list.filter(a =>
@@ -195,7 +244,19 @@ export default function PageDokumenAtlet() {
           a.no_ktp?.includes(q)
         )
       }
-      return list.sort((a, b) => a.pct - b.pct)
+
+      list = [...list].sort((a, b) => {
+        switch (sortMode) {
+          case 'urgency':  return b.urgencyScore - a.urgencyScore
+          case 'pct_asc':  return a.pct - b.pct
+          case 'pct_desc': return b.pct - a.pct
+          case 'name':     return a.nama_lengkap.localeCompare(b.nama_lengkap)
+          case 'cabor':    return a.cabor_nama_raw.localeCompare(b.cabor_nama_raw)
+          default:         return 0
+        }
+      })
+
+      return list
     } else {
       let list = atletWithPerlengkapan
       if (filterPerlengkapan !== 'all') list = list.filter(a => a.status === filterPerlengkapan)
@@ -209,22 +270,17 @@ export default function PageDokumenAtlet() {
       }
       return list.sort((a, b) => a.pct - b.pct)
     }
-  }, [mainTab, atletCompliance, atletWithPerlengkapan, filterCompliance, filterPerlengkapan, search])
+  }, [mainTab, atletCompliance, atletWithPerlengkapan, filterCompliance, filterMissingJenis, filterPerlengkapan, search, sortMode, dokumens])
 
   // ═════════ SUMMARY ═════════
   const summaryDokumen = useMemo(() => {
-    let complete = 0, pendingReview = 0, partial = 0, empty = 0, expired = 0
-    atletCompliance.forEach(a => {
-      if (a.status === 'complete') complete++
-      else if (a.status === 'pending_review') pendingReview++
-      else if (a.status === 'partial') partial++
-      else if (a.status === 'empty') empty++
-    })
+    const counts = countByAtletStatus(atletCompliance)
+    let totalExpired = 0
     dokumens.forEach(d => {
       const exp = checkExpiry(d.tanggal_expired)
-      if (exp.isExpired) expired++
+      if (exp.isExpired) totalExpired++
     })
-    return { complete, pendingReview, partial, empty, expired, total: atletCompliance.length }
+    return { ...counts, expiredDocs: totalExpired, total: atletCompliance.length }
   }, [atletCompliance, dokumens])
 
   const summaryPerlengkapan = useMemo(() => {
@@ -240,16 +296,25 @@ export default function PageDokumenAtlet() {
   // ═════════ CRITICAL ALERT ARRAYS ═════════
   const docAlerts = useMemo<CriticalAlert[]>(() => {
     const alerts: CriticalAlert[] = []
-    if (summaryDokumen.empty > 0)
-      alerts.push({ severity: 'urgent', icon: XCircle, title: 'Dokumen Kosong', message: `${summaryDokumen.empty} atlet belum upload dokumen wajib apapun`, count: summaryDokumen.empty })
-    if (summaryDokumen.expired > 0)
-      alerts.push({ severity: 'urgent', icon: Calendar, title: 'Dokumen Expired', message: `${summaryDokumen.expired} dokumen sudah kadaluarsa, perlu renewal segera`, count: summaryDokumen.expired })
-    if (summaryDokumen.pendingReview > 0)
-      alerts.push({ severity: 'important', icon: Clock, title: 'Menunggu Verifikasi', message: `${summaryDokumen.pendingReview} atlet dokumennya sudah diupload, belum diverifikasi`, count: summaryDokumen.pendingReview })
-    if (summaryDokumen.partial > 0)
-      alerts.push({ severity: 'important', icon: AlertTriangle, title: 'Dokumen Tidak Lengkap', message: `${summaryDokumen.partial} atlet baru upload sebagian dokumen wajib`, count: summaryDokumen.partial })
+    if (summaryDokumen.critical > 0)
+      alerts.push({ severity: 'urgent', icon: AlertTriangle, title: 'Status Critical',
+        message: `${summaryDokumen.critical} atlet butuh perhatian segera (rejected/expired/zero verified)`,
+        count: summaryDokumen.critical })
+    if (summaryDokumen.expiring > 0)
+      alerts.push({ severity: 'urgent', icon: Calendar, title: 'Dokumen Expiring Soon',
+        message: `${summaryDokumen.expiring} atlet punya dokumen yang akan expired <30 hari`,
+        count: summaryDokumen.expiring })
+    if (summaryDokumen.in_review > 0)
+      alerts.push({ severity: 'important', icon: Clock, title: 'Menunggu Verifikasi',
+        message: `${summaryDokumen.in_review} atlet semua dokumennya sudah upload, belum diverifikasi`,
+        count: summaryDokumen.in_review })
+    if (summaryDokumen.incomplete > 0)
+      alerts.push({ severity: 'important', icon: AlertTriangle, title: 'Dokumen Tidak Lengkap',
+        message: `${summaryDokumen.incomplete} atlet baru upload sebagian dokumen wajib`,
+        count: summaryDokumen.incomplete })
     if (alerts.length === 0)
-      alerts.push({ severity: 'info', icon: CheckCircle, title: 'Dokumen Aman', message: `${summaryDokumen.complete} dari ${summaryDokumen.total} atlet sudah dokumen lengkap` })
+      alerts.push({ severity: 'info', icon: CheckCircle, title: 'Dokumen Aman',
+        message: `${summaryDokumen.compliant} dari ${summaryDokumen.total} atlet sudah lengkap & valid` })
     return alerts
   }, [summaryDokumen])
 
@@ -433,7 +498,7 @@ export default function PageDokumenAtlet() {
                 {
                   k: 'dokumen' as MainTab,
                   l: 'Dokumen Compliance',
-                  sub: `${summaryDokumen.complete}/${summaryDokumen.total} lengkap`,
+                  sub: `${summaryDokumen.compliant}/${summaryDokumen.total} lengkap`,
                   icon: FileText,
                   c: ACCENT,
                 },
@@ -497,46 +562,69 @@ export default function PageDokumenAtlet() {
             {/* ════════ TAB: DOKUMEN ════════ */}
             {mainTab === 'dokumen' && (
               <>
-                {/* KPI Strip */}
+                {/* KPI Strip — 5 clickable status cards */}
                 <div {...ani(20)} className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                  {[
-                    { l: 'Lengkap',         v: summaryDokumen.complete,      c: '#0ea5e9', icon: CheckCircle  },
-                    { l: 'Pending Review',  v: summaryDokumen.pendingReview, c: '#3b82f6', icon: Clock        },
-                    { l: 'Partial',         v: summaryDokumen.partial,       c: '#f59e0b', icon: AlertTriangle },
-                    { l: 'Kosong',          v: summaryDokumen.empty,         c: '#ef4444', icon: XCircle      },
-                    { l: 'Expired',         v: summaryDokumen.expired,       c: '#a855f7', icon: Calendar     },
-                  ].map(s => (
-                    <div key={s.l} className="rounded-2xl p-4 relative overflow-hidden"
-                      style={{ background: `${s.c}08`, border: `1px solid ${s.c}25` }}>
-                      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: s.c }} />
-                      <div className="flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-widest font-mono mb-2">
-                        <s.icon size={12} style={{ color: s.c }} />
-                        {s.l}
-                      </div>
-                      <div className="text-3xl font-light" style={{ color: s.c }}>{s.v}</div>
-                    </div>
-                  ))}
+                  {([
+                    { k: 'critical',   l: 'Critical',   v: summaryDokumen.critical,   c: '#ef4444', icon: AlertTriangle },
+                    { k: 'incomplete', l: 'Incomplete', v: summaryDokumen.incomplete, c: '#f59e0b', icon: AlertTriangle },
+                    { k: 'in_review',  l: 'In Review',  v: summaryDokumen.in_review,  c: '#3b82f6', icon: Clock         },
+                    { k: 'expiring',   l: 'Expiring',   v: summaryDokumen.expiring,   c: '#eab308', icon: Calendar      },
+                    { k: 'compliant',  l: 'Compliant',  v: summaryDokumen.compliant,  c: '#10b981', icon: CheckCircle   },
+                  ] as const).map(s => {
+                    const Icon = s.icon
+                    const active = filterCompliance === s.k
+                    return (
+                      <button key={s.k}
+                        onClick={() => setFilterCompliance(active ? 'all' : s.k)}
+                        className="rounded-2xl p-4 relative overflow-hidden text-left transition-all"
+                        style={{
+                          background:  active ? `${s.c}14` : `${s.c}08`,
+                          border:      `1px solid ${active ? s.c + '60' : s.c + '25'}`,
+                          boxShadow:   active ? `0 0 16px ${s.c}30` : 'none',
+                        }}>
+                        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: s.c }}/>
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-widest font-mono mb-2">
+                          <Icon size={12} style={{ color: s.c }}/> {s.l}
+                        </div>
+                        <div className="text-3xl font-light tabular-nums" style={{ color: s.c }}>{s.v}</div>
+                      </button>
+                    )
+                  })}
                 </div>
 
-                {/* Per Jenis Dokumen */}
+                {/* Per Jenis Dokumen — interactive (click to filter missing) */}
                 <div {...ani(30)} className="rounded-2xl p-5"
                   style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
                   <div className="flex items-center gap-2 mb-4">
-                    <Activity size={14} style={{ color: ACCENT }} />
+                    <Activity size={14} style={{ color: ACCENT }}/>
                     <h2 className="text-sm font-bold text-white">Status Per Jenis Dokumen</h2>
+                    {filterMissingJenis !== null && (
+                      <button onClick={() => setFilterMissingJenis(null)}
+                        className="ml-auto text-[10px] font-bold px-2 py-1 rounded-md transition-all"
+                        style={{ background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.25)' }}>
+                        <X size={10} className="inline mr-1"/> Clear filter: missing {dokumenStats.find(s => s.jenis_id === filterMissingJenis)?.kode}
+                      </button>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                     {dokumenStats.map(stat => {
                       const Icon = ICON_MAP[stat.icon] || FileText
                       const pct = stat.total_atlet > 0 ? Math.round((stat.verified / stat.total_atlet) * 100) : 0
                       const barColor = pct >= 80 ? '#0ea5e9' : pct >= 50 ? '#3b82f6' : pct >= 30 ? '#f59e0b' : '#ef4444'
+                      const active = filterMissingJenis === stat.jenis_id
                       return (
-                        <div key={stat.jenis_id} className="rounded-xl p-3"
-                          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <button key={stat.jenis_id}
+                          onClick={() => setFilterMissingJenis(active ? null : stat.jenis_id)}
+                          title={`Klik untuk filter atlet yang missing ${stat.kode}`}
+                          className="rounded-xl p-3 text-left transition-all hover:scale-[1.02]"
+                          style={{
+                            background: active ? `${barColor}15` : 'rgba(255,255,255,0.025)',
+                            border:     `1px solid ${active ? barColor + '50' : 'rgba(255,255,255,0.06)'}`,
+                          }}>
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-7 h-7 rounded-lg flex items-center justify-center"
                               style={{ background: `${barColor}15`, border: `1px solid ${barColor}30` }}>
-                              <Icon size={13} style={{ color: barColor }} />
+                              <Icon size={13} style={{ color: barColor }}/>
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-[11px] font-bold text-zinc-200 truncate">{stat.nama}</div>
@@ -544,111 +632,121 @@ export default function PageDokumenAtlet() {
                             </div>
                           </div>
                           <div className="flex items-baseline gap-1 mb-1.5">
-                            <span className="text-xl font-black" style={{ color: barColor }}>{stat.verified}</span>
+                            <span className="text-xl font-black tabular-nums" style={{ color: barColor }}>{stat.verified}</span>
                             <span className="text-[10px] text-zinc-500">/ {stat.total_atlet}</span>
-                            <span className="text-[10px] font-mono font-bold ml-auto" style={{ color: barColor }}>{pct}%</span>
+                            <span className="text-[10px] font-mono font-bold ml-auto tabular-nums" style={{ color: barColor }}>{pct}%</span>
                           </div>
                           <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                             <div className="h-full rounded-full transition-all duration-1000"
-                              style={{ width: `${pct}%`, background: barColor }} />
+                              style={{ width: `${pct}%`, background: barColor }}/>
                           </div>
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
                 </div>
 
-                {/* Filter + Table */}
+                {/* Sort + Filter + Search bar */}
                 <div {...ani(40)} className="rounded-2xl px-5 py-4 flex items-center gap-3 flex-wrap"
                   style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <Filter size={13} className="text-zinc-500" />
-                  {([
-                    { k: 'all',            l: `Semua (${summaryDokumen.total})`,            c: ACCENT    },
-                    { k: 'complete',       l: `✅ Lengkap (${summaryDokumen.complete})`,    c: '#0ea5e9' },
-                    { k: 'pending_review', l: `⏳ Review (${summaryDokumen.pendingReview})`, c: '#3b82f6' },
-                    { k: 'partial',        l: `⚠ Partial (${summaryDokumen.partial})`,      c: '#f59e0b' },
-                    { k: 'empty',          l: `❌ Kosong (${summaryDokumen.empty})`,         c: '#ef4444' },
-                  ] as const).map(f => (
-                    <button key={f.k} onClick={() => setFilterCompliance(f.k as FilterCompliance)}
-                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
-                      style={{
-                        background: filterCompliance === f.k ? `${f.c}20` : 'rgba(255,255,255,0.04)',
-                        color: filterCompliance === f.k ? f.c : 'rgba(255,255,255,0.4)',
-                        border: filterCompliance === f.k ? `1px solid ${f.c}40` : '1px solid transparent',
-                      }}>
-                      {f.l}
-                    </button>
-                  ))}
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Urutkan</span>
+                    <select value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}
+                      className="text-[11px] px-3 py-1.5 rounded-lg outline-none"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.7)' }}>
+                      <option value="urgency">Urgensi (default)</option>
+                      <option value="pct_asc">Compliance % (rendah dulu)</option>
+                      <option value="pct_desc">Compliance % (tinggi dulu)</option>
+                      <option value="name">Nama A-Z</option>
+                      <option value="cabor">Cabor A-Z</option>
+                    </select>
+                  </div>
+
+                  {filterCompliance !== 'all' && (
+                    <div className="flex items-center gap-2 pl-3 border-l" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                      <button onClick={() => setFilterCompliance('all')}
+                        className="text-[10px] font-bold px-2 py-1 rounded-md transition-all flex items-center gap-1"
+                        style={{ background: 'rgba(56,189,248,0.10)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}>
+                        <X size={10}/> Status: {filterCompliance}
+                      </button>
+                    </div>
+                  )}
+
                   <div className="relative ml-auto">
-                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"/>
                     <input value={search} onChange={e => setSearch(e.target.value)}
                       placeholder="Cari nama, cabor, NIK..."
                       className="bg-transparent border rounded-xl pl-8 pr-4 py-2 text-xs text-zinc-200 outline-none w-64"
-                      style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                      style={{ borderColor: 'rgba(255,255,255,0.10)' }}/>
                   </div>
                 </div>
 
-                <div className="rounded-2xl overflow-hidden"
-                  style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div className="max-h-[600px] overflow-y-auto"
-                    style={{ scrollbarWidth: 'thin', scrollbarColor: `${ACCENT}25 transparent` }}>
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="text-[9px] uppercase tracking-widest sticky top-0 z-10"
-                          style={{ background: 'rgba(2,10,20,0.95)', color: 'rgba(255,255,255,0.3)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                          <th className="px-4 py-3 font-bold">Atlet</th>
-                          <th className="px-3 py-3 font-bold">Cabor</th>
-                          <th className="px-3 py-3 font-bold text-center">Compliance</th>
-                          <th className="px-3 py-3 font-bold text-center">Status</th>
-                          <th className="px-3 py-3 font-bold text-center">Dokumen</th>
-                          <th className="px-3 py-3 font-bold text-center">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(displayedAtlets as any[]).map(a => {
-                          const cfg = COMPLIANCE_CFG[a.status]
-                          const barColor = a.pct >= 80 ? '#0ea5e9' : a.pct >= 50 ? '#3b82f6' : a.pct >= 30 ? '#f59e0b' : '#ef4444'
-                          return (
-                            <tr key={a.id} className="border-b transition-colors hover:bg-white/[0.02]"
-                              style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                              <td className="px-4 py-3">
-                                <div className="text-sm font-bold text-zinc-200">{a.nama_lengkap}</div>
-                                <div className="text-[10px] font-mono mt-0.5 text-zinc-600">{a.no_ktp}</div>
-                              </td>
-                              <td className="px-3 py-3 text-[11px] text-zinc-400">{a.cabor_nama_raw}</td>
-                              <td className="px-3 py-3">
-                                <div className="flex flex-col items-center gap-1.5">
-                                  <span className="text-lg font-black" style={{ color: barColor }}>{a.pct}%</span>
-                                  <div className="h-1 w-20 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                                    <div className="h-full rounded-full" style={{ width: `${a.pct}%`, background: barColor }} />
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-3 py-3 text-center">
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold"
-                                  style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
-                                  {cfg.label}
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 text-center text-[10px] font-mono">
-                                <span className="text-sky-400 font-bold">{a.total_verified}</span>
-                                <span className="text-zinc-600 mx-1">/</span>
-                                <span className="text-zinc-400">{totalMandatory}</span>
-                              </td>
-                              <td className="px-3 py-3 text-center">
-                                <button onClick={() => openDokumenDetail(a)}
-                                  className="px-3 py-1.5 rounded-lg text-[10px] font-bold"
-                                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
-                                  <Eye size={11} className="inline mr-1" /> Detail
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                {/* Atlet List V2 — tampil 10, load more on demand */}
+                {(() => {
+                  const list         = displayedAtlets as AtletRowData[]
+                  const visible      = list.slice(0, listLimit)
+                  const remaining    = list.length - listLimit
+                  const mandatoryFiltered = jenisList
+                    .filter(j => j.is_mandatory)
+                    .sort((x, y) => x.urutan - y.urutan)
+
+                  return (
+                    <div className="space-y-2">
+                      {visible.map(a => {
+                        const isExpanded    = expandedAtletId === a.id
+                        const atletDokumens = dokumens.filter(d => d.atlet_id === a.id)
+                        return (
+                          <AtletDokumenRowV2
+                            key={a.id}
+                            atlet={a}
+                            mandatoryJenis={mandatoryFiltered}
+                            atletDokumens={atletDokumens}
+                            isExpanded={isExpanded}
+                            onToggle={() => setExpandedAtletId(isExpanded ? null : a.id)}
+                            onAction={(action) => {
+                              if (action === 'open_detail') {
+                                openDokumenDetail({
+                                  id: a.id, nama_lengkap: a.nama_lengkap, no_ktp: a.no_ktp,
+                                  cabor_nama_raw: a.cabor_nama_raw, status_registrasi: a.status_registrasi,
+                                })
+                              } else if (action === 'send_reminder') {
+                                placeholderAction('Send Reminder')
+                              } else if (action === 'download') {
+                                placeholderAction('Download verified')
+                              }
+                            }}
+                          />
+                        )
+                      })}
+
+                      {remaining > 0 && (
+                        <button
+                          onClick={() => setListLimit(l => l + 10)}
+                          className="w-full py-3 rounded-xl text-[11px] font-bold transition-all hover:opacity-80"
+                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.35)' }}>
+                          Lihat {remaining} atlet lainnya ↓
+                        </button>
+                      )}
+
+                      {list.length === 0 && (
+                        <div className="py-12 text-center rounded-xl"
+                          style={{ border: '1px dashed rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)' }}>
+                          <Search size={24} className="mx-auto mb-3 opacity-30"/>
+                          <p className="text-sm">Tidak ada atlet yang cocok dengan filter</p>
+                          {(filterCompliance !== 'all' || filterMissingJenis !== null || search) && (
+                            <button
+                              onClick={() => { setFilterCompliance('all'); setFilterMissingJenis(null); setSearch('') }}
+                              className="mt-3 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all"
+                              style={{ background: 'rgba(56,189,248,0.10)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}>
+                              Reset semua filter
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </>
             )}
 

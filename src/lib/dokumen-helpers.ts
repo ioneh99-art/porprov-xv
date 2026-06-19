@@ -161,7 +161,7 @@ export function formatRelativeTime(dateStr: string | null | undefined): string {
   const diffMin = Math.floor(diffMs / 60000)
   const diffHr = Math.floor(diffMs / 3600000)
   const diffDay = Math.floor(diffMs / 86400000)
-  
+
   if (diffMin < 1) return 'Baru saja'
   if (diffMin < 60) return `${diffMin} menit lalu`
   if (diffHr < 24) return `${diffHr} jam lalu`
@@ -169,4 +169,110 @@ export function formatRelativeTime(dateStr: string | null | undefined): string {
   if (diffDay < 30) return `${Math.floor(diffDay/7)} minggu lalu`
   if (diffDay < 365) return `${Math.floor(diffDay/30)} bulan lalu`
   return `${Math.floor(diffDay/365)} tahun lalu`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── V2 ADDITIONS — Classification taxonomy 5-tier + helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AtletComplianceStatus =
+  | 'critical'    // 0 verified, OR ada rejected, OR ada expired
+  | 'incomplete'  // missing ≥1 mandatory, no rejected
+  | 'in_review'   // semua mandatory uploaded, semua pending verification
+  | 'expiring'    // semua verified, TAPI ada ≥1 dokumen <30 hari mau expired
+  | 'compliant'   // semua verified, no expiry concern
+
+export interface AtletComplianceClassification {
+  status:        AtletComplianceStatus
+  urgencyScore:  number
+  verified:      number
+  pendingReview: number
+  rejected:      number
+  expired:       number
+  expiringSoon:  number
+  empty:         number
+}
+
+export function classifyAtletCompliance(args: {
+  atletId:   number
+  dokumens:  AtletDokumen[]
+  jenisList: JenisDokumen[]
+  now?:      Date
+}): AtletComplianceClassification {
+  const { atletId, dokumens, jenisList, now = new Date() } = args
+  const mandatoryJenis = jenisList.filter(j => j.is_mandatory)
+  const totalMandatory = mandatoryJenis.length
+  const atletDocs      = dokumens.filter(d => d.atlet_id === atletId)
+
+  let verified = 0, pendingReview = 0, rejected = 0, expired = 0, expiringSoon = 0
+
+  for (const jenis of mandatoryJenis) {
+    const doc = atletDocs.find(d => d.jenis_id === jenis.id)
+    if (!doc) continue
+
+    if (doc.status === 'verified') {
+      verified++
+      if (doc.tanggal_expired) {
+        const days = Math.ceil((new Date(doc.tanggal_expired).getTime() - now.getTime()) / 86400000)
+        if (days < 0)       expired++
+        else if (days < 30) expiringSoon++
+      }
+    } else if (doc.status === 'uploaded') {
+      pendingReview++
+    } else if (doc.status === 'rejected') {
+      rejected++
+    }
+  }
+
+  const empty = totalMandatory - verified - pendingReview - rejected
+
+  let status: AtletComplianceStatus
+  if (verified === 0 || rejected > 0 || expired > 0)                           status = 'critical'
+  else if (verified === totalMandatory && expiringSoon > 0)                     status = 'expiring'
+  else if (verified === totalMandatory)                                         status = 'compliant'
+  else if (verified + pendingReview === totalMandatory)                         status = 'in_review'
+  else                                                                          status = 'incomplete'
+
+  let urgencyScore = 0
+  if (status === 'critical')        urgencyScore = 1000 + rejected * 100 + expired * 80 + empty * 5
+  else if (status === 'expiring')   urgencyScore = 700  + expiringSoon * 50
+  else if (status === 'in_review')  urgencyScore = 500  + pendingReview * 5
+  else if (status === 'incomplete') urgencyScore = 300  + empty * 20
+  else                              urgencyScore = 50
+
+  return {
+    status, urgencyScore: Math.round(urgencyScore),
+    verified, pendingReview, rejected, expired, expiringSoon, empty,
+  }
+}
+
+export function countByAtletStatus(items: { status: AtletComplianceStatus }[]) {
+  return items.reduce(
+    (acc, c) => { acc[c.status]++; return acc },
+    { critical: 0, incomplete: 0, in_review: 0, expiring: 0, compliant: 0 } as Record<AtletComplianceStatus, number>
+  )
+}
+
+export type DocCellState =
+  | 'verified'  | 'in_review' | 'rejected'
+  | 'expiring'  | 'expired'   | 'empty'
+
+export function getDocCellState(
+  jenis: { id: number },
+  atletDocs: AtletDokumen[],
+  now: Date = new Date(),
+): DocCellState {
+  const doc = atletDocs.find(d => d.jenis_id === jenis.id)
+  if (!doc)                      return 'empty'
+  if (doc.status === 'rejected') return 'rejected'
+  if (doc.status === 'uploaded') return 'in_review'
+  if (doc.status === 'verified') {
+    if (doc.tanggal_expired) {
+      const days = Math.ceil((new Date(doc.tanggal_expired).getTime() - now.getTime()) / 86400000)
+      if (days < 0)       return 'expired'
+      if (days < 30)      return 'expiring'
+    }
+    return 'verified'
+  }
+  return 'empty'
 }

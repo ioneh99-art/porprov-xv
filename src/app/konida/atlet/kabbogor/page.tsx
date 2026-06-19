@@ -561,7 +561,6 @@ export default function PageAtletKabBogor() {
               dnsAtlet: summary.belumTes,
               lowSkorAtlet: summary.lowAtlet,
               daysToEvent: Math.max(0, Math.ceil((new Date('2026-11-07').getTime()-Date.now())/86400000)),
-              nonLokal: summary.nonLokal,
               cabors_lemah_count: summary.caborLemahCount,
             })}
           />
