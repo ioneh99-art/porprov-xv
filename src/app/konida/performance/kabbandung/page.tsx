@@ -8,6 +8,7 @@ import {
   BarChart3, Search, RefreshCw, Users, Activity, Award,
   AlertCircle, Info, X, Zap, TrendingUp, Clock,
   AlertTriangle, Trophy, Upload, ChevronRight,
+  Sparkles, Loader2, ChevronDown,
 } from 'lucide-react'
 import Link from 'next/link'
 import { PerformanceCaborCard, type PerformanceCaborData } from '@/components/konida/performance/PerformanceCaborCard'
@@ -88,6 +89,16 @@ interface Contributor {
   is_team: boolean
 }
 
+interface StrategicBrief {
+  skor_kesiapan: number
+  ringkasan: string
+  kekuatan_utama: string
+  prioritas: Array<{ no: number; judul: string; detail: string; dampak: 'tinggi'|'sedang'|'rendah'; deadline?: string }>
+  peluang_emas: Array<{ cabor: string; potensi: string; gap_status: string; rekomendasi: string }>
+  area_risiko:  Array<{ cabor: string; masalah: string; intervensi: string }>
+  pesan_pelatih: string
+}
+
 interface CaborStat {
   cabor_id: number; cabor_nama: string
   atlet_count: number; nomor_count: number
@@ -123,6 +134,12 @@ export default function PerformancePage() {
   const [showBanner, setShowBanner] = useState(true)
   const [animIn,     setAnimIn]     = useState(false)
   const [pulse,       setPulse]       = useState(true)
+
+  // Strategic Brief state
+  const [briefOpen,    setBriefOpen]    = useState(false)
+  const [briefLoading, setBriefLoading] = useState(false)
+  const [brief,        setBrief]        = useState<StrategicBrief | null>(null)
+  const [briefError,   setBriefError]   = useState<string | null>(null)
 
   useEffect(() => { const t = setTimeout(() => setAnimIn(true), 80);    return () => clearTimeout(t) }, [])
   useEffect(() => { const i = setInterval(() => setPulse(p => !p), 800); return () => clearInterval(i) }, [])
@@ -387,6 +404,60 @@ export default function PerformancePage() {
   const noEmasCab = oCaborStats.filter(c => c.emas === 0 && c.total > 0)
   const topEmasCab = oCaborStats.find(c => c.emas > 0)
 
+  // ── Strategic Brief generator ────────────────────────────
+  async function generateBrief() {
+    if (briefOpen && brief) { setBriefOpen(false); return }
+    setBriefOpen(true)
+    setBriefLoading(true)
+    setBriefError(null)
+
+    const payload = {
+      kpi: {
+        totalAtlet:          atlets.length,
+        atletDenganBaseline: new Set(baseline.map(b => b.atlet_id)).size,
+        targetEmas:          oKpi.emas,
+        targetPerak:         oKpi.perak,
+        targetPerunggu:      oKpi.perunggu,
+        rataGapPersen:       baseline.length > 0
+          ? parseFloat((baseline.reduce((s, b) => s + (b.gap_percentage || 0), 0) / baseline.length).toFixed(1))
+          : null,
+      },
+      cabors: caborAggregates
+        .filter(c => c.baselineEvents > 0 || c.totalMedals > 0)
+        .map(c => ({
+          nama:           c.nama,
+          totalAtlet:     c.atletTotal,
+          avgGap:         c.avgGap,
+          targetEmas:     c.emas,
+          targetPerak:    c.perak,
+          targetPerunggu: c.perunggu,
+          baselineEvents: c.baselineEvents,
+        })),
+      topKontributor: oContributors.slice(0, 5).map(c => ({
+        nama:     c.nama_display,
+        cabor:    c.cabor_nama,
+        emas:     c.emas,
+        perak:    c.perak,
+        perunggu: c.perunggu,
+      })),
+    }
+
+    try {
+      const res  = await fetch('/api/performance/strategic-brief', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setBrief(data)
+    } catch (e) {
+      setBriefError(e instanceof Error ? e.message : 'Gagal generate brief')
+    } finally {
+      setBriefLoading(false)
+    }
+  }
+
   // ── Loading ───────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#020a14]">
@@ -490,10 +561,19 @@ export default function PerformancePage() {
                 </span>
               </div>
               <h2 className="text-2xl font-black text-white mb-2">Peta Jalan Menuju Medali</h2>
-              <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl">
+              <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl mb-4">
                 Analisis ilmiah berbasis data — seberapa jauh atlet Kab. Bandung dari rekor PORPROV,
                 siapa yang paling siap meraih emas, dan di mana pelatih perlu intervensi sebelum PORPROV XV 2026.
               </p>
+              <button onClick={generateBrief} disabled={briefLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-60"
+                style={{ background: briefOpen && brief ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.35)' }}>
+                {briefLoading
+                  ? <><Loader2 size={14} className="animate-spin"/> Menganalisa data...</>
+                  : briefOpen && brief
+                  ? <><ChevronDown size={14}/> Tutup Strategic Brief</>
+                  : <><Sparkles size={14}/> Generate Strategic Brief</>}
+              </button>
             </div>
 
             {/* Gap% legend */}
@@ -517,6 +597,133 @@ export default function PerformancePage() {
             </div>
           </div>
         </div>
+
+        {/* ════ STRATEGIC BRIEF (AI) ════ */}
+        {briefOpen && (
+          <div {...ani(0)} className="rounded-2xl overflow-hidden"
+            style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.20)' }}>
+
+            {/* Header strip */}
+            <div className="flex items-center gap-2 px-5 py-3 border-b" style={{ borderColor: 'rgba(99,102,241,0.15)', background: 'rgba(99,102,241,0.08)' }}>
+              <Sparkles size={13} style={{ color: '#818cf8' }}/>
+              <span className="text-[11px] font-black uppercase tracking-widest" style={{ color: '#818cf8' }}>
+                AI Strategic Brief — Claude
+              </span>
+              <span className="ml-auto text-[10px] text-zinc-600">Berdasarkan data performa real-time</span>
+            </div>
+
+            {briefLoading && (
+              <div className="flex items-center gap-3 py-12 justify-center">
+                <Loader2 size={20} className="animate-spin" style={{ color: '#818cf8' }}/>
+                <span className="text-sm text-zinc-400">Claude menganalisa data performa kontingen...</span>
+              </div>
+            )}
+
+            {briefError && (
+              <div className="p-5 text-sm text-red-400 flex items-center gap-2">
+                <AlertCircle size={14}/> {briefError}
+              </div>
+            )}
+
+            {!briefLoading && brief && (
+              <div className="p-5 space-y-5">
+
+                {/* Score + Ringkasan */}
+                <div className="flex items-start gap-5 flex-wrap">
+                  <div className="text-center shrink-0 rounded-2xl px-5 py-3"
+                    style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="text-4xl font-black tabular-nums" style={{
+                      color: brief.skor_kesiapan >= 70 ? '#10b981' : brief.skor_kesiapan >= 50 ? '#f59e0b' : '#ef4444'
+                    }}>
+                      {brief.skor_kesiapan}
+                    </div>
+                    <div className="text-[9px] text-zinc-600 uppercase tracking-widest mt-0.5">Skor Kesiapan</div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-white mb-1.5">{brief.kekuatan_utama}</div>
+                    <div className="text-sm text-zinc-400 leading-relaxed">{brief.ringkasan}</div>
+                  </div>
+                </div>
+
+                {/* Prioritas Strategis */}
+                <div>
+                  <div className="text-[9px] uppercase tracking-widest text-zinc-600 mb-2.5 font-bold">
+                    Prioritas Strategis
+                  </div>
+                  <div className="space-y-2">
+                    {brief.prioritas.map(p => {
+                      const dc = p.dampak === 'tinggi' ? '#ef4444' : p.dampak === 'sedang' ? '#f59e0b' : '#10b981'
+                      return (
+                        <div key={p.no} className="flex gap-3 rounded-xl p-3.5"
+                          style={{ background: 'rgba(0,0,0,0.20)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
+                            style={{ background: `${dc}18`, color: dc, border: `1px solid ${dc}30` }}>
+                            {p.no}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-white">{p.judul}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide"
+                                style={{ background: `${dc}15`, color: dc, border: `1px solid ${dc}25` }}>
+                                {p.dampak}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-zinc-500 mt-1 leading-relaxed">{p.detail}</div>
+                            {p.deadline && (
+                              <div className="text-[10px] text-zinc-700 mt-1.5">⏰ {p.deadline}</div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Peluang Emas + Area Risiko */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-[9px] uppercase tracking-widest text-amber-500 mb-2.5 font-bold">
+                      🥇 Peluang Emas
+                    </div>
+                    <div className="space-y-2">
+                      {brief.peluang_emas.map((p, i) => (
+                        <div key={i} className="rounded-xl p-3"
+                          style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                          <div className="text-xs font-bold text-amber-300">{p.cabor} · {p.potensi}</div>
+                          <div className="text-[10px] text-zinc-500 mt-0.5">{p.gap_status}</div>
+                          <div className="text-[10px] text-zinc-400 mt-1.5 leading-relaxed">→ {p.rekomendasi}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] uppercase tracking-widest text-red-500 mb-2.5 font-bold">
+                      ⚠ Area Risiko
+                    </div>
+                    <div className="space-y-2">
+                      {brief.area_risiko.map((r, i) => (
+                        <div key={i} className="rounded-xl p-3"
+                          style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                          <div className="text-xs font-bold text-red-400">{r.cabor}</div>
+                          <div className="text-[10px] text-zinc-500 mt-0.5">{r.masalah}</div>
+                          <div className="text-[10px] text-zinc-400 mt-1.5 leading-relaxed">→ {r.intervensi}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pesan Pelatih */}
+                <div className="rounded-xl p-4 text-center"
+                  style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                  <div className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1.5">Pesan untuk Para Pelatih</div>
+                  <div className="text-sm text-indigo-200 italic leading-relaxed">"{brief.pesan_pelatih}"</div>
+                </div>
+
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ════ STRATEGIC OVERVIEW ════ */}
         {oRows.length > 0 && (
