@@ -7,7 +7,14 @@ import { JarvisChatModal } from './JarvisChatModal'
 import { JarvisChatBubble } from './JarvisChatBubble'
 
 const KONTINGEN_ID = 4
-const JARVIS_ROUTES = ['/konida/dashboard/kabbandung', '/konida/atlet/kabbandung', '/konida/warroom/kabbandung']
+const JARVIS_ROUTES = [
+  '/konida/dashboard/kabbandung',
+  '/konida/atlet/kabbandung',
+  '/konida/dokumen/kabbandung',
+  '/konida/kejuaraan/kabbandung',
+  '/konida/Premiumreport/kabbandung/tes-fisik',
+  '/konida/performance/kabbandung',
+]
 
 interface Message {
   role: 'user' | 'assistant'
