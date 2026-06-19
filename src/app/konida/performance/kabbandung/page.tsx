@@ -7,11 +7,11 @@ import { createClient } from '@supabase/supabase-js'
 import {
   BarChart3, Search, RefreshCw, Users, Activity, Award,
   AlertCircle, Info, X, Zap, TrendingUp, Clock,
-  AlertTriangle, Trophy, Upload,
+  AlertTriangle, Trophy, Upload, ChevronRight,
 } from 'lucide-react'
 import Link from 'next/link'
 import { PerformanceCaborCard, type PerformanceCaborData } from '@/components/konida/performance/PerformanceCaborCard'
-import { hasBaselineData } from '@/lib/performance/cabor-accent-map'
+import { hasBaselineData, caborToSlug } from '@/lib/performance/cabor-accent-map'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,7 +83,7 @@ interface RiwayatRow {
 
 interface Contributor {
   atlet_id: number; nama_display: string
-  cabor_nama: string; sub_desc: string
+  cabor_nama: string; cabor_id: number; sub_desc: string
   emas: number; perak: number; perunggu: number; range: number; total: number
   is_team: boolean
 }
@@ -267,6 +267,7 @@ export default function PerformancePage() {
         atlet_id:     a.atlet_id,
         nama_display: isTeam ? `${nama.split(' ')[0]} & ${teamSize - 1} lainnya` : nama,
         cabor_nama:   CABOR_LABEL[a.cabor_id] || `Cabor ${a.cabor_id}`,
+        cabor_id:     a.cabor_id,
         sub_desc:     a.cabor_id === 10 ? inferAtletikDesc(a.event_names, a.gender)
                      : isTeam ? 'renang artistik'
                      : subs.join(' + '),
@@ -762,10 +763,12 @@ function OCaborCell({ stat }: { stat: CaborStat }) {
 
 function OContribRow({ rank, c, isFirst, pulse }: { rank: number; c: Contributor; isFirst: boolean; pulse: boolean }) {
   const rankC = isFirst ? '#f59e0b' : rank <= 3 ? '#94a3b8' : '#3f3f46'
+  const href  = `/konida/kejuaraan/kabbandung/${caborToSlug(c.cabor_nama)}/${c.atlet_id}`
   return (
-    <div className={`grid grid-cols-[28px_1fr_auto] gap-2 items-center px-4 py-2.5 transition-colors
-      ${isFirst ? 'bg-amber-500/5 hover:bg-amber-500/8' : 'hover:bg-white/[0.02]'}
-      ${rank > 1 ? 'border-t' : ''}`}
+    <Link href={href}
+      className={`grid grid-cols-[28px_1fr_auto] gap-2 items-center px-4 py-2.5 transition-colors cursor-pointer
+        ${isFirst ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-white/[0.04]'}
+        ${rank > 1 ? 'border-t' : ''}`}
       style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
       <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
         style={{ background: `${rankC}15`, color: rankC, border: `1px solid ${rankC}30` }}>
@@ -774,16 +777,19 @@ function OContribRow({ rank, c, isFirst, pulse }: { rank: number; c: Contributor
           : rank}
       </div>
       <div className="min-w-0">
-        <div className="text-xs font-semibold text-white truncate">{c.nama_display}</div>
+        <div className="text-xs font-semibold text-white truncate group-hover:text-sky-300 transition-colors">
+          {c.nama_display}
+        </div>
         <div className="text-[10px] text-zinc-600 truncate">{c.cabor_nama}{c.sub_desc ? ` · ${c.sub_desc}` : ''}</div>
       </div>
-      <div className="flex gap-1 shrink-0">
+      <div className="flex gap-1 shrink-0 items-center">
         {c.emas     > 0 && <MPill v={c.emas}     l="E"   c="#f59e0b" bg="#f59e0b"/>}
         {c.perak    > 0 && <MPill v={c.perak}    l="S"   c="#94a3b8" bg="#94a3b8"/>}
         {c.perunggu > 0 && <MPill v={c.perunggu} l="B"   c="#fb7185" bg="#fb7185"/>}
         {c.range    > 0 && <MPill v={c.range}    l="S/B" c="#fb923c" bg="#fb923c"/>}
+        <ChevronRight size={10} className="text-zinc-700 ml-0.5"/>
       </div>
-    </div>
+    </Link>
   )
 }
 
