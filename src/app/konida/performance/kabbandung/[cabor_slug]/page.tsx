@@ -104,21 +104,40 @@ export default function PerformanceRosterPage() {
       const names = Array.from(new Set((caborNamesData || []).map((r: any) => r.cabor_nama_raw).filter(Boolean))) as string[]
       setAllCaborNames(names)
       
+      // Grup cabor yang harus di-merge (variasi nama → canonical name)
+      const CABOR_MERGE_GROUPS: Record<string, string[]> = {
+        'Akuatik': ['Akuatik', 'Akuatik - Renang'],
+      }
+
       const resolvedNama = slugToCaborName(slug, names)
-      setCaborNama(resolvedNama)
-      
-      if (!resolvedNama) {
+      // Cek apakah slug cocok dengan salah satu alias dari grup merge
+      const resolvedFromAlias = resolvedNama ?? (() => {
+        for (const [canonical, aliases] of Object.entries(CABOR_MERGE_GROUPS)) {
+          if (aliases.some(a => slugToCaborName(slug, [a]) !== null)) return canonical
+        }
+        return null
+      })()
+
+      // Nama display (canonical) dan daftar nama raw yang di-query
+      const displayNama = resolvedFromAlias
+      const queryNames  = resolvedFromAlias
+        ? (CABOR_MERGE_GROUPS[resolvedFromAlias] ?? [resolvedFromAlias])
+        : resolvedNama ? [resolvedNama] : []
+
+      setCaborNama(displayNama)
+
+      if (!displayNama || queryNames.length === 0) {
         setLoading(false)
         return
       }
-      
-      // Load atlets for this cabor
+
+      // Load atlets for this cabor (semua variant nama)
       let allAtlets: any[] = []
       for (let p = 0; ; p++) {
         const { data } = await sb.from('atlet')
           .select('id,nama_lengkap,cabor_nama_raw,gender,tgl_lahir')
           .eq('kontingen_id', KONTINGEN_ID)
-          .eq('cabor_nama_raw', resolvedNama)
+          .in('cabor_nama_raw', queryNames)
           .in('status_registrasi', ['Verified', 'Posted'])
           .order('nama_lengkap', { ascending: true })
           .range(p * 1000, (p + 1) * 1000 - 1)

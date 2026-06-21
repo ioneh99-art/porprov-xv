@@ -189,6 +189,63 @@ export function getCaborIcon(nama: string | null | undefined): LucideIcon {
 }
 
 // ──────────────────────────────────────────────────────────
+// EMOJI MAP — lebih ekspresif untuk cabor cards
+// ──────────────────────────────────────────────────────────
+const CABOR_EMOJI: Record<string, string> = {
+  'Atletik':          '🏃',
+  'Akuatik':          '🏊',
+  'Renang':           '🏊',
+  'Akuatik - Renang': '🏊',
+  'Angkat Berat':     '🏋',
+  'Angkat Besi':      '🏋',
+  'Binaraga':         '💪',
+  'Panahan':          '🏹',
+  'Menembak':         '🎯',
+  'Catur':            '♟️',
+  'Bulu Tangkis':     '🏸',
+  'Tenis':            '🎾',
+  'Tenis Meja':       '🏓',
+  'Sepak Bola':       '⚽',
+  'Futsal':           '⚽',
+  'Bola Basket':      '🏀',
+  'Voli':             '🏐',
+  'Voli Pasir':       '🏐',
+  'Bola Tangan':      '🤾',
+  'Hoki':             '🏑',
+  'Polo Air':         '🤽',
+  'Dayung':           '🚣',
+  'Selam':            '🤿',
+  'Layar':            '⛵',
+  'Ski Air':          '🎿',
+  'Pencak Silat':     '🥋',
+  'Karate':           '🥋',
+  'Taekwondo':        '🥋',
+  'Judo':             '🥋',
+  'Wushu':            '🥋',
+  'Tinju':            '🥊',
+  'Gulat':            '🤼',
+  'Tarung Derajat':   '🥊',
+  'Senam':            '🤸',
+  'Senam Artistik':   '🤸',
+  'Senam Ritmik':     '🤸',
+  'Balap Sepeda':     '🚴',
+  'Sepeda Gunung':    '🚵',
+  'BMX':              '🚴',
+  'Berkuda':          '🏇',
+  'Golf':             '⛳',
+  'Petanque':         '🎳',
+  'Sepak Takraw':     '🦵',
+  'Anggar':           '🤺',
+  'Modern Pentathlon':'🎖️',
+  'Squash':           '🎾',
+}
+
+export function getCaborEmoji(nama: string | null | undefined): string {
+  if (!nama) return '🏆'
+  return CABOR_EMOJI[nama] || '🏆'
+}
+
+// ──────────────────────────────────────────────────────────
 // SLUG HELPERS
 // ──────────────────────────────────────────────────────────
 export function caborToSlug(nama: string): string {
@@ -206,7 +263,10 @@ export function slugToCaborName(slug: string, allCaborNames: string[]): string |
 // ──────────────────────────────────────────────────────────
 // CABOR FLAGS
 // ──────────────────────────────────────────────────────────
-export const CABORS_WITH_BASELINE = ['Atletik', 'Akuatik', 'Renang']
+export const CABORS_WITH_BASELINE = [
+  'Atletik', 'Akuatik', 'Renang',
+  'Angkat Berat', 'Angkat Besi', 'Panahan', 'Menembak', 'Catur',
+]
 
 export function hasBaselineData(nama: string): boolean {
   return CABORS_WITH_BASELINE.some(c => c.toLowerCase() === nama.toLowerCase())

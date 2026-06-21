@@ -5,7 +5,6 @@
 import { useMemo } from 'react'
 import { Trophy, Target, AlertCircle } from 'lucide-react'
 import { aggregateMedalForecast, gapTier, GAP_TIER_COLOR, GAP_TIER_LABEL, type EventProbability } from '@/lib/performance/medal-predictor'
-import { parseTimeToSeconds } from '@/lib/performance/time-parser'
 
 interface BaselineEvent {
   id:                 number
@@ -17,6 +16,8 @@ interface BaselineEvent {
   target_medali:      string | null
   pesaing:            string | null
   medal_probability?: { emas: number; perak: number; perunggu: number } | null
+  metric_type?:       string | null
+  weight_class?:      string | null
 }
 
 interface Props {
@@ -34,16 +35,7 @@ export function PerformanceBaselineSection({ events, accent }: Props) {
     }))
   ), [events])
   
-  // Time bars for visualization
-  const perfWithSec = useMemo(() => events.map(e => ({
-    ...e,
-    waktuSec: parseTimeToSeconds(e.waktu_terbaik),
-    rekorSec: parseTimeToSeconds(e.rekor_porprov),
-  })), [events])
-  
-  const maxSec = useMemo(() => 
-    Math.max(...perfWithSec.map(p => Math.max(p.waktuSec ?? 0, p.rekorSec ?? 0)), 1),
-    [perfWithSec])
+  const perfWithSec = useMemo(() => events, [events])
   
   // Consistency stats
   const validGaps = events.filter(e => e.gap_percentage !== null).map(e => Number(e.gap_percentage))
@@ -70,56 +62,76 @@ export function PerformanceBaselineSection({ events, accent }: Props) {
         <h3 className="text-sm font-bold text-white mb-3">
           Riwayat Performa <span className="text-[11px] font-normal text-slate-500">(Baseline 2022)</span>
         </h3>
-        <div className="space-y-3">
-          {perfWithSec.map(p => {
-            const tier = gapTier(p.gap_percentage)
-            const color = GAP_TIER_COLOR[tier]
-            const hasBar = p.waktuSec !== null && p.rekorSec !== null
-            const wPct = hasBar ? (p.waktuSec! / maxSec) * 100 : 0
-            const rPct = hasBar ? (p.rekorSec! / maxSec) * 100 : 0
-            return (
-              <div key={p.id} className="rounded-xl bg-slate-800/50 p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-white font-medium">{p.event_name}{p.is_relay ? ' 🤝' : ''}</span>
-                  {p.gap_percentage !== null
-                    ? <span className="text-xs font-bold tabular-nums shrink-0" style={{ color }}>gap {p.gap_percentage}%</span>
-                    : <span className="text-[10px] text-slate-600">no rekor</span>}
-                </div>
-                {hasBar && (
-                  <div className="space-y-1">
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">⏱ Atlet</span>
-                        <span className="font-mono text-slate-300">{p.waktu_terbaik}</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${wPct}%`, background: color, opacity: 0.8 }}/>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-500">🏁 Rekor</span>
-                        <span className="font-mono text-slate-500">{p.rekor_porprov}</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${rPct}%`, background: '#22d3ee', opacity: 0.4 }}/>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {!hasBar && (
-                  <div className="flex gap-4 text-[11px] text-slate-500">
-                    <span>⏱ {p.waktu_terbaik || 'NT'}</span>
-                    {p.rekor_porprov && <span>🏁 {p.rekor_porprov}</span>}
-                  </div>
-                )}
-                <div className="flex gap-3 flex-wrap text-[10px]">
-                  {p.target_medali && p.target_medali !== '-' && <span style={{ color: accent }}>🎯 {p.target_medali}</span>}
-                  {p.pesaing && <span className="text-slate-600">Pesaing: {p.pesaing}</span>}
-                </div>
-              </div>
-            )
-          })}
+        {/* ── Compact table view ── */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="border-b border-slate-800">
+                <th className="text-left py-2 text-slate-500 font-semibold">Event</th>
+                <th className="text-right py-2 text-slate-500 font-semibold pr-3">PB</th>
+                <th className="text-right py-2 text-slate-500 font-semibold pr-3">Gap%</th>
+                <th className="text-right py-2 text-slate-500 font-semibold">Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              {perfWithSec.map(p => {
+                const tier  = gapTier(p.gap_percentage)
+                const color = GAP_TIER_COLOR[tier]
+                const isLift = p.metric_type === 'multi_lift'
+                const pbDisplay = isLift
+                  ? (p.waktu_terbaik ? `${p.waktu_terbaik} kg` : '—')
+                  : (p.waktu_terbaik || '—')
+                const targetMedal = p.target_medali?.toUpperCase()
+                const medalColor = targetMedal?.includes('EMAS')     ? '#fbbf24'
+                                 : targetMedal?.includes('PERAK')    ? '#cbd5e1'
+                                 : targetMedal?.includes('PERUNGGU') ? '#cd7f32'
+                                 : '#475569'
+                const medalLabel = targetMedal?.includes('EMAS')     ? '🥇 Emas'
+                                 : targetMedal?.includes('PERAK')    ? '🥈 Perak'
+                                 : targetMedal?.includes('PERUNGGU') ? '🥉 Perunggu'
+                                 : targetMedal && targetMedal !== '-' ? targetMedal : null
+                return (
+                  <tr key={p.id} className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
+                    <td className="py-2.5 text-slate-200 font-medium">
+                      {p.event_name}{p.is_relay ? ' 🤝' : ''}
+                      {p.weight_class && (
+                        <span className="ml-1.5 text-[9px] text-slate-600 font-mono">{p.weight_class}</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 text-right pr-3 font-mono text-slate-300 tabular-nums">
+                      {isLift ? (
+                        <span className="font-bold text-white">{pbDisplay}</span>
+                      ) : pbDisplay}
+                    </td>
+                    <td className="py-2.5 text-right pr-3 tabular-nums">
+                      {p.gap_percentage !== null
+                        ? <span className="font-bold" style={{ color }}>
+                            {Number(p.gap_percentage) > 0 ? '+' : ''}{Number(p.gap_percentage).toFixed(1)}%
+                          </span>
+                        : <span className="text-[9px] px-1.5 py-0.5 rounded-full border"
+                            style={{ background: 'rgba(71,85,105,0.3)', color: '#64748b', borderColor: 'rgba(71,85,105,0.4)' }}>
+                            n/a
+                          </span>}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      {medalLabel ? (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
+                          style={{ background: `${medalColor}18`, color: medalColor, border: `1px solid ${medalColor}30` }}>
+                          {medalLabel}
+                        </span>
+                      ) : (
+                        p.pesaing
+                          ? <span className="text-[9px] text-slate-600 truncate max-w-[120px] block text-right">
+                              {p.pesaing.split(',')[0]}
+                            </span>
+                          : <span className="text-slate-700">—</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
         
         {/* Consistency indicator */}

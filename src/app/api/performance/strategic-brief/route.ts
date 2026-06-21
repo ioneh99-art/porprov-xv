@@ -18,6 +18,15 @@ Berikan strategic brief dalam format JSON valid, PERSIS struktur ini (jangan tam
   "skor_kesiapan": <angka 0-100 berdasarkan rata gap% dan jumlah target emas>,
   "ringkasan": "<2-3 kalimat executive summary situasi kontingen>",
   "kekuatan_utama": "<1 kalimat keunggulan terbesar yang harus dipertahankan>",
+  "top_line_projection": [
+    {
+      "cabor": "<nama cabor>",
+      "atlet": <jumlah atlet integer>,
+      "target_coach": "<format E/P/B misal '5/4/2' atau '0 listed'>",
+      "realistic": "<format E/P/B atau range misal '4-6/3-5/2-3'>",
+      "confidence": "HIGH"
+    }
+  ],
   "prioritas": [
     {
       "no": 1,
@@ -45,6 +54,7 @@ Berikan strategic brief dalam format JSON valid, PERSIS struktur ini (jangan tam
   "pesan_pelatih": "<1 kalimat motivasi strategis untuk para pelatih>"
 }
 
+Untuk top_line_projection: satu baris per cabor. confidence: HIGH/MIXED/LOW. E=emas P=perak B=perunggu.
 Buat tepat 3 prioritas (urutkan dari dampak tertinggi), 2-3 peluang emas, 1-2 area risiko.
 Gunakan angka dari data yang diberikan. Tulis dalam Bahasa Indonesia profesional.
 PENTING: Output harus JSON valid murni — jangan ada newline di dalam nilai string, jangan ada karakter khusus yang tidak di-escape, jangan tambahkan teks apapun di luar JSON.`

@@ -20,7 +20,10 @@ import { PerformanceAgeCard } from '@/components/konida/performance/PerformanceA
 import { CareerTimeline } from '@/components/konida/performance/CareerTimeline'
 import { PrestasiInputForm } from '@/components/konida/performance/PrestasiInputForm'
 import AthleteSmartBrief from '@/components/konida/performance/AthleteSmartBrief'
+import { LiftProgressionCard } from '@/components/konida/performance/LiftProgressionCard'
+import { AthleteActionItems } from '@/components/konida/performance/AthleteActionItems'
 import type { ReadinessInput } from '@/lib/performance/readiness-score'
+import { calculateReadiness } from '@/lib/performance/readiness-score'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,6 +56,8 @@ interface BaselineEvent {
   target_medali:      string | null
   pesaing:            string | null
   medal_probability?: { emas: number; perak: number; perunggu: number } | null
+  metric_type?:       string | null
+  weight_class?:      string | null
 }
 
 interface FitnessRecord {
@@ -232,6 +237,14 @@ export default function PerformanceDossierPage() {
     perungguCount:  riwayatStats.perunggu,
   }
   
+  const readinessResult = calculateReadiness(readinessInput)
+  const tierNum = readinessResult.tier === 'unggulan' ? 1
+                : readinessResult.tier === 'potensial' ? 2
+                : readinessResult.tier === 'developing' ? 3
+                : readinessResult.tier === 'concern' ? 4
+                : null
+  const tierColor = tierNum === 1 ? '#10b981' : tierNum === 2 ? '#3b82f6' : tierNum === 3 ? '#f59e0b' : '#ef4444'
+
   const PORPROV_DATE = new Date('2026-11-07')
   const age = atlet ? ageAt(atlet.tgl_lahir, PORPROV_DATE) : null
   const accent = atlet ? getCaborAccent(atlet.cabor?.nama ?? atlet.cabor_nama_raw) : '#38bdf8'
@@ -413,11 +426,19 @@ export default function PerformanceDossierPage() {
                 </div>
               </div>
               
-              <button onClick={() => setShowInputForm(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shrink-0"
-                style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
-                <Plus size={14}/> Tambah Prestasi
-              </button>
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                {tierNum && (
+                  <span className="px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-widest"
+                    style={{ background: `${tierColor}15`, color: tierColor, border: `1px solid ${tierColor}35` }}>
+                    TIER {tierNum}
+                  </span>
+                )}
+                <button onClick={() => setShowInputForm(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                  style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+                  <Plus size={14}/> Tambah Prestasi
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -434,6 +455,13 @@ export default function PerformanceDossierPage() {
             )}
           </h2>
           <PerformanceBaselineSection events={baseline} accent={accent}/>
+
+          {/* Progression test — hanya untuk Angkat Berat */}
+          {(atlet.cabor?.nama ?? atlet.cabor_nama_raw) === 'Angkat Berat' && (
+            <div className="mt-4">
+              <LiftProgressionCard atletId={atletId} accent={accent}/>
+            </div>
+          )}
         </section>
         
         {/* ═══ SECTION 3: CAREER ═══ */}
@@ -560,6 +588,15 @@ export default function PerformanceDossierPage() {
             AI Smart Brief
           </h2>
           <AthleteSmartBrief atletId={atletId} accent={accent} autoLoad={false}/>
+          <div className="mt-4">
+            <AthleteActionItems
+              atletId={atletId}
+              atletNama={atlet.nama_lengkap}
+              cabor={atlet.cabor?.nama ?? atlet.cabor_nama_raw}
+              baseline={baseline}
+              accent={accent}
+            />
+          </div>
         </section>
       </main>
       

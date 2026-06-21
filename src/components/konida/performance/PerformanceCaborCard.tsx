@@ -1,30 +1,39 @@
 'use client'
 // src/components/konida/performance/PerformanceCaborCard.tsx
-// Hybrid card untuk landing — combines baseline + medal indicators
 
 import Link from 'next/link'
-import { ChevronRight, Trophy, Activity, Zap } from 'lucide-react'
-import { getCaborAccent, getCaborIcon, caborToSlug, hasBaselineData } from '@/lib/performance/cabor-accent-map'
+import { ChevronRight, Zap } from 'lucide-react'
+import { getCaborAccent, getCaborEmoji, caborToSlug, hasBaselineData } from '@/lib/performance/cabor-accent-map'
 
 export interface PerformanceCaborData {
   nama:               string
-  atletTotal:         number          // total atlet di cabor
-  atletWithBaseline:  number          // atlet punya record baseline
-  atletWithMedal:     number          // atlet punya riwayat prestasi terverifikasi
-  
-  baselineEvents:     number          // total record baseline events
-  avgGap:             number | null   // average gap dari semua atlet
-  
-  totalMedals:        number          // total record kejuaraan terverifikasi
+  atletTotal:         number
+  atletWithBaseline:  number
+  atletWithMedal:     number
+
+  baselineEvents:     number
+  avgGap:             number | null
+  gapMin:             number | null
+  gapMax:             number | null
+
+  totalMedals:        number
   emas:               number
   perak:              number
   perunggu:           number
   topLevel:           string | null
   yearRange:          { from: number; to: number } | null
-  
+
   realRecords:        number
   demoRecords:        number
   pendingRecords:     number
+
+  // Target dari baseline (proyeksi)
+  targetEmas:         number
+  targetPerak:        number
+  targetPerunggu:     number
+  nomorCount:         number
+  kelasBeratCount:    number
+  topAtletNames:      string[]
 }
 
 interface Props {
@@ -33,135 +42,159 @@ interface Props {
 }
 
 export function PerformanceCaborCard({ cabor, basePath }: Props) {
-  const accent  = getCaborAccent(cabor.nama)
-  const Icon    = getCaborIcon(cabor.nama)
-  const slug    = caborToSlug(cabor.nama)
-  const totalMedal   = cabor.emas + cabor.perak + cabor.perunggu
-  const hasBase      = cabor.baselineEvents > 0
-  const hasMed       = cabor.totalMedals > 0
-  const hasAnyRecord = (cabor.realRecords + cabor.demoRecords + cabor.pendingRecords) > 0
-  const hasAnyData   = hasBase || hasAnyRecord
+  const accent   = getCaborAccent(cabor.nama)
+  const emoji    = getCaborEmoji(cabor.nama)
+  const slug     = caborToSlug(cabor.nama)
+  const hasBase  = cabor.baselineEvents > 0
+  const hasMed   = cabor.totalMedals > 0
+  const isMultiLift = cabor.kelasBeratCount > 0
+  const isHiddenGem = cabor.nama === 'Angkat Berat' && hasBase
   const baseline = hasBaselineData(cabor.nama)
-  
+
+  // Gap range display
+  const gapRange = cabor.gapMin !== null && cabor.gapMax !== null
+    ? `gap ${Math.round(Math.min(Math.abs(cabor.gapMin), Math.abs(cabor.gapMax)))}–${Math.round(Math.max(Math.abs(cabor.gapMin), Math.abs(cabor.gapMax)))}%`
+    : cabor.avgGap !== null ? `avg gap ${Math.round(Math.abs(cabor.avgGap))}%` : null
+
+  // Subtitle line
+  const subtitle = [
+    `${cabor.atletTotal} atlet`,
+    isMultiLift
+      ? `${cabor.kelasBeratCount} kelas berat`
+      : cabor.nomorCount > 0 ? `${cabor.nomorCount} nomor` : null,
+    !isMultiLift ? gapRange : null,
+  ].filter(Boolean).join(' · ')
+
+  // Target medals (from baseline)
+  const totalTarget = cabor.targetEmas + cabor.targetPerak + cabor.targetPerunggu
+  // Actual medals (from riwayat)
+  const totalActual = cabor.emas + cabor.perak + cabor.perunggu
+
   return (
     <Link href={`${basePath}/${slug}`}
-      className="group rounded-2xl p-5 bg-slate-900/70 border border-slate-800 hover:border-slate-600 transition-all block">
-      
+      className="group rounded-2xl p-5 block transition-all relative overflow-hidden"
+      style={{
+        background: isHiddenGem
+          ? `linear-gradient(135deg, ${accent}10 0%, rgba(2,10,20,0.8) 100%)`
+          : 'rgba(2,10,20,0.65)',
+        border: `1px solid ${isHiddenGem ? accent + '30' : 'rgba(255,255,255,0.07)'}`,
+        boxShadow: isHiddenGem ? `0 0 30px ${accent}10` : 'none',
+      }}>
+
+      {/* Hidden gem glow */}
+      {isHiddenGem && (
+        <div className="absolute top-0 right-0 w-32 h-32 pointer-events-none"
+          style={{ background: `radial-gradient(circle at 100% 0%, ${accent}12 0%, transparent 70%)` }}/>
+      )}
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-3 relative">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `${accent}18`, border: `1px solid ${accent}40` }}>
-            <Icon size={22} style={{ color: accent }}/>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-2xl"
+            style={{ background: `${accent}15`, border: `1px solid ${accent}35` }}>
+            {emoji}
           </div>
           <div className="min-w-0">
-            <div className="text-lg font-bold text-white truncate">{cabor.nama}</div>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              {hasBase && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5"
-                  style={{ background: `${accent}15`, color: accent, border: `1px solid ${accent}30` }}>
-                  <Zap size={8}/> Baseline
-                </span>
-              )}
-              {hasMed && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5"
-                  style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>
-                  <Trophy size={8}/> {cabor.totalMedals}
-                </span>
-              )}
-              {cabor.pendingRecords > 0 && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
-                  style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}>
-                  {cabor.pendingRecords} menunggu verifikasi
-                </span>
-              )}
-            </div>
+            <div className="text-base font-bold text-white">{cabor.nama}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5 truncate">{subtitle}</div>
           </div>
         </div>
-        <ChevronRight size={18} className="text-slate-600 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0"/>
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {isHiddenGem && (
+            <span className="text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider flex items-center gap-1"
+              style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+              <Zap size={8}/> Hidden Gem
+            </span>
+          )}
+          {hasBase && !isHiddenGem && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+              style={{ background: `${accent}12`, color: accent, border: `1px solid ${accent}25` }}>
+              Baseline
+            </span>
+          )}
+        </div>
       </div>
-      
+
       {/* Empty state */}
-      {!hasAnyData ? (
-        <div className="rounded-xl bg-slate-800/30 p-4 text-center">
-          <Activity size={24} className="mx-auto mb-2 text-slate-700"/>
-          <div className="text-xs text-slate-500">Belum ada data performa</div>
-          <div className="text-[10px] text-slate-600 mt-1">
-            {baseline ? 'Tunggu seed baseline data' : 'Tambah prestasi via dossier'}
+      {!hasBase && !hasMed ? (
+        <div className="rounded-xl p-4 text-center"
+          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="text-xs text-slate-600">Belum ada data performa</div>
+          <div className="text-[10px] text-slate-700 mt-0.5">
+            {baseline ? 'Tunggu import data' : 'Tambah prestasi via dossier'}
           </div>
         </div>
       ) : (
         <>
-          {/* Stats grid — 4 col compact */}
-          <div className="grid grid-cols-4 gap-2 mb-3">
-            <div className="rounded-lg bg-slate-800/50 p-2 text-center">
-              <div className="text-lg font-black text-white tabular-nums">{cabor.atletTotal}</div>
-              <div className="text-[8px] text-slate-500 uppercase">Atlet</div>
-            </div>
-            <div className="rounded-lg bg-slate-800/50 p-2 text-center">
-              <div className="text-lg font-black tabular-nums" style={{ color: hasBase ? accent : '#475569' }}>
-                {cabor.atletWithBaseline}
-              </div>
-              <div className="text-[8px] text-slate-500 uppercase">Baseline</div>
-            </div>
-            <div className="rounded-lg bg-slate-800/50 p-2 text-center">
-              <div className="text-lg font-black tabular-nums" style={{ color: hasMed ? '#fbbf24' : '#475569' }}>
-                {cabor.atletWithMedal}
-              </div>
-              <div className="text-[8px] text-slate-500 uppercase">Medali</div>
-            </div>
-            <div className="rounded-lg bg-slate-800/50 p-2 text-center">
-              <div className="text-lg font-black tabular-nums" style={{ 
-                color: cabor.avgGap !== null 
-                  ? cabor.avgGap <= 3 ? '#10b981' 
-                  : cabor.avgGap <= 7 ? '#06b6d4'
-                  : cabor.avgGap <= 12 ? '#f59e0b' : '#ef4444'
-                  : '#475569'
-              }}>
-                {cabor.avgGap !== null ? `${cabor.avgGap.toFixed(0)}%` : '—'}
-              </div>
-              <div className="text-[8px] text-slate-500 uppercase">Avg Gap</div>
-            </div>
-          </div>
-          
-          {/* Medal bar (kalau ada) */}
-          {totalMedal > 0 && (
+          {/* Target / actual medals */}
+          {(totalTarget > 0 || totalActual > 0) && (
             <div className="mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] text-slate-500 uppercase tracking-wider">Medali Terverifikasi</span>
-                <span className="text-[9px] text-slate-400 font-bold tabular-nums">{totalMedal}</span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden bg-slate-800 flex">
-                {cabor.emas > 0     && <div className="h-full" style={{ width: `${(cabor.emas/totalMedal)*100}%`,     background: '#fbbf24' }}/>}
-                {cabor.perak > 0    && <div className="h-full" style={{ width: `${(cabor.perak/totalMedal)*100}%`,    background: '#cbd5e1' }}/>}
-                {cabor.perunggu > 0 && <div className="h-full" style={{ width: `${(cabor.perunggu/totalMedal)*100}%`, background: '#cd7f32' }}/>}
-              </div>
-              <div className="flex gap-2 mt-1">
-                <span className="text-[9px] text-yellow-400 tabular-nums">🥇 {cabor.emas}</span>
-                <span className="text-[9px] text-slate-300 tabular-nums">🥈 {cabor.perak}</span>
-                <span className="text-[9px] text-amber-500 tabular-nums">🥉 {cabor.perunggu}</span>
-              </div>
+              {totalTarget > 0 && (
+                <>
+                  <div className="text-[9px] uppercase tracking-widest text-slate-600 mb-1.5 font-bold">
+                    Target Medali {isMultiLift ? '(Proyeksi)' : '(Baseline 2022)'}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {cabor.targetEmas > 0 && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black tabular-nums"
+                        style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.25)' }}>
+                        🥇 {cabor.targetEmas}
+                      </span>
+                    )}
+                    {cabor.targetPerak > 0 && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black tabular-nums"
+                        style={{ background: 'rgba(203,213,225,0.10)', color: '#cbd5e1', border: '1px solid rgba(203,213,225,0.22)' }}>
+                        🥈 {cabor.targetPerak}
+                      </span>
+                    )}
+                    {cabor.targetPerunggu > 0 && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black tabular-nums"
+                        style={{ background: 'rgba(205,127,50,0.12)', color: '#cd7f32', border: '1px solid rgba(205,127,50,0.25)' }}>
+                        🥉 {cabor.targetPerunggu}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+              {totalActual > 0 && (
+                <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-600">
+                  <span>Medali terverifikasi:</span>
+                  {cabor.emas > 0 && <span className="text-yellow-400 font-bold">🥇{cabor.emas}</span>}
+                  {cabor.perak > 0 && <span className="text-slate-300 font-bold">🥈{cabor.perak}</span>}
+                  {cabor.perunggu > 0 && <span className="text-amber-500 font-bold">🥉{cabor.perunggu}</span>}
+                </div>
+              )}
             </div>
           )}
-          
-          {/* Footer */}
-          <div className="flex items-center justify-between text-[10px] mt-3 pt-3 border-t border-slate-800">
-            <div className="flex items-center gap-3 text-slate-600 truncate">
-              {cabor.topLevel && (
-                <span className="truncate">Top: <span className="text-slate-300 font-bold">{cabor.topLevel}</span></span>
-              )}
-              {cabor.yearRange && (
-                <span className="tabular-nums shrink-0">{cabor.yearRange.from === cabor.yearRange.to ? cabor.yearRange.from : `${cabor.yearRange.from}–${cabor.yearRange.to}`}</span>
-              )}
+
+          {/* Top atlet names */}
+          {cabor.topAtletNames.length > 0 && (
+            <div className="mb-3 text-[10px] text-slate-500">
+              Top: <span className="text-slate-300 font-semibold">{cabor.topAtletNames.join(' · ')}</span>
             </div>
-            <div className="flex items-center gap-1 shrink-0" style={{ color: accent }}>
-              <span>Lihat</span>
-              <ChevronRight size={11}/>
+          )}
+
+          {/* Pending badge */}
+          {cabor.pendingRecords > 0 && (
+            <div className="mb-2 text-[10px]"
+              style={{ color: '#60a5fa' }}>
+              {cabor.pendingRecords} prestasi menunggu verifikasi
             </div>
-          </div>
-          
+          )}
         </>
       )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between text-[10px] pt-3 border-t"
+        style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+        <span className="text-slate-600">
+          {cabor.atletWithBaseline > 0 && `${cabor.atletWithBaseline} atlet baseline`}
+        </span>
+        <div className="flex items-center gap-1 font-semibold transition-colors"
+          style={{ color: accent }}>
+          Lihat roster <ChevronRight size={11} className="group-hover:translate-x-0.5 transition-transform"/>
+        </div>
+      </div>
     </Link>
   )
 }
