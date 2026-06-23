@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Selalu ambil hitungan live dari DB — jangan cache (cegah badge basi spt "53 atlet ditolak").
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

@@ -18,3 +18,5 @@ _backup_klasemen_top3.json
 data/baseline/*.xlsx
 data/baseline/*.xls
 .vercel
+_backup_*.json
+scripts/seed-angkatberat-2layer.mjs
