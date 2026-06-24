@@ -64,10 +64,15 @@ function PillGroup({ options, value, onChange, color }: {
   )
 }
 
+// Merge cabor dengan nama berbeda ke satu slug yang sama
+const CABOR_MERGE_GROUPS: Record<string, string[]> = {
+  'Akuatik': ['Akuatik', 'Akuatik - Renang'],
+}
+
 export default function KejuaraanRosterPage() {
   const params  = useParams()
   const slug    = String(params.cabor_slug)
-  
+
   const [allCaborNames, setAllCaborNames] = useState<string[]>([])
   const [caborNama, setCaborNama] = useState<string | null>(null)
   const [atlets,    setAtlets]    = useState<AtletDB[]>([])
@@ -93,19 +98,22 @@ export default function KejuaraanRosterPage() {
       
       const resolvedNama = slugToCaborName(slug, names)
       setCaborNama(resolvedNama)
-      
+
       if (!resolvedNama) {
         setLoading(false)
         return
       }
-      
+
+      // Gunakan semua nama variant untuk cabor yang di-merge (e.g. Akuatik + Akuatik - Renang)
+      const queryNames = CABOR_MERGE_GROUPS[resolvedNama] ?? [resolvedNama]
+
       // Load atlets + records for this cabor
       let allAtlets: any[] = []
       for (let p = 0; ; p++) {
         const { data } = await sb.from('atlet')
           .select('id,nama_lengkap,cabor_nama_raw,gender,tgl_lahir')
           .eq('kontingen_id', KONTINGEN_ID)
-          .eq('cabor_nama_raw', resolvedNama)
+          .in('cabor_nama_raw', queryNames)
           .in('status_registrasi', ['Verified', 'Posted'])
           .order('nama_lengkap', { ascending: true })
           .range(p * 1000, (p + 1) * 1000 - 1)

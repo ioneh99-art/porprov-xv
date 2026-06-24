@@ -99,6 +99,12 @@ export default function KejuaraanAtletDossierPage() {
   
   useEffect(() => {
     async function load() {
+      // Reset state dulu agar data atlet sebelumnya tidak tampil saat navigasi
+      setAtlet(null)
+      setRecords([])
+      setBaselinePerf([])
+      setLoading(true)
+
       const [atletRes, recordsRes, caborRes] = await Promise.all([
         sb.from('atlet').select('*').eq('id', atletId).single(),
         sb.from('riwayat_prestasi').select('*').eq('atlet_id', atletId).order('tahun', { ascending: false }),

@@ -59,28 +59,39 @@ export default function KejuaraanLandingPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [atletData, riwayatRes] = await Promise.all([
-          (async () => {
-            let all: AtletDB[] = []
-            for (let p = 0; ; p++) {
-              const { data } = await sb.from('atlet')
-                .select('id,nama_lengkap,cabor_nama_raw,gender,status_registrasi')
-                .eq('kontingen_id', KONTINGEN_ID)
-                .in('status_registrasi', ['Verified', 'Posted'])
-                .order('cabor_nama_raw', { ascending: true })
-                .range(p * 1000, (p + 1) * 1000 - 1)
-              if (!data || data.length === 0) break
-              all = all.concat(data as AtletDB[])
-              if (data.length < 1000) break
-            }
-            return all
-          })(),
-          sb.from('riwayat_prestasi')
-            .select('id,atlet_id,event,tahun,hasil,level_event,is_demo,submitted_by,submission_status')
-            .order('tahun', { ascending: false }),
-        ])
+        // Fetch atlet dulu agar bisa filter riwayat hanya untuk kontingen ini
+        const atletData: AtletDB[] = await (async () => {
+          let all: AtletDB[] = []
+          for (let p = 0; ; p++) {
+            const { data } = await sb.from('atlet')
+              .select('id,nama_lengkap,cabor_nama_raw,gender,status_registrasi')
+              .eq('kontingen_id', KONTINGEN_ID)
+              .in('status_registrasi', ['Verified', 'Posted'])
+              .order('cabor_nama_raw', { ascending: true })
+              .range(p * 1000, (p + 1) * 1000 - 1)
+            if (!data || data.length === 0) break
+            all = all.concat(data as AtletDB[])
+            if (data.length < 1000) break
+          }
+          return all
+        })()
+
         setAtlets(atletData)
-        setAllRecords((riwayatRes.data || []) as RiwayatPrestasi[])
+
+        // Fetch semua riwayat_prestasi dengan pagination (Supabase default limit 1000)
+        // Filter ke atlet kontingen ini dilakukan client-side untuk hindari URL terlalu panjang
+        const atletIdSet = new Set(atletData.map(a => a.id))
+        let allRecords: RiwayatPrestasi[] = []
+        for (let p = 0; ; p++) {
+          const { data } = await sb.from('riwayat_prestasi')
+            .select('id,atlet_id,event,tahun,hasil,level_event,is_demo,submitted_by,submission_status')
+            .order('tahun', { ascending: false })
+            .range(p * 1000, (p + 1) * 1000 - 1)
+          if (!data || data.length === 0) break
+          allRecords = allRecords.concat((data as RiwayatPrestasi[]).filter(r => atletIdSet.has(r.atlet_id)))
+          if (data.length < 1000) break
+        }
+        setAllRecords(allRecords)
       } catch (e) {
         console.error('[Kejuaraan] Load error:', e)
       } finally {
