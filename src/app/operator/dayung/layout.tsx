@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Edit3, Users, Trophy, Waves } from 'lucide-react'
+import { LayoutDashboard, Edit3, Users, Trophy, Waves, ClipboardList, ListChecks } from 'lucide-react'
 
 const DAYUNG_CABOR_MATCH = /dayung/i
 
@@ -29,14 +29,17 @@ export default async function DayungLayout({ children }: { children: React.React
           </div>
           <div>
             <div className="text-white text-sm font-semibold leading-tight">Dayung</div>
-            <div className="text-sky-500/60 text-[10px]">PORPROV XV · Canoe</div>
+            <div className="text-sky-500/60 text-[10px]">PORPROV XV · Kab. Bandung</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 flex-1">
+        <div className="flex items-center gap-1 flex-1 flex-wrap">
           <NavTab href="/operator/dayung"          icon={LayoutDashboard} label="Dashboard" step="" />
-          <NavTab href="/operator/dayung/lineup"   icon={Users}           label="Lineup"    step="1" />
-          <NavTab href="/operator/dayung/input"    icon={Edit3}           label="Input Waktu" step="2" />
+          <NavTab href="/operator/dayung/roster"   icon={Users}           label="Roster"    step="" />
+          <NavTab href="/operator/dayung/disiplin" icon={ClipboardList}   label="Disiplin"  step="" />
+          <NavTab href="/operator/dayung/nomor"    icon={ListChecks}      label="Nomor"     step="" />
+          <NavTab href="/operator/dayung/lineup"   icon={Edit3}           label="Lineup"    step="1" />
+          <NavTab href="/operator/dayung/input"    icon={Edit3}           label="Input"     step="2" />
           <NavTab href="/operator/dayung/klasemen" icon={Trophy}          label="Klasemen"  step="3" />
         </div>
 
