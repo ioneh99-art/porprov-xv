@@ -129,9 +129,8 @@ const DAYUNG_GROUPS: MenuGroup[] = [
   {
     label: 'INTELLIGENCE',
     items: [
-      { label: 'Performance',     href: '/operator/dayung/dashboard', icon: TrendingUp, tier: 'BASIC' },
-      { label: 'Strategic Brief', href: '/operator/dayung/brief',     icon: Sparkles,   tier: 'BASIC', badge: 'AI' },
-      { label: 'JARVIS HUD',      href: '/operator/dayung/jarvis',    icon: Activity,   tier: 'BASIC' },
+      { label: 'Strategic Brief', href: '/operator/dayung/brief',  icon: Sparkles, tier: 'BASIC', badge: 'AI' },
+      { label: 'JARVIS HUD',      href: '/operator/dayung/jarvis', icon: Activity,  tier: 'BASIC' },
     ],
   },
 ]
