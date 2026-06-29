@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Edit3, Users, Trophy, Waves, ClipboardList, ListChecks, Shuffle, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, Edit3, Users, Trophy, Waves, ClipboardList, ListChecks, Shuffle, AlertTriangle, Gauge, Sparkles } from 'lucide-react'
 
 const DAYUNG_CABOR_MATCH = /dayung/i
 
@@ -43,6 +43,8 @@ export default async function DayungLayout({ children }: { children: React.React
           <NavTab href="/operator/dayung/input"     icon={Edit3}          label="Input"     step="3" />
           <NavTab href="/operator/dayung/klasemen"  icon={Trophy}         label="Klasemen"  step="4" />
           <NavTab href="/operator/dayung/anomaly"   icon={AlertTriangle}  label="Anomali"   step="" />
+          <NavTab href="/operator/dayung/dashboard" icon={Gauge}          label="Performa"  step="" />
+          <NavTab href="/operator/dayung/brief"     icon={Sparkles}       label="Brief AI"  step="" />
         </div>
 
         <div className="text-right">
