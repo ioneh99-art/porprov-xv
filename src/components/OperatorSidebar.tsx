@@ -115,25 +115,27 @@ const DAYUNG_GROUPS: MenuGroup[] = [
       { label: 'Dokumen Atlet',      href: '/operator/dayung/dokumen',   icon: FileText,  tier: 'BASIC' },
       { label: 'Kejuaraan Atlet',    href: '/operator/dayung/kejuaraan', icon: Award,     tier: 'BASIC' },
       { label: 'Laporan',            href: '/operator/dayung/laporan',   icon: BarChart3, tier: 'BASIC' },
-      { label: 'Disiplin',           href: '/operator/dayung/disiplin',  icon: Building2, tier: 'BASIC' },
-      { label: 'Nomor Pertandingan', href: '/operator/dayung/nomor',     icon: Database,  tier: 'BASIC' },
     ],
   },
   {
-    label: 'KOMPETISI',
+    label: 'PREMIUM',
     items: [
-      { label: 'Lineup',      href: '/operator/dayung/lineup',    icon: Users,       tier: 'BASIC' },
-      { label: 'Heat Draw',   href: '/operator/dayung/heat-draw', icon: Zap,         tier: 'BASIC' },
-      { label: 'Input Waktu', href: '/operator/dayung/input',     icon: Edit3,       tier: 'BASIC' },
-      { label: 'Klasemen',    href: '/operator/dayung/klasemen',  icon: Trophy,      tier: 'BASIC' },
-      { label: 'Anomali',     href: '/operator/dayung/anomaly',   icon: ShieldCheck, tier: 'BASIC' },
+      { label: 'Data Gateway',   href: '/operator/dayung/data-gateway',   icon: Database,   tier: 'BASIC', badge: 'PREMIUM' },
+      { label: 'Tes Biomotorik', href: '/operator/dayung/tes-biomotorik', icon: Activity,   tier: 'BASIC', badge: 'PREMIUM' },
+      { label: 'Performance',    href: '/operator/dayung/performance',    icon: TrendingUp, tier: 'BASIC', badge: 'PREMIUM' },
     ],
   },
   {
-    label: 'INTELLIGENCE',
+    label: 'VIP INTELLIGENCE',
     items: [
-      { label: 'Strategic Brief', href: '/operator/dayung/brief',  icon: Sparkles, tier: 'BASIC', badge: 'AI' },
-      { label: 'JARVIS HUD',      href: '/operator/dayung/jarvis', icon: Activity,  tier: 'BASIC' },
+      { label: 'Nomor Pertandingan', href: '/operator/dayung/nomor',     icon: Building2,   tier: 'BASIC', badge: 'VIP' },
+      { label: 'Lineup',             href: '/operator/dayung/lineup',    icon: Users,       tier: 'BASIC', badge: 'VIP' },
+      { label: 'Heat Draw',          href: '/operator/dayung/heat-draw', icon: Zap,         tier: 'BASIC', badge: 'VIP' },
+      { label: 'Input Waktu',        href: '/operator/dayung/input',     icon: Edit3,       tier: 'BASIC', badge: 'VIP' },
+      { label: 'Klasemen',           href: '/operator/dayung/klasemen',  icon: Trophy,      tier: 'BASIC', badge: 'VIP' },
+      { label: 'Anomali',            href: '/operator/dayung/anomaly',   icon: ShieldCheck, tier: 'BASIC', badge: 'VIP' },
+      { label: 'Strategic Brief',    href: '/operator/dayung/brief',     icon: Sparkles,    tier: 'BASIC', badge: 'VIP' },
+      { label: 'JARVIS HUD',         href: '/operator/dayung/jarvis',    icon: Activity,    tier: 'BASIC', badge: 'VIP' },
     ],
   },
 ]
@@ -284,7 +286,7 @@ export default function OperatorSidebar({
                               <span className="flex-1 truncate">{item.label}</span>
                               {item.badge && (
                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                                  item.badge === 'BETA'
+                                  item.badge === 'BETA' || item.badge === 'PREMIUM' || item.badge === 'PRE'
                                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                     : 'bg-gradient-to-r from-violet-500/20 to-blue-500/20 text-violet-300'
                                 }`}>
