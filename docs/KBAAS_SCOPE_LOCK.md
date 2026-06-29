@@ -32,7 +32,7 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 
 ### Fase 2 — System Upgrades (4 fitur)
 - [x] 2.5 Recalibration engine (migration 012 + lib `medal-prediction/recalibrate.ts` + cron `/api/cron/medal-recalibration` 02:00 + runner). Suci `{0,0,0}`→`{36/32/32}`. 50 atlet ber-baseline ke-recompute.
-- [ ] 2.6 Multi-discipline projection — tabel `discipline_family` + RPC + komponen → dossier
+- [x] 2.6 Multi-discipline projection (migration 013: discipline_family + mark_to_seconds + RPC project_athlete_performance) + API + komponen → dossier. Suci 10K→20K = 2:10:10 (HIGH).
 - [ ] 2.7 Refresh pesaing — view + RPC + tombol (field `pesaing` sudah ada)
 - [ ] 2.8 SIPA AI sadar konteks kejurnas → suntik ke SIPA AI existing (`api/sipa`)
 

@@ -21,6 +21,7 @@ import { CareerTimeline } from '@/components/konida/performance/CareerTimeline'
 import { PrestasiInputForm } from '@/components/konida/performance/PrestasiInputForm'
 import AthleteSmartBrief from '@/components/konida/performance/AthleteSmartBrief'
 import AchievementBanner from '@/components/konida/performance/AchievementBanner'
+import MultiDisciplineProjection from '@/components/konida/performance/MultiDisciplineProjection'
 import { LiftProgressionCard } from '@/components/konida/performance/LiftProgressionCard'
 import { AthleteActionItems } from '@/components/konida/performance/AthleteActionItems'
 import type { ReadinessInput } from '@/lib/performance/readiness-score'
@@ -459,6 +460,13 @@ export default function PerformanceDossierPage() {
             )}
           </h2>
           <PerformanceBaselineSection events={baseline} accent={accent}/>
+
+          {/* KBAAS Fase 2.6 — projeksi antar-nomor sefamili dari hasil kejurnas */}
+          {baseline[0]?.event_name && (
+            <div className="mt-4">
+              <MultiDisciplineProjection atletId={atletId} targetNomor={baseline[0].event_name} />
+            </div>
+          )}
 
           {/* Progression test — hanya untuk Angkat Berat */}
           {(atlet.cabor?.nama ?? atlet.cabor_nama_raw) === 'Angkat Berat' && (
