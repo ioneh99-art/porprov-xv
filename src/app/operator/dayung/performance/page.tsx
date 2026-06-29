@@ -5,16 +5,43 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Activity, TrendingUp, Trophy, Gauge, Dumbbell, Waves } from 'lucide-react'
+import { Activity, TrendingUp, Trophy, Gauge, Dumbbell, Waves, Sparkles, RefreshCw, AlertCircle } from 'lucide-react'
 import { DAYUNG, fitnessTier } from '@/lib/sport-plugins/dayung/config'
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 const ACCENT = '#38bdf8'
 
+// Mini-markdown renderer (## header, **bold**, - bullet) — aman tanpa dangerouslySetInnerHTML
+function Markdown({ text }: { text: string }) {
+  const out: any[] = []; let bullets: string[] = []
+  const inline = (str: string) => str.split(/(\*\*[^*]+\*\*)/g).map((p, i) => p.startsWith('**') && p.endsWith('**') ? <strong key={i} className="text-white">{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>)
+  const flush = (k: number) => { if (bullets.length) { out.push(<ul key={'u' + k} className="list-disc pl-5 space-y-1 my-2 text-slate-300 text-sm">{bullets.map((b, i) => <li key={i}>{inline(b)}</li>)}</ul>); bullets = [] } }
+  text.split('\n').forEach((ln, i) => {
+    const t = ln.trim()
+    if (t.startsWith('## ')) { flush(i); out.push(<h3 key={i} className="text-sm font-bold mt-4 mb-1.5 uppercase tracking-wide" style={{ color: ACCENT }}>{t.slice(3)}</h3>) }
+    else if (t.startsWith('- ') || t.startsWith('* ')) bullets.push(t.slice(2))
+    else if (t) { flush(i); out.push(<p key={i} className="text-sm text-slate-300 leading-relaxed my-1.5">{inline(t)}</p>) }
+    else flush(i)
+  })
+  flush(999); return <>{out}</>
+}
+
 export default function DayungPerformancePage() {
   const [bio, setBio] = useState<any>(null)
   const [disiplin, setDisiplin] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
+  const [brief, setBrief] = useState('')
+  const [briefLoading, setBriefLoading] = useState(false)
+  const [briefErr, setBriefErr] = useState('')
+
+  const genBrief = async () => {
+    setBriefLoading(true); setBriefErr('')
+    try {
+      const res = await fetch('/api/dayung/brief', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kontingenId: 4 }) })
+      const d = await res.json()
+      if (d.success) setBrief(d.brief); else setBriefErr(d.error || 'Gagal generate brief')
+    } catch (e: any) { setBriefErr(e.message || 'Network error') } finally { setBriefLoading(false) }
+  }
 
   useEffect(() => {
     (async () => {
@@ -116,6 +143,28 @@ export default function DayungPerformancePage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Strategic Brief AI */}
+      <div className="rounded-2xl p-5 mt-4" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles size={15} style={{ color: ACCENT }} />
+            <h3 className="text-sm font-bold text-white">Strategic Brief AI</h3>
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Claude</span>
+          </div>
+          <button onClick={genBrief} disabled={briefLoading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border disabled:opacity-50"
+            style={{ background: `${ACCENT}15`, color: ACCENT, borderColor: `${ACCENT}40` }}>
+            <RefreshCw size={13} className={briefLoading ? 'animate-spin' : ''} /> {brief ? 'Regenerate' : 'Generate Brief'}
+          </button>
+        </div>
+        {briefErr && <div className="flex items-center gap-2 text-xs text-red-400 mb-2"><AlertCircle size={14} />{briefErr}</div>}
+        {briefLoading ? (
+          <div className="space-y-2 animate-pulse">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-3 bg-slate-800 rounded" style={{ width: `${92 - i * 7}%` }} />)}</div>
+        ) : brief ? <Markdown text={brief} /> : (
+          <div className="text-center py-8 text-slate-600 text-sm">Klik <b style={{ color: ACCENT }}>Generate Brief</b> untuk analisa strategis AI berdasarkan kesiapan fisik & komponen biomotorik Dayung.</div>
+        )}
       </div>
 
       <div className="rounded-2xl p-4 mt-4 border border-dashed border-slate-800 text-center" style={{ background: 'rgba(255,255,255,0.015)' }}>
