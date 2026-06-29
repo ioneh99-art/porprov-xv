@@ -60,7 +60,7 @@ export default function PipelineWatchPage() {
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${ACCENT}15`, border: `1px solid ${ACCENT}40` }}><Radar size={20} style={{ color: ACCENT }} /></div>
           <div>
-            <h1 className="text-xl font-black text-white tracking-wide">PIPELINE WATCH</h1>
+            <h1 className="text-xl font-black text-white tracking-wide">RADAR PRESTASI</h1>
             <div className="text-[11px] text-slate-500">Atlet Jabar di kejurnas/kejurda nasional · deteksi calon & prestasi · Kab. Bandung</div>
           </div>
         </div>

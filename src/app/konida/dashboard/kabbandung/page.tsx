@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import PrestasiAlert from '@/components/konida/PrestasiAlert'
 import {
   Users, Trophy, Target, CheckCircle, Clock, AlertTriangle,
   Zap, ChevronRight, RefreshCw, Info,
@@ -517,6 +518,9 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       </nav>
 
       <main className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 lg:space-y-8 relative z-10">
+
+        {/* ── ALERT PRESTASI (KBAAS) ── */}
+        <PrestasiAlert title="Alert Prestasi — Atlet Andalan Kab. Bandung" />
 
         {/* ── BRIEF / BANNER ── */}
         <div {...ani(0)} className="px-5 py-4 rounded-2xl flex items-center gap-4 shadow-lg backdrop-blur-md bg-gradient-to-r from-[#38bdf808] to-transparent border border-[#38bdf815]">

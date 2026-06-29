@@ -11,6 +11,7 @@ import {
   Sparkles, Loader2, ChevronDown,
 } from 'lucide-react'
 import Link from 'next/link'
+import PrestasiAlert from '@/components/konida/PrestasiAlert'
 import { PerformanceCaborCard, type PerformanceCaborData } from '@/components/konida/performance/PerformanceCaborCard'
 import { hasBaselineData, caborToSlug } from '@/lib/performance/cabor-accent-map'
 
@@ -607,6 +608,9 @@ export default function PerformancePage() {
       </header>
 
       <main className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 relative z-10">
+
+        {/* ════ ATLET ANDALAN — PRESTASI NASIONAL (KBAAS) ════ */}
+        <PrestasiAlert title="Atlet Andalan — Prestasi Nasional" />
 
         {/* ════ HERO IDENTITY ════ */}
         <div {...ani(0)} className="rounded-2xl p-6"

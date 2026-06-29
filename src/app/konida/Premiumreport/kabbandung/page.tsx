@@ -879,8 +879,8 @@ document.addEventListener('DOMContentLoaded',function(){
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {[
-              { href:'/konida/pipeline-watch/kabbandung',          icon:Radar,     color:'#38bdf8', title:'Pipeline Watch', sub:'Radar prestasi nasional',     desc:'Monitoring atlet Jabar di kejurnas/kejurda nasional. Deteksi medali & calon rekrutan — auto-match ke roster kontingen.' },
-              { href:'/konida/talent-lobby/kabbandung',            icon:Crosshair, color:'#fbbf24', title:'Talent Lobby',   sub:'Scouting · sensitif',         desc:'Atlet Jabar berprestasi nasional yang belum tergabung kontingen, sebagai kandidat scouting. Flag + full audit trail.' },
+              { href:'/konida/pipeline-watch/kabbandung',          icon:Radar,     color:'#38bdf8', title:'Radar Prestasi', sub:'Monitoring prestasi nasional', desc:'Monitoring atlet Jabar di kejurnas/kejurda nasional. Deteksi medali & calon rekrutan — auto-match ke roster kontingen.' },
+              { href:'/konida/talent-lobby/kabbandung',            icon:Crosshair, color:'#fbbf24', title:'Pencarian Bakat',sub:'Scouting · sensitif',         desc:'Atlet Jabar berprestasi nasional yang belum tergabung kontingen, sebagai kandidat scouting. Flag + full audit trail.' },
               { href:'/konida/Premiumreport/kabbandung/bupati',    icon:Building2, color:'#0ea5e9', title:'Laporan Bupati', sub:'Executive summary · PDF',     desc:'Laporan kuartalan: atlet andalan, prestasi nasional, proyeksi medali PORPROV, rekomendasi. Print-ready / PDF.' },
             ].map((c,i)=>{
               const Icon = c.icon

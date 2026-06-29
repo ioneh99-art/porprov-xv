@@ -35,7 +35,7 @@ export default function TalentLobbyPage() {
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${ACCENT}15`, border: `1px solid ${ACCENT}40` }}><Crosshair size={20} style={{ color: ACCENT }} /></div>
           <div>
-            <h1 className="text-xl font-black text-white tracking-wide">TALENT LOBBY</h1>
+            <h1 className="text-xl font-black text-white tracking-wide">PENCARIAN BAKAT</h1>
             <div className="text-[11px] text-slate-500">Atlet Jabar berprestasi nasional, belum tergabung kontingen · scouting</div>
           </div>
         </div>
