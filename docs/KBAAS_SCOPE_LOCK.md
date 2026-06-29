@@ -33,7 +33,7 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 ### Fase 2 — System Upgrades (4 fitur)
 - [x] 2.5 Recalibration engine (migration 012 + lib `medal-prediction/recalibrate.ts` + cron `/api/cron/medal-recalibration` 02:00 + runner). Suci `{0,0,0}`→`{36/32/32}`. 50 atlet ber-baseline ke-recompute.
 - [x] 2.6 Multi-discipline projection (migration 013: discipline_family + mark_to_seconds + RPC project_athlete_performance) + API + komponen → dossier. Suci 10K→20K = 2:10:10 (HIGH).
-- [ ] 2.7 Refresh pesaing — view + RPC + tombol (field `pesaing` sudah ada)
+- [x] 2.7 Refresh pesaing (API TS /api/konida/refresh-pesaing + tombol → dossier). Pendekatan diperbaiki: lawan di nomor kejurnas yg sama. Suci: Violine Intan(2022) → Resti PERAK dkk.
 - [ ] 2.8 SIPA AI sadar konteks kejurnas → suntik ke SIPA AI existing (`api/sipa`)
 
 ### Fase 3 — Strategic (4 fitur) — boleh ditunda/dievaluasi belakangan
