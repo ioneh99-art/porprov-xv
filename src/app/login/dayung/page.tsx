@@ -1,6 +1,6 @@
 'use client'
 // src/app/login/dayung/page.tsx — Login khusus Operator Dayung (model Kab. Bandung).
-// Background: taruh file di /public/logos/dayung-bg.jpg (sementara fallback gradient).
+// Background: taruh file di /public/logos/dayung-bg.png (sementara fallback gradient).
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -77,8 +77,8 @@ export default function LoginDayung() {
     <div className="min-h-screen flex overflow-hidden font-sans bg-[#020a14]">
       {/* ── KIRI: Panel Info ── */}
       <div className="hidden lg:flex w-[58%] relative overflow-hidden flex-col p-10 justify-between">
-        {/* Background — taruh /public/logos/dayung-bg.jpg */}
-        <div className="absolute inset-0 z-0 opacity-50 pointer-events-none saturate-50 bg-cover bg-center" style={{ backgroundImage: "url('/logos/dayung-bg.jpg')" }} />
+        {/* Background — taruh /public/logos/dayung-bg.png */}
+        <div className="absolute inset-0 z-0 opacity-50 pointer-events-none saturate-50 bg-cover bg-center" style={{ backgroundImage: "url('/logos/dayung-bg.png')" }} />
         <div className="absolute inset-0 z-[1] bg-gradient-to-br from-[#020a14]/85 via-[#04121f]/65 to-[#020a14]/90 pointer-events-none" />
         <div className="absolute inset-0 z-[1] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(56,189,248,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,0.06) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
         <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,10,20,0.7)_100%)] pointer-events-none" />
