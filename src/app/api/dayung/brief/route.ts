@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateDayungBrief, saveBriefCache, getBriefCache } from '@/lib/sport-plugins/dayung/brief-generator'
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
