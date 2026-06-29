@@ -24,14 +24,14 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 - [x] API `/api/konida/pipeline-watch` (service-key) + Page `/konida/pipeline-watch/kabbandung` + sidebar (Command Center, ikon Radar)
 - TODO lanjutan: UI linking manual utk 17 suggestion pending (opsional, bisa di Fase 2)
 
-### Fase 1 — Quick Wins (3 fitur, mayoritas "tinggal colok")
-- [ ] 1.1 Auto-sync `riwayat_kejuaraan` — trigger + backfill. **Pakai koreksi skema:** kolom `nomor_lomba` (bukan `nomor`); TAMBAH `medali`,`sumber_data`,`source_event_kejurnas_id`,`auto_synced`; auto-entry `status='APPROVED'`. Colok ke modul kejuaraan/kabbandung existing.
-- [ ] 1.2 Achievement Banner + view `v_atlet_recent_achievements` → colok ke **dossier atlet** `performance/kabbandung/[cabor_slug]/[atlet_id]`
-- [ ] 1.4 Press Release generator (docx) → **rekonsiliasi dgn `operator/content/press` yang sudah ada** (hindari duplikat)
+### Fase 1 — Quick Wins ✅ SELESAI 2026-06-29
+- [x] 1.1 Auto-sync `riwayat_kejuaraan` (migration 010) — trigger + backfill. Koreksi: `nomor_lomba`, `status='Verified'`, `tingkat='nasional'`. Suci EMAS auto-tercatat.
+- [x] 1.2 Achievement Banner (migration 011 view + API + komponen) → ke-colok di dossier atlet
+- [x] 1.4 Press Release → **pakai fitur existing `/operator/content/press`** (AI + tone, lebih bagus dari docx brief). Tidak dibangun ulang.
 - ~~1.3 Telegram~~ ❌ SKIP
 
 ### Fase 2 — System Upgrades (4 fitur)
-- [ ] 2.5 Recalibration engine prediksi medali (colok ke `atlet_baseline_performance`, filter `is_latest=TRUE`) + **cron harian 02:00** (`CRON_SECRET`)
+- [x] 2.5 Recalibration engine (migration 012 + lib `medal-prediction/recalibrate.ts` + cron `/api/cron/medal-recalibration` 02:00 + runner). Suci `{0,0,0}`→`{36/32/32}`. 50 atlet ber-baseline ke-recompute.
 - [ ] 2.6 Multi-discipline projection — tabel `discipline_family` + RPC + komponen → dossier
 - [ ] 2.7 Refresh pesaing — view + RPC + tombol (field `pesaing` sudah ada)
 - [ ] 2.8 SIPA AI sadar konteks kejurnas → suntik ke SIPA AI existing (`api/sipa`)
