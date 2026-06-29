@@ -379,6 +379,7 @@ export default function KonidaSidebar() {
             <NavItemVIP label="Talent Lobby"        href="/konida/talent-lobby/kabbandung"     icon={Crosshair}/>
             <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
             <NavItemVIP label="Premium Report"      href="/konida/Premiumreport/kabbandung"    icon={Download} />
+            <NavItemVIP label="Laporan Bupati"      href="/konida/Premiumreport/kabbandung/bupati" icon={Building2} />
           </>
         ) : (
           <>

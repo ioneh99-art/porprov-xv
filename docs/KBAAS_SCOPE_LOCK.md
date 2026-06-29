@@ -36,8 +36,8 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 - [x] 2.7 Refresh pesaing (API TS /api/konida/refresh-pesaing + tombol → dossier). Pendekatan diperbaiki: lawan di nomor kejurnas yg sama. Suci: Violine Intan(2022) → Resti PERAK dkk.
 - [x] 2.8 SIPA AI sadar konteks kejurnas → blok "PRESTASI KEJURNAS NASIONAL TERBARU" disuntik ke getDBContext (api/sipa) + instruksi prompt
 
-### Fase 3 — Strategic (4 fitur) — boleh ditunda/dievaluasi belakangan
-- [ ] 3.9 Laporan Bupati kuartalan → extend `Premiumreport/kabbandung` / `warroom/kabbandung`
+### Fase 3 — Strategic (4 fitur)
+- [x] 3.9 Laporan Bupati kuartalan → API agregat + page print-friendly `/konida/Premiumreport/kabbandung/bupati` (in-app, BUKAN docx) + sidebar. Atlet andalan + proyeksi PORPROV.
 - [ ] 3.10 Halaman publik atlet `/atlet/[slug]` + OG image (`@vercel/og`)
 - [x] 3.11 Talent Lobby (migration 015: talent_lobby_candidates + audit_log + view v_talent_lobby_jabar) + API flag (audit, actor dari cookie) + page + sidebar. Warning sensitif.
 - [x] 3.12 Cycle tracker (migration 014: atlet_competition_cycle + auto-populate dari kejurnas) + komponen CompetitionTimeline → dossier
