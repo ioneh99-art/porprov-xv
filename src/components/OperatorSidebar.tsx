@@ -110,10 +110,13 @@ const DAYUNG_GROUPS: MenuGroup[] = [
   {
     label: 'DAYUNG — DATA',
     items: [
-      { label: 'Dashboard',          href: '/operator/dayung',          icon: Layers,   tier: 'BASIC' },
-      { label: 'Roster Atlet',       href: '/operator/dayung/roster',   icon: Users,    tier: 'BASIC' },
-      { label: 'Disiplin',           href: '/operator/dayung/disiplin', icon: Building2, tier: 'BASIC' },
-      { label: 'Nomor Pertandingan', href: '/operator/dayung/nomor',    icon: Database,  tier: 'BASIC' },
+      { label: 'Dashboard',          href: '/operator/dayung',           icon: Layers,    tier: 'BASIC' },
+      { label: 'Data Atlet',         href: '/operator/dayung/atlet',     icon: Users,     tier: 'BASIC' },
+      { label: 'Dokumen Atlet',      href: '/operator/dayung/dokumen',   icon: FileText,  tier: 'BASIC' },
+      { label: 'Kejuaraan Atlet',    href: '/operator/dayung/kejuaraan', icon: Award,     tier: 'BASIC' },
+      { label: 'Laporan',            href: '/operator/dayung/laporan',   icon: BarChart3, tier: 'BASIC' },
+      { label: 'Disiplin',           href: '/operator/dayung/disiplin',  icon: Building2, tier: 'BASIC' },
+      { label: 'Nomor Pertandingan', href: '/operator/dayung/nomor',     icon: Database,  tier: 'BASIC' },
     ],
   },
   {
