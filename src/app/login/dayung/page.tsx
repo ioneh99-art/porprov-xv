@@ -4,13 +4,25 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, AlertCircle, ChevronRight, Activity, Waves, Shield, Loader2, Users, ListChecks, Layers, Clock } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, ChevronRight, Activity, Shield, Loader2, Users, ListChecks, Layers, Clock } from 'lucide-react'
+
+// Icon dayung (sepasang dayung bersilang) — lucide tak punya icon dayung.
+function DayungIcon({ size = 24, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
+      <line x1="5" y1="19" x2="13" y2="11" />
+      <line x1="19" y1="19" x2="11" y2="11" />
+      <ellipse cx="15.5" cy="8.5" rx="2" ry="3.3" transform="rotate(45 15.5 8.5)" />
+      <ellipse cx="8.5" cy="8.5" rx="2" ry="3.3" transform="rotate(-45 8.5 8.5)" />
+    </svg>
+  )
+}
 
 const STATS = [
   { label: 'Atlet Dayung', value: '67', color: '#38bdf8', icon: Users,      sub: 'total atlet' },
   { label: 'Disiplin',     value: '4',  color: '#fbbf24', icon: Layers,     sub: 'Canoe/Kayak/Rowing/TBR' },
   { label: 'Nomor',        value: '54', color: '#34d399', icon: ListChecks, sub: 'pertandingan' },
-  { label: 'Tahun',        value: "'26", color: '#a855f7', icon: Waves,     sub: 'PORPROV XV' },
+  { label: 'Tahun',        value: "'26", color: '#a855f7', icon: DayungIcon, sub: 'PORPROV XV' },
 ]
 
 function PorprovCountdown() {
@@ -87,7 +99,7 @@ export default function LoginDayung() {
         {/* Header */}
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-sky-900/35 border-2 border-sky-400/40 flex items-center justify-center backdrop-blur-sm"><Waves size={20} className="text-sky-400" /></div>
+            <div className="w-11 h-11 rounded-xl bg-sky-900/35 border-2 border-sky-400/40 flex items-center justify-center backdrop-blur-sm"><DayungIcon size={22} className="text-sky-400" /></div>
             <div>
               <div className="text-sky-400 text-[9px] font-bold tracking-[0.2em] uppercase">Cabang Olahraga DAYUNG</div>
               <div className="text-white/40 text-[9px] mt-0.5 font-medium">PORPROV XV · JAWA BARAT 2026</div>
@@ -100,7 +112,7 @@ export default function LoginDayung() {
 
         {/* Main */}
         <div className="relative z-10 flex-1 flex flex-col justify-center">
-          <div className="text-sky-400 text-[10px] font-bold tracking-[0.25em] uppercase mb-4 flex items-center gap-2"><Waves size={12} /> OPERATOR CABOR DAYUNG</div>
+          <div className="text-sky-400 text-[10px] font-bold tracking-[0.25em] uppercase mb-4 flex items-center gap-2"><DayungIcon size={13} /> OPERATOR CABOR DAYUNG</div>
           <h1 className="text-white text-5xl font-extrabold leading-[1.1] mb-4 tracking-tight drop-shadow-[0_0_40px_rgba(56,189,248,0.25)]">Cabang Olahraga<br /><span className="text-sky-400">DAYUNG</span></h1>
           <p className="text-white/60 text-[13px] leading-relaxed max-w-[340px] font-medium">Pusat operasional cabor Dayung — roster, kompetisi, biomotorik & performance intelligence · PORPROV XV 2026</p>
         </div>
@@ -133,7 +145,7 @@ export default function LoginDayung() {
 
           {/* Mobile header */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl mb-3 bg-sky-900/20 border-2 border-sky-400/30 flex items-center justify-center"><Waves size={26} className="text-sky-400" /></div>
+            <div className="w-14 h-14 rounded-2xl mb-3 bg-sky-900/20 border-2 border-sky-400/30 flex items-center justify-center"><DayungIcon size={28} className="text-sky-400" /></div>
             <div className="text-white text-lg font-extrabold tracking-tight">Cabang Olahraga DAYUNG</div>
             <div className="text-sky-400 text-[9px] tracking-[0.2em] mt-1 font-bold">PORPROV XV</div>
           </div>
