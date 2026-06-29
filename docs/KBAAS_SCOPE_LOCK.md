@@ -53,3 +53,12 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 - `riwayat_kejuaraan`: punya `nomor_lomba`, TIDAK punya `medali` → koreksi brief valid
 - `atlet_baseline_performance`: ada `is_latest`,`lower_is_better`,`medal_probability`,`gap_percentage`,`pesaing` → koreksi #4 valid
 - Suci Lestari (1927) di kontingen 4, 0 entry `riwayat_kejuaraan` (target Fase 1.1 = 1 entry EMAS)
+
+## Refinement pasca-launch (2026-06-29/30) — semua live & pushed
+- **UI reorg:** Pipeline Watch/Talent Lobby/Laporan Bupati dipindah ke **Premium Report Hub** (section "Strategic Intelligence", kartu klik). Hapus duplikat di Command Center sidebar. "Operational Deliverables" disembunyikan sementara (fungsi tetap di code).
+- **Rename:** Pipeline Watch → **Radar Prestasi**, Talent Lobby → **Pencarian Bakat**.
+- **Alert Prestasi:** komponen `PrestasiAlert` (kartu prestasi nasional kontingen) tampil di **Dashboard utama** & **Performance Center**; tiap atlet **klik → buka dossier lengkap**.
+- **Sidebar Command Center:** Premium Report (VIP) di atas, War Room (VVIP, badge emas) di bawah.
+- **Fragmentasi 3-tabel prestasi DISATUKAN** (migration 017): auto-sync trigger kini nulis ke **`riwayat_kejuaraan`** (menu Kejuaraan) DAN **`riwayat_prestasi`** (dossier Performance "Riwayat Karier"). Catatan: app punya 3 tabel prestasi terpisah — `riwayat_kejuaraan`, `kejuaraan_atlet`, `riwayat_prestasi`. `riwayat_prestasi.hasil` enum = Emas/Perak/Perunggu/Juara 4/Peserta; `level_event` enum = Internasional/Nasional/Provinsi/Kabupaten/Lokal.
+- **Spotlight:** Suci `is_public=true`, slug `suci-lestari-1927` (live: kab-bandung.vercel.app/spotlight/suci-lestari-1927).
+- Migration final: **009–017**. Commit terakhir `cbd5dbc`.
