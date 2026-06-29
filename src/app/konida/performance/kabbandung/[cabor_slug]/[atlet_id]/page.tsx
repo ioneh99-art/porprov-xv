@@ -23,6 +23,7 @@ import AthleteSmartBrief from '@/components/konida/performance/AthleteSmartBrief
 import AchievementBanner from '@/components/konida/performance/AchievementBanner'
 import MultiDisciplineProjection from '@/components/konida/performance/MultiDisciplineProjection'
 import RefreshPesaingButton from '@/components/konida/performance/RefreshPesaingButton'
+import CompetitionTimeline from '@/components/konida/performance/CompetitionTimeline'
 import { LiftProgressionCard } from '@/components/konida/performance/LiftProgressionCard'
 import { AthleteActionItems } from '@/components/konida/performance/AthleteActionItems'
 import type { ReadinessInput } from '@/lib/performance/readiness-score'
@@ -563,6 +564,11 @@ export default function PerformanceDossierPage() {
               <CareerTimeline events={riwayatStats.realVerified as any[]} accent={accent}/>
             </div>
           )}
+
+          {/* KBAAS Fase 3.12 — roadmap kompetisi multi-tahun */}
+          <div className="mb-4">
+            <CompetitionTimeline atletId={atletId} />
+          </div>
           
           {/* All records list */}
           {riwayatStats.validRecords.length > 0 && (

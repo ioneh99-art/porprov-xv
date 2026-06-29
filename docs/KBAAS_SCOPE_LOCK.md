@@ -40,7 +40,7 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 - [ ] 3.9 Laporan Bupati kuartalan → extend `Premiumreport/kabbandung` / `warroom/kabbandung`
 - [ ] 3.10 Halaman publik atlet `/atlet/[slug]` + OG image (`@vercel/og`)
 - [ ] 3.11 Talent Lobby (SENSITIF — wajib audit trail)
-- [ ] 3.12 Cycle tracker multi-tahun — tabel `atlet_competition_cycle`
+- [x] 3.12 Cycle tracker (migration 014: atlet_competition_cycle + auto-populate dari kejurnas) + komponen CompetitionTimeline → dossier
 
 ## Prasyarat manual (sisa)
 - `CRON_SECRET` di `.env.local` + Vercel (untuk cron recalibration Fase 2)
