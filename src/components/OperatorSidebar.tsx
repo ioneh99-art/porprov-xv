@@ -105,6 +105,37 @@ const TIER_TO_SUB: Record<TierBadge, SubscriptionTier> = {
   BASIC: 'basic', PRO: 'pro', ELITE: 'elite', CHAMPION: 'champion',
 }
 
+// Menu khusus Operator Dayung (cabor-aware) — diganti ke ini bila cabor = Dayung.
+const DAYUNG_GROUPS: MenuGroup[] = [
+  {
+    label: 'DAYUNG — DATA',
+    items: [
+      { label: 'Dashboard',          href: '/operator/dayung',          icon: Layers,   tier: 'BASIC' },
+      { label: 'Roster Atlet',       href: '/operator/dayung/roster',   icon: Users,    tier: 'BASIC' },
+      { label: 'Disiplin',           href: '/operator/dayung/disiplin', icon: Building2, tier: 'BASIC' },
+      { label: 'Nomor Pertandingan', href: '/operator/dayung/nomor',    icon: Database,  tier: 'BASIC' },
+    ],
+  },
+  {
+    label: 'KOMPETISI',
+    items: [
+      { label: 'Lineup',      href: '/operator/dayung/lineup',    icon: Users,       tier: 'BASIC' },
+      { label: 'Heat Draw',   href: '/operator/dayung/heat-draw', icon: Zap,         tier: 'BASIC' },
+      { label: 'Input Waktu', href: '/operator/dayung/input',     icon: Edit3,       tier: 'BASIC' },
+      { label: 'Klasemen',    href: '/operator/dayung/klasemen',  icon: Trophy,      tier: 'BASIC' },
+      { label: 'Anomali',     href: '/operator/dayung/anomaly',   icon: ShieldCheck, tier: 'BASIC' },
+    ],
+  },
+  {
+    label: 'INTELLIGENCE',
+    items: [
+      { label: 'Performance',     href: '/operator/dayung/dashboard', icon: TrendingUp, tier: 'BASIC' },
+      { label: 'Strategic Brief', href: '/operator/dayung/brief',     icon: Sparkles,   tier: 'BASIC', badge: 'AI' },
+      { label: 'JARVIS HUD',      href: '/operator/dayung/jarvis',    icon: Activity,   tier: 'BASIC' },
+    ],
+  },
+]
+
 export default function OperatorSidebar({
   user,
   onLogout,
@@ -132,6 +163,10 @@ export default function OperatorSidebar({
   const userTier: TierBadge = user?.tier ?? 'CHAMPION'
   const caborNama = user?.cabor ?? 'Modern Pentathlon'
 
+  // Sidebar sadar-cabor: operator Dayung lihat menu Dayung, bukan Pentathlon/Pentascore.
+  const isDayung = /dayung/i.test(caborNama)
+  const groups = isDayung ? DAYUNG_GROUPS : MENU_GROUPS
+
   // Helper: detect PENTASCORE group for special amber-on-dark styling
   const isPentascoreGroup = (label: string) => label === 'PENTASCORE'
   const isPentascoreActive = pathname?.startsWith('/operator/pentascore')
@@ -144,7 +179,7 @@ export default function OperatorSidebar({
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           {!collapsed && (
             <div>
-              <div className="text-amber-400 font-bold text-sm tracking-wide">MODERN PENTATHLON</div>
+              <div className={`font-bold text-sm tracking-wide ${isDayung ? 'text-sky-400' : 'text-amber-400'}`}>{isDayung ? 'DAYUNG' : 'MODERN PENTATHLON'}</div>
               <div className="text-slate-500 text-xs">Operator Cabor</div>
             </div>
           )}
@@ -175,7 +210,7 @@ export default function OperatorSidebar({
 
         {/* Menu groups */}
         <nav className="flex-1 overflow-y-auto py-3">
-          {MENU_GROUPS.map(group => {
+          {groups.map(group => {
             const isPSGrp = isPentascoreGroup(group.label)
             return (
               <div key={group.label} className={`mb-2 ${isPSGrp ? 'mt-3 pt-3 border-t border-amber-500/20' : ''}`}>
@@ -194,7 +229,7 @@ export default function OperatorSidebar({
                     {openGroups[group.label] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </button>
                 )}
-                {(collapsed || openGroups[group.label]) && (
+                {(collapsed || (openGroups[group.label] ?? true)) && (
                   <div className="space-y-0.5">
                     {group.items.map(item => {
                       const Icon     = item.icon
