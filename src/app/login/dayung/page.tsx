@@ -6,14 +6,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, ChevronRight, Activity, Shield, Loader2, Users, ListChecks, Layers, Clock } from 'lucide-react'
 
-// Icon dayung (sepasang dayung bersilang) — lucide tak punya icon dayung.
+// Emblem dayung — vektor logo PODSI (lingkaran air + 2 dayung merah + ombak), tanpa tali/tulisan.
 function DayungIcon({ size = 24, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
-      <line x1="5" y1="19" x2="13" y2="11" />
-      <line x1="19" y1="19" x2="11" y2="11" />
-      <ellipse cx="15.5" cy="8.5" rx="2" ry="3.3" transform="rotate(45 15.5 8.5)" />
-      <ellipse cx="8.5" cy="8.5" rx="2" ry="3.3" transform="rotate(-45 8.5 8.5)" />
+    <svg width={size} height={size} viewBox="0 0 100 100" className={className} style={style} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <clipPath id="dyclip"><circle cx="50" cy="50" r="46" /></clipPath>
+      </defs>
+      <circle cx="50" cy="50" r="46" fill="#7FC8E8" stroke="#0E4D6E" strokeWidth="3" />
+      <g clipPath="url(#dyclip)">
+        {/* air berombak (paruh bawah) */}
+        <path d="M-2 60 q13 -9 26 0 t26 0 t26 0 t26 0 V102 H-2 Z" fill="#3A93C9" />
+        <path d="M-2 69 q13 -9 26 0 t26 0 t26 0 t26 0 V102 H-2 Z" fill="#2476A8" />
+        <path d="M-2 78 q13 -9 26 0 t26 0 t26 0 t26 0 V102 H-2 Z" fill="#155A85" />
+        {/* dua dayung merah */}
+        <g fill="#C0392B">
+          <g transform="translate(43 47) rotate(15)"><rect x="-2.6" y="-33" width="5.2" height="27" rx="2.6" /><ellipse cx="0" cy="-2" rx="6" ry="9.5" /></g>
+          <g transform="translate(58 47) rotate(15)"><rect x="-2.6" y="-33" width="5.2" height="27" rx="2.6" /><ellipse cx="0" cy="-2" rx="6" ry="9.5" /></g>
+        </g>
+      </g>
     </svg>
   )
 }
