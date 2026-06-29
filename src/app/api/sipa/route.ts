@@ -141,6 +141,25 @@ async function getDBContext(kontingenId?: number | null, role?: string): Promise
           context += '\n'
         }
       }
+
+      // ── 1b. Prestasi kejurnas nasional kontingen (KBAAS Fase 2.8) ──
+      try {
+        const kejurnasRes = await sb
+          .from('event_kejurnas_results')
+          .select('athlete_name_raw, medal, mark, nomor_pertandingan, kategori_umur, gender, event_date, event_short_name, atlet:atlet_id!inner(nama_lengkap, kontingen_id)')
+          .eq('atlet.kontingen_id', kontingenId)
+          .not('medal', 'is', null)
+          .order('event_date', { ascending: false })
+          .limit(10)
+        const kj = (kejurnasRes.data ?? []) as any[]
+        if (kj.length > 0) {
+          context += `PRESTASI KEJURNAS NASIONAL TERBARU (atlet kontingen ini):\n`
+          kj.forEach((r: any) => {
+            context += `- ${r.atlet?.nama_lengkap ?? r.athlete_name_raw}: ${r.medal} ${r.nomor_pertandingan} ${r.kategori_umur} ${r.gender} (${r.mark}) — ${r.event_short_name}, ${r.event_date}\n`
+          })
+          context += '\n'
+        }
+      } catch { /* abaikan kalau tabel/relasi belum ada */ }
     }
 
     // ── 2. Klasemen medali semua kontingen ────────────────
@@ -236,7 +255,8 @@ INSTRUKSI PENTING:
 7. Untuk klasemen → gunakan data klasemen di atas dan sebutkan posisi kontingen ini
 8. Jika ditanya sesuatu yang tidak ada di data → jujur bilang data belum tersedia
 9. Tambahkan emoji yang relevan untuk membuat jawaban lebih menarik
-10. Kalau ada data "atlet non-lokal", jelaskan ini adalah atlet yang KTP-nya bukan dari daerah kontingen`
+10. Kalau ada data "atlet non-lokal", jelaskan ini adalah atlet yang KTP-nya bukan dari daerah kontingen
+11. Kalau ditanya prestasi/atlet andalan/juara → gunakan data "PRESTASI KEJURNAS NASIONAL TERBARU" di atas (sebut nama atlet, medali, nomor, catatan waktu)`
 }
 
 // ── POST Handler ──────────────────────────────────────────
