@@ -38,7 +38,7 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 
 ### Fase 3 — Strategic (4 fitur)
 - [x] 3.9 Laporan Bupati kuartalan → API agregat + page print-friendly `/konida/Premiumreport/kabbandung/bupati` (in-app, BUKAN docx) + sidebar. Atlet andalan + proyeksi PORPROV.
-- [ ] 3.10 Halaman publik atlet `/atlet/[slug]` + OG image (`@vercel/og`)
+- [x] 3.10 Halaman publik atlet — route `/spotlight/[slug]` (hindari /atlet portal layout) + OG image via `next/og` bawaan. migration 016: public_slug. **Perlu opt-in `is_public=true` per atlet utk tayang.**
 - [x] 3.11 Talent Lobby (migration 015: talent_lobby_candidates + audit_log + view v_talent_lobby_jabar) + API flag (audit, actor dari cookie) + page + sidebar. Warning sensitif.
 - [x] 3.12 Cycle tracker (migration 014: atlet_competition_cycle + auto-populate dari kejurnas) + komponen CompetitionTimeline → dossier
 
