@@ -91,7 +91,7 @@ export function middleware(req: NextRequest) {
 
   // ── Deploy Dayung (dayung-jabar.vercel.app / DEPLOY_TARGET=dayung) ────────
   // Domain Dayung → landing langsung ke login Dayung.
-  const isDayungDeploy = hostname.startsWith('dayung-jabar') || process.env.DEPLOY_TARGET === 'dayung'
+  const isDayungDeploy = hostname.includes('dayung') || process.env.DEPLOY_TARGET === 'dayung'
   if (isDayungDeploy && (pathname === '/' || pathname === '/login' || pathname === '/login/')) {
     return NextResponse.redirect(new URL('/login/dayung', req.url))
   }
