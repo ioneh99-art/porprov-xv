@@ -1,13 +1,13 @@
 'use client'
-// src/app/login/dayung/page.tsx — Login khusus Operator Dayung (model Kab. Bandung).
-// Background: taruh file di /public/logos/dayung-bg.png (sementara fallback gradient).
+// src/app/login/dayung/page.tsx — Login khusus Operator Cabang Olahraga Dayung.
+// Background: taruh file di /public/logos/dayung-bg.jpg (sementara fallback gradient).
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, ChevronRight, Activity, Waves, Shield, Loader2, Users, ListChecks, Layers, Clock } from 'lucide-react'
 
 const STATS = [
-  { label: 'Atlet Dayung', value: '67', color: '#38bdf8', icon: Users,      sub: 'Kab. Bandung' },
+  { label: 'Atlet Dayung', value: '67', color: '#38bdf8', icon: Users,      sub: 'total atlet' },
   { label: 'Disiplin',     value: '4',  color: '#fbbf24', icon: Layers,     sub: 'Canoe/Kayak/Rowing/TBR' },
   { label: 'Nomor',        value: '54', color: '#34d399', icon: ListChecks, sub: 'pertandingan' },
   { label: 'Tahun',        value: "'26", color: '#a855f7', icon: Waves,     sub: 'PORPROV XV' },
@@ -44,7 +44,7 @@ function PorprovCountdown() {
         ))}
       </div>
       <div className="flex items-center justify-between">
-        <div className="text-white/30 text-[10px] font-mono">7 November 2026 · Kab. Bandung</div>
+        <div className="text-white/30 text-[10px] font-mono">7 November 2026 · Jawa Barat</div>
         <div className="text-sky-400/40 text-[9px] font-bold tracking-wider uppercase">Opening Ceremony</div>
       </div>
     </div>
@@ -77,8 +77,8 @@ export default function LoginDayung() {
     <div className="min-h-screen flex overflow-hidden font-sans bg-[#020a14]">
       {/* ── KIRI: Panel Info ── */}
       <div className="hidden lg:flex w-[58%] relative overflow-hidden flex-col p-10 justify-between">
-        {/* Background — taruh /public/logos/dayung-bg.png */}
-        <div className="absolute inset-0 z-0 opacity-50 pointer-events-none saturate-50 bg-cover bg-center" style={{ backgroundImage: "url('/logos/dayung-bg.png')" }} />
+        {/* Background — taruh /public/logos/dayung-bg.jpg */}
+        <div className="absolute inset-0 z-0 opacity-50 pointer-events-none saturate-50 bg-cover bg-center" style={{ backgroundImage: "url('/logos/dayung-bg.jpg')" }} />
         <div className="absolute inset-0 z-[1] bg-gradient-to-br from-[#020a14]/85 via-[#04121f]/65 to-[#020a14]/90 pointer-events-none" />
         <div className="absolute inset-0 z-[1] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(56,189,248,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,0.06) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
         <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,10,20,0.7)_100%)] pointer-events-none" />
@@ -89,8 +89,8 @@ export default function LoginDayung() {
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-sky-900/35 border-2 border-sky-400/40 flex items-center justify-center backdrop-blur-sm"><Waves size={20} className="text-sky-400" /></div>
             <div>
-              <div className="text-sky-400 text-[9px] font-bold tracking-[0.2em] uppercase">Cabor Dayung</div>
-              <div className="text-white/40 text-[9px] mt-0.5 font-medium">KAB. BANDUNG · PORPROV XV 2026</div>
+              <div className="text-sky-400 text-[9px] font-bold tracking-[0.2em] uppercase">Cabang Olahraga DAYUNG</div>
+              <div className="text-white/40 text-[9px] mt-0.5 font-medium">PORPROV XV · JAWA BARAT 2026</div>
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-600/15 border border-sky-400/30 backdrop-blur-sm">
@@ -101,7 +101,7 @@ export default function LoginDayung() {
         {/* Main */}
         <div className="relative z-10 flex-1 flex flex-col justify-center">
           <div className="text-sky-400 text-[10px] font-bold tracking-[0.25em] uppercase mb-4 flex items-center gap-2"><Waves size={12} /> OPERATOR CABOR DAYUNG</div>
-          <h1 className="text-white text-5xl font-extrabold leading-[1.1] mb-4 tracking-tight drop-shadow-[0_0_40px_rgba(56,189,248,0.25)]">Dayung<br /><span className="text-sky-400">Kab. Bandung</span></h1>
+          <h1 className="text-white text-5xl font-extrabold leading-[1.1] mb-4 tracking-tight drop-shadow-[0_0_40px_rgba(56,189,248,0.25)]">Cabang Olahraga<br /><span className="text-sky-400">DAYUNG</span></h1>
           <p className="text-white/60 text-[13px] leading-relaxed max-w-[340px] font-medium">Pusat operasional cabor Dayung — roster, kompetisi, biomotorik & performance intelligence · PORPROV XV 2026</p>
         </div>
 
@@ -134,8 +134,8 @@ export default function LoginDayung() {
           {/* Mobile header */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
             <div className="w-14 h-14 rounded-2xl mb-3 bg-sky-900/20 border-2 border-sky-400/30 flex items-center justify-center"><Waves size={26} className="text-sky-400" /></div>
-            <div className="text-white text-lg font-extrabold tracking-tight">Cabor Dayung</div>
-            <div className="text-sky-400 text-[9px] tracking-[0.2em] mt-1 font-bold">KAB. BANDUNG</div>
+            <div className="text-white text-lg font-extrabold tracking-tight">Cabang Olahraga DAYUNG</div>
+            <div className="text-sky-400 text-[9px] tracking-[0.2em] mt-1 font-bold">PORPROV XV</div>
           </div>
 
           <div className="flex items-center gap-3 mb-6">
@@ -145,7 +145,7 @@ export default function LoginDayung() {
           </div>
 
           <h2 className="text-white text-3xl font-extrabold leading-tight mb-2 tracking-tight">Masuk ke<br /><span className="text-sky-400">Operator Dayung</span></h2>
-          <p className="text-white/70 text-xs mb-8 font-medium">Cabor Dayung · Kab. Bandung · 67 Atlet</p>
+          <p className="text-white/70 text-xs mb-8 font-medium">Cabang Olahraga DAYUNG · 67 Atlet</p>
 
           <div className={`flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 transition-all duration-300 overflow-hidden ${error ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0 !py-0 !mb-0 border-transparent'}`}>
             <AlertCircle size={16} className="text-red-400 flex-shrink-0" /><span className="text-red-300 text-xs font-medium">{error}</span>
@@ -182,7 +182,7 @@ export default function LoginDayung() {
 
           <div className="mt-8 text-center">
             <div className="flex items-center gap-3 mb-3"><div className="flex-1 h-px bg-sky-400/20" /><span className="text-white/30 text-[9px] font-bold tracking-widest">SECURED · PORPROV XV</span><div className="flex-1 h-px bg-sky-400/20" /></div>
-            <p className="text-white/40 text-[10px] font-medium">© 2026 Cabor Dayung · Kab. Bandung · KONI Jabar</p>
+            <p className="text-white/40 text-[10px] font-medium">© 2026 Cabang Olahraga DAYUNG · KONI Jabar</p>
           </div>
         </div>
       </div>
