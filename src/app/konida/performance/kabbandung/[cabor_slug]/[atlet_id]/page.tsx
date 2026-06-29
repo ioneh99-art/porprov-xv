@@ -20,6 +20,7 @@ import { PerformanceAgeCard } from '@/components/konida/performance/PerformanceA
 import { CareerTimeline } from '@/components/konida/performance/CareerTimeline'
 import { PrestasiInputForm } from '@/components/konida/performance/PrestasiInputForm'
 import AthleteSmartBrief from '@/components/konida/performance/AthleteSmartBrief'
+import AchievementBanner from '@/components/konida/performance/AchievementBanner'
 import { LiftProgressionCard } from '@/components/konida/performance/LiftProgressionCard'
 import { AthleteActionItems } from '@/components/konida/performance/AthleteActionItems'
 import type { ReadinessInput } from '@/lib/performance/readiness-score'
@@ -440,6 +441,9 @@ export default function PerformanceDossierPage() {
                 </button>
               </div>
             </div>
+
+            {/* KBAAS Fase 1.2 — banner prestasi nasional terbaru (≤180 hari) */}
+            <div className="mt-4"><AchievementBanner atletId={atlet.id} variant="full" /></div>
           </div>
         </section>
         
