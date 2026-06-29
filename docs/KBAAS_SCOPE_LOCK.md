@@ -39,7 +39,7 @@ Integrasikan ke halaman/komponen existing bila ada; bangun net-new hanya bila pe
 ### Fase 3 — Strategic (4 fitur) — boleh ditunda/dievaluasi belakangan
 - [ ] 3.9 Laporan Bupati kuartalan → extend `Premiumreport/kabbandung` / `warroom/kabbandung`
 - [ ] 3.10 Halaman publik atlet `/atlet/[slug]` + OG image (`@vercel/og`)
-- [ ] 3.11 Talent Lobby (SENSITIF — wajib audit trail)
+- [x] 3.11 Talent Lobby (migration 015: talent_lobby_candidates + audit_log + view v_talent_lobby_jabar) + API flag (audit, actor dari cookie) + page + sidebar. Warning sensitif.
 - [x] 3.12 Cycle tracker (migration 014: atlet_competition_cycle + auto-populate dari kejurnas) + komponen CompetitionTimeline → dossier
 
 ## Prasyarat manual (sisa)
