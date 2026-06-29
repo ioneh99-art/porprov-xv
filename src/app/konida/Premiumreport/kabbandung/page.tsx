@@ -10,6 +10,7 @@ import {
   Trophy, Users, Award, FileText, Info, Sparkles, Presentation,
   TrendingUp, CreditCard as IdCard, ExternalLink, X, Brain,
   Zap, Target, Copy, CheckCircle, Cpu, Wand2,
+  Radar, Crosshair, Building2,
 } from 'lucide-react'
 
 const sb = createClient(
@@ -868,6 +869,35 @@ document.addEventListener('DOMContentLoaded',function(){
           </div>
         )}
 
+        {/* ═════════ STRATEGIC INTELLIGENCE (KBAAS) ═════════ */}
+        <div {...ani(20)} className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 rounded-full" style={{background:'#a855f7'}}/>
+            <h3 className="text-sm font-black uppercase tracking-widest" style={{color:'#c084fc'}}>Strategic Intelligence</h3>
+            <span className="text-[9px] px-2 py-0.5 rounded-full font-bold" style={{background:'rgba(168,85,247,0.15)',color:'#c084fc',border:'1px solid rgba(168,85,247,0.3)'}}>NEW</span>
+            <div className="flex-1 h-px" style={{background:'rgba(168,85,247,0.15)'}}/>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {[
+              { href:'/konida/pipeline-watch/kabbandung',          icon:Radar,     color:'#38bdf8', title:'Pipeline Watch', sub:'Radar prestasi nasional',     desc:'Monitoring atlet Jabar di kejurnas/kejurda nasional. Deteksi medali & calon rekrutan — auto-match ke roster kontingen.' },
+              { href:'/konida/talent-lobby/kabbandung',            icon:Crosshair, color:'#fbbf24', title:'Talent Lobby',   sub:'Scouting · sensitif',         desc:'Atlet Jabar berprestasi nasional yang belum tergabung kontingen, sebagai kandidat scouting. Flag + full audit trail.' },
+              { href:'/konida/Premiumreport/kabbandung/bupati',    icon:Building2, color:'#0ea5e9', title:'Laporan Bupati', sub:'Executive summary · PDF',     desc:'Laporan kuartalan: atlet andalan, prestasi nasional, proyeksi medali PORPROV, rekomendasi. Print-ready / PDF.' },
+            ].map((c,i)=>{
+              const Icon = c.icon
+              return (
+                <a key={i} href={c.href} className="rounded-2xl p-5 flex flex-col transition-transform hover:-translate-y-0.5" style={{background:'rgba(255,255,255,0.03)',border:`1px solid ${c.color}40`}}>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:`${c.color}1f`,border:`1px solid ${c.color}40`}}><Icon size={22} style={{color:c.color}}/></div>
+                    <div><h4 className="text-sm font-bold text-white mb-1">{c.title}</h4><div className="text-[10px] text-zinc-500">{c.sub}</div></div>
+                  </div>
+                  <p className="text-xs text-zinc-400 leading-relaxed flex-1 mb-4">{c.desc}</p>
+                  <div className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2" style={{background:`${c.color}1f`,border:`1px solid ${c.color}4d`,color:c.color}}>BUKA <ExternalLink size={13}/></div>
+                </a>
+              )
+            })}
+          </div>
+        </div>
+
         {/* ═════════ STRATEGIC REPORTS ═════════ */}
         <div {...ani(40)} className="space-y-3">
           <div className="flex items-center gap-3">
@@ -903,46 +933,12 @@ document.addEventListener('DOMContentLoaded',function(){
           </div>
         </div>
 
-        {/* ═════════ OPERATIONAL ═════════ */}
-        <div {...ani(80)} className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-1 h-6 rounded-full" style={{background:'#fbbf24'}}/>
-            <h3 className="text-sm font-black uppercase tracking-widest" style={{color:'#fbbf24'}}>Operational Deliverables</h3>
-            <div className="flex-1 h-px" style={{background:'rgba(251,191,36,0.15)'}}/>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="rounded-2xl p-5 flex flex-col" style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,215,0,0.2)'}}>
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'rgba(255,215,0,0.1)',border:'1px solid rgba(255,215,0,0.2)'}}><Coins size={22} style={{color:'#ffd700'}}/></div>
-                <div><h4 className="text-sm font-bold text-white">SPJ Bonus</h4><div className="text-[10px] text-zinc-500">{stats.hasRek} rekening</div></div>
-              </div>
-              <p className="text-xs text-zinc-400 leading-relaxed flex-1 mb-4">Excel daftar rekening atlet siap transfer bonus.</p>
-              <button onClick={generateSPJBonus} disabled={loadingFile!==null} className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-40" style={{background:'rgba(255,215,0,0.1)',border:'1px solid rgba(255,215,0,0.25)',color:'#ffd700'}}>{loadingFile==='SPJ'?<Loader2 size={14} className="animate-spin"/>:<Download size={14}/>}{loadingFile==='SPJ'?'...':'EXCEL'}</button>
-            </div>
-            <div className="rounded-2xl p-5 flex flex-col" style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(96,165,250,0.2)'}}>
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'rgba(96,165,250,0.1)',border:'1px solid rgba(96,165,250,0.2)'}}><FileCheck size={22} style={{color:'#60a5fa'}}/></div>
-                <div><h4 className="text-sm font-bold text-white">Buku Hasil</h4><div className="text-[10px] text-zinc-500">{jurnalTotal.laga} laga · {jurnalTotal.total} medali</div></div>
-              </div>
-              <p className="text-xs text-zinc-400 leading-relaxed flex-1 mb-4">Kompilasi jurnal harian jadi buku resmi.</p>
-              <button onClick={generateBukuHasil} disabled={loadingFile!==null} className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-40" style={{background:'rgba(96,165,250,0.1)',border:'1px solid rgba(96,165,250,0.25)',color:'#60a5fa'}}>{loadingFile==='BUKU'?<Loader2 size={14} className="animate-spin"/>:<Printer size={14}/>}{loadingFile==='BUKU'?'...':'PRINT'}</button>
-            </div>
-            <div className="rounded-2xl p-5 flex flex-col" style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(248,113,113,0.2)'}}>
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'rgba(248,113,113,0.1)',border:'1px solid rgba(248,113,113,0.2)'}}><Award size={22} style={{color:'#f87171'}}/></div>
-                <div><h4 className="text-sm font-bold text-white">Sertifikat Juara</h4><div className="text-[10px] text-zinc-500">{stats.emas} peraih emas</div></div>
-              </div>
-              <p className="text-xs text-zinc-400 leading-relaxed flex-1 mb-4">Template piagam A5 landscape siap cetak.</p>
-              <button onClick={cetakSertifikat} disabled={loadingFile!==null} className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-40" style={{background:'rgba(248,113,113,0.1)',border:'1px solid rgba(248,113,113,0.25)',color:'#f87171'}}>{loadingFile==='CERT'?<Loader2 size={14} className="animate-spin"/>:<Printer size={14}/>}{loadingFile==='CERT'?'...':'CETAK'}</button>
-            </div>
-          </div>
-        </div>
 
         <div {...ani(120)} className="rounded-2xl p-5 flex items-start gap-3"
           style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.07)'}}>
           <Info size={15} style={{color:ACCENT,flexShrink:0,marginTop:2}}/>
           <div className="text-xs text-zinc-400 leading-relaxed">
-            <strong className="text-white">Premium Report Hub</strong> · 7 strategic & operational outputs · Powered by Supabase + Claude AI + XLSX
+            <strong className="text-white">Premium Report Hub</strong> · Strategic Intelligence + strategic reports · Powered by Supabase + Claude AI + XLSX
           </div>
         </div>
       </main>
