@@ -87,9 +87,17 @@ function getDefaultRedirect(level: string): string {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
+  const hostname = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
+
+  // ── Deploy Dayung (dayung-jabar.vercel.app / DEPLOY_TARGET=dayung) ────────
+  // Domain Dayung → landing langsung ke login Dayung.
+  const isDayungDeploy = hostname.startsWith('dayung-jabar') || process.env.DEPLOY_TARGET === 'dayung'
+  if (isDayungDeploy && (pathname === '/' || pathname === '/login' || pathname === '/login/')) {
+    return NextResponse.redirect(new URL('/login/dayung', req.url))
+  }
+
   // ── Tenant routing: env var (prioritas) atau hostname ────────────────────
   const envTenant  = process.env.DEFAULT_TENANT ?? ''
-  const hostname   = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
   const hostTenant = HOSTNAME_TENANT[hostname] ?? ''
   const tenant     = envTenant || hostTenant
   if (tenant) {
