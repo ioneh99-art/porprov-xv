@@ -90,6 +90,28 @@ export default function DayungPerformancePage() {
         ))}
       </div>
 
+      {/* Strategic Brief AI — tepat di bawah KPI */}
+      <div className="rounded-2xl p-5 mb-5" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles size={15} style={{ color: ACCENT }} />
+            <h3 className="text-sm font-bold text-white">Strategic Brief AI</h3>
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Claude</span>
+          </div>
+          <button onClick={genBrief} disabled={briefLoading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border disabled:opacity-50"
+            style={{ background: `${ACCENT}15`, color: ACCENT, borderColor: `${ACCENT}40` }}>
+            <RefreshCw size={13} className={briefLoading ? 'animate-spin' : ''} /> {brief ? 'Regenerate' : 'Generate Brief'}
+          </button>
+        </div>
+        {briefErr && <div className="flex items-center gap-2 text-xs text-red-400 mb-2"><AlertCircle size={14} />{briefErr}</div>}
+        {briefLoading ? (
+          <div className="space-y-2 animate-pulse">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-3 bg-slate-800 rounded" style={{ width: `${92 - i * 7}%` }} />)}</div>
+        ) : brief ? <Markdown text={brief} /> : (
+          <div className="text-center py-8 text-slate-600 text-sm">Klik <b style={{ color: ACCENT }}>Generate Brief</b> untuk analisa strategis AI berdasarkan kesiapan fisik & komponen biomotorik Dayung.</div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Komponen biomotorik terlemah — fokus latihan */}
         <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -143,28 +165,6 @@ export default function DayungPerformancePage() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Strategic Brief AI */}
-      <div className="rounded-2xl p-5 mt-4" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Sparkles size={15} style={{ color: ACCENT }} />
-            <h3 className="text-sm font-bold text-white">Strategic Brief AI</h3>
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Claude</span>
-          </div>
-          <button onClick={genBrief} disabled={briefLoading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border disabled:opacity-50"
-            style={{ background: `${ACCENT}15`, color: ACCENT, borderColor: `${ACCENT}40` }}>
-            <RefreshCw size={13} className={briefLoading ? 'animate-spin' : ''} /> {brief ? 'Regenerate' : 'Generate Brief'}
-          </button>
-        </div>
-        {briefErr && <div className="flex items-center gap-2 text-xs text-red-400 mb-2"><AlertCircle size={14} />{briefErr}</div>}
-        {briefLoading ? (
-          <div className="space-y-2 animate-pulse">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-3 bg-slate-800 rounded" style={{ width: `${92 - i * 7}%` }} />)}</div>
-        ) : brief ? <Markdown text={brief} /> : (
-          <div className="text-center py-8 text-slate-600 text-sm">Klik <b style={{ color: ACCENT }}>Generate Brief</b> untuk analisa strategis AI berdasarkan kesiapan fisik & komponen biomotorik Dayung.</div>
-        )}
       </div>
 
       <div className="rounded-2xl p-4 mt-4 border border-dashed border-slate-800 text-center" style={{ background: 'rgba(255,255,255,0.015)' }}>
