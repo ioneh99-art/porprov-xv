@@ -89,10 +89,11 @@ function getLoginTarget(tenantId: string): string {
   return map[tenantId] ?? '/login'
 }
 
-function NavItemVIP({ label, href, icon: Icon }: { label: string; href: string; icon: any }) {
+function NavItemVIP({ label, href, icon: Icon, badge = 'VIP' }: { label: string; href: string; icon: any; badge?: string }) {
   const pathname = usePathname()
   const tc       = TENANT_COLORS['kabbandung']
   const active   = pathname === href || pathname.startsWith(href + '/')
+  const vvip     = badge === 'VVIP'
   return (
     <Link href={href}
       className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
@@ -102,8 +103,10 @@ function NavItemVIP({ label, href, icon: Icon }: { label: string; href: string; 
       <Icon size={16}/>
       <span className="flex-1">{label}</span>
       <span className="text-[8px] font-black px-1.5 py-0.5 rounded tracking-wider leading-none shrink-0"
-        style={{ background:'rgba(139,92,246,0.18)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.35)' }}>
-        VIP
+        style={vvip
+          ? { background:'rgba(251,191,36,0.18)', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.4)' }
+          : { background:'rgba(139,92,246,0.18)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.35)' }}>
+        {badge}
       </span>
       {active && <ChevronRight size={12}/>}
     </Link>
@@ -373,9 +376,9 @@ export default function KonidaSidebar() {
                 style={{ color: '#a78bfa', opacity: 0.7 }}>Command Center</span>
               <div className="flex-1 h-px bg-slate-800"/>
             </div>
-            <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  />
-            <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
             <NavItemVIP label="Premium Report"      href="/konida/Premiumreport/kabbandung"    icon={Download} />
+            <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
+            <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
           </>
         ) : (
           <>

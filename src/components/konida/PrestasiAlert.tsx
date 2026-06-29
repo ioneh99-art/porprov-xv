@@ -3,9 +3,12 @@
 // KBAAS — kartu alert prestasi nasional atlet Kab. Bandung (dipakai di Dashboard & Radar Prestasi).
 
 import { useEffect, useState } from 'react'
-import { Medal } from 'lucide-react'
+import Link from 'next/link'
+import { Medal, ChevronRight } from 'lucide-react'
+import { caborToSlug } from '@/lib/performance/cabor-accent-map'
 
 const medalIcon = (m: string | null) => m === 'EMAS' ? '🥇' : m === 'PERAK' ? '🥈' : m === 'PERUNGGU' ? '🥉' : ''
+const dossierHref = (r: any) => `/konida/performance/kabbandung/${caborToSlug(r.cabor_nama || '')}/${r.atlet_id}`
 
 export default function PrestasiAlert({ title = 'Alert Prestasi — Atlet Kab. Bandung' }: { title?: string }) {
   const [medalists, setMedalists] = useState<any[]>([])
@@ -25,14 +28,17 @@ export default function PrestasiAlert({ title = 'Alert Prestasi — Atlet Kab. B
       <div className="flex items-center gap-2 mb-3"><Medal size={15} style={{ color: '#fbbf24' }} /><h3 className="text-sm font-bold text-white">{title}</h3></div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
         {medalists.map(r => (
-          <div key={r.id} className="flex items-center gap-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <Link key={r.id} href={dossierHref(r)}
+            className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-white/[0.06] group"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <span className="text-2xl">{medalIcon(r.medal)}</span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-bold text-white truncate">{r.atlet_db_nama ?? r.athlete_name_raw}</div>
               <div className="text-[11px] text-slate-400 truncate">{r.medal} · {r.nomor_pertandingan} {r.kategori_umur} {r.gender} · <span className="font-mono text-slate-300">{r.mark}</span></div>
               <div className="text-[10px] text-slate-600 truncate">{r.event_short_name}</div>
             </div>
-          </div>
+            <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-400 shrink-0" />
+          </Link>
         ))}
       </div>
     </div>
