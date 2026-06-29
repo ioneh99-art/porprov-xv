@@ -134,8 +134,6 @@ const DAYUNG_GROUPS: MenuGroup[] = [
       { label: 'Input Waktu',        href: '/operator/dayung/input',     icon: Edit3,       tier: 'BASIC', badge: 'VIP' },
       { label: 'Klasemen',           href: '/operator/dayung/klasemen',  icon: Trophy,      tier: 'BASIC', badge: 'VIP' },
       { label: 'Anomali',            href: '/operator/dayung/anomaly',   icon: ShieldCheck, tier: 'BASIC', badge: 'VIP' },
-      { label: 'Strategic Brief',    href: '/operator/dayung/brief',     icon: Sparkles,    tier: 'BASIC', badge: 'VIP' },
-      { label: 'JARVIS HUD',         href: '/operator/dayung/jarvis',    icon: Activity,    tier: 'BASIC', badge: 'VIP' },
     ],
   },
 ]

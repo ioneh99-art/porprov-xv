@@ -16,26 +16,30 @@ export const fetchCache = 'force-no-store'
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const kontingenId = parseInt(searchParams.get('kontingen_id') || '0')
+  const cabor = searchParams.get('cabor')   // opsional: filter per cabor (mis. 'Dayung')
   if (!kontingenId)
     return NextResponse.json({ error: 'kontingen_id required' }, { status: 400 })
 
+  // helper: terapkan filter cabor_nama bila param cabor diisi (jaga tipe query)
+  const withCabor = <T>(q: T): T => (cabor ? (q as any).ilike('cabor_nama', `%${cabor}%`) : q)
+
   try {
     // 1. Per-cabor aggregate
-    const { data: perCabor } = await sb
-      .from('v_tes_fisik_per_cabor').select('*').eq('kontingen_id', kontingenId)
+    const { data: perCabor } = await withCabor(sb
+      .from('v_tes_fisik_per_cabor').select('*').eq('kontingen_id', kontingenId))
 
     // 2. Komponen lemah per cabor
-    const { data: komponenLemah } = await sb
-      .from('v_tes_fisik_komponen_lemah').select('*').eq('kontingen_id', kontingenId)
+    const { data: komponenLemah } = await withCabor(sb
+      .from('v_tes_fisik_komponen_lemah').select('*').eq('kontingen_id', kontingenId))
 
     // 3. Overall stats
-    const { data: allTes } = await sb
+    const { data: allTes } = await withCabor(sb
       .from('atlet_tes_fisik')
-      .select('kesimpulan_persen, kesimpulan_kategori, status_tes, bmi, jenis_kelamin')
-      .eq('kontingen_id', kontingenId).eq('tahap', 3)
+      .select('kesimpulan_persen, kesimpulan_kategori, status_tes, bmi, jenis_kelamin, cabor_nama')
+      .eq('kontingen_id', kontingenId).eq('tahap', 3))
 
     // 4. ATLET LIST — daftar atlet dengan data tes fisik
-    const { data: atletList } = await sb
+    const { data: atletList } = await withCabor(sb
       .from('atlet_tes_fisik')
       .select(`
         id, atlet_id, nama_atlet, cabor_nama, jenis_kelamin,
@@ -46,14 +50,14 @@ export async function GET(req: NextRequest) {
       `)
       .eq('kontingen_id', kontingenId)
       .eq('tahap', 3)
-      .order('kesimpulan_persen', { ascending: false, nullsFirst: false })
+      .order('kesimpulan_persen', { ascending: false, nullsFirst: false }))
 
     // 5. UNMATCHED COUNT — atlet yang belum berhasil dicocokkan
-    const { count: unmatchedCount } = await sb
+    const { count: unmatchedCount } = await withCabor(sb
       .from('atlet_tes_fisik_unmatched')
       .select('id', { count: 'exact', head: true })
       .eq('kontingen_id', kontingenId)
-      .eq('status_review', 'pending')
+      .eq('status_review', 'pending'))
 
     const total = allTes?.length || 0
     const hadir = allTes?.filter(t => t.status_tes === 'Hadir').length || 0

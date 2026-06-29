@@ -47,10 +47,11 @@ interface Props {
   tenantSlug: string         // 'kabbogor' / 'kabbandung'
   primary: string            // hex color
   backHref: string           // /konida/Premiumreport/kabbogor
+  caborFilter?: string       // opsional: scope ke 1 cabor (mis. 'Dayung')
 }
 
 export default function TesFisikDetailReport({
-  kontingenId, tenantName, tenantSlug, primary, backHref,
+  kontingenId, tenantName, tenantSlug, primary, backHref, caborFilter,
 }: Props) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -62,11 +63,12 @@ export default function TesFisikDetailReport({
   useEffect(() => { const t = setTimeout(() => setAnimIn(true), 80); return () => clearTimeout(t) }, [])
 
   useEffect(() => {
-    fetch(`/api/konida/tes-fisik?kontingen_id=${kontingenId}`)
+    const url = `/api/konida/tes-fisik?kontingen_id=${kontingenId}` + (caborFilter ? `&cabor=${encodeURIComponent(caborFilter)}` : '')
+    fetch(url)
       .then(r => r.ok ? r.json() : Promise.reject(r))
       .then(d => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [kontingenId])
+  }, [kontingenId, caborFilter])
 
   const ani = (d = 0) => ({
     style: { transitionDelay: `${d}ms`, transition: 'all 0.55s cubic-bezier(0.16,1,0.3,1)' },

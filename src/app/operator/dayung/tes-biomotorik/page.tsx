@@ -1,13 +1,17 @@
-'use client'
-// src/app/operator/dayung/tes-biomotorik/page.tsx — PREMIUM (placeholder)
-// Konsep mengikuti KONIDA Kab. Bandung, scope atlet Dayung. Isi konten menyusul.
+// src/app/operator/dayung/tes-biomotorik/page.tsx
+// PREMIUM — Tes Biomotorik (konsep KONIDA Kab. Bandung), scope atlet Dayung saja.
 
-export default function DayungPremium_TesBiomotorik() {
+import TesFisikDetailReport from '@/components/konida/TesFisikDetailReport'
+
+export default function DayungTesBiomotorikPage() {
   return (
-    <div className="text-slate-200 py-20 text-center">
-      <div className="inline-block text-[10px] font-bold px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-4">PREMIUM</div>
-      <h1 className="text-2xl font-black text-white mb-2">Tes Biomotorik</h1>
-      <p className="text-sm text-slate-500 max-w-md mx-auto">Konsep mengikuti sistem KONIDA Kab. Bandung, di-scope ke data atlet Dayung. Konten akan diisi pada tahap berikutnya.</p>
-    </div>
+    <TesFisikDetailReport
+      kontingenId={4}
+      caborFilter="Dayung"
+      tenantName="Dayung · Kab. Bandung"
+      tenantSlug="kabbandung"
+      primary="#38bdf8"
+      backHref="/operator/dayung"
+    />
   )
 }
