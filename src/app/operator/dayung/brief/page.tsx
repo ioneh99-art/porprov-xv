@@ -2,7 +2,7 @@
 // src/app/operator/dayung/brief/page.tsx
 // Phase 3 — Strategic Brief Cabor Dayung (AI Anthropic).
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sparkles, RefreshCw, AlertCircle } from 'lucide-react'
 
 // Mini markdown renderer (## header, **bold**, - bullet) — aman, tanpa dangerouslySetInnerHTML
@@ -30,6 +30,13 @@ export default function DayungBriefPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [at, setAt] = useState('')
+
+  // Muat brief tersimpan (cache) saat load — instan, tanpa panggil AI.
+  useEffect(() => {
+    fetch('/api/dayung/brief?kontingenId=4').then(r => r.json()).then(d => {
+      if (d?.success && d.brief) { setBrief(d.brief); setStats(d.stats); if (d.generated_at) setAt(new Date(d.generated_at).toLocaleString('id-ID')) }
+    }).catch(() => {})
+  }, [])
 
   const generate = async () => {
     setLoading(true); setError('')
