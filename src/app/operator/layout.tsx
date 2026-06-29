@@ -24,12 +24,15 @@ export default async function OperatorLayout({ children }: { children: React.Rea
   if (!user) redirect('/login')
   if (!OPERATOR_ROLES.includes(user.role)) redirect('/')
 
+  // Operator Dayung kembali ke login Dayung saat logout.
+  const loginTarget = /dayung/i.test(user?.cabor_nama ?? '') ? '/login/dayung' : '/login'
+
   async function logout() {
     'use server'
     cookies().delete('porprov_session')
     cookies().delete('user_level')
     cookies().delete('tenant_id')
-    redirect('/login')
+    redirect(loginTarget)
   }
 
   return (
