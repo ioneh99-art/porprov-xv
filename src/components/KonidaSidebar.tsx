@@ -6,6 +6,7 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
+  Radar,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -374,6 +375,7 @@ export default function KonidaSidebar() {
               <div className="flex-1 h-px bg-slate-800"/>
             </div>
             <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  />
+            <NavItemVIP label="Pipeline Watch"      href="/konida/pipeline-watch/kabbandung"   icon={Radar}    />
             <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
             <NavItemVIP label="Premium Report"      href="/konida/Premiumreport/kabbandung"    icon={Download} />
           </>
