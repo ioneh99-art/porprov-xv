@@ -115,8 +115,9 @@ export default function InvoicesPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const [{ data:invData }, planData, { data:kData }] = await Promise.all([
-      sb.from('invoices').select('*, kontingen(nama), invoice_items(*)').order('created_at',{ascending:false}),
+    // Baca invoices lewat server (service key + guard superadmin); anon read ditutup (data finansial).
+    const [invData, planData, { data:kData }] = await Promise.all([
+      fetch('/api/superadmin/invoices').then(r => r.ok ? r.json() : []).catch(() => []),
       getPlans(),
       sb.from('kontingen').select('id,nama').order('nama'),
     ])

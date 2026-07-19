@@ -305,15 +305,15 @@ export default function TenantsPage() {
     if (!editing) return
     setSaving(true)
     try {
-      if (isNew) {
-        const { error } = await sb.from('tenants').insert(editing)
-        if (error) throw error
-        showToast(`Tenant "${editing.nama}" berhasil dibuat`)
-      } else {
-        const { error } = await sb.from('tenants').update(editing).eq('id', editing.id)
-        if (error) throw error
-        showToast(`Tenant "${editing.nama}" berhasil diupdate`)
-      }
+      // Tulis lewat server (service key + guard superadmin + audit); anon write ditutup.
+      const res = await fetch('/api/superadmin/tenants', {
+        method: isNew ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editing),
+      })
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(out?.error || 'Gagal menyimpan')
+      showToast(`Tenant "${editing.nama}" berhasil ${isNew ? 'dibuat' : 'diupdate'}`)
       await load()
       closeModal()
     } catch (e: any) {
@@ -325,14 +325,21 @@ export default function TenantsPage() {
 
   async function toggleActive(t: Tenant) {
     const next = !t.is_active
-    await sb.from('tenants').update({ is_active: next }).eq('id', t.id)
+    const res = await fetch('/api/superadmin/tenants', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: t.id, is_active: next }),
+    })
+    if (!res.ok) { const o = await res.json().catch(()=>({})); showToast(o?.error || 'Gagal', false); return }
     setTenants(prev => prev.map(x => x.id === t.id ? { ...x, is_active: next } : x))
     showToast(`${t.nama}: ${next ? 'ACTIVATED' : 'DEACTIVATED'}`, next)
   }
 
   async function deleteTenant(id: string) {
-    const { error } = await sb.from('tenants').delete().eq('id', id)
-    if (error) { showToast(error.message, false); return }
+    const res = await fetch('/api/superadmin/tenants', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) { const o = await res.json().catch(()=>({})); showToast(o?.error || 'Gagal hapus', false); return }
     setTenants(prev => prev.filter(t => t.id !== id))
     setConfirmDel(null)
     showToast('Tenant dihapus')
