@@ -103,13 +103,10 @@ export default function LogsPage() {
   async function load() {
     setLoading(true)
     const [lRes, kRes] = await Promise.all([
-      sb.from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(500),
+      fetch('/api/superadmin/logs').then(r => r.json()).catch(() => ({ logs: [] })),
       sb.from('kontingen').select('id,nama'),
     ])
-    if (lRes.data)  setLogs(lRes.data as AuditLog[])
+    if (lRes.logs)  setLogs(lRes.logs as AuditLog[])
     if (kRes.data)  setKontingens(kRes.data)
     setLoading(false)
   }

@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { writeAudit, reqMeta } from '@/lib/audit'
+import { getServerSession } from '@/lib/guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,6 +46,16 @@ export async function POST(req: NextRequest) {
     console.error('[API /set-level] error:', error)
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
   }
+
+  const actor = await getServerSession()
+  await writeAudit({
+    action: 'SET_LEVEL', resource: 'tenant', resource_id: body.kontingen_id,
+    actor_id: actor?.id != null ? String(actor.id) : null,
+    actor_email: actor?.username ?? actor?.nama ?? null,
+    actor_role: actor?.role ?? actor?.level ?? null,
+    kontingen_id: body.kontingen_id, payload: { level_baru: body.level },
+    severity: 'critical', ...reqMeta(req),
+  })
 
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
+import { writeAudit, reqMeta } from '@/lib/audit'
+import { getServerSession } from '@/lib/guard'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +58,17 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const actor = await getServerSession()
+  await writeAudit({
+    action: 'CREATE_USER', resource: 'users', resource_id: (data as any)?.id,
+    actor_id: actor?.id != null ? String(actor.id) : null,
+    actor_email: actor?.username ?? actor?.nama ?? null,
+    actor_role: actor?.role ?? actor?.level ?? null,
+    payload: { username: username.trim().toLowerCase(), role, kontingen_id: kontingen_id || null },
+    severity: 'critical', ...reqMeta(req),
+  })
+
   return NextResponse.json({ ok: true, data })
 }
 

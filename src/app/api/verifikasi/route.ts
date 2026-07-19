@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { writeAudit, reqMeta } from '@/lib/audit'
 import {
   emailAtletBaru,
   emailStatusAtlet,
@@ -88,6 +89,20 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       status_baru: newStatus,
       keterangan: logKeterangan,
+    })
+
+    // Audit trail terpusat
+    await writeAudit({
+      action: 'VERIFIKASI_ATLET',
+      resource: 'atlet',
+      resource_id: atlet_id,
+      actor_id: user.id != null ? String(user.id) : null,
+      actor_email: user.username ?? user.nama ?? null,
+      actor_role: user.role ?? null,
+      kontingen_id: user.kontingen_id ?? null,
+      payload: { action, status_baru: newStatus, keterangan: logKeterangan },
+      severity: String(newStatus).startsWith('Ditolak') ? 'warning' : 'info',
+      ...reqMeta(req),
     })
 
     // Kirim email notifikasi (tidak blocking — fire and forget)
