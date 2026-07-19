@@ -211,8 +211,12 @@ export default function PentathlonInputPage() {
         return
       }
 
-      const { error } = await supabase.from('hasil_pertandingan').upsert(toUpsert, { onConflict: 'nomor_id,atlet_id' })
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/operator/hasil', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: toUpsert }),
+      })
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(out?.error || 'Gagal simpan hasil')
       showToast(`✅ ${toUpsert.length} hasil tersimpan`)
     } catch (e: any) {
       showToast(`Error: ${e.message}`, 'error')

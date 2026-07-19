@@ -87,24 +87,27 @@ export default function InputHasilPage() {
     setSaving(true)
     setError('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
+      const rows = []
       for (const atlet of peserta) {
         const h = hasil[atlet.id]
         if (!h || (!h.nilai && h.medali === 'none')) continue
-
-        await supabase.from('hasil_pertandingan').upsert({
+        rows.push({
           nomor_id: selectedNomor.id,
           atlet_id: atlet.id,
           kontingen_id: atlet.kontingen_id,
           nilai: h.nilai ? parseFloat(h.nilai) : null,
           medali: h.medali || 'none',
           diinput_oleh: me.id,
-        }, { onConflict: 'nomor_id,atlet_id' })
+        })
+      }
+      if (rows.length) {
+        // Tulis lewat server (service key + guard operator). Anon write ditutup.
+        const res = await fetch('/api/operator/hasil', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows }),
+        })
+        const out = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(out?.error || 'Gagal menyimpan hasil')
       }
 
       setSuccess('Hasil berhasil disimpan!')
