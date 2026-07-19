@@ -53,19 +53,19 @@ export default function NomorPertandinganPage() {
     setSaving(true)
     setError('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { error: err } = await supabase.from('nomor_pertandingan').insert({
-        ...form,
-        cabor_id: me.cabor_id,
-        venue_id: form.venue_id ? parseInt(form.venue_id) : null,
-        tanggal_pertandingan: form.tanggal_pertandingan || null,
-        waktu_mulai: form.waktu_mulai || null,
+      // Tulis lewat server (service key + guard + cabor dari sesi). Anon write ditutup.
+      const res = await fetch('/api/operator/nomor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          venue_id: form.venue_id ? parseInt(form.venue_id) : null,
+          tanggal_pertandingan: form.tanggal_pertandingan || null,
+          waktu_mulai: form.waktu_mulai || null,
+        }),
       })
-      if (err) throw new Error(err.message)
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(out?.error || 'Gagal menyimpan')
       setShowForm(false)
       setForm({ nama: '', gender: 'L', tipe_skor: 'waktu', satuan: '', venue_id: '', tanggal_pertandingan: '', waktu_mulai: '' })
       await loadData()
@@ -78,12 +78,11 @@ export default function NomorPertandinganPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Hapus nomor pertandingan ini?')) return
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    await supabase.from('nomor_pertandingan').delete().eq('id', id)
+    const res = await fetch('/api/operator/nomor', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) { const o = await res.json().catch(()=>({})); setError(o?.error || 'Gagal hapus'); return }
     await loadData()
   }
 
