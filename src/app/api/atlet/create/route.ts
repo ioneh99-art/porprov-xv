@@ -60,7 +60,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Cabang olahraga tidak ditemukan / tidak aktif.' }, { status: 422 })
   }
 
-  // ── Cek kuota (hanya ditegakkan bila baris kuota untuk cabor+kontingen ini ADA) ──
+  // ── Cek kuota — MODE IMBAU (soft): kalau lewat kuota, DICATAT tapi tidak memblokir. ──
+  // Angka di cabor_kuota masih perlu divalidasi resmi (banyak yang template). Bila sudah
+  // final, ganti `quotaWarnings.push(...)` di bawah jadi `return 409`.
+  const quotaWarnings: string[] = []
   const { data: kuota } = await db
     .from('cabor_kuota')
     .select('kuota_total,kuota_putra,kuota_putri')
@@ -77,15 +80,12 @@ export async function POST(req: NextRequest) {
     const putra = aktif.filter(a => a.gender === 'L').length
     const putri = aktif.filter(a => a.gender === 'P').length
 
-    if (kuota.kuota_total != null && total >= kuota.kuota_total) {
-      return NextResponse.json({ error: `Kuota ${cabor.nama} penuh (${total}/${kuota.kuota_total}).` }, { status: 409 })
-    }
-    if (gender === 'L' && kuota.kuota_putra != null && putra >= kuota.kuota_putra) {
-      return NextResponse.json({ error: `Kuota putra ${cabor.nama} penuh (${putra}/${kuota.kuota_putra}).` }, { status: 409 })
-    }
-    if (gender === 'P' && kuota.kuota_putri != null && putri >= kuota.kuota_putri) {
-      return NextResponse.json({ error: `Kuota putri ${cabor.nama} penuh (${putri}/${kuota.kuota_putri}).` }, { status: 409 })
-    }
+    if (kuota.kuota_total != null && total >= kuota.kuota_total)
+      quotaWarnings.push(`Kuota total ${cabor.nama} terlampaui (${total + 1}/${kuota.kuota_total}).`)
+    if (gender === 'L' && kuota.kuota_putra != null && putra >= kuota.kuota_putra)
+      quotaWarnings.push(`Kuota putra ${cabor.nama} terlampaui (${putra + 1}/${kuota.kuota_putra}).`)
+    if (gender === 'P' && kuota.kuota_putri != null && putri >= kuota.kuota_putri)
+      quotaWarnings.push(`Kuota putri ${cabor.nama} terlampaui (${putri + 1}/${kuota.kuota_putri}).`)
   }
 
   // ── Insert (whitelist field; status dipaksa Draft) ──
@@ -121,9 +121,11 @@ export async function POST(req: NextRequest) {
     actor_id: session.id != null ? String(session.id) : null,
     actor_email: session.username ?? session.nama ?? null,
     actor_role: session.role ?? session.level ?? null,
-    kontingen_id, payload: { nama_lengkap, cabor_id, cabor: cabor.nama, gender },
-    severity: 'info', ...reqMeta(req),
+    kontingen_id,
+    payload: { nama_lengkap, cabor_id, cabor: cabor.nama, gender, quota_warnings: quotaWarnings },
+    // Lewat kuota = catat sebagai peringatan (biar kelihatan di log), tapi tetap sukses.
+    severity: quotaWarnings.length ? 'warning' : 'info', ...reqMeta(req),
   })
 
-  return NextResponse.json({ ok: true, id: (created as any)?.id })
+  return NextResponse.json({ ok: true, id: (created as any)?.id, quota_warnings: quotaWarnings })
 }
