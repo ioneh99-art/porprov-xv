@@ -55,22 +55,18 @@ export default function VenuePage() {
     setSaving(true)
     setError('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
       const payload = {
         nama: form.nama.trim(),
         alamat: form.alamat.trim() || null,
         klaster_id: form.klaster_id ? parseInt(form.klaster_id) : null,
-        kota: form.kota.trim() || null,
       }
-      if (editId) {
-        await supabase.from('venue').update(payload).eq('id', editId)
-      } else {
-        await supabase.from('venue').insert(payload)
-      }
+      // Tulis lewat server (service key + guard). Anon write ditutup.
+      const res = await fetch('/api/operator/venue', {
+        method: editId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editId ? { id: editId, ...payload } : payload),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Gagal simpan venue')
       handleReset()
       loadData()
     } catch (e: any) {
@@ -82,12 +78,11 @@ export default function VenuePage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Hapus venue ini?')) return
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    await supabase.from('venue').delete().eq('id', id)
+    const res = await fetch('/api/operator/venue', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error || 'Gagal hapus venue'); return }
     loadData()
   }
 
