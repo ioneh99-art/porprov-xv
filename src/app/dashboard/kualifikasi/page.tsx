@@ -93,20 +93,19 @@ export default function AdminKualifikasiPage() {
 
   const handleSaveAll = async () => {
     setSaving(true)
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-
     const changed = kuotas.filter(k => k.changed)
-    for (const k of changed) {
-      await supabase.from('kuota_kualifikasi').upsert({
+    if (changed.length) {
+      // Tulis lewat server (service key + guard). Anon write ditutup.
+      const rows = changed.map(k => ({
         nomor_id: parseInt(selectedNomor),
         kontingen_id: k.kontingen_id,
         kuota_max: k.kuota_max,
         created_by: me.id,
-      }, { onConflict: 'nomor_id,kontingen_id' })
+      }))
+      await fetch('/api/operator/kuota-kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      })
     }
 
     await loadKuotas()
