@@ -154,25 +154,21 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
 
   async function handleImport() {
     if (!stats.canImport) return
-    setImporting(true); let ok=0, err=0
+    setImporting(true)
     const validRows = validations.filter(v=>v.status!=='ERROR')
-    const BATCH = 50
-    for (let i=0; i<validRows.length; i+=BATCH) {
-      const batch = validRows.slice(i,i+BATCH).map(v => {
-        const d = {...v.data}
-        return {
-          nama_lengkap: d.nama_lengkap, no_ktp: d.no_ktp, tgl_lahir: d.tgl_lahir||null,
-          gender: d.gender?.toUpperCase()==='L'||d.gender==='Laki-laki'?'L':'P',
-          cabor_nama_raw: d.cabor_nama_raw, kode_asal_daerah: d.kode_asal_daerah||null,
-          nama_asal_daerah: d.nama_asal_daerah||null, ukuran_kemeja: d.ukuran_kemeja||null,
-          ukuran_sepatu: d.ukuran_sepatu||null, nama_bank: d.nama_bank||null,
-          no_rekening: d.no_rekening||null, kontingen_id: KONTINGEN_ID, status_registrasi: 'Draft',
-        }
+    try {
+      // Impor via server (validasi + service key). Insert anon dari browser dihapus.
+      const res = await fetch('/api/atlet/bulk-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: validRows.map(v => v.data), kontingen_id: KONTINGEN_ID }),
       })
-      const { error } = await sb.from('atlet').insert(batch)
-      if (error) { err += batch.length; console.error(error) } else ok += batch.length
-    }
-    setImportResult({ ok, err }); setStep('done'); setImporting(false)
+      const out = await res.json().catch(()=>({}))
+      if (!res.ok) throw new Error(out?.error || 'Impor gagal')
+      setImportResult({ ok: out.ok ?? 0, err: out.err ?? 0 }); setStep('done')
+    } catch (e: any) {
+      alert(`Impor gagal: ${e.message}`)
+    } finally { setImporting(false) }
   }
 
   async function downloadTemplate() {
