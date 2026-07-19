@@ -60,12 +60,12 @@ const ROUTE_RULES: { pattern: RegExp; allowed: string[] }[] = [
   // Level 1 + Superadmin + KONI Jabar
   { pattern: /^\/konida\/dashboard\/bekasi/,             allowed: ['superadmin', 'koni_jabar', 'level1'] },
   { pattern: /^\/konida\/penyelenggara/,                 allowed: ['superadmin', 'koni_jabar', 'level1'] },
-  { pattern: /^\/konida\/sipa/,                          allowed: ['superadmin', 'koni_jabar', 'level1'] },
+  { pattern: /^\/konida\/sipa/,                          allowed: ['superadmin', 'koni_jabar', 'level1', 'level2', 'level3'] },
 
   // Level 1 + 2 + KONI Jabar + Superadmin
-  { pattern: /^\/konida\/laporan/,                       allowed: ['superadmin', 'koni_jabar', 'level1', 'level2'] },
-  { pattern: /^\/konida\/kualifikasi/,                   allowed: ['superadmin', 'koni_jabar', 'level1', 'level2'] },
-  { pattern: /^\/konida\/dashboard(?!\/(bekasi|jabar|basic))/, allowed: ['superadmin', 'koni_jabar', 'level1', 'level2'] },
+  { pattern: /^\/konida\/laporan/,                       allowed: ['superadmin', 'koni_jabar', 'level1', 'level2', 'level3'] },
+  { pattern: /^\/konida\/kualifikasi/,                   allowed: ['superadmin', 'koni_jabar', 'level1', 'level2', 'level3'] },
+  { pattern: /^\/konida\/dashboard(?!\/(bekasi|jabar|basic))/, allowed: ['superadmin', 'koni_jabar', 'level1', 'level2', 'level3'] },
 
   // Semua level
   { pattern: /^\/konida\/atlet/,                         allowed: ['superadmin', 'koni_jabar', 'level1', 'level2', 'level3'] },
