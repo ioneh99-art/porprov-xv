@@ -164,10 +164,11 @@ export default function VerifPage() {
     setProcessing(true)
     const newStatus = pendingAction === 'approve' ? 'Verified' : 'Ditolak Admin'
     const ids = Array.from(selected)
-    const { error } = await sb
-      .from('atlet')
-      .update({ status_registrasi: newStatus, catatan_admin: note || null, updated_at: new Date().toISOString() })
-      .in('id', ids)
+    const res = await fetch('/api/atlet/edit', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, set: { status_registrasi: newStatus, catatan_admin: note || null, updated_at: new Date().toISOString() } }),
+    })
+    const error = res.ok ? null : { message: (await res.json().catch(() => ({})))?.error || 'Gagal update atlet' }
     if (error) {
       showToast(error.message, false)
     } else {

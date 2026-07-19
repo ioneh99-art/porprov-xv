@@ -439,10 +439,11 @@ export default function PageAtletKabBandung() {
   const handleVerify = async (id: number, status: string) => {
     setIsUpdating(true)
     try {
-      const { error } = await sb.from('atlet')
-        .update({ status_registrasi: status, catatan_verifikasi: status==='Ditolak Admin'?rejectNote:null })
-        .eq('id', id)
-      if (error) throw error
+      const res = await fetch('/api/atlet/edit', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, set: { status_registrasi: status, catatan_verifikasi: status==='Ditolak Admin'?rejectNote:null } }),
+      })
+      if (!res.ok) throw new Error('Gagal update status')
       setData(prev => prev.map(a => a.id===id ? {...a, status_registrasi:status, catatan_verifikasi:rejectNote} : a))
       setSelectedAtlet(null)
       setRejectNote('')

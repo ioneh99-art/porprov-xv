@@ -73,16 +73,12 @@ export default function EditAtletPage() {
     setError('')
     setLoading(true)
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { error: err } = await supabase.from('atlet').update({
-        ...form,
-        cabor_id: parseInt(form.cabor_id),
-      }).eq('id', id)
-      if (err) throw new Error(err.message)
+      // Update lewat server (service key + guard + cek kepemilikan). Anon write ditutup.
+      const res = await fetch('/api/atlet/edit', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, set: { ...form, cabor_id: parseInt(form.cabor_id) } }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal menyimpan')
       setSuccess('Data berhasil disimpan!')
       setTimeout(() => setSuccess(''), 3000)
     } catch (e: any) {
@@ -103,11 +99,11 @@ export default function EditAtletPage() {
       )
       const me = await fetch('/api/auth/me').then(r => r.json())
 
-      // Simpan dulu data terbaru
-      await supabase.from('atlet').update({
-        ...form,
-        cabor_id: parseInt(form.cabor_id),
-      }).eq('id', id)
+      // Simpan dulu data terbaru (lewat server; anon write ditutup)
+      await fetch('/api/atlet/edit', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, set: { ...form, cabor_id: parseInt(form.cabor_id) } }),
+      })
 
       // Submit ke cabor
       await supabase.rpc('submit_ke_cabor', {
