@@ -108,13 +108,15 @@ export default function DayungLineupPage() {
     if (!confirm(`Daftarkan ${atlet.nama_lengkap} ke "${nomorNama}"?`)) return
     setProcessing(atlet.id)
     try {
-      const { error } = await supabase.from('kualifikasi_atlet').upsert({
-        nomor_id: selectedNomor, atlet_id: atlet.id, kontingen_id: atlet.kontingen_id,
-        status: 'Dikonfirmasi',
-        didaftarkan_oleh: me.id, dikonfirmasi_oleh: me.id,
-        dikonfirmasi_at: new Date().toISOString(),
-      }, { onConflict: 'nomor_id,atlet_id' })
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/operator/kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'upsert', rows: [{
+          nomor_id: selectedNomor, atlet_id: atlet.id, kontingen_id: atlet.kontingen_id,
+          status: 'Dikonfirmasi', didaftarkan_oleh: me.id, dikonfirmasi_oleh: me.id,
+          dikonfirmasi_at: new Date().toISOString(),
+        }] }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal daftar')
       showToast(`✅ ${atlet.nama_lengkap} terdaftar`)
       await loadData(selectedNomor)
     } catch (e: any) {
@@ -129,11 +131,11 @@ export default function DayungLineupPage() {
     if (!confirm(`Batalkan pendaftaran ${atlet.nama_lengkap}?`)) return
     setProcessing(atlet.id)
     try {
-      const { error } = await supabase.from('kualifikasi_atlet')
-        .update({ status: 'Dibatalkan' })
-        .eq('atlet_id', atlet.id)
-        .eq('nomor_id', selectedNomor)
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/operator/kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'update', match: { atlet_id: atlet.id, nomor_id: selectedNomor }, set: { status: 'Dibatalkan' } }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal batal')
       showToast(`❌ Pendaftaran dibatalkan`)
       await loadData(selectedNomor)
     } catch (e: any) {
@@ -159,8 +161,11 @@ export default function DayungLineupPage() {
         didaftarkan_oleh: me.id, dikonfirmasi_oleh: me.id,
         dikonfirmasi_at: new Date().toISOString(),
       }))
-      const { error } = await supabase.from('kualifikasi_atlet').upsert(inserts, { onConflict: 'nomor_id,atlet_id' })
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/operator/kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'upsert', rows: inserts }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal daftar')
       showToast(`✅ ${unregistered.length} atlet terdaftar`)
       await loadData(selectedNomor)
     } catch (e: any) {

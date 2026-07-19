@@ -53,16 +53,12 @@ export default function OperatorKualifikasiPage() {
 
   const handleKonfirmasi = async (id: number) => {
     setProcessing(id)
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    await supabase.from('kualifikasi_atlet').update({
-      status: 'Dikonfirmasi',
-      dikonfirmasi_oleh: me.id,
-      dikonfirmasi_at: new Date().toISOString(),
-    }).eq('id', id)
+    await fetch('/api/operator/kualifikasi', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op: 'update', id, set: {
+        status: 'Dikonfirmasi', dikonfirmasi_oleh: me.id, dikonfirmasi_at: new Date().toISOString(),
+      } }),
+    })
     await loadLineup()
     setProcessing(null)
   }
@@ -70,19 +66,13 @@ export default function OperatorKualifikasiPage() {
   const handleKonfirmasiSemua = async () => {
     if (!confirm(`Konfirmasi semua ${lineup.length} atlet sekaligus?`)) return
     setLoading(true)
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
     const ids = lineup.filter(l => l.status === 'Terdaftar').map(l => l.id)
-    for (const id of ids) {
-      await supabase.from('kualifikasi_atlet').update({
-        status: 'Dikonfirmasi',
-        dikonfirmasi_oleh: me.id,
-        dikonfirmasi_at: new Date().toISOString(),
-      }).eq('id', id)
-    }
+    await fetch('/api/operator/kualifikasi', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op: 'update', ids, set: {
+        status: 'Dikonfirmasi', dikonfirmasi_oleh: me.id, dikonfirmasi_at: new Date().toISOString(),
+      } }),
+    })
     await loadLineup()
   }
 
@@ -90,15 +80,10 @@ export default function OperatorKualifikasiPage() {
     const catatan = prompt('Alasan pembatalan:')
     if (!catatan) return
     setProcessing(id)
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    await supabase.from('kualifikasi_atlet').update({
-      status: 'Dibatalkan',
-      catatan,
-    }).eq('id', id)
+    await fetch('/api/operator/kualifikasi', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op: 'update', id, set: { status: 'Dibatalkan', catatan } }),
+    })
     await loadLineup()
     setProcessing(null)
   }

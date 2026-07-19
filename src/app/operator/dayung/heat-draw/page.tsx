@@ -59,9 +59,11 @@ export default function DayungHeatDrawPage() {
     setSaving(true); setMsg('')
     let ok = 0
     for (const d of draw) {
-      const { error } = await sb.from('kualifikasi_atlet').update({ heat_number: d.heat_number, lane: d.lane })
-        .eq('nomor_id', activeNomor!).eq('atlet_id', d.atlet_id)
-      if (!error) ok++
+      const res = await fetch('/api/operator/kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'update', match: { nomor_id: activeNomor, atlet_id: d.atlet_id }, set: { heat_number: d.heat_number, lane: d.lane } }),
+      })
+      if (res.ok) ok++
     }
     setSaving(false); setMsg(`Tersimpan: ${ok}/${draw.length} lane assignment.`)
   }

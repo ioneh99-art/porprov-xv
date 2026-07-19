@@ -108,8 +108,11 @@ export default function PentathlonLineupPage() {
         didaftarkan_oleh: me.id, dikonfirmasi_oleh: me.id,
         dikonfirmasi_at: new Date().toISOString(),
       }))
-      const { error } = await supabase.from('kualifikasi_atlet').upsert(inserts, { onConflict: 'nomor_id,atlet_id' })
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/operator/kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'upsert', rows: inserts }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal daftar')
       showToast(`✅ ${atlet.nama_lengkap} terdaftar di ${targetNomors.length} nomor`)
     } catch (e: any) {
       showToast(`Error: ${e.message}`, 'error')
@@ -123,9 +126,11 @@ export default function PentathlonLineupPage() {
     setProcessing(atlet.id)
     try {
       const targetNomors = atlet.gender === 'L' ? nomorIds.L : nomorIds.P
-      const { error } = await supabase.from('kualifikasi_atlet').update({ status: 'Dibatalkan' })
-        .eq('atlet_id', atlet.id).in('nomor_id', targetNomors)
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/operator/kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'update', match: { atlet_id: atlet.id, nomor_ids: targetNomors }, set: { status: 'Dibatalkan' } }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal batal')
       showToast(`❌ Pendaftaran dibatalkan`)
     } catch (e: any) {
       showToast(`Error: ${e.message}`, 'error')
@@ -158,8 +163,11 @@ export default function PentathlonLineupPage() {
           })
         })
       })
-      const { error } = await supabase.from('kualifikasi_atlet').upsert(inserts, { onConflict: 'nomor_id,atlet_id' })
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/operator/kualifikasi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'upsert', rows: inserts }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal daftar')
       showToast(`✅ ${unregistered.length} atlet terdaftar (${inserts.length} entries)`)
     } catch (e: any) {
       showToast(`Error: ${e.message}`, 'error')
