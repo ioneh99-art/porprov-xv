@@ -2,11 +2,13 @@
 
 Status per 2026-07-19. Tujuan: lunasin "hutang" kerjaan kecil dulu, baru masuk renovasi besar (Jenis 2).
 
+> **UPDATE 2026-07-19: Fase A, B, C SELESAI.** Hutang kecil lunas. Sisa = Jenis 2 (proyek besar).
+
 ## Peta besar
 ```
 Jenis 1 (auth / nutup bolong)   ████████████████████  SELESAI ✅
-Jenis 3 (aturan & data)         ███████████████░░░░░  ~80%
-Cleanup                         ░░░░░░░░░░░░░░░░░░░░  belum (remeh)
+Jenis 3 (aturan & data)         ████████████████████  SELESAI ✅ (Fase A+B+C)
+Cleanup                         ████████████████████  SELESAI ✅ (non-destruktif)
 Jenis 2 (renovasi RLS)          ░░░░░░░░░░░░░░░░░░░░  belum (proyek besar)
 ```
 
