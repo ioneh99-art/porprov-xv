@@ -1,6 +1,13 @@
-# Rencana Jenis 2 — Renovasi RLS (pindah tulisan browser → server)
+ok g# Rencana Jenis 2 — Renovasi RLS (pindah tulisan browser → server)
 
-Status: RANCANGAN (belum dieksekusi), 2026-07-19. Prasyarat: Jenis 1 & 3 + Fase A/B sudah selesai.
+Status: **✅ SELESAI TOTAL (2026-07-20).** Semua fase J2-0 s/d J2-5 dieksekusi & ter-deploy.
+Sisir final: **0 policy tulis broad public tersisa**. 28 tabel write-surface kini
+lewat route server tervalidasi atau RLS diperketat. Detail per commit di memori
+`porprov-security-remediation`. Migrations 022-031.
+
+---
+
+Status awal: RANCANGAN, 2026-07-19. Prasyarat: Jenis 1 & 3 + Fase A/B sudah selesai.
 
 ## Inti masalah
 Hampir semua tabel punya policy tulis `public ... USING(true)` → siapa pun dengan anon key bisa **baca & tulis**. Ini karena app nulis langsung dari browser (tanpa Supabase Auth, DB tak tahu siapa penulis). Tabel `atlet` sudah ditutup (Fase B) sebagai contoh polanya. Jenis 2 = lakukan hal serupa untuk sisa tabel — **tapi cerdas**, karena tak semua butuh route server.
