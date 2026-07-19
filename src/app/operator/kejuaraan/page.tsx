@@ -52,17 +52,13 @@ export default function OperatorKejuaraanPage() {
 
   const handleApprove = async (id: number) => {
     setProcessing(id)
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    await supabase.from('riwayat_kejuaraan').update({
-      status: 'Menunggu Admin',
-      approved_cabor_by: me.id,
-      approved_cabor_at: new Date().toISOString(),
-      catatan_cabor: 'Divalidasi oleh Operator Cabor',
-    }).eq('id', id)
+    await fetch('/api/operator/riwayat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'kejuaraan', id, set: {
+        status: 'Menunggu Admin', approved_cabor_by: me.id, approved_cabor_at: new Date().toISOString(),
+        catatan_cabor: 'Divalidasi oleh Operator Cabor',
+      } }),
+    })
     await loadData()
     setProcessing(null)
   }
@@ -71,15 +67,10 @@ export default function OperatorKejuaraanPage() {
     const catatan = prompt('Alasan penolakan teknis (wajib):')
     if (!catatan) return
     setProcessing(id)
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    await supabase.from('riwayat_kejuaraan').update({
-      status: 'Ditolak Cabor',
-      catatan_cabor: catatan,
-    }).eq('id', id)
+    await fetch('/api/operator/riwayat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'kejuaraan', id, set: { status: 'Ditolak Cabor', catatan_cabor: catatan } }),
+    })
     await loadData()
     setProcessing(null)
   }

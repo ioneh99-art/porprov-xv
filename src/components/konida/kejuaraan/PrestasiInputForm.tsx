@@ -99,23 +99,27 @@ export function PrestasiInputForm({
     setSubmitError(null)
     
     try {
-      const { error } = await sb.from('riwayat_prestasi').insert({
-        atlet_id:            atletId,
-        event:               form.event.trim(),
-        tahun:               form.tahun,
-        lokasi:              form.lokasi.trim(),
-        nomor_tanding:       form.nomor_tanding.trim(),
-        hasil:               form.hasil,
-        level_event:         form.level_event,
-        catatan:             form.catatan.trim() || null,
-        source_document_url: form.source_document_url.trim() || null,
-        is_demo:             false,
-        submitted_by:        submittedBy,
-        submission_status:   defaultStatus,
-        submitted_at:        new Date().toISOString(),
-        verified_at:         defaultStatus === 'verified' ? new Date().toISOString() : null,
+      const _res = await fetch('/api/operator/riwayat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'prestasi', row: {
+          atlet_id:            atletId,
+          event:               form.event.trim(),
+          tahun:               form.tahun,
+          lokasi:              form.lokasi.trim(),
+          nomor_tanding:       form.nomor_tanding.trim(),
+          hasil:               form.hasil,
+          level_event:         form.level_event,
+          catatan:             form.catatan.trim() || null,
+          source_document_url: form.source_document_url.trim() || null,
+          is_demo:             false,
+          submitted_by:        submittedBy,
+          submission_status:   defaultStatus,
+          submitted_at:        new Date().toISOString(),
+          verified_at:         defaultStatus === 'verified' ? new Date().toISOString() : null,
+        } }),
       })
-      
+      const error = _res.ok ? null : { message: (await _res.json().catch(() => ({})))?.error || 'Gagal simpan prestasi' }
+
       if (error) throw error
       
       setSubmitOk(true)
