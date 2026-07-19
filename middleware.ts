@@ -106,6 +106,19 @@ export async function middleware(req: NextRequest) {
     if (tenantRes) return tenantRes
   }
 
+  // ── Proteksi API sensitif (anonim → 401). /api di-skip di bawah, jadi tangani di sini. ──
+  if (pathname.startsWith('/api/superadmin') || pathname.startsWith('/api/users')) {
+    const p = await verifySessionCookie(
+      req.cookies.get('porprov_session')?.value,
+      req.cookies.get('porprov_sig')?.value,
+    )
+    if (!p) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (pathname.startsWith('/api/superadmin') && p.level !== 'superadmin' && p.role !== 'superadmin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    return NextResponse.next()
+  }
+
   // Skip
   if (
     pathname.startsWith('/_next') ||
@@ -149,6 +162,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*'],
+  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*', '/api/superadmin/:path*', '/api/users/:path*'],
 }
 
