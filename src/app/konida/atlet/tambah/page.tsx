@@ -62,19 +62,14 @@ export default function TambahAtletPage() {
     setError('')
     setLoading(true)
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-      const { error: err } = await supabase.from('atlet').insert({
-        ...form,
-        cabor_id: parseInt(form.cabor_id),
-        kontingen_id: me?.kontingen_id,
-        status_registrasi: 'Draft',
-        status_verifikasi: 'Draft',
+      // Kirim ke gerbang server (validasi eligibilitas + kuota, kontingen dipaksa dari sesi).
+      const res = await fetch('/api/atlet/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       })
-      if (err) throw new Error(err.message)
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(out?.error || 'Gagal menyimpan atlet.')
       setSuccess(true)
       setTimeout(() => router.push('/konida/atlet'), 1800)
     } catch (e: any) {
