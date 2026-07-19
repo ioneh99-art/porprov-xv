@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { loginUser } from '@/lib/auth'
 import { getSubscription } from '@/lib/subscriptions'
+import { signValue } from '@/lib/session'
 
 const sbAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -270,6 +271,7 @@ export async function POST(req: NextRequest) {
   })
 
   res.cookies.set('porprov_session', sessionData,   httpOnly)
+  res.cookies.set('porprov_sig',     await signValue(sessionData), httpOnly)  // integritas HMAC
   res.cookies.set('user_level',      userLevel,     client)
   res.cookies.set('tenant_id',       tenantId,      client)
   res.cookies.set('login_origin',    loginOrigin,   persist)

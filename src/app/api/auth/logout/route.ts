@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
 
   // Hapus session cookies
   clearCookie(res, 'porprov_session', true)
+  clearCookie(res, 'porprov_sig', true)
   clearCookie(res, 'user_level')
   clearCookie(res, 'tenant_id')
 
@@ -72,6 +73,7 @@ export async function GET(req: NextRequest) {
   const res       = NextResponse.redirect(new URL(loginPath, req.url))
 
   clearCookie(res, 'porprov_session', true)
+  clearCookie(res, 'porprov_sig', true)
   clearCookie(res, 'user_level')
   clearCookie(res, 'tenant_id')
 
