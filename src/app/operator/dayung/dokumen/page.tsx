@@ -367,10 +367,13 @@ export default function PageDokumenAtlet() {
         diisi_oleh:          'Admin',
       }
 
-      const { data, error } = await sb.from('atlet_perlengkapan')
-        .upsert(payload, { onConflict: 'atlet_id' })
-        .select()
-        .single()
+      const _res = await fetch('/api/operator/perlengkapan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const _out = await _res.json().catch(() => ({}))
+      const data = _out.data
+      const error = _res.ok ? null : { message: _out?.error || 'Gagal simpan perlengkapan' }
       
       if (error) throw error
       

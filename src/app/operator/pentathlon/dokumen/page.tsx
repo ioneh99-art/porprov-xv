@@ -154,13 +154,18 @@ export default function PentathlonDokumenPage() {
 
     setSavingPerlengkapan(atletId)
     try {
-      if (current.id) {
-        await sb.from('atlet_perlengkapan').update(payload).eq('id', current.id)
-        setPerlengkapan(prev => prev.map(p => p.atlet_id === atletId ? { ...p, ...payload, id: current.id } : p))
-      } else {
-        const { data } = await sb.from('atlet_perlengkapan').insert(payload).select().single()
-        setPerlengkapan(prev => [...prev, data])
-      }
+      const _res = await fetch('/api/operator/perlengkapan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const _out = await _res.json().catch(() => ({}))
+      if (!_res.ok) throw new Error(_out?.error || 'Gagal simpan perlengkapan')
+      const data = _out.data
+      setPerlengkapan(prev => {
+        const i = prev.findIndex(p => p.atlet_id === atletId)
+        if (i >= 0) { const n = [...prev]; n[i] = data; return n }
+        return [...prev, data]
+      })
       setEditPerlengkapan(prev => { const n = { ...prev }; delete n[atletId]; return n })
     } catch (e: any) {
       alert('Gagal menyimpan: ' + e.message)
