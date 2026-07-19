@@ -3,6 +3,7 @@
 // + hostname-based tenant routing (kab-bandung.vercel.app → /konida/.../kabbandung)
 
 import { NextRequest, NextResponse } from 'next/server'
+import { verifySessionCookie } from '@/lib/session'
 
 // ── Hostname → tenant slug ────────────────────────────────────────────────────
 const HOSTNAME_TENANT: Record<string, string> = {
@@ -84,7 +85,7 @@ function getDefaultRedirect(level: string): string {
   }
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   const hostname = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
@@ -105,6 +106,19 @@ export function middleware(req: NextRequest) {
     if (tenantRes) return tenantRes
   }
 
+  // ── Proteksi API sensitif (anonim → 401). /api di-skip di bawah, jadi tangani di sini. ──
+  if (pathname.startsWith('/api/superadmin') || pathname.startsWith('/api/users')) {
+    const p = await verifySessionCookie(
+      req.cookies.get('porprov_session')?.value,
+      req.cookies.get('porprov_sig')?.value,
+    )
+    if (!p) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (pathname.startsWith('/api/superadmin') && p.level !== 'superadmin' && p.role !== 'superadmin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    return NextResponse.next()
+  }
+
   // Skip
   if (
     pathname.startsWith('/_next') ||
@@ -115,15 +129,17 @@ export function middleware(req: NextRequest) {
     pathname.includes('.')
   ) return NextResponse.next()
 
-  // Cek session
-  const session   = req.cookies.get('porprov_session')?.value
-  const userLevel = req.cookies.get('user_level')?.value ?? 'level3'
+  // Cek session — verifikasi tanda tangan HMAC. JANGAN percaya cookie user_level (bisa diedit klien).
+  const session = req.cookies.get('porprov_session')?.value
+  const sig     = req.cookies.get('porprov_sig')?.value
+  const payload = await verifySessionCookie(session, sig)
 
-  if (!session) {
+  if (!payload) {
     const url = new URL('/login', req.url)
     url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
   }
+  const userLevel: string = payload.level ?? payload.role ?? 'level3'
 
   // Redirect /konida root ke dashboard yang tepat
   if (pathname === '/konida' || pathname === '/konida/') {
@@ -146,6 +162,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*'],
+  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*', '/api/superadmin/:path*', '/api/users/:path*'],
 }
 

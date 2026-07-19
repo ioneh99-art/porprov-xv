@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireRole } from '@/lib/guard'
 import { createClient } from '@supabase/supabase-js'
 import * as XLSX from 'xlsx'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -52,6 +53,7 @@ const parseTanggal = (val: any): string | null => {
 }
 
 export async function POST(req: NextRequest) {
+  const _g = await requireRole(); if (_g instanceof NextResponse) return _g
   const limited = checkRateLimit(req, { limit: 10, windowMs: 60_000, key: 'import', scope: 'ip+user' })
   if (limited) return limited
 

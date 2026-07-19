@@ -3,6 +3,7 @@
 // Modules: klasemen | cabor | stats | atlet_bulk
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireRole } from '@/lib/guard'
 import { createClient } from '@supabase/supabase-js'
 
 const sb = createClient(
@@ -12,6 +13,7 @@ const sb = createClient(
 
 // ── GET ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const _g = await requireRole(); if (_g instanceof NextResponse) return _g
   const module = new URL(req.url).searchParams.get('module')
 
   if (module === 'klasemen') {
@@ -66,6 +68,7 @@ export async function GET(req: NextRequest) {
 
 // ── PATCH — update rows ───────────────────────────────────
 export async function PATCH(req: NextRequest) {
+  const _g = await requireRole(); if (_g instanceof NextResponse) return _g
   const body = await req.json()
   const { module, data } = body
 
@@ -114,6 +117,7 @@ export async function PATCH(req: NextRequest) {
 
 // ── POST — create row ─────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const _g = await requireRole(); if (_g instanceof NextResponse) return _g
   const body = await req.json()
   const { module, data } = body
 
@@ -146,6 +150,7 @@ export async function POST(req: NextRequest) {
 
 // ── DELETE — remove / deactivate ─────────────────────────
 export async function DELETE(req: NextRequest) {
+  const _g = await requireRole(); if (_g instanceof NextResponse) return _g
   const body = await req.json()
   const { module, id } = body
 
