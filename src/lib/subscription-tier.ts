@@ -38,7 +38,15 @@ const supabase = createClient(
 )
 
 /**
- * Get subscription untuk specific cabor
+ * Get subscription untuk specific cabor.
+ *
+ * ⚠️ BELUM DIPAKAI (dead code per 2026-07-19) — tak ada pemanggil di kode.
+ * ⚠️ CAVEAT RUANG cabor_id: tabel `cabor_subscription.cabor_id` memakai ruang
+ *    `cabor_master` (id 1-108), BEDA dari ruang operasional `cabang_olahraga`
+ *    (dipakai atlet/nomor_pertandingan/users, id s/d 206+). Sebelum fungsi ini
+ *    diwire ke UI, PASTIKAN pemanggil mengirim id di ruang yang benar / lewat
+ *    peta nama — kalau tidak, cabor spt Dayung (cabang_olahraga=147) akan salah
+ *    baca tier. Lihat memori [[cabor-id-drift]].
  */
 export async function getCaborSubscription(cabor_id: number): Promise<CaborSubscription | null> {
   const { data, error } = await supabase
