@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
+import { atletJwtSecret } from '@/lib/atlet-jwt'
 import { createClient } from '@supabase/supabase-js'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
 )
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.ATLET_JWT_SECRET || 'porprov-atlet-secret-2026'
-)
 
 async function getAtletId(req: NextRequest): Promise<string | null> {
   try {
     const token = req.cookies.get('atlet_token')?.value
     if (!token) return null
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(token, atletJwtSecret())
     const { data } = await sb.from('atlet').select('id').eq('no_ktp', payload.nik as string).maybeSingle()
     return data?.id || null
   } catch { return null }

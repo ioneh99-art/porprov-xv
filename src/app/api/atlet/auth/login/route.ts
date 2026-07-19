@@ -4,13 +4,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SignJWT } from 'jose'
+import { atletJwtSecret } from '@/lib/atlet-jwt'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
-)
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.ATLET_JWT_SECRET || 'porprov-atlet-secret-2026'
 )
 
 export async function POST(req: NextRequest) {
@@ -66,7 +64,7 @@ export async function POST(req: NextRequest) {
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
       .setExpirationTime('8h')
-      .sign(JWT_SECRET)
+      .sign(atletJwtSecret())
 
     return NextResponse.json({
       token,

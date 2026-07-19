@@ -25,15 +25,9 @@ export async function loginUser(username: string, password: string) {
     const valid = await bcrypt.compare(password, user.password_hash)
     if (!valid) return null
   } else {
-    // Plain text sementara — cek lalu auto-migrate ke bcrypt
-    if (password !== user.password_hash) return null
-
-    // Auto-upgrade: hash sekarang juga agar next login sudah bcrypt
-    const hashed = await bcrypt.hash(password, 12)
-    await supabase
-      .from('users')
-      .update({ password_hash: hashed })
-      .eq('id', user.id)
+    // Semua user sudah bcrypt (audit 2026-07-19: 0 baris plaintext).
+    // Fallback plaintext dicabut — tolak password_hash non-bcrypt.
+    return null
   }
 
   return user

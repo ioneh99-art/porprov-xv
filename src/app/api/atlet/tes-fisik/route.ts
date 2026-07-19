@@ -4,14 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
+import { atletJwtSecret } from '@/lib/atlet-jwt'
 import { createClient } from '@supabase/supabase-js'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
-)
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.ATLET_JWT_SECRET || 'porprov-atlet-secret-2026'
 )
 
 const FOKUS_MAP: Record<string, string> = {
@@ -78,7 +76,7 @@ export async function GET(req: NextRequest) {
     const token = req.cookies.get('atlet_token')?.value
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(token, atletJwtSecret())
     const nik = payload.nik as string
     if (!nik) return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 })
 
