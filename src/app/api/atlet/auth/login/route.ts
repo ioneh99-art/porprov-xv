@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { SignJWT } from 'jose'
 import { atletJwtSecret } from '@/lib/atlet-jwt'
+import { verifyAtletPassword } from '@/lib/atlet-password'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,7 +42,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'NIK tidak terdaftar' }, { status: 401 })
     if (!atlet.portal_aktif)
       return NextResponse.json({ error: 'Akun belum aktif. Status pendaftaran belum Verified.' }, { status: 403 })
-    if (password !== atlet.atlet_password_hash)
+    const pwOk = await verifyAtletPassword(atlet.atlet_password_hash, password, async (h) => {
+      await sb.from('atlet').update({ atlet_password_hash: h }).eq('id', atlet.id)
+    })
+    if (!pwOk)
       return NextResponse.json({ error: 'Password salah' }, { status: 401 })
 
     // Update last_login — id adalah integer

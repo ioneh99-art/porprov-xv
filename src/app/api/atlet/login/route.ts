@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyAtletPassword } from '@/lib/atlet-password'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -21,7 +22,6 @@ export async function POST(req: NextRequest) {
     .from('atlet_accounts')
     .select('id, atlet_id, email, password_hash, is_active, is_public')
     .eq('email', email.trim().toLowerCase())
-    .eq('password_hash', password)
     .single()
 
   if (error || !account) {
@@ -29,6 +29,13 @@ export async function POST(req: NextRequest) {
       { error: 'Email atau password salah' },
       { status: 401 }
     )
+  }
+
+  const pwOk = await verifyAtletPassword(account.password_hash, password, async (h) => {
+    await supabase.from('atlet_accounts').update({ password_hash: h }).eq('id', account.id)
+  })
+  if (!pwOk) {
+    return NextResponse.json({ error: 'Email atau password salah' }, { status: 401 })
   }
 
   if (!account.is_active) {

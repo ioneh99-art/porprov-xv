@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { hashAtletPassword, verifyAtletPassword } from '@/lib/atlet-password'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,11 +28,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Status kamu: "${atlet.status_registrasi}". Harus Verified dulu.` }, { status: 403 })
 
     const defaultPass = no_ktp.slice(-4)
-    if (atlet.portal_aktif && atlet.atlet_password_hash !== defaultPass)
+    const isDefault = await verifyAtletPassword(atlet.atlet_password_hash, defaultPass)
+    if (atlet.portal_aktif && !isDefault)
       return NextResponse.json({ error: 'Akun sudah terdaftar. Silakan login.' }, { status: 409 })
 
     await sb.from('atlet').update({
-      atlet_password_hash: password,
+      atlet_password_hash: await hashAtletPassword(password),
       portal_aktif: true,
       email: email || null,
     }).eq('id', atlet.id)
