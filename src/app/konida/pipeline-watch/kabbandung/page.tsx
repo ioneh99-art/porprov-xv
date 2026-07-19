@@ -317,7 +317,7 @@ export default function PipelineWatchPage() {
                     <input value={form.event_name} onChange={e => set('event_name', e.target.value)}
                       placeholder="cth: Indonesia Open Athletics Championship U18 2026"
                       className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:ring-1"
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', focusRingColor: ACCENT }} />
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-500 mb-1 block">Nama Singkat</label>
