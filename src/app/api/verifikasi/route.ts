@@ -7,6 +7,7 @@ import {
   emailVerifikasiAdmin
 } from '@/lib/email'
 import { applyTransition, type VerifikasiAction, type AtletStatus } from '@/lib/atlet-status'
+import { isPhaseOpen } from '@/lib/phases'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest) {
   if (!atlet_id || !action) {
     return NextResponse.json({ error: 'atlet_id dan action wajib' }, { status: 400 })
   }
+
+  // Gerbang fase verifikasi (enforce bila dikonfigurasi) — kunci verifikasi setelah cut-off.
+  const fase = await isPhaseOpen('verifikasi')
+  if (!fase.open) return NextResponse.json({ error: fase.reason }, { status: 403 })
 
   try {
     // Ambil data atlet + kontingen + cabor + email KONIDA

@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getServerSession } from '@/lib/guard'
 import { writeAudit, reqMeta } from '@/lib/audit'
 import { cekEligibilitas, type NomorRule, type AtletInfo } from '@/lib/eligibility'
+import { isPhaseOpen } from '@/lib/phases'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
   const db = sb()
 
   if (op === 'upsert') {
+    const fase = await isPhaseOpen('kualifikasi')
+    if (!fase.open) return NextResponse.json({ error: fase.reason }, { status: 403 })
     const rows: any[] = Array.isArray(body.rows) ? body.rows : []
     if (!rows.length) return NextResponse.json({ error: 'Tidak ada baris.' }, { status: 400 })
     if (rows.length > 2000) return NextResponse.json({ error: 'Maksimal 2000 baris.' }, { status: 413 })

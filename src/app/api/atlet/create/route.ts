@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getServerSession } from '@/lib/guard'
 import { writeAudit, reqMeta } from '@/lib/audit'
+import { isPhaseOpen } from '@/lib/phases'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,10 @@ const notCountedPrefix = 'Ditolak'
 export async function POST(req: NextRequest) {
   const session = await getServerSession()
   if (!session) return NextResponse.json({ error: 'Silakan login dulu.' }, { status: 401 })
+
+  // Gerbang fase pendaftaran (enforce bila dikonfigurasi).
+  const fase = await isPhaseOpen('pendaftaran')
+  if (!fase.open) return NextResponse.json({ error: fase.reason }, { status: 403 })
 
   let body: any
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Body tidak valid.' }, { status: 400 }) }
