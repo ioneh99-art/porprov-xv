@@ -119,6 +119,17 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // ── Proteksi endpoint LLM/AI (cegah abuse biaya) — wajib login (peran apa saja). ──
+  const AI_PREFIXES = ['/api/ai-brief', '/api/chatbot', '/api/sipa', '/api/dayung/brief', '/api/jarvis', '/api/sport-intel', '/api/baseline/smart-brief', '/api/performance/smart-brief', '/api/performance/strategic-brief', '/api/performance/atlet-action-items', '/api/performance/meeting-agenda']
+  if (AI_PREFIXES.some(p => pathname.startsWith(p))) {
+    const p = await verifySessionCookie(
+      req.cookies.get('porprov_session')?.value,
+      req.cookies.get('porprov_sig')?.value,
+    )
+    if (!p) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.next()
+  }
+
   // Skip
   if (
     pathname.startsWith('/_next') ||
@@ -162,6 +173,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*', '/api/superadmin/:path*', '/api/users/:path*'],
+  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*', '/api/superadmin/:path*', '/api/users/:path*',
+    '/api/ai-brief/:path*', '/api/chatbot/:path*', '/api/sipa/:path*', '/api/dayung/brief/:path*',
+    '/api/jarvis/:path*', '/api/sport-intel/:path*', '/api/baseline/smart-brief/:path*', '/api/performance/:path*'],
 }
 
