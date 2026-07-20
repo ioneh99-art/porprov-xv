@@ -43,8 +43,12 @@ export default function PentathlonSettingsPage() {
 
     setSaving(true)
     try {
-      const ok = await saveUIPMBaselines(baselines, notes || undefined, me?.id)
-      if (!ok) throw new Error('Gagal save ke database')
+      // Simpan lewat server (service key + guard). Anon write ditutup.
+      const res = await fetch('/api/operator/pentathlon-config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baselines, notes: notes || undefined, updated_by: me?.id }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Gagal save ke database')
       setOriginal(baselines)
       setNotes('')
       showToast('✅ Baseline UIPM tersimpan. Cache otomatis di-refresh.')
