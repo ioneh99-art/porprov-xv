@@ -17,7 +17,22 @@ export default function NomorPertandinganPage() {
     tipe_skor: 'waktu', satuan: '',
     venue_id: '', tanggal_pertandingan: '',
     waktu_mulai: '',
+    usia_min: '', usia_maks: '',
+    max_peserta_kontingen: '', max_nomor_per_atlet: '',
   })
+  const [editId, setEditId] = useState<number | null>(null)
+
+  const startEdit = (n: any) => {
+    setEditId(n.id)
+    setForm({
+      nama: n.nama ?? '', gender: n.gender ?? 'L', tipe_skor: n.tipe_skor ?? 'waktu', satuan: n.satuan ?? '',
+      venue_id: n.venue_id ? String(n.venue_id) : '', tanggal_pertandingan: n.tanggal_pertandingan ?? '', waktu_mulai: n.waktu_mulai ?? '',
+      usia_min: n.usia_min != null ? String(n.usia_min) : '', usia_maks: n.usia_maks != null ? String(n.usia_maks) : '',
+      max_peserta_kontingen: n.max_peserta_kontingen != null ? String(n.max_peserta_kontingen) : '',
+      max_nomor_per_atlet: n.max_nomor_per_atlet != null ? String(n.max_nomor_per_atlet) : '',
+    })
+    setShowForm(true)
+  }
 
   useEffect(() => { loadData() }, [])
 
@@ -54,20 +69,21 @@ export default function NomorPertandinganPage() {
     setError('')
     try {
       // Tulis lewat server (service key + guard + cabor dari sesi). Anon write ditutup.
+      const payload = {
+        ...form,
+        venue_id: form.venue_id ? parseInt(form.venue_id) : null,
+        tanggal_pertandingan: form.tanggal_pertandingan || null,
+        waktu_mulai: form.waktu_mulai || null,
+      }
       const res = await fetch('/api/operator/nomor', {
-        method: 'POST',
+        method: editId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          venue_id: form.venue_id ? parseInt(form.venue_id) : null,
-          tanggal_pertandingan: form.tanggal_pertandingan || null,
-          waktu_mulai: form.waktu_mulai || null,
-        }),
+        body: JSON.stringify(editId ? { id: editId, ...payload } : payload),
       })
       const out = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(out?.error || 'Gagal menyimpan')
-      setShowForm(false)
-      setForm({ nama: '', gender: 'L', tipe_skor: 'waktu', satuan: '', venue_id: '', tanggal_pertandingan: '', waktu_mulai: '' })
+      setShowForm(false); setEditId(null)
+      setForm({ nama: '', gender: 'L', tipe_skor: 'waktu', satuan: '', venue_id: '', tanggal_pertandingan: '', waktu_mulai: '', usia_min: '', usia_maks: '', max_peserta_kontingen: '', max_nomor_per_atlet: '' })
       await loadData()
     } catch (e: any) {
       setError(e.message)
@@ -134,7 +150,8 @@ export default function NomorPertandinganPage() {
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-all">
                   <option value="L">Putra</option>
                   <option value="P">Putri</option>
-                  <option value="MIXED">Campuran</option>
+                  <option value="OPEN">Open (bebas gender)</option>
+                  <option value="MIX">Campuran (tim ganda)</option>
                 </select>
               </div>
 
@@ -179,6 +196,35 @@ export default function NomorPertandinganPage() {
                 <input name="waktu_mulai" value={form.waktu_mulai}
                   onChange={handleChange} type="time"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-all" />
+              </div>
+            </div>
+
+            {/* ── Aturan eligibilitas (opsional; kosong = tanpa batas) ── */}
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-amber-400/80 mb-2">
+                Aturan Eligibilitas <span className="text-slate-500 normal-case font-normal">· kosongkan bila tanpa batas · umur dihitung pada tanggal event</span>
+              </div>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-slate-400 text-[10px] uppercase tracking-wider font-medium mb-1.5">Umur Min</label>
+                  <input name="usia_min" value={form.usia_min} onChange={handleChange} type="number" min="0" placeholder="—"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-[10px] uppercase tracking-wider font-medium mb-1.5">Umur Maks</label>
+                  <input name="usia_maks" value={form.usia_maks} onChange={handleChange} type="number" min="0" placeholder="—"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-[10px] uppercase tracking-wider font-medium mb-1.5">Maks Peserta / Kontingen</label>
+                  <input name="max_peserta_kontingen" value={form.max_peserta_kontingen} onChange={handleChange} type="number" min="1" placeholder="—"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-slate-400 text-[10px] uppercase tracking-wider font-medium mb-1.5">Maks Nomor / Atlet</label>
+                  <input name="max_nomor_per_atlet" value={form.max_nomor_per_atlet} onChange={handleChange} type="number" min="1" placeholder="—"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all" />
+                </div>
               </div>
             </div>
 
@@ -245,10 +291,16 @@ export default function NomorPertandinganPage() {
                 <td className="px-4 py-3 text-slate-500 text-xs">{n.tanggal_pertandingan || '-'}</td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{n.waktu_mulai || '-'}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => handleDelete(n.id)}
-                    className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => startEdit(n)} title="Atur aturan / edit"
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all">
+                      <Edit size={13} />
+                    </button>
+                    <button onClick={() => handleDelete(n.id)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

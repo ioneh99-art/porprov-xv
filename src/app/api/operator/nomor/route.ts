@@ -16,13 +16,21 @@ const sb = () => createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
-const FIELDS = ['nama','gender','tipe_skor','satuan','disiplin_id','venue_id','tanggal_pertandingan','waktu_mulai','is_active','status']
+const FIELDS = ['nama','gender','tipe_skor','satuan','disiplin_id','venue_id','tanggal_pertandingan','waktu_mulai','is_active','status',
+  'usia_min','usia_maks','max_peserta_kontingen','max_nomor_per_atlet']
+const NUM_NULLABLE = ['usia_min','usia_maks','max_peserta_kontingen','max_nomor_per_atlet']
 function pick(src: any) {
   const out: any = {}
   for (const k of FIELDS) if (src[k] !== undefined) out[k] = src[k]
   if (out.venue_id === '' ) out.venue_id = null
   if (out.tanggal_pertandingan === '') out.tanggal_pertandingan = null
   if (out.waktu_mulai === '') out.waktu_mulai = null
+  // Kolom aturan: '' → null (tanpa batas, bisa dikosongkan saat edit); angka → integer.
+  for (const k of NUM_NULLABLE) {
+    if (!(k in out)) continue
+    if (out[k] === '' || out[k] === null) { out[k] = null; continue }
+    const n = parseInt(out[k]); out[k] = Number.isFinite(n) ? n : null
+  }
   return out
 }
 const isAdmin = (s: any) => ['superadmin','admin','koni_jabar'].includes(s.role) || ['superadmin','koni_jabar'].includes(s.level)
@@ -45,6 +53,31 @@ export async function POST(req: NextRequest) {
     actor_role: s.role ?? s.level ?? null, payload: { nama: row.nama, cabor_id }, ...reqMeta(req),
   })
   return NextResponse.json({ ok: true, id: (data as any)?.id })
+}
+
+export async function PATCH(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const body = await req.json().catch(() => ({}))
+  const id = Number(body.id)
+  if (!id) return NextResponse.json({ error: 'id wajib' }, { status: 400 })
+  const db = sb()
+  // Cek kepemilikan: operator hanya boleh ubah nomor cabornya.
+  if (!isAdmin(s)) {
+    const { data: row } = await db.from('nomor_pertandingan').select('cabor_id').eq('id', id).single()
+    if (!row) return NextResponse.json({ error: 'Nomor tidak ditemukan' }, { status: 404 })
+    if (row.cabor_id !== s.cabor_id) return NextResponse.json({ error: 'Bukan nomor cabor Anda.' }, { status: 403 })
+  }
+  const updates = pick(body)
+  if (!Object.keys(updates).length) return NextResponse.json({ error: 'Tidak ada perubahan' }, { status: 400 })
+  const { error } = await db.from('nomor_pertandingan').update(updates).eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await writeAudit({
+    action: 'UPDATE_NOMOR', resource: 'nomor_pertandingan', resource_id: id,
+    actor_id: s.id != null ? String(s.id) : null, actor_email: s.username ?? null,
+    actor_role: s.role ?? s.level ?? null, payload: { fields: Object.keys(updates) }, ...reqMeta(req),
+  })
+  return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(req: NextRequest) {
