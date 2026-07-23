@@ -9,8 +9,8 @@ import {
   ChevronRight, LogOut, User,
   Edit3, Users, Medal, Settings, Calendar,
   Activity, Award, Database, Lock,
-  Sparkles, Layers, Building2, Zap,
-  ShieldCheck, CheckCircle, Wand2, Heart,
+  Layers, Building2, Zap,
+  ShieldCheck,
 } from 'lucide-react'
 import UpgradeModal from '@/components/UpgradeModal'
 import type { SubscriptionTier } from '@/lib/subscription-tier'
@@ -71,24 +71,6 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Input UIPM',          href: '/operator/pentathlon/input',    icon: Edit3,    tier: 'BASIC' },
       { label: 'Klasemen Live',       href: '/operator/pentathlon/klasemen', icon: Trophy,   tier: 'BASIC' },
       { label: 'Settings Formula',    href: '/operator/pentathlon/settings', icon: Settings, tier: 'BASIC' },
-    ],
-  },
-  // ────────────────────────────────────────────────────────────────
-  // NEW: PENTASCORE INDONESIA (Sprint 2)
-  // Standalone UIPM-grade scoring system, separate from PORPROV operator module.
-  // ────────────────────────────────────────────────────────────────
-  {
-    label: 'PENTASCORE',
-    items: [
-      { label: 'Dashboard',     href: '/operator/pentascore',                icon: Sparkles,   tier: 'BASIC', badge: 'BETA' },
-      { label: 'Tenants',       href: '/operator/pentascore/tenants',        icon: Building2,  tier: 'BASIC', badge: 'BETA' },
-      { label: 'Events',        href: '/operator/pentascore/events',         icon: Layers,     tier: 'BASIC', badge: 'BETA' },
-      { label: 'Athletes',      href: '/operator/pentascore/athletes',       icon: Users,      tier: 'BASIC', badge: 'BETA' },
-      { label: 'Import Wizard', href: '/operator/pentascore/athletes/import',icon: Zap,        tier: 'BASIC', badge: 'BETA' },
-      { label: 'Audit Log',     href: '/operator/pentascore/audit',          icon: ShieldCheck,tier: 'BASIC', badge: 'BETA' },
-      { label: 'Cross-Validate',href: '/operator/pentascore/cross-validate', icon: CheckCircle,tier: 'BASIC', badge: 'BETA' },
-      { label: 'Demo Seed',     href: '/operator/pentascore/demo-seed',      icon: Wand2,      tier: 'BASIC', badge: 'BETA' },
-      { label: 'Health',        href: '/operator/pentascore/health',         icon: Heart,      tier: 'BASIC', badge: 'BETA' },
     ],
   },
 ]
@@ -152,7 +134,6 @@ export default function OperatorSidebar({
     ANALYTICS: true,
     INTELLIGENCE: true,
     'LIVE EVENT TOOLS': true,
-    PENTASCORE: true,
   })
   const [upgradeModal, setUpgradeModal] = useState<{
     open: boolean; targetTier: SubscriptionTier
@@ -165,13 +146,9 @@ export default function OperatorSidebar({
   const userTier: TierBadge = user?.tier ?? 'CHAMPION'
   const caborNama = user?.cabor ?? 'Modern Pentathlon'
 
-  // Sidebar sadar-cabor: operator Dayung lihat menu Dayung, bukan Pentathlon/Pentascore.
+  // Sidebar sadar-cabor: operator Dayung lihat menu Dayung, bukan Pentathlon.
   const isDayung = /dayung/i.test(caborNama)
   const groups = isDayung ? DAYUNG_GROUPS : MENU_GROUPS
-
-  // Helper: detect PENTASCORE group for special amber-on-dark styling
-  const isPentascoreGroup = (label: string) => label === 'PENTASCORE'
-  const isPentascoreActive = pathname?.startsWith('/operator/pentascore')
 
   return (
     <>
@@ -213,19 +190,14 @@ export default function OperatorSidebar({
         {/* Menu groups */}
         <nav className="flex-1 overflow-y-auto py-3">
           {groups.map(group => {
-            const isPSGrp = isPentascoreGroup(group.label)
             return (
-              <div key={group.label} className={`mb-2 ${isPSGrp ? 'mt-3 pt-3 border-t border-amber-500/20' : ''}`}>
+              <div key={group.label} className="mb-2">
                 {!collapsed && (
                   <button
                     onClick={() => toggleGroup(group.label)}
-                    className={`w-full px-4 py-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider transition
-                      ${isPSGrp
-                        ? 'text-amber-400 hover:text-amber-300'
-                        : 'text-slate-500 hover:text-slate-300'}`}
+                    className="w-full px-4 py-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider transition text-slate-500 hover:text-slate-300"
                   >
                     <span className="flex items-center gap-1.5">
-                      {isPSGrp && <Sparkles size={10} className="text-amber-500" />}
                       {group.label}
                     </span>
                     {openGroups[group.label] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -262,14 +234,9 @@ export default function OperatorSidebar({
                         )
                       }
 
-                      // Pentascore items: amber theme variant
-                      const activeClass = isPSGrp
-                        ? (isActive
-                          ? 'bg-amber-500/15 text-amber-200 border border-amber-500/30'
-                          : 'text-amber-100/80 hover:bg-amber-500/5 hover:text-amber-200')
-                        : (isActive
-                          ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white')
+                      const activeClass = isActive
+                        ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
 
                       return (
                         <Link

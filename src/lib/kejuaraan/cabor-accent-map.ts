@@ -75,7 +75,7 @@ export const CABOR_ACCENT: Record<string, string> = {
   // Lainnya
   'Berkuda':              '#78350f',  // brown-dark
   'Golf':                 '#16a34a',  // green
-  'Modern Pentathlon':    '#7c3aed',  // violet (PentaScore link)
+  'Modern Pentathlon':    '#7c3aed',  // violet
   'Petanque':             '#a16207',  // amber-darker
   'Sepak Takraw':         '#0f766e',  // teal
 }
