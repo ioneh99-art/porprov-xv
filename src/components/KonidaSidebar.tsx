@@ -354,6 +354,8 @@ export default function KonidaSidebar() {
               ? <NavItem label="Laporan"     href="/konida/laporan/kabbandung"         icon={BarChart2}/>
               : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
             }
+            <NavItem label="Rekonsiliasi Peserta" href="/konida/rekonsiliasi" icon={ClipboardCheck}/>
+            <NavItem label="Target Medali (KBAAS)" href="/konida/intel"        icon={Trophy}/>
 
             {/* ── 2. Premium ── */}
             <div className="flex items-center gap-2 px-2 mt-3 mb-2">
@@ -435,6 +437,8 @@ export default function KonidaSidebar() {
               ? <NavItem label="Laporan"     href={tp('/konida/laporan', tenantId)}      icon={BarChart2}/>
               : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
             }
+            <NavItem label="Rekonsiliasi Peserta" href="/konida/rekonsiliasi" icon={ClipboardCheck}/>
+            <NavItem label="Target Medali (KBAAS)" href="/konida/intel"        icon={Trophy}/>
             {can('export_pdf')
               ? <NavItem label="Data Gateway"  href={tp('/konida/export', tenantId)} icon={Database}/>
               : <LockedNavItem label="Data Gateway" icon={Database} plan="Premium"/>
