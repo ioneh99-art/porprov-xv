@@ -119,7 +119,7 @@ export interface ReconResult {
   rows: ReconRow[]
 }
 
-const FUZZY_KONFIRM = 0.78   // >= → perlu_konfirmasi (punya kandidat)
+const FUZZY_KONFIRM = 0.55   // >= → perlu_konfirmasi (punya kandidat; di UI ditingkat A/B/C by skor)
 
 /** Cocokkan 674 reviu → DB (§7). Read-only; hanya menghitung, tidak menulis. */
 export function reconcile(parsed: ParsedFileA, db: DbAtlet[]): ReconResult {
