@@ -25,6 +25,14 @@ Impor file Analisis KONI → target medali per atlet + **target emas dua-lapis C
 ### Prinsip (dari brief §0 — dipatuhi semua)
 Semua tulis lewat **route server + service key** (bukan browser) · **non-destruktif** (tak sentuh `atlet`) · **confirm-before-write** · **kontingen dari sesi** (bukan hardcode 4) · **RLS bukan `USING(true)`**.
 
+### ⚙️ CAKUPAN: MULTI-KONTINGEN (bukan Kab. Bandung saja)
+Fitur ini **bukan** khusus Kab. Bandung — **kodenya kontingen-aware, jalan untuk semua kontingen**:
+- Semua route ambil `kontingen_id` **dari sesi** (`s.kontingen_id`), diverifikasi tak ada hardcode `4`/`kabbandung`. Konida Kab. Bogor/Bekasi/Depok/dst yang login → dapat data kontingennya sendiri, unggah file mereka sendiri.
+- Superadmin (tanpa kontingen) → boleh sebut `kontingen_id` via field.
+- Halaman di jalur **umum** (`/konida/rekonsiliasi`, `/konida/intel`), bukan tenant-specific.
+- **Yang Kab-Bandung-doang cuma DATA/analisisnya** (674/1097/19 hilang/5 emas + laporan Excel) — karena hanya file Kab. Bandung yang tersedia saat pembangunan.
+- ⚠️ **Belum diuji dengan file kontingen LAIN** (belum ada filenya). Logika generik → seharusnya jalan. **Asumsi: file kontingen lain format sama** (template KONI: 3 sheet, NIK nempel di nama, header ter-merge). Kalau struktur beda, parser mungkin perlu penyesuaian kecil.
+
 ---
 
 ## 2. 🧪 PANDUAN MENCOBA (langkah-per-langkah, pakai akun asli)
