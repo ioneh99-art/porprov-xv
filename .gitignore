@@ -20,3 +20,5 @@ data/baseline/*.xls
 .vercel
 _backup_*.json
 scripts/seed-angkatberat-2layer.mjs
+.env*
+tsconfig.tsbuildinfo
