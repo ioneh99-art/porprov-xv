@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getOperatorContext } from '@/lib/operator-context'
+import { getServerSession } from '@/lib/guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,16 +14,23 @@ const getSb = () => createClient(
 
 export async function POST(req: NextRequest) {
   try {
+    const s = await getServerSession()
+    if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const OK = ['operator_cabor', 'konida', 'admin', 'superadmin', 'koni_jabar']
+    if (!OK.includes(s.role) && !OK.includes(s.level))
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
     const body = await req.json()
     const { ageMin, ageMax, gender, caborFilter, prioritize } = body
-    const ctx = await getOperatorContext()
 
     let query = getSb()
       .from('atlet')
       .select('id, nama, cabor, kontingen, jenis_kelamin, usia, tanggal_lahir')
 
+    // Filter "cabor saya" pakai cabor dari SESI terverifikasi (bukan cookie palsu)
     if (caborFilter === 'mine') {
-      query = query.eq('cabor', ctx.cabor)
+      if (!s.cabor_nama) return NextResponse.json({ error: 'Cabor tidak diketahui dari sesi' }, { status: 403 })
+      query = query.eq('cabor', s.cabor_nama)
     }
     if (gender && gender !== 'all') {
       query = query.eq('jenis_kelamin', gender)
