@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { getServerSession } from '@/lib/guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,17 +13,10 @@ const getSb = () => createClient(
   { auth: { persistSession: false } }
 )
 
-function getSession() {
-  try {
-    const val = cookies().get('porprov_session')?.value
-    return val ? JSON.parse(val) : null
-  } catch { return null }
-}
-
 // GET — ambil semua prestasi untuk cabor operator ini
 export async function GET() {
   try {
-    const sess = getSession()
+    const sess = await getServerSession()
     if (!sess || !sess.cabor_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const sb = getSb()
 
@@ -51,7 +44,7 @@ export async function GET() {
 // POST — tambah satu record prestasi
 export async function POST(req: NextRequest) {
   try {
-    const sess = getSession()
+    const sess = await getServerSession()
     if (!sess || !sess.cabor_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const sb = getSb()
     const body = await req.json()
@@ -91,7 +84,7 @@ export async function POST(req: NextRequest) {
 // DELETE — hapus record
 export async function DELETE(req: NextRequest) {
   try {
-    const sess = getSession()
+    const sess = await getServerSession()
     if (!sess || !sess.cabor_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const sb = getSb()
     const { id } = await req.json()
