@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { writeAudit, reqMeta } from '@/lib/audit'
+import { getServerSession } from '@/lib/guard'
 import {
   emailAtletBaru,
   emailStatusAtlet,
@@ -15,10 +16,14 @@ const sb = () => createClient(
 )
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Identitas & role dari sesi TERVERIFIKASI (HMAC) — bukan cookie mentah yg bisa dipalsukan.
+  const user = await getServerSession()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Hanya peran verifikator boleh menggerbang status atlet. applyTransition tegakkan peran per-aksi.
+  const ROLE_OK = ['operator_cabor', 'admin', 'konida', 'superadmin', 'koni_jabar']
+  if (!ROLE_OK.includes(user.role) && !ROLE_OK.includes(user.level))
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const user = JSON.parse(session)
   const body = await req.json()
   const { atlet_id, action, alasan } = body
 
@@ -160,10 +165,10 @@ export async function POST(req: NextRequest) {
 
 // GET — ambil daftar atlet pending per role
 export async function GET(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Wajib login (sesi terverifikasi HMAC). Scope per-role di bawah (operator→cabor, konida→kontingen).
+  const user = await getServerSession()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const user = JSON.parse(session)
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
   const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1'))
