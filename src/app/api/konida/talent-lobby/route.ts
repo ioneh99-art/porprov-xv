@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { getServerSession } from '@/lib/guard'
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
 
@@ -11,13 +11,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-function actor(): string {
-  try { const s = cookies().get('porprov_session')?.value; if (s) { const u = JSON.parse(s); return u.nama || u.username || 'operator' } } catch {}
-  return 'operator'
-}
-
 export async function GET() {
   try {
+    const s = await getServerSession()
+    if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const { data, error } = await sb.from('v_talent_lobby_jabar').select('*')
       .eq('is_eligible_candidate', true).order('event_date', { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -27,10 +24,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const s = await getServerSession()
+    if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const OK = ['konida', 'admin', 'superadmin', 'koni_jabar']
+    if (!OK.includes(s.role) && !OK.includes(s.level)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const b = await req.json().catch(() => ({}))
     const { event_id, reason } = b
     if (!event_id || !reason) return NextResponse.json({ error: 'event_id & reason wajib' }, { status: 400 })
-    const by = actor()
+    const by = s.nama ?? s.username ?? 'operator'
 
     const { data: ekr } = await sb.from('event_kejurnas_results')
       .select('athlete_name_raw, team_name, year_of_birth, gender, cabor_nama, nomor_pertandingan, mark, medal, event_date')
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
       cabor_nama: ekr.cabor_nama, nomor_pertandingan: ekr.nomor_pertandingan,
       best_result: ekr.mark, medal: ekr.medal, event_date: ekr.event_date,
       flagged_for_recruitment: true, flagged_at: new Date().toISOString(), flagged_by: by,
-      flagged_reason: reason, target_kontingen_id: 4, updated_at: new Date().toISOString(),
+      flagged_reason: reason, target_kontingen_id: s.kontingen_id ?? 4, updated_at: new Date().toISOString(),
     }, { onConflict: 'source_event_kejurnas_id' }).select('id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
