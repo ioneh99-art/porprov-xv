@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getOperatorContext } from '@/lib/operator-context'
+import { getServerSession } from '@/lib/guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,9 +19,21 @@ const TARGETS: Record<string, { label: string; yearsAhead: number }> = {
 }
 
 export async function POST(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { target } = await req.json()
-    const ctx = await getOperatorContext()
+    // Scope dari sesi TERVERIFIKASI (bukan cookie operator_* yang bisa dipalsukan).
+    const caborNama = s.cabor_nama ?? null
+    let kontingenNama: string | null = null
+    if (s.kontingen_id != null) {
+      const { data: k } = await getSb().from('kontingen').select('nama').eq('id', s.kontingen_id).single()
+      kontingenNama = (k as any)?.nama ?? null
+    }
+    if (!caborNama || !kontingenNama) {
+      return NextResponse.json({ error: 'Sesi tidak punya cabor/kontingen — tak bisa memprediksi.' }, { status: 400 })
+    }
+    const ctx = { cabor: caborNama, kontingen: kontingenNama }
     const tCfg = TARGETS[target] ?? TARGETS.PORPROV_XV
 
     // Pull historical medali for this cabor + kontingen
