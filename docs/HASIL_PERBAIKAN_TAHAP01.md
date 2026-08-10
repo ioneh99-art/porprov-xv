@@ -144,9 +144,9 @@ Keenam route target **sudah hilang** dari daftar. Sisa terklasifikasi:
 **B. Publik-sengaja (login/flow auth)** — tak boleh butuh sesi:
 `atlet/login`, `atlet/register`, `auth/login`, `auth/logout`, `auth/change-password`, `auth/update-profile`.
 
-**C. ⚠️ TEMUAN BARU — di luar lingkup 1.5 (READ-only, bukan mutasi; usul Tahap berikut):**
-1. **`api/intel/scout`** — pakai `getOperatorContext` (penjaga palsu, fallback `Kab. Bogor`/`CHAMPION`) + **service-role key** (tembus RLS), baca s/d **500 baris atlet + PII** (tanggal_lahir/usia) **tanpa sesi**. Prioritas tinggi utk Tahap 2.
-2. **`api/ai-nlq`** — masih `JSON.parse(cookie)` tak-terverifikasi (bisa dipalsukan); read-only LLM analitik, ada rate-limit. Prioritas sedang.
+**C. TEMUAN BARU (READ-only) — SUDAH DITUTUP setelah smoke-test owner:**
+1. ✅ **`api/intel/scout`** — dulu `getOperatorContext` (penjaga palsu) + service-role key baca s/d 500 atlet+PII tanpa sesi. Kini `getServerSession` + gerbang role; filter cabor dari sesi. Uji 4/4 (anon 401, palsu 401, atlet 403, konida 200). Commit `a3c8650`, merge `9b6842b`.
+2. ✅ **`api/ai-nlq`** — dulu `JSON.parse(cookie)` bisa dipalsukan. Kini `getServerSession` HMAC. Uji (anon 401, palsu 401, sesi 200). Commit `a80d7be`, merge `ad7be73`.
 
 ## Acceptance Tahap 1.5
 | # | Kriteria | Status |
