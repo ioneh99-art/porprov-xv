@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getServerSession } from '@/lib/guard'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,10 +105,9 @@ export async function POST(req: NextRequest) {
   const limited = checkRateLimit(req, { limit: 20, windowMs: 60_000, key: 'ai-nlq', scope: 'ip+user' })
   if (limited) return limited
 
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await getServerSession()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const user = JSON.parse(session)
   const { question, history } = await req.json()
   if (!question) return NextResponse.json({ error: 'Pertanyaan kosong' }, { status: 400 })
 
