@@ -101,3 +101,63 @@ users:          allow_login SELECT public USING(true)                 →  (TETA
 ## Status akhir
 - Branch `fix/keamanan-tahap-1`, 3 commit (`c813cdc`, `587de89`, `40e580b`). **BELUM di-merge ke `main`.**
 - **BERHENTI di sini** sesuai brief §URUTAN.6 — menunggu review owner sebelum Tahap 2.
+
+---
+---
+
+# HASIL PERBAIKAN — TAHAP 1.5 (P0: 6 route mutasi)
+
+Lanjutan dari Tahap 1. Menutup 6 route mutasi yang masih baca cookie mentah
+(`JSON.parse`) atau `getOperatorContext` (penjaga palsu). Semua diganti
+`getServerSession()` (verifikasi HMAC) + gerbang role, + sumber kontingen/cabor
+dipindah dari input yg bisa dipalsukan ke sesi terverifikasi.
+
+Branch: **`fix/keamanan-tahap-1b`** (lanjut dari `fix/keamanan-tahap-1`). **BELUM di-merge.**
+
+## Yang diperbaiki — per route (1 commit / route, TIDAK borongan)
+
+| # | Route | Sebelum | Sesudah | Commit |
+|---|---|---|---|---|
+| 1 | `api/verifikasi` (POST+GET) | `JSON.parse(cookie)` tanpa verifikasi | `getServerSession` + role `[operator_cabor, admin, konida, superadmin, koni_jabar]` | `2f70555` |
+| 2 | `api/performance/import` (POST) | kontingen dari **FormData** (fallback `4`) | `getServerSession` + role; kontingen **dari sesi**, pusat boleh sebut | `54b1571` |
+| 3 | `api/operator/prestasi` (GET/POST/DELETE) | `getSession()` baca cookie mentah | `getServerSession`; `cabor_id` dari sesi | `f4d9cd0` |
+| 4 | `api/admin/tes-fisik-unmatched` (GET/POST) | tanpa gerbang | `getServerSession` + role (POST: hanya `superadmin`/`koni_jabar`) | `6181474` |
+| 5 | `api/konida/talent-lobby` (GET/POST) | `actor()` cookie mentah; `target_kontingen_id: 4` hardcode | `getServerSession` + role; kontingen & `flagged_by` **dari sesi** | `0d23255` |
+| 6 | `api/cache/invalidate` (POST) | `JSON.parse(cookie)` | `getServerSession` + role `superadmin`/`koni_jabar` | `a097642` |
+
+## Bukti uji tiap route (dev localhost:3000)
+Pola uji: **anon → 401**, **cookie palsu (`porprov_sig=BAD`) → 401** (bukti HMAC),
+**role salah → 403**, **role sah → lolos** (bukan 401/403).
+
+- `verifikasi`, `performance/import`, `operator/prestasi`, `talent-lobby`, `cache/invalidate`: **4/4 sesuai** (contoh cache/invalidate: anon 401 · palsu 401 · konida 403 · superadmin 200).
+- `admin/tes-fisik-unmatched` GET: gerbang benar (anon 401, role salah 403, admin lolos-gerbang); query hilir 500 lokal = env `SUPABASE_SERVICE_KEY` — **bukan soal auth**, jalan di prod.
+- `performance/import` & `intel/predictor`: gerbang benar; 500 lokal krn `SUPABASE_SERVICE_ROLE_KEY` tak ada di `.env.local` (pra-ada, bukan dari perubahan ini).
+
+## Grep penutup (§3) — sisa route mutasi TANPA `getServerSession`
+Keenam route target **sudah hilang** dari daftar. Sisa terklasifikasi:
+
+**A. Dijaga middleware (aman, bukan celah)** — `src/middleware.ts` matcher:
+`superadmin/{ai,assign-plan,subscriptions}` (`/api/superadmin/*`), `ai-brief`,
+`chatbot`, `sipa`, `dayung/brief`, `jarvis/*`, `sport-intel`,
+`baseline/smart-brief`, `performance/{smart-brief,strategic-brief,atlet-action-items,meeting-agenda}`.
+
+**B. Publik-sengaja (login/flow auth)** — tak boleh butuh sesi:
+`atlet/login`, `atlet/register`, `auth/login`, `auth/logout`, `auth/change-password`, `auth/update-profile`.
+
+**C. ⚠️ TEMUAN BARU — di luar lingkup 1.5 (READ-only, bukan mutasi; usul Tahap berikut):**
+1. **`api/intel/scout`** — pakai `getOperatorContext` (penjaga palsu, fallback `Kab. Bogor`/`CHAMPION`) + **service-role key** (tembus RLS), baca s/d **500 baris atlet + PII** (tanggal_lahir/usia) **tanpa sesi**. Prioritas tinggi utk Tahap 2.
+2. **`api/ai-nlq`** — masih `JSON.parse(cookie)` tak-terverifikasi (bisa dipalsukan); read-only LLM analitik, ada rate-limit. Prioritas sedang.
+
+## Acceptance Tahap 1.5
+| # | Kriteria | Status |
+|---|---|---|
+| 1 | 6 route target pakai `getServerSession` (HMAC) | ✅ |
+| 2 | Cookie palsu (`porprov_sig=BAD`) ditolak 401 | ✅ (terbukti tiap route) |
+| 3 | Kontingen/cabor dari sesi, bukan body/FormData/cookie | ✅ (import, talent-lobby, prestasi) |
+| 4 | 1 commit per route (tidak borongan) | ✅ (2f70555 → a097642) |
+| 5 | Grep penutup dijalankan + sisa dilaporkan | ✅ (§ di atas) |
+| 6 | Fitur tetap jalan utk user sah | ✅ (lolos gerbang dgn sesi) |
+
+## Status akhir Tahap 1.5
+- Branch **`fix/keamanan-tahap-1b`**, 6 commit (`2f70555`, `54b1571`, `f4d9cd0`, `6181474`, `0d23255`, `a097642`). **BELUM di-merge.**
+- **BERHENTI di sini** sesuai instruksi — menunggu **smoke-test login asli** + review owner sebelum merge.
