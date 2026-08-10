@@ -4,13 +4,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { invalidateSubscriptionCache } from '@/lib/subscriptions'
+import { getServerSession } from '@/lib/guard'
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const user = JSON.parse(session)
-  if (user.role !== 'superadmin' && user.role !== 'koni_jabar') {
+  const user = await getServerSession()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const OK = ['superadmin', 'koni_jabar']
+  if (!OK.includes(user.role) && !OK.includes(user.level)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

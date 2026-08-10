@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOperatorContext } from '@/lib/operator-context'
+import { getServerSession } from '@/lib/guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -54,6 +55,8 @@ export async function GET() {
 
 // POST: submit highlight generation job(s) to ione Factory
 export async function POST(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { eventIds, stylePreset, voiceGender } = await req.json()
     if (!Array.isArray(eventIds) || eventIds.length === 0) {

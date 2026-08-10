@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServerSession } from '@/lib/guard'
+
+export const runtime = 'nodejs'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,6 +29,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const {
     nomor_id, tanggal, waktu_mulai,
@@ -56,6 +61,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const { id, status, waktu_mulai, waktu_selesai, venue_id, fase, keterangan, tanggal } = body
 
@@ -80,6 +87,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID wajib' }, { status: 400 })
 

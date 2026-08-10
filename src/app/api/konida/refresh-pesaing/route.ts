@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServerSession } from '@/lib/guard'
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
 
@@ -13,6 +14,8 @@ const medalRank = (m: string | null) => m === 'EMAS' ? 0 : m === 'PERAK' ? 1 : m
 const validMark = (m: string | null) => !!m && /^\d/.test(m)
 
 export async function POST(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { atlet_id } = await req.json().catch(() => ({}))
   if (!atlet_id) return NextResponse.json({ error: 'atlet_id required' }, { status: 400 })
   try {

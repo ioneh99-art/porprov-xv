@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { emailDailyDigest } from '@/lib/email'
+import { getServerSession } from '@/lib/guard'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,11 +13,10 @@ const sb = createClient(
 
 // GET — ringkasan unmatched per kontingen (untuk admin dashboard)
 export async function GET(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const user = JSON.parse(session)
-  if (!['superadmin', 'koni_jabar', 'admin'].includes(user.role)) {
+  const user = await getServerSession()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const OK = ['superadmin', 'koni_jabar', 'admin']
+  if (!OK.includes(user.role) && !OK.includes(user.level)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -59,11 +59,10 @@ export async function GET(req: NextRequest) {
 
 // POST — kirim email digest unmatched ke admin (bisa dijadwalkan via cron)
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const user = JSON.parse(session)
-  if (!['superadmin', 'koni_jabar'].includes(user.role)) {
+  const user = await getServerSession()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const OK = ['superadmin', 'koni_jabar']
+  if (!OK.includes(user.role) && !OK.includes(user.level)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -2,17 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { parseImportBuffer } from '@/lib/performance/import-parser'
+import { getServerSession } from '@/lib/guard'
 
 export const dynamic = 'force-dynamic'
 
 // POST /api/performance/import
 // FormData: file (xlsx), cabor_nama, action ('preview'|'import'), kontingen_id
 export async function POST(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ROLE_OK = ['konida', 'operator_cabor', 'admin', 'superadmin', 'koni_jabar']
+  if (!ROLE_OK.includes(s.role) && !ROLE_OK.includes(s.level))
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
   const form = await req.formData()
   const file       = form.get('file')       as File | null
   const caborNama  = form.get('cabor_nama') as string | null
   const action     = (form.get('action') ?? 'preview') as 'preview' | 'import'
-  const kontiId    = parseInt((form.get('kontingen_id') as string) ?? '4')
+  // Kontingen dari SESI terverifikasi (bukan FormData yg bisa dipalsukan). Pusat boleh sebut.
+  const isPusat = ['superadmin', 'admin', 'koni_jabar'].includes(s.role) || ['superadmin', 'koni_jabar'].includes(s.level)
+  const kontiId = s.kontingen_id ?? (isPusat ? parseInt((form.get('kontingen_id') as string) ?? '0') : 0)
+  if (!kontiId) return NextResponse.json({ error: 'Kontingen tidak diketahui dari sesi.' }, { status: 403 })
 
   if (!file || !caborNama) {
     return NextResponse.json({ error: 'file dan cabor_nama wajib diisi' }, { status: 400 })

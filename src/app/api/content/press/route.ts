@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOperatorContext } from '@/lib/operator-context'
+import { getServerSession } from '@/lib/guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -64,9 +65,11 @@ const LENGTH_INSTRUCTIONS: Record<string, string> = {
 }
 
 export async function POST(req: NextRequest) {
+  const s = await getServerSession()
+  if (!s) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { eventId, tone, length } = await req.json()
-    const ctx = await getOperatorContext()
+    const ctx = await getOperatorContext()   // hanya utk fallback tampilan (kontingen di prompt), bukan gate
 
     // Fetch event detail
     const { data: ev, error } = await getSb()
