@@ -347,7 +347,6 @@ export default function KonidaSidebar() {
             <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
             <NavItem label="Dashboard"       href={dashboardHref}                     icon={LayoutDashboard}/>
             <NavItem label="Data Atlet"      href="/konida/atlet/kabbandung"           icon={Users}/>
-            <NavItem label="Cetak ID Card"   href="/konida/atlet/kabbandung/idcard"    icon={CreditCard}/>
             <NavItem label="Dokumen Atlet"   href="/konida/dokumen/kabbandung"         icon={FileCheck}/>
             {can('kualifikasi')
               ? <NavItem label="Kualifikasi" href="/konida/kualifikasi/kabbandung"     icon={ClipboardCheck}/>
@@ -368,6 +367,7 @@ export default function KonidaSidebar() {
                 style={{ color: '#F5C518', opacity: 0.6 }}>Premium</span>
               <div className="flex-1 h-px bg-slate-800"/>
             </div>
+            <NavItemPremium label="Cetak ID Card"  href="/konida/atlet/kabbandung/idcard"                     icon={CreditCard} tc={tc}/>
             <NavItemPremium label="Data Gateway"   href="/konida/export/kabbandung"                          icon={Database}  tc={tc}/>
             <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
             <NavItemPremium label="Heatmap Cabor"  href="/konida/Premiumreport/kabbandung/heatmap-cabor"      icon={BarChart2} tc={tc}/>
