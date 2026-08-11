@@ -730,7 +730,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
                   Insight dari Data Quality Engine + Tes Biomotorik FPOK UPI
                 </p>
               </div>
-              <a href="/konida/intelligence/kabbandung"
+              <a href="/konida/performance/kabbandung"
                 className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors"
                 style={{ background: 'rgba(139,92,246,0.15)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.35)' }}>
                 Detail Lengkap →
@@ -816,7 +816,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
                   <span className="text-amber-300 font-semibold">{intelligence.anomali_count} anomali:</span>
                   <span className="text-amber-500/80 ml-1">atlet dengan tes fisik valid tapi NIK perlu verifikasi KONI</span>
                 </div>
-                <a href="/konida/intelligence/kabbandung"
+                <a href="/konida/rekonsiliasi"
                   className="text-xs text-amber-300 hover:underline shrink-0">Lihat →</a>
               </div>
             )}

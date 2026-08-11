@@ -338,7 +338,9 @@ export default function KonidaSidebar() {
       <nav className="flex-1 px-3 pt-3 overflow-y-auto space-y-0.5">
 
         {/* ── KAB. BANDUNG — Kontingen di atas, Command Center di bawah ── */}
-        {tenantId === 'kabbandung' ? (
+        {/* koni_jabar (tenant 'jabar') difokuskan ke menu Kab. Bandung — satu-satunya
+            kontingen berdata lengkap. Menghindari link /konida/<section>/jabar yg 404. */}
+        {(tenantId === 'kabbandung' || tenantId === 'jabar' || userLevel === 'koni_jabar') ? (
           <>
             {/* ── 1. Kontingen ── */}
             <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
