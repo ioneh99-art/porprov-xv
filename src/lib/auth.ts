@@ -1,6 +1,7 @@
 // lib/auth.ts
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
+import { getUserHash, setUserHash } from './user-credential'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,11 +19,13 @@ export async function loginUser(username: string, password: string) {
 
   if (error || !user) return null
 
-  const isHashed = user.password_hash?.startsWith('$2')
+  // Hash dari tabel terisolasi users_auth (bukan kolom lama yg anon-readable).
+  const stored = await getUserHash(supabase, user.id)
+  const isHashed = stored?.startsWith('$2')
 
   if (isHashed) {
     // Normal — cek bcrypt
-    const valid = await bcrypt.compare(password, user.password_hash)
+    const valid = await bcrypt.compare(password, stored!)
     if (!valid) return null
   } else {
     // Semua user sudah bcrypt (audit 2026-07-19: 0 baris plaintext).
@@ -58,7 +61,6 @@ export async function createUser(data: {
       username:     data.username.trim().toLowerCase(),
       nama:         data.nama,
       email:        data.email ?? null,
-      password_hash,
       role:         data.role,
       level:        data.level,
       kontingen_id: data.kontingen_id ?? null,
@@ -69,19 +71,15 @@ export async function createUser(data: {
     .single()
 
   if (error) throw new Error(error.message)
+  // Hash disimpan HANYA di users_auth (tak lagi di kolom users.password_hash).
+  await setUserHash(supabase, inserted.id, password_hash)
   return inserted
 }
 
 // ─── Update password (dipanggil dari superadmin panel) ────
 export async function updatePassword(userId: string, newPassword: string) {
   const password_hash = await bcrypt.hash(newPassword, 12)
-
-  const { error } = await supabase
-    .from('users')
-    .update({ password_hash })
-    .eq('id', userId)
-
-  if (error) throw new Error(error.message)
+  await setUserHash(supabase, userId, password_hash)
 }
 
 // ─── Get user by ID ───────────────────────────────────────
@@ -103,8 +101,8 @@ export async function auditPasswordHashes(): Promise<{
   plaintext: number
 }> {
   const { data } = await supabase
-    .from('users')
-    .select('id, password_hash')
+    .from('users_auth')
+    .select('user_id, password_hash')
 
   const total     = data?.length ?? 0
   const hashed    = data?.filter(u => u.password_hash?.startsWith('$2')).length ?? 0

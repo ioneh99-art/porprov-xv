@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
+import { getServerSession } from '@/lib/guard'
+import { getUserHash, setUserHash } from '@/lib/user-credential'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,21 +10,10 @@ const sb = () => createClient(
 )
 
 export async function POST(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-
-  if (!session) {
-    return NextResponse.json({ error: 'Sesi tidak ditemukan — coba login ulang' }, { status: 401 })
-  }
-
-  let user: any
-  try {
-    user = JSON.parse(session)
-  } catch {
-    return NextResponse.json({ error: 'Sesi tidak valid — coba login ulang' }, { status: 401 })
-  }
-
+  // Sesi terverifikasi HMAC (bukan JSON.parse cookie yg bisa dipalsukan).
+  const user = await getServerSession()
   if (!user?.id) {
-    return NextResponse.json({ error: 'ID user tidak ditemukan' }, { status: 401 })
+    return NextResponse.json({ error: 'Sesi tidak ditemukan — coba login ulang' }, { status: 401 })
   }
 
   const body = await req.json()
@@ -34,30 +25,20 @@ export async function POST(req: NextRequest) {
   if (password_baru.length < 8)
     return NextResponse.json({ error: 'Password baru minimal 8 karakter' }, { status: 400 })
 
-  // Ambil password hash saat ini
-  const { data: userData, error } = await sb()
-    .from('users')
-    .select('password_hash')
-    .eq('id', user.id)
-    .single()
+  const client = sb()
 
-  if (error || !userData)
+  // Ambil password hash saat ini dari tabel terisolasi users_auth
+  const stored = await getUserHash(client, String(user.id))
+  if (!stored)
     return NextResponse.json({ error: 'User tidak ditemukan di database' }, { status: 404 })
 
   // Verifikasi password lama
-  const valid = await bcrypt.compare(password_lama, userData.password_hash)
+  const valid = await bcrypt.compare(password_lama, stored)
   if (!valid)
     return NextResponse.json({ error: 'Password lama tidak sesuai' }, { status: 400 })
 
-  // Update password baru
-  const password_hash = await bcrypt.hash(password_baru, 12)
-  const { error: updateError } = await sb()
-    .from('users')
-    .update({ password_hash })
-    .eq('id', user.id)
-
-  if (updateError)
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
+  // Simpan password baru (hanya ke users_auth)
+  await setUserHash(client, String(user.id), await bcrypt.hash(password_baru, 12))
 
   return NextResponse.json({ ok: true })
 }
