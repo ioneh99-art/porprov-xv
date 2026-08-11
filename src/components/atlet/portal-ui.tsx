@@ -25,6 +25,7 @@ export interface Me {
   no_registrasi_koni:number; login_count:number; last_login:string
   is_public:boolean; portal_aktif:boolean; kontingen_id:number
   no_hp:string; email:string
+  foto_url?:string; nomor_peserta?:string; public_slug?:string
 }
 
 export interface Kejuaraan {
