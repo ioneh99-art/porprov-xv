@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
+import { setUserHash } from '@/lib/user-credential'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
   const password_hash = await bcrypt.hash(password, 12)
 
   const { data, error } = await sb.from('users').insert({
-    username, password_hash, nama,
+    username, nama,
     email:        email || null,
     role, level:  level || null,
     kontingen_id: kontingen_id || null,
@@ -62,6 +63,8 @@ export async function POST(req: NextRequest) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Hash disimpan HANYA di users_auth (bukan users.password_hash yg anon-readable).
+  await setUserHash(sb, (data as any).id, password_hash)
   return NextResponse.json({ ok: true, user: data })
 }
 
@@ -83,12 +86,10 @@ export async function PUT(req: NextRequest) {
     is_active: is_active ?? true,
   }
 
-  if (password) {
-    update.password_hash = await bcrypt.hash(password, 12)
-  }
-
   const { error } = await sb.from('users').update(update).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Ganti password (bila ada) → hanya ke users_auth.
+  if (password) await setUserHash(sb, id, await bcrypt.hash(password, 12))
   return NextResponse.json({ ok: true })
 }
 

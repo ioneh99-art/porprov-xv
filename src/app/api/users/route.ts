@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
 import { writeAudit, reqMeta } from '@/lib/audit'
 import { getServerSession } from '@/lib/guard'
+import { setUserHash } from '@/lib/user-credential'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +49,6 @@ export async function POST(req: NextRequest) {
     .insert({
       username: username.trim().toLowerCase(),
       nama: nama.trim(),
-      password_hash,
       role,
       kontingen_id: kontingen_id || null,
       cabor_id: cabor_id || null,
@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Hash disimpan HANYA di users_auth (bukan users.password_hash yg anon-readable).
+  await setUserHash(sb(), (data as any).id, password_hash)
 
   const actor = await getServerSession()
   await writeAudit({
@@ -83,14 +85,13 @@ export async function PATCH(req: NextRequest) {
   if (is_active !== undefined) updates.is_active = is_active
   if (kontingen_id !== undefined) updates.kontingen_id = kontingen_id
   if (cabor_id !== undefined) updates.cabor_id = cabor_id
-  if (password) updates.password_hash = await bcrypt.hash(password, 12)
 
-  const { error } = await sb()
-    .from('users')
-    .update(updates)
-    .eq('id', id)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (Object.keys(updates).length > 0) {
+    const { error } = await sb().from('users').update(updates).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  // Ganti password (bila ada) → hanya ke users_auth.
+  if (password) await setUserHash(sb(), id, await bcrypt.hash(password, 12))
   return NextResponse.json({ ok: true })
 }
 
