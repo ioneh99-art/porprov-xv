@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
         nama_bank, no_rekening, nama_pemilik_rekening,
         no_registrasi_koni, login_count, last_login,
         is_public, portal_aktif, kontingen_id,
-        no_hp, email
+        no_hp, email, foto_url, nomor_peserta, public_slug
       `)
       .eq('no_ktp', nik)
       .maybeSingle()
