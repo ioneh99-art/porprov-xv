@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import { SignJWT } from 'jose'
 import { atletJwtSecret } from '@/lib/atlet-jwt'
 import { verifyAtletPassword } from '@/lib/atlet-password'
+import { getAtletHash, setAtletHash } from '@/lib/atlet-credential'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
       .select(`
         id, nama_lengkap, no_ktp, cabor_nama_raw,
         status_registrasi, portal_aktif,
-        atlet_password_hash, kontingen_id,
+        kontingen_id,
         gender, nama_asal_daerah,
         ukuran_kemeja, ukuran_sepatu,
         nama_bank, no_rekening, login_count
@@ -42,8 +43,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'NIK tidak terdaftar' }, { status: 401 })
     if (!atlet.portal_aktif)
       return NextResponse.json({ error: 'Akun belum aktif. Status pendaftaran belum Verified.' }, { status: 403 })
-    const pwOk = await verifyAtletPassword(atlet.atlet_password_hash, password, async (h) => {
-      await sb.from('atlet').update({ atlet_password_hash: h }).eq('id', atlet.id)
+    const storedHash = await getAtletHash(sb, atlet.id)
+    const pwOk = await verifyAtletPassword(storedHash, password, async (h) => {
+      await setAtletHash(sb, atlet.id, h)
     })
     if (!pwOk)
       return NextResponse.json({ error: 'Password salah' }, { status: 401 })

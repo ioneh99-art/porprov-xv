@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { hashAtletPassword, verifyAtletPassword } from '@/lib/atlet-password'
+import { getAtletHash, setAtletHash } from '@/lib/atlet-credential'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const { data: atlet } = await sb
       .from('atlet')
-      .select('id,nama_lengkap,status_registrasi,portal_aktif,atlet_password_hash,no_ktp')
+      .select('id,nama_lengkap,status_registrasi,portal_aktif,no_ktp')
       .eq('no_ktp', no_ktp)
       .maybeSingle()
 
@@ -28,12 +29,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Status kamu: "${atlet.status_registrasi}". Harus Verified dulu.` }, { status: 403 })
 
     const defaultPass = no_ktp.slice(-4)
-    const isDefault = await verifyAtletPassword(atlet.atlet_password_hash, defaultPass)
+    const isDefault = await verifyAtletPassword(await getAtletHash(sb, atlet.id), defaultPass)
     if (atlet.portal_aktif && !isDefault)
       return NextResponse.json({ error: 'Akun sudah terdaftar. Silakan login.' }, { status: 409 })
 
+    await setAtletHash(sb, atlet.id, await hashAtletPassword(password))
     await sb.from('atlet').update({
-      atlet_password_hash: await hashAtletPassword(password),
       portal_aktif: true,
       email: email || null,
     }).eq('id', atlet.id)
