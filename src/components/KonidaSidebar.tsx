@@ -6,6 +6,7 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
+  CreditCard,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -346,6 +347,7 @@ export default function KonidaSidebar() {
             <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
             <NavItem label="Dashboard"       href={dashboardHref}                     icon={LayoutDashboard}/>
             <NavItem label="Data Atlet"      href="/konida/atlet/kabbandung"           icon={Users}/>
+            <NavItem label="Cetak ID Card"   href="/konida/atlet/kabbandung/idcard"    icon={CreditCard}/>
             <NavItem label="Dokumen Atlet"   href="/konida/dokumen/kabbandung"         icon={FileCheck}/>
             {can('kualifikasi')
               ? <NavItem label="Kualifikasi" href="/konida/kualifikasi/kabbandung"     icon={ClipboardCheck}/>
