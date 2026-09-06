@@ -32,12 +32,23 @@ export default function CetakIdCardPage() {
   const [qr, setQr] = useState('')
 
   useEffect(() => {
-    sb.from('atlet')
-      .select('id,nama_lengkap,nama_asal_daerah,cabor_nama_raw,no_registrasi_koni,foto_url,status_registrasi')
-      .eq('kontingen_id', KONTINGEN_ID)
-      .order('cabor_nama_raw', { ascending: true })
-      .order('nama_lengkap', { ascending: true })
-      .then(({ data }) => setList((data as Atlet[]) ?? []))
+    async function loadAtlet() {
+      // Paginasi 1000 — atlet Kab. Bandung > 1000, tanpa ini sisanya terpotong diam-diam.
+      let all: Atlet[] = []
+      for (let p = 0; ; p++) {
+        const { data } = await sb.from('atlet')
+          .select('id,nama_lengkap,nama_asal_daerah,cabor_nama_raw,no_registrasi_koni,foto_url,status_registrasi')
+          .eq('kontingen_id', KONTINGEN_ID)
+          .order('cabor_nama_raw', { ascending: true })
+          .order('nama_lengkap', { ascending: true })
+          .range(p * 1000, (p + 1) * 1000 - 1)
+        if (!data || data.length === 0) break
+        all = all.concat(data as Atlet[])
+        if (data.length < 1000) break
+      }
+      setList(all)
+    }
+    void loadAtlet()
   }, [])
 
   useEffect(() => {

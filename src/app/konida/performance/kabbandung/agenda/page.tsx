@@ -51,25 +51,31 @@ export default function AgendaPage() {
 
   useEffect(() => {
     async function loadData() {
-      const [
-        { data: atlets },
-        { data: baseline },
-      ] = await Promise.all([
-        sb.from('atlet').select('id,nama_lengkap,cabor_id,cabang_olahraga:cabang_olahraga(nama)')
-          .eq('kontingen_id', KONTINGEN_ID),
-        sb.from('atlet_baseline_performance')
-          .select('atlet_id,event_name,gap_percentage,target_medali_text,pesaing,metric_type')
-          .in('atlet_id', []),  // will be re-fetched after atlet
-      ])
+      // Paginasi 1000 — atlet Kab. Bandung > 1000, tanpa ini sisanya hilang dari agenda.
+      let atlets: any[] = []
+      for (let p = 0; ; p++) {
+        const { data } = await sb.from('atlet')
+          .select('id,nama_lengkap,cabor_id,cabang_olahraga:cabang_olahraga(nama)')
+          .eq('kontingen_id', KONTINGEN_ID)
+          .range(p * 1000, (p + 1) * 1000 - 1)
+        if (!data || data.length === 0) break
+        atlets = atlets.concat(data)
+        if (data.length < 1000) break
+      }
 
       const atletList = (atlets || []) as Array<{ id: number; nama_lengkap: string; cabor_id: number; cabang_olahraga: Array<{ nama: string }> | null }>
       const atletIds = atletList.map(a => a.id)
       setAtletCount(atletIds.length)
 
-      const { data: baselineReal } = await sb
-        .from('atlet_baseline_performance')
-        .select('atlet_id,event_name,gap_percentage,target_medali_text,pesaing,cabor_id')
-        .in('atlet_id', atletIds)
+      // Pecah .in() per 500 id — daftar id sepanjang ini bikin URL GET kepanjangan.
+      let baselineReal: any[] = []
+      for (let i = 0; i < atletIds.length; i += 500) {
+        const { data } = await sb
+          .from('atlet_baseline_performance')
+          .select('atlet_id,event_name,gap_percentage,target_medali_text,pesaing,cabor_id')
+          .in('atlet_id', atletIds.slice(i, i + 500))
+        if (data) baselineReal = baselineReal.concat(data)
+      }
 
       // Build grouped payload by cabor
       const caborMap: Record<string, { atlet: Set<number>; events: { event_name: string; gap: number | null; target: string | null }[] }> = {}

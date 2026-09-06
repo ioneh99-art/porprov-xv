@@ -98,9 +98,16 @@ export default function PerformanceRosterPage() {
   
   useEffect(() => {
     ;(async () => {
-      const { data: caborNamesData } = await sb.from('atlet')
-        .select('cabor_nama_raw')
-        .eq('kontingen_id', KONTINGEN_ID)
+      // Paginasi 1000 — atlet Kab. Bandung > 1000. Daftar ini dipakai untuk
+      // menerjemahkan slug URL → nama cabor, jadi kalau terpotong halaman cabor gagal terbuka.
+      let caborNamesData: any[] = []
+      for (let p = 0; ; p++) {
+        const { data } = await sb.from('atlet').select('cabor_nama_raw')
+          .eq('kontingen_id', KONTINGEN_ID).range(p * 1000, (p + 1) * 1000 - 1)
+        if (!data || data.length === 0) break
+        caborNamesData = caborNamesData.concat(data)
+        if (data.length < 1000) break
+      }
       const names = Array.from(new Set((caborNamesData || []).map((r: any) => r.cabor_nama_raw).filter(Boolean))) as string[]
       setAllCaborNames(names)
       

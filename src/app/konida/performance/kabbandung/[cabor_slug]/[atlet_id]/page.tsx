@@ -147,7 +147,18 @@ export default function PerformanceDossierPage() {
         .select('tahap,kesimpulan_persen,kesimpulan_kategori,bmi,berat_badan,tinggi_badan,tanggal_tes,status_tes')
         .eq('atlet_id', atletId).eq('status_tes', 'Hadir').order('tahap'),
       sb.from('riwayat_prestasi').select('*').eq('atlet_id', atletId).order('tahun', { ascending: false }),
-      sb.from('atlet').select('cabor_nama_raw').eq('kontingen_id', KONTINGEN_ID),
+      // Paginasi 1000 — atlet Kab. Bandung > 1000, tanpa ini ada cabor yang tak terdaftar.
+      (async () => {
+        let all: any[] = []
+        for (let p = 0; ; p++) {
+          const { data } = await sb.from('atlet').select('cabor_nama_raw')
+            .eq('kontingen_id', KONTINGEN_ID).range(p * 1000, (p + 1) * 1000 - 1)
+          if (!data || data.length === 0) break
+          all = all.concat(data)
+          if (data.length < 1000) break
+        }
+        return { data: all }
+      })(),
     ])
     
     if (atletRes.data) setAtlet(atletRes.data as AtletDetail)
