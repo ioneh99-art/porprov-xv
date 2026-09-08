@@ -6,15 +6,16 @@
 // Sistem tidak pernah menautkan nama mirip sendiri.
 
 import * as XLSX from 'xlsx'
-import { norm, simNama, type DbAtlet } from '@/lib/rekonsiliasi'
+import { norm, type DbAtlet } from '@/lib/rekonsiliasi'
+import { cocokkanNama, AMBANG_KONFIRMASI } from '@/lib/pencocokan'
 import {
   TEMPLATES, LEMBAR_DATA, LEMBAR_PETUNJUK,
   hitungBmi, type JenisTemplate, type KolomTemplate,
 } from './templates'
 
-export const AMBANG_KONFIRMASI = 0.55   // sama dengan Rekonsiliasi Peserta
+export { AMBANG_KONFIRMASI }
 
-export type MetodeCocok = 'nik' | 'nama_persis' | 'nama_mirip' | 'tidak_ketemu'
+export type MetodeCocok = 'nik' | 'nama_persis' | 'nama_mirip' | 'nama_ambigu' | 'tidak_ketemu'
 
 export interface BarisImpor {
   baris_ke: number                       // nomor baris di Excel (untuk pesan galat)
@@ -26,6 +27,7 @@ export interface BarisImpor {
   metode: MetodeCocok
   skor: number | null
   kandidat: { atlet_id: number; nama: string; skor: number } | null
+  saingan: { atlet_id: number; nama: string; skor: number } | null   // terisi bila ambigu
   galat: string[]                        // pelanggaran aturan kolom
 }
 
@@ -38,7 +40,7 @@ export interface HasilBaca {
   peringatan: string[]
   ringkasan: {
     total: number; nik: number; nama_persis: number
-    nama_mirip: number; tidak_ketemu: number; bergalat: number
+    nama_mirip: number; nama_ambigu: number; tidak_ketemu: number; bergalat: number
   }
 }
 
@@ -176,7 +178,7 @@ export function bacaBerkas(buffer: Buffer | ArrayBuffer, jenis: JenisTemplate): 
       nik,
       nama: String(nilai.nama_lengkap ?? '').trim(),
       atlet_id: null, atlet_nama: null,
-      metode: 'tidak_ketemu', skor: null, kandidat: null,
+      metode: 'tidak_ketemu', skor: null, kandidat: null, saingan: null,
       galat,
     })
   }
@@ -184,55 +186,46 @@ export function bacaBerkas(buffer: Buffer | ArrayBuffer, jenis: JenisTemplate): 
   return {
     jenis, versi_berkas: versiBerkas, versi_diharapkan: versiDiharapkan, versi_cocok: versiCocok,
     baris, peringatan,
-    ringkasan: { total: baris.length, nik: 0, nama_persis: 0, nama_mirip: 0, tidak_ketemu: 0, bergalat: 0 },
+    ringkasan: { total: baris.length, nik: 0, nama_persis: 0, nama_mirip: 0, nama_ambigu: 0, tidak_ketemu: 0, bergalat: 0 },
   }
 }
 
-/** Cocokkan baris ke atlet. Bertingkat, dan tidak pernah menebak sendiri. */
+/** Cocokkan baris ke atlet. Bertingkat, dan tidak pernah menebak sendiri.
+ *  Tingkat nama memakai mesin bersama di @/lib/pencocokan — sama dengan yang
+ *  dipakai penarikan foto, supaya perilakunya seragam. */
 export function cocokkan(hasil: HasilBaca, db: DbAtlet[]): HasilBaca {
   const olehNik = new Map(db.filter(a => a.no_ktp).map(a => [String(a.no_ktp), a]))
-  const olehNama = new Map<string, DbAtlet>()
-  db.forEach(a => { const k = norm(a.nama_lengkap); if (!olehNama.has(k)) olehNama.set(k, a) })
+  const daftar = db.map(a => ({ id: a.id, nama_lengkap: a.nama_lengkap }))
 
-  const r = { nik: 0, nama_persis: 0, nama_mirip: 0, tidak_ketemu: 0, bergalat: 0 }
+  const r = { nik: 0, nama_persis: 0, nama_mirip: 0, nama_ambigu: 0, tidak_ketemu: 0, bergalat: 0 }
 
   for (const b of hasil.baris) {
     if (b.galat.length) r.bergalat++
 
-    // 1. NIK — jangkar
+    // 1. NIK — jangkar, satu-satunya yang dipercaya penuh
     if (b.nik && olehNik.has(b.nik)) {
       const a = olehNik.get(b.nik)!
       b.atlet_id = a.id; b.atlet_nama = a.nama_lengkap
       b.metode = 'nik'; b.skor = 1; r.nik++
       continue
     }
-    // 2. nama persis
-    const persis = b.nama ? olehNama.get(norm(b.nama)) : undefined
-    if (persis) {
-      b.atlet_id = persis.id; b.atlet_nama = persis.nama_lengkap
-      b.metode = 'nama_persis'; b.skor = 1; r.nama_persis++
-      continue
+
+    // 2-4. tingkat nama
+    const c = cocokkanNama(b.nama, daftar)
+    b.skor = c.skor
+    b.kandidat = c.kandidat ? { atlet_id: c.kandidat.id, nama: c.kandidat.nama, skor: c.kandidat.skor } : null
+    b.saingan = c.saingan ? { atlet_id: c.saingan.id, nama: c.saingan.nama, skor: c.saingan.skor } : null
+
+    if (c.metode === 'persis') {
+      b.atlet_id = c.id; b.atlet_nama = c.nama
+      b.metode = 'nama_persis'; r.nama_persis++
+    } else if (c.metode === 'mirip') {
+      b.metode = 'nama_mirip'; r.nama_mirip++
+    } else if (c.metode === 'ambigu') {
+      b.metode = 'nama_ambigu'; r.nama_ambigu++
+    } else {
+      b.metode = 'tidak_ketemu'; r.tidak_ketemu++
     }
-    // 3. nama mirip → kandidat, WAJIB dikonfirmasi manusia
-    let terbaik: DbAtlet | null = null, skorTerbaik = 0
-    if (b.nama) {
-      for (const a of db) {
-        const s = simNama(norm(b.nama), norm(a.nama_lengkap))
-        if (s > skorTerbaik) { skorTerbaik = s; terbaik = a }
-      }
-    }
-    if (terbaik && skorTerbaik >= AMBANG_KONFIRMASI) {
-      b.metode = 'nama_mirip'
-      b.skor = Number(skorTerbaik.toFixed(3))
-      b.kandidat = { atlet_id: terbaik.id, nama: terbaik.nama_lengkap, skor: b.skor }
-      r.nama_mirip++
-      continue
-    }
-    // 4. tidak ketemu — kandidat lemah tetap dilampirkan untuk pencarian manual
-    b.metode = 'tidak_ketemu'
-    b.skor = terbaik ? Number(skorTerbaik.toFixed(3)) : null
-    b.kandidat = terbaik ? { atlet_id: terbaik.id, nama: terbaik.nama_lengkap, skor: b.skor! } : null
-    r.tidak_ketemu++
   }
 
   hasil.ringkasan = { total: hasil.baris.length, ...r }

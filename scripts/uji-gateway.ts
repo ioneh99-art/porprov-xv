@@ -48,13 +48,15 @@ console.log('\n[2] Bolak-balik biomotorik')
   cek('baris contoh bawaan dilewati', h.baris.length === 4, `dapat ${h.baris.length}`)
   cek('cocok lewat NIK = 1', h.ringkasan.nik === 1, `dapat ${h.ringkasan.nik}`)
   cek('cocok lewat nama persis = 1', h.ringkasan.nama_persis === 1, `dapat ${h.ringkasan.nama_persis}`)
-  cek('nama mirip (perlu konfirmasi) = 1', h.ringkasan.nama_mirip === 1, `dapat ${h.ringkasan.nama_mirip}`)
+  // "Suci Lestari Fauzia" setara-kuat dengan "Suci Lestari" DAN "Sucie Lestari Fauziah"
+  // → wajib ditandai ambigu, bukan ditebak. Ini kasus nyata di kontingen ini.
+  cek('nama setara dua atlet → AMBIGU', h.ringkasan.nama_ambigu === 1, `dapat ${h.ringkasan.nama_ambigu}`)
   cek('tidak ketemu = 1', h.ringkasan.tidak_ketemu === 1, `dapat ${h.ringkasan.tidak_ketemu}`)
 
   const b0 = h.baris[0]
   cek('BMI dihitung otomatis (54.5kg/162cm = 20.8)', b0.nilai.bmi === 20.8, `dapat ${b0.nilai.bmi}`)
-  cek('nama mirip TIDAK ditautkan otomatis', h.baris[2].atlet_id === null)
-  cek('nama mirip menyodorkan kandidat', h.baris[2].kandidat != null && h.baris[2].kandidat!.skor >= 0.55)
+  cek('nama ambigu TIDAK ditautkan otomatis', h.baris[2].atlet_id === null)
+  cek('nama ambigu menyodorkan dua kandidat', h.baris[2].kandidat != null && h.baris[2].saingan != null)
 
   const b1 = h.baris[1]
   cek('tanggal dd/mm/yyyy terbaca', b1.nilai.tanggal_tes === '2026-10-15', `dapat ${b1.nilai.tanggal_tes}`)

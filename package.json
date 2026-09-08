@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "uji:gateway": "tsx scripts/uji-gateway.ts"
+    "uji:gateway": "tsx scripts/uji-gateway.ts",
+    "uji:pencocokan": "tsx scripts/uji-pencocokan.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",
