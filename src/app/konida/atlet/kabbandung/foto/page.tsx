@@ -16,7 +16,7 @@ import {
   FolderOpen, Loader2, CheckCircle2, AlertTriangle, XCircle,
   ArrowLeft, Save, Users, ImageOff, Search,
 } from 'lucide-react'
-import { cocokkanNama, caborDariFolder } from '@/lib/pencocokan'
+import { cocokkanNama, caborDariJalur } from '@/lib/pencocokan'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -114,12 +114,14 @@ export default function TarikFotoPage() {
       for (const f of files) {
         const jalur = (f as any).webkitRelativePath || f.name
         if (!GAMBAR.test(f.name)) continue
+        // Cabor dicari dengan menelusuri SEMUA segmen jalur, bukan indeks tetap —
+        // supaya operator boleh memilih folder induk ATAU satu folder cabor saja.
+        const caborDbNama = caborDariJalur(jalur, caborDb)
         const bagian = jalur.split('/')
-        // Folder cabor = bagian ke-2 (bagian pertama nama folder akar)
-        const folderCabor = bagian.length >= 2 ? bagian[1] : ''
+        const folderCabor = caborDbNama
+          ?? (bagian.length >= 2 ? bagian[bagian.length - 2] : '')
         const namaBerkas = f.name.replace(/\.[^.]+$/, '')
         const bukanAtlet = BUKAN_ATLET.test(jalur)
-        const caborDbNama = caborDariFolder(folderCabor, caborDb)
 
         const dasar = {
           key: jalur, file: f, jalur, folderCabor, caborDb: caborDbNama, namaBerkas,

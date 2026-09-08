@@ -6,7 +6,8 @@
 // tapi memakai nama contoh — bukan nama atlet asli.
 
 import {
-  cocokkanNama, bersihkanNamaBerkas, skorKandungan, caborDariFolder,
+  cocokkanNama, bersihkanNamaBerkas, skorKandungan,
+  caborDariFolder, caborDariJalur, apakahFolderStruktural,
 } from '@/lib/pencocokan'
 
 let lulus = 0, gagal = 0
@@ -118,6 +119,29 @@ const petaUji: Array<[string, string | null]> = [
 for (const [folder, harapan] of petaUji) {
   const dapat = caborDariFolder(folder, CABOR_DB)
   cek(`"${folder}" → ${harapan ?? 'tidak ada'}`, dapat === harapan, `dapat ${dapat}`)
+}
+
+console.log('\n[9] Folder struktural TIDAK boleh dianggap cabor')
+// Bug nyata: "ATLET" sempat tercocokkan ke cabor "Atletik". Kalau operator
+// memilih satu folder cabor saja, SELURUH fotonya akan salah masuk ke Atletik.
+cek('"ATLET" ditolak (bukan Atletik)', caborDariFolder('ATLET', CABOR_DB.concat('Atletik')) === null,
+    `dapat ${caborDariFolder('ATLET', CABOR_DB.concat('Atletik'))}`)
+cek('"PELATIH DAN OFFICIAL" ditolak', caborDariFolder('PELATIH DAN OFFICIAL', CABOR_DB) === null)
+cek('"ATLETIK" tetap diterima', caborDariFolder('ATLETIK', CABOR_DB.concat('Atletik')) === 'Atletik')
+cek('penanda folder struktural', apakahFolderStruktural('ATLET') && !apakahFolderStruktural('ATLETIK'))
+
+console.log('\n[10] Cabor dikenali dari jalur, apa pun folder yang dipilih')
+const DBJ = CABOR_DB.concat(['Atletik', 'Aeromodelling', 'Gulat', 'Akuatik'])
+const jalurUji: Array<[string, string | null]> = [
+  ['PENGUMPULAN FOTO/AEROMODELLING/ATLET/Aldi.png', 'Aeromodelling'],
+  ['AEROMODELLING/ATLET/Aldi.png', 'Aeromodelling'],
+  ['AKUATIK/OWS/ATLET/Diva.jpg', 'Akuatik'],
+  ['PENGUMPULAN FOTO/HOKI/ATLET/x.jpg', 'Hockey'],
+  ['ATLET/Aldi.png', null],
+]
+for (const [jalur, harap] of jalurUji) {
+  const dapat = caborDariJalur(jalur, DBJ)
+  cek(`"${jalur}" → ${harap ?? 'tidak ada'}`, dapat === harap, `dapat ${dapat}`)
 }
 
 console.log(`\n───── LULUS ${lulus} · GAGAL ${gagal}\n`)

@@ -130,23 +130,50 @@ const ALIAS_CABOR: Record<string, string> = {
   'BOWLING': 'Boling',
 }
 
+/** Nama folder struktural — BUKAN nama cabor. Wajib ditolak lebih dulu.
+ *  Tanpa ini "ATLET" akan tercocokkan ke cabor "Atletik", sehingga seluruh
+ *  foto satu cabor bisa salah masuk tanpa peringatan apa pun. */
+const FOLDER_STRUKTURAL = new Set([
+  'ATLET', 'ATLIT', 'PELATIH', 'OFFICIAL', 'PELATIH DAN OFFICIAL',
+  'PELATIH OFFICIAL', 'MEKANIK', 'MANAGER', 'MANAJER', 'CONTOH',
+  'PENGUMPULAN FOTO', 'FOTO', 'DOKUMEN',
+])
+
+export function apakahFolderStruktural(namaFolder: string): boolean {
+  return FOLDER_STRUKTURAL.has(norm(namaFolder))
+}
+
 /**
  * Terjemahkan nama folder cabor ke nama cabor di database.
  * `caborDb` adalah daftar cabor_nama_raw yang benar-benar ada.
+ *
+ * Sengaja HANYA menerima kecocokan persis atau lewat peta alias. Pencocokan
+ * longgar (awalan) dibuang karena menghasilkan salah tebak berbahaya seperti
+ * ATLET→Atletik, sementara seluruh 56 nama folder nyata sudah tercakup oleh
+ * kecocokan persis + alias.
  */
 export function caborDariFolder(namaFolder: string, caborDb: string[]): string | null {
   const n = norm(namaFolder)
-  if (!n) return null
-  if (ALIAS_CABOR[n]) {
-    const alias = ALIAS_CABOR[n]
-    return caborDb.find(c => norm(c) === norm(alias)) ?? null
+  if (!n || apakahFolderStruktural(n)) return null
+  const target = ALIAS_CABOR[n] ?? n
+  return caborDb.find(c => norm(c) === norm(target)) ?? null
+}
+
+/**
+ * Cari cabor dari sebuah jalur berkas, apa pun tingkat folder yang dipilih
+ * operator. Menelusuri tiap segmen (kecuali nama berkas) dan mengambil yang
+ * pertama dikenali sebagai cabor.
+ *
+ * Menangani keduanya:
+ *   PENGUMPULAN FOTO/AEROMODELLING/ATLET/x.png   (folder induk dipilih)
+ *   AEROMODELLING/ATLET/x.png                     (satu folder cabor dipilih)
+ *   AKUATIK/OWS/ATLET/x.jpg                       (cabor bercabang)
+ */
+export function caborDariJalur(jalur: string, caborDb: string[]): string | null {
+  const segmen = String(jalur ?? '').split('/').slice(0, -1)
+  for (const s of segmen) {
+    const c = caborDariFolder(s, caborDb)
+    if (c) return c
   }
-  const persis = caborDb.find(c => norm(c) === n)
-  if (persis) return persis
-  // longgar: cabor db yang namanya terkandung / mengandung nama folder
-  const dekat = caborDb.find(c => {
-    const nc = norm(c)
-    return nc.indexOf(n) === 0 || n.indexOf(nc) === 0
-  })
-  return dekat ?? null
+  return null
 }
