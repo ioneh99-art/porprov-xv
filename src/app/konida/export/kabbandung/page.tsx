@@ -6,6 +6,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import ImporTemplate from '@/components/konida/gateway/ImporTemplate'
+import RiwayatImpor from '@/components/konida/gateway/RiwayatImpor'
 import {
   Database, Download, UploadCloud, FileSpreadsheet,
   CheckCircle, XCircle, AlertTriangle, RefreshCw,
@@ -14,6 +15,7 @@ import {
   Upload, Table, Play, RotateCcw, Medal, Layers,
   Edit3, Plus, Trash2, ToggleLeft, ToggleRight,
   Save, X,
+  History,
 } from 'lucide-react'
 
 const sb = createClient(
@@ -24,7 +26,7 @@ const sb = createClient(
 const KONTINGEN_ID = 4
 const ACCENT       = '#38bdf8'
 
-type Tab = 'identitas' | 'perlengkapan' | 'biomotorik' | 'lainnya' | 'import'
+type Tab = 'identitas' | 'perlengkapan' | 'biomotorik' | 'lainnya' | 'import' | 'riwayat'
 
 // ── Validasi import atlet ─────────────────────────────────
 const REQUIRED_COLS = ['nama_lengkap','no_ktp','tgl_lahir','gender','cabor_nama_raw']
@@ -575,6 +577,7 @@ export default function DataGatewayPage() {
     { id:'biomotorik',   label:'Tes Biomotorik',  icon:UploadCloud, desc:'Excel berkala' },
     { id:'lainnya',      label:'Sumber Lain',     icon:Database,    desc:'Foto · Rekonsiliasi · Target' },
     { id:'import',       label:'Import Atlet Baru', icon:UploadCloud, desc:'Excel → DB' },
+    { id:'riwayat',      label:'Riwayat',         icon:History,     desc:'Siapa · kapan · apa' },
   ]
 
   return (
@@ -635,6 +638,7 @@ export default function DataGatewayPage() {
         {tab === 'biomotorik'   && <ImporTemplate jenis="biomotorik"   accent={ACCENT}/>}
         {tab === 'lainnya'      && <SumberLain/>}
         {tab === 'import'   && <ImportTab existingAtletCount={atletCount}/>}
+        {tab === 'riwayat'  && <RiwayatImpor accent={ACCENT}/>}
       </main>
     </div>
   )
