@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import PrestasiAlert from '@/components/konida/PrestasiAlert'
+import IntelPanel from '@/components/konida/performance/IntelPanel'
 import { PerformanceCaborCard, type PerformanceCaborData } from '@/components/konida/performance/PerformanceCaborCard'
 import { hasBaselineData, caborToSlug } from '@/lib/performance/cabor-accent-map'
 
@@ -611,6 +612,12 @@ export default function PerformancePage() {
 
         {/* ════ ATLET ANDALAN — PRESTASI NASIONAL (KBAAS) ════ */}
         <PrestasiAlert title="Atlet Andalan — Prestasi Nasional" />
+
+        {/* ════ INTELIJEN STRATEGIS — dari berkas Analisis Strategis ════
+            Ditaruh di Performance Center, bukan Data Gateway: gerbang itu untuk
+            MEMASUKKAN data, papan ini untuk DILIHAT. Sekaligus memperluas
+            cakupan halaman ini dari 50 atlet ber-baseline ke 658 atlet. */}
+        <IntelPanel accent={ACCENT} />
 
         {/* ════ HERO IDENTITY ════ */}
         <div {...ani(0)} className="rounded-2xl p-6"

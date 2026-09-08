@@ -27,9 +27,23 @@ export async function GET() {
   if (!last) return NextResponse.json({ ada: false })
   const batch_id = (last as any).batch_id
 
-  const [{ data: sum }, { data: atlet }] = await Promise.all([
+  const [{ data: sum }, { data: atlet }, { data: cabang }] = await Promise.all([
     db.from('v_kbaas_target_summary').select('*').eq('batch_id', batch_id).maybeSingle(),
     db.from('intel_target_atlet').select('nama_file,cabang_file,target_medali,capaian_catatan,pesaing,analisis,atlet_id').eq('batch_id', batch_id).order('cabang_file'),
+    db.from('intel_target_cabang').select('cabang,target_cabor_emas,target_koni_emas,probability').eq('batch_id', batch_id).order('cabang'),
   ])
-  return NextResponse.json({ ada: true, batch_id, summary: sum ?? null, atlet: atlet ?? [] })
+
+  // Lencana prioritas emas (dari pewarnaan berkas analisis) supaya panel
+  // Performance bisa menyorot atlet andalan tanpa permintaan tambahan.
+  const { data: prioritas } = await db.from('atlet')
+    .select('id,nama_lengkap,cabor_nama_raw,prioritas_emas,prioritas_capaian,foto_url')
+    .eq('kontingen_id', kontingen_id).not('prioritas_emas', 'is', null)
+
+  return NextResponse.json({
+    ada: true, batch_id,
+    summary: sum ?? null,
+    atlet: atlet ?? [],
+    cabang: cabang ?? [],
+    prioritas: prioritas ?? [],
+  })
 }
