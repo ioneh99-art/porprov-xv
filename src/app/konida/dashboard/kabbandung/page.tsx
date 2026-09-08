@@ -53,6 +53,8 @@ interface AtletRaw {
   tes_fisik_persen: number | null
   tes_fisik_status: string | null
   is_locked: boolean | null
+  foto_url: string | null
+  no_rekening: string | null
 }
 
 type DrilldownKey = 'kritis' | 'pending' | 'ditolak' | 'dns' | 'locked_nik' | 'cabor_lemah'
@@ -82,6 +84,7 @@ export default function DashboardKabBandung() {
   const [myMedali,  setMyMedali]  = useState({ emas:0, perak:0, perunggu:0, total:0 })
   const [loading,   setLoading]   = useState(true)
   const [animIn,    setAnimIn]    = useState(false)
+  const [kesiapan,  setKesiapan]  = useState({ tanpaFoto:0, tanpaRekening:0, nikBermasalah:0, belumTertaut:0 })
 const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   const [pulse,     setPulse]     = useState(true)
   const [alertPanel, setAlertPanel] = useState<'pending'|'nonlokal'|'ditolak'|null>(null)
@@ -103,13 +106,28 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       let allAtlet: AtletRaw[] = []
       for (let page = 0; ; page++) {
         const { data: pageData } = await sb.from('atlet')
-          .select('id,nama_lengkap,no_ktp,status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked')
+          .select('id,nama_lengkap,no_ktp,status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked,foto_url,no_rekening')
           .eq('kontingen_id', KONTINGEN_ID)
           .range(page * 1000, (page + 1) * 1000 - 1)
         if (!pageData || pageData.length === 0) break
         allAtlet = allAtlet.concat(pageData)
         if (pageData.length < 1000) break
       }
+
+      // ── Angka kesiapan untuk peringatan dasbor ──
+      // Semuanya dihitung langsung; JANGAN ditulis mati seperti lockedNik: 8 dulu.
+      const [nikBermasalah, belumTertaut] = await Promise.allSettled([
+        sb.from('jarvis_issues').select('id', { count: 'exact', head: true })
+          .eq('kontingen_id', KONTINGEN_ID).eq('status', 'open'),
+        sb.from('rekonsiliasi_peserta').select('id', { count: 'exact', head: true })
+          .eq('kontingen_id', KONTINGEN_ID).eq('status_peserta', 'tidak_ketemu'),
+      ])
+      setKesiapan({
+        tanpaFoto:     allAtlet.filter(a => !a.foto_url).length,
+        tanpaRekening: allAtlet.filter(a => !a.no_rekening).length,
+        nikBermasalah: nikBermasalah.status === 'fulfilled' ? (nikBermasalah.value.count ?? 0) : 0,
+        belumTertaut:  belumTertaut.status === 'fulfilled' ? (belumTertaut.value.count ?? 0) : 0,
+      })
 
       const [k, m] = await Promise.allSettled([
         sb.from('klasemen_medali')
@@ -354,9 +372,13 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
     dnsAtlet:          tesFisikData.dns,
     lowSkorAtlet:      kpi.kritis,
     daysToEvent:       Math.max(0, Math.ceil((new Date('2026-11-07').getTime()-Date.now())/86400000)),
-    lockedNik:         8,
+    lockedNik:          kesiapan.nikBermasalah,
     cabors_lemah_count: tesFisikData.lemahCount,
-  }), [kpi, tesFisikData])
+    tanpaFoto:          kesiapan.tanpaFoto,
+    tanpaRekening:      kesiapan.tanpaRekening,
+    pesertaBelumTertaut: kesiapan.belumTertaut,
+    totalAtlet:         kpi.total,
+  }), [kpi, tesFisikData, kesiapan])
 
   // ── Drill-down: filter atlet per alert type ──
   const drilldownData = useMemo(() => {

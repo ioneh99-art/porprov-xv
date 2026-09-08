@@ -454,6 +454,11 @@ export function buildAlertsFromData(d: {
   lockedNik?: number
   cabors_lemah_count: number
   apparelIncomplete?: number
+  // ── Kesiapan berkas & data pendukung (dihitung langsung dari database) ──
+  tanpaFoto?: number          // atlet belum punya pasfoto
+  tanpaRekening?: number      // belum ada nama bank & no rekening
+  pesertaBelumTertaut?: number // baris daftar KONI yang belum ketemu atletnya
+  totalAtlet?: number
 }): CriticalAlert[] {
   const alerts: CriticalAlert[] = []
 
@@ -515,6 +520,41 @@ export function buildAlertsFromData(d: {
       actionHref: '/konida/atlet/kabbandung',
       count: d.lockedNik,
       drilldownKey: 'locked_nik',
+    })
+  }
+  if ((d.pesertaBelumTertaut ?? 0) > 0) {
+    alerts.push({
+      severity: 'urgent',
+      icon: AlertTriangle,
+      title: `${d.pesertaBelumTertaut} Peserta KONI Belum Tertaut Atlet`,
+      message: `Nama ada di daftar resmi KONI tapi belum ketemu padanannya di sistem. Berisiko tidak dapat ID Card dan tidak terhitung di laporan.`,
+      action: 'Buka Rekonsiliasi',
+      actionHref: '/konida/rekonsiliasi',
+      count: d.pesertaBelumTertaut,
+    })
+  }
+  if ((d.tanpaFoto ?? 0) > 0) {
+    const t = d.totalAtlet ?? 0
+    const pct = t ? Math.round(100 * (t - (d.tanpaFoto ?? 0)) / t) : 0
+    alerts.push({
+      severity: (d.tanpaFoto ?? 0) > 100 ? 'urgent' : 'important',
+      icon: FileCheck,
+      title: `${d.tanpaFoto} Atlet Belum Ada Pasfoto`,
+      message: `Kelengkapan pasfoto ${pct}%. Tanpa pasfoto, kartu identitas atlet tidak dapat dicetak.`,
+      action: 'Tarik Pasfoto',
+      actionHref: '/konida/atlet/kabbandung/foto',
+      count: d.tanpaFoto,
+    })
+  }
+  if ((d.tanpaRekening ?? 0) > 0) {
+    alerts.push({
+      severity: 'important',
+      icon: AlertTriangle,
+      title: `${d.tanpaRekening} Atlet Belum Ada Rekening`,
+      message: `Nama bank & nomor rekening belum terisi. Transfer bonus atlet akan terhambat.`,
+      action: 'Lihat Atlet',
+      actionHref: '/konida/atlet/kabbandung',
+      count: d.tanpaRekening,
     })
   }
   if (d.daysToEvent <= 14) {
