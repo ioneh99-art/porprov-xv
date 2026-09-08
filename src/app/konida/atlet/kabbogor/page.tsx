@@ -124,10 +124,9 @@ export default function PageAtletKabBogor() {
             .eq('kontingen_id', KONTINGEN_ID)
             .order('cabor_nama_raw', { ascending: true })
             .order('nama_lengkap',   { ascending: true }),
-          sb.from('atlet_tes_fisik')
+          sb.from('v_atlet_tes_fisik_terbaru')
             .select('id,atlet_id,bmi,berat_badan,tinggi_badan,kesimpulan_persen,kesimpulan_kategori,status_tes,cabor_nama,matching_method')
-            .eq('kontingen_id', KONTINGEN_ID)
-            .eq('tahap', 3),
+            .eq('kontingen_id', KONTINGEN_ID),
         ])
 
         if (atletRes.error) throw atletRes.error

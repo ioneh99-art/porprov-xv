@@ -45,9 +45,9 @@ async function buildContext(): Promise<{ text: string; meta: Record<string, numb
         .order('perak', { ascending: false })
         .limit(27),
       sb.from('atlet').select('kontingen_id, cabor_nama_raw, status_registrasi').limit(5000),
-      sb.from('atlet_tes_fisik')
+      sb.from('v_atlet_tes_fisik_terbaru')
         .select('kontingen_id, kesimpulan_persen, cabor_nama, status_tes')
-        .eq('tahap', 3).limit(3000),
+        .limit(3000),
       sb.from('subscriptions')
         .select('kontingen_id, is_trial, valid_until, plans(nama, urutan)')
         .eq('is_active', true),

@@ -57,9 +57,9 @@ export async function fetchSportIntelContext(kontingenId: number = 1): Promise<S
     sb.from('atlet')
       .select('id,nama_lengkap,status_registrasi,cabor_nama_raw')
       .eq('kontingen_id', kontingenId),
-    sb.from('atlet_tes_fisik')
+    sb.from('v_atlet_tes_fisik_terbaru')
       .select('atlet_id,kesimpulan_persen,kesimpulan_kategori,status_tes,cabor_nama')
-      .eq('kontingen_id', kontingenId).eq('tahap', 3),
+      .eq('kontingen_id', kontingenId),
     sb.from('klasemen_medali')
       .select('emas,perak,perunggu,total,kontingen(nama,id)')
       .order('emas', { ascending: false })

@@ -98,9 +98,9 @@ export default function DashboardKabBogor() {
           .select('emas,perak,perunggu,total')
           .eq('kontingen_id', KONTINGEN_ID)
           .maybeSingle(),
-        sb.from('atlet_tes_fisik')
+        sb.from('v_atlet_tes_fisik_terbaru')
           .select('kesimpulan_persen,status_tes,cabor_nama')
-          .eq('kontingen_id', KONTINGEN_ID).eq('tahap', 3),
+          .eq('kontingen_id', KONTINGEN_ID),
       ])
 
       if (tf.status==='fulfilled' && tf.value.data) {

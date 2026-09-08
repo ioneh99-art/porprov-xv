@@ -80,9 +80,9 @@ export default function PageWarRoom() {
             }
             return { data: all, error: null }
           })(),
-          sb.from('atlet_tes_fisik')
+          sb.from('v_atlet_tes_fisik_terbaru')
             .select('kesimpulan_persen,status_tes,cabor_nama,atlet_id')
-            .eq('kontingen_id', 4).eq('tahap', 3),
+            .eq('kontingen_id', 4),
         ])
 
         if (k.status==='fulfilled' && k.value.data) {

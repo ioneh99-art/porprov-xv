@@ -72,9 +72,9 @@ export default function PageWarRoom() {
           sb.from('atlet')
             .select('status_registrasi,cabor_nama_raw')
             .eq('kontingen_id', 1),
-          sb.from('atlet_tes_fisik')
+          sb.from('v_atlet_tes_fisik_terbaru')
             .select('kesimpulan_persen,status_tes,cabor_nama,atlet_id')
-            .eq('kontingen_id', 1).eq('tahap', 3),
+            .eq('kontingen_id', 1),
         ])
 
         if (k.status==='fulfilled' && k.value.data) {

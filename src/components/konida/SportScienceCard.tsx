@@ -44,10 +44,9 @@ export default function SportScienceCard({
       try {
         // Step 1 — header tes + atlet info (parallel)
         const [tesRes, atletRes] = await Promise.all([
-          sb.from('atlet_tes_fisik')
+          sb.from('v_atlet_tes_fisik_terbaru')
             .select('id,atlet_id,kesimpulan_persen,kesimpulan_kategori,status_tes,bmi,cabor_nama')
-            .eq('kontingen_id', kontingenId)
-            .eq('tahap', 3),
+            .eq('kontingen_id', kontingenId),
           sb.from('atlet')
             .select('id,nama_lengkap,cabor_nama_raw')
             .eq('kontingen_id', kontingenId),

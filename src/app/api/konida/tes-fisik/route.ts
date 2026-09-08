@@ -32,25 +32,39 @@ export async function GET(req: NextRequest) {
     const { data: komponenLemah } = await withCabor(sb
       .from('v_tes_fisik_komponen_lemah').select('*').eq('kontingen_id', kontingenId))
 
-    // 3. Overall stats
+    // 3. Overall stats — tes TERBARU per atlet (bukan tahap tetap; lihat migrasi 045)
     const { data: allTes } = await withCabor(sb
-      .from('atlet_tes_fisik')
+      .from('v_atlet_tes_fisik_terbaru')
       .select('kesimpulan_persen, kesimpulan_kategori, status_tes, bmi, jenis_kelamin, cabor_nama')
-      .eq('kontingen_id', kontingenId).eq('tahap', 3))
+      .eq('kontingen_id', kontingenId))
 
-    // 4. ATLET LIST — daftar atlet dengan data tes fisik
-    const { data: atletList } = await withCabor(sb
-      .from('atlet_tes_fisik')
+    // 4. ATLET LIST — daftar atlet dengan data tes fisik terbaru.
+    // Data atlet diambil terpisah lalu ditempel di sini: penggabungan PostgREST
+    // (atlet:atlet_id) tidak dapat diandalkan pada view, jadi jangan dipakai.
+    const { data: tesRows } = await withCabor(sb
+      .from('v_atlet_tes_fisik_terbaru')
       .select(`
         id, atlet_id, nama_atlet, cabor_nama, jenis_kelamin,
         berat_badan, tinggi_badan, bmi,
         kesimpulan_persen, kesimpulan_kategori, status_tes,
-        matching_method,
-        atlet:atlet_id(id, nama_lengkap, no_ktp, cabor_nama_raw)
+        matching_method
       `)
       .eq('kontingen_id', kontingenId)
-      .eq('tahap', 3)
       .order('kesimpulan_persen', { ascending: false, nullsFirst: false }))
+
+    const atletIds = Array.from(new Set((tesRows ?? []).map((r: any) => r.atlet_id).filter(Boolean)))
+    const atletById = new Map<number, any>()
+    for (let i = 0; i < atletIds.length; i += 500) {
+      const { data } = await sb
+        .from('atlet')
+        .select('id, nama_lengkap, no_ktp, cabor_nama_raw')
+        .in('id', atletIds.slice(i, i + 500))
+      ;(data ?? []).forEach((a: any) => atletById.set(a.id, a))
+    }
+    const atletList = (tesRows ?? []).map((r: any) => ({
+      ...r,
+      atlet: r.atlet_id ? atletById.get(r.atlet_id) ?? null : null,
+    }))
 
     // 5. UNMATCHED COUNT — atlet yang belum berhasil dicocokkan
     const { count: unmatchedCount } = await withCabor(sb
