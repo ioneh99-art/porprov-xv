@@ -131,13 +131,18 @@ cek('"ATLETIK" tetap diterima', caborDariFolder('ATLETIK', CABOR_DB.concat('Atle
 cek('penanda folder struktural', apakahFolderStruktural('ATLET') && !apakahFolderStruktural('ATLETIK'))
 
 console.log('\n[10] Cabor dikenali dari jalur, apa pun folder yang dipilih')
-const DBJ = CABOR_DB.concat(['Atletik', 'Aeromodelling', 'Gulat', 'Akuatik'])
+const DBJ = CABOR_DB.concat(['Atletik', 'Aeromodelling', 'Gulat', 'Akuatik', 'Dayung'])
 const jalurUji: Array<[string, string | null]> = [
   ['PENGUMPULAN FOTO/AEROMODELLING/ATLET/Aldi.png', 'Aeromodelling'],
   ['AEROMODELLING/ATLET/Aldi.png', 'Aeromodelling'],
   ['AKUATIK/OWS/ATLET/Diva.jpg', 'Akuatik'],
   ['PENGUMPULAN FOTO/HOKI/ATLET/x.jpg', 'Hockey'],
   ['ATLET/Aldi.png', null],
+  // Dayung TIDAK memakai subfolder ATLET — langsung ke sub-disiplin.
+  // Struktur ini sempat terlewat dari analisis; wajib tetap terbaca.
+  ['PENGUMPULAN FOTO/DAYUNG/CANOEING/Agung Gunawan.jpg', 'Dayung'],
+  ['PENGUMPULAN FOTO/DAYUNG/DRAGON BOAT/x.jpg', 'Dayung'],
+  ['DAYUNG/ROWING/x.jpg', 'Dayung'],
 ]
 for (const [jalur, harap] of jalurUji) {
   const dapat = caborDariJalur(jalur, DBJ)
