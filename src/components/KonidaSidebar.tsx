@@ -489,6 +489,7 @@ export default function KonidaSidebar() {
           <>
             <div className="h-px bg-slate-800 my-3"/>
             <NavItem label="Control Center" href="/superadmin" icon={Shield}/>
+            <NavItem label="Data Induk"     href="/superadmin/data-induk" icon={Database}/>
           </>
         )}
       </nav>
