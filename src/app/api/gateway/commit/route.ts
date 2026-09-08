@@ -13,6 +13,10 @@ import { getServerSession } from '@/lib/guard'
 import { writeAudit, reqMeta } from '@/lib/audit'
 import { TEMPLATES, hitungBmi, type JenisTemplate } from '@/lib/gateway/templates'
 import { kategoriDariPersen, ratingDariPersen } from '@/lib/gateway/rating'
+import {
+  hitungPerubahan, nilaiUntukDitulis, untukAudit, kolomTerpakai,
+  type RingkasUbah,
+} from '@/lib/gateway/diff'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,22 +29,6 @@ const sb = () => createClient(
 const isAdmin = (s: any) =>
   ['superadmin', 'koni_jabar'].includes(s.role) || ['superadmin', 'koni_jabar'].includes(s.level)
 
-const KOSONGKAN = '-'
-/** Ambil nilai siap tulis. undefined = jangan sentuh kolom ini. */
-function nilaiTulis(v: any): any {
-  if (v == null || v === '') return undefined
-  if (typeof v === 'string' && v.trim() === KOSONGKAN) return null
-  return v
-}
-
-const KOLOM_ATLET = new Set([
-  'tempat_lahir', 'tgl_lahir', 'gender', 'telepon', 'email',
-  'alamat', 'kecamatan', 'nama_bank', 'no_rekening',
-])
-const KOLOM_PERLENGKAPAN = new Set([
-  'ukuran_kemeja', 'ukuran_jaket', 'ukuran_kaos', 'ukuran_celana',
-  'ukuran_sepatu', 'ukuran_topi', 'ukuran_training_set', 'catatan',
-])
 
 export async function POST(req: NextRequest) {
   const s = await getServerSession()
@@ -89,46 +77,66 @@ export async function POST(req: NextRequest) {
   let tersimpan = 0, dilewati = 0
   const gagal: string[] = []
 
+  // Nilai LAMA diambil ulang di server — perubahan dihitung dari keadaan
+  // database saat ini, bukan dari kiriman peramban yang bisa sudah basi.
+  const kolom = kolomTerpakai(jenis).join(',')
+  const lamaPer = new Map<number, Record<string, any>>()
+  if (jenis === 'identitas' || jenis === 'perlengkapan') {
+    for (let i = 0; i < ids.length; i += 500) {
+      const potong = ids.slice(i, i + 500)
+      if (jenis === 'identitas') {
+        const { data } = await db.from('atlet').select(`id,${kolom}`)
+          .eq('kontingen_id', kontingen_id).in('id', potong)
+        ;(data ?? []).forEach((r: any) => lamaPer.set(r.id, r))
+      } else {
+        const { data } = await db.from('atlet_perlengkapan').select(`atlet_id,${kolom}`)
+          .in('atlet_id', potong)
+        ;(data ?? []).forEach((r: any) => lamaPer.set(r.atlet_id, r))
+      }
+    }
+  }
+
+  const rekapUbah: RingkasUbah = { tambah: 0, ubah: 0, kosongkan: 0, sama: 0 }
+  const jejak: any[] = []          // sebelum→sesudah untuk audit
+
   try {
     if (jenis === 'identitas') {
       for (const b of baris) {
-        const set: Record<string, any> = {}
-        for (const k of Array.from(KOLOM_ATLET)) {
-          const v = nilaiTulis(b.nilai?.[k])
-          if (v !== undefined) set[k] = v
-        }
+        const p = hitungPerubahan(jenis, b.nilai ?? {}, lamaPer.get(Number(b.atlet_id)) ?? null)
+        p.forEach(x => { rekapUbah[x.jenis]++ })
+        const set = nilaiUntukDitulis(p)
         if (!Object.keys(set).length) { dilewati++; continue }
         set.updated_at = sekarang
         const { error } = await db.from('atlet').update(set)
           .eq('id', b.atlet_id).eq('kontingen_id', kontingen_id)
-        if (error) gagal.push(`baris ${b.baris_ke}: ${error.message}`)
-        else tersimpan++
+        if (error) { gagal.push(`baris ${b.baris_ke}: ${error.message}`); continue }
+        jejak.push({ atlet_id: b.atlet_id, nama: sah.get(Number(b.atlet_id)), ubah: untukAudit(p) })
+        tersimpan++
       }
     }
 
     if (jenis === 'perlengkapan') {
       for (const b of baris) {
-        const row: Record<string, any> = { atlet_id: b.atlet_id }
-        let ada = false
-        for (const k of Array.from(KOLOM_PERLENGKAPAN)) {
-          const v = nilaiTulis(b.nilai?.[k])
-          if (v !== undefined) { row[k] = v; ada = true }
+        const p = hitungPerubahan(jenis, b.nilai ?? {}, lamaPer.get(Number(b.atlet_id)) ?? null)
+        p.forEach(x => { rekapUbah[x.jenis]++ })
+        const set = nilaiUntukDitulis(p)
+        if (!Object.keys(set).length) { dilewati++; continue }
+        const row: Record<string, any> = {
+          ...set, atlet_id: b.atlet_id,
+          diisi_oleh: aktor, diisi_at: sekarang, updated_at: sekarang,
         }
-        if (!ada) { dilewati++; continue }
-        row.diisi_oleh = aktor
-        row.diisi_at = sekarang
-        row.updated_at = sekarang
         const { error } = await db.from('atlet_perlengkapan').upsert(row, { onConflict: 'atlet_id' })
         if (error) { gagal.push(`baris ${b.baris_ke}: ${error.message}`); continue }
 
         // Cerminkan dua ukuran yang juga tersimpan di data atlet.
         const cermin: Record<string, any> = {}
-        if (row.ukuran_kemeja !== undefined) cermin.ukuran_kemeja = row.ukuran_kemeja
-        if (row.ukuran_sepatu !== undefined) cermin.ukuran_sepatu = row.ukuran_sepatu
+        if (set.ukuran_kemeja !== undefined) cermin.ukuran_kemeja = set.ukuran_kemeja
+        if (set.ukuran_sepatu !== undefined) cermin.ukuran_sepatu = set.ukuran_sepatu
         if (Object.keys(cermin).length) {
           cermin.updated_at = sekarang
           await db.from('atlet').update(cermin).eq('id', b.atlet_id).eq('kontingen_id', kontingen_id)
         }
+        jejak.push({ atlet_id: b.atlet_id, nama: sah.get(Number(b.atlet_id)), ubah: untukAudit(p) })
         tersimpan++
       }
     }
@@ -192,11 +200,19 @@ export async function POST(req: NextRequest) {
       actor_id: s.id != null ? String(s.id) : null,
       actor_email: aktor, actor_role: s.role ?? s.level ?? null,
       kontingen_id,
-      payload: { jenis, dikirim: baris.length, tersimpan, dilewati, gagal: gagal.length, nama_file: body?.nama_file ?? null },
+      payload: {
+        jenis, dikirim: baris.length, tersimpan, dilewati, gagal: gagal.length,
+        nama_file: body?.nama_file ?? null,
+        rekap_perubahan: rekapUbah,
+        jejak: jejak.slice(0, 200),   // sebelum→sesudah, dibatasi agar payload wajar
+      },
       severity: 'warning', ...reqMeta(req),
     })
 
-    return NextResponse.json({ ok: gagal.length === 0, jenis, tersimpan, dilewati, gagal })
+    return NextResponse.json({
+      ok: gagal.length === 0, jenis, tersimpan, dilewati, gagal,
+      rekap_perubahan: rekapUbah,
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message ?? 'Gagal menyimpan.' }, { status: 500 })
   }
