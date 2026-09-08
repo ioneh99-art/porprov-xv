@@ -61,8 +61,8 @@ export default function IntelPage() {
   return (
     <div className="min-h-screen bg-[#eeeeee] p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center gap-3 mb-1"><Trophy className="text-amber-500" size={22} /><h1 className="text-xl font-light text-[#3c4858]">KBAAS — Target & Proyeksi Medali</h1></div>
-        <p className="text-xs text-gray-400 mb-6">Target emas dua-lapis (Cabor vs KONI) + proyeksi medali per atlet, dari file Analisis Strategis KONI.</p>
+        <div className="flex items-center gap-3 mb-1"><Trophy className="text-amber-500" size={22} /><h1 className="text-xl font-light text-[#3c4858]">KBAAS — Target Emas &amp; Capaian Atlet</h1></div>
+        <p className="text-xs text-gray-400 mb-6">Target emas dua-lapis (Cabor vs KONI) + capaian terbaik & pesaing per atlet, dari berkas Analisis Strategis KONI. Kolom capaian mencatat prestasi yang SUDAH diraih, bukan proyeksi.</p>
         {err && <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">{err}</div>}
 
         {/* Dashboard KBAAS */}
@@ -76,19 +76,20 @@ export default function IntelPage() {
             </div>
             {[['Emas', sum.atlet_target_emas, 'from-amber-400 to-amber-500'], ['Perak', sum.atlet_target_perak, 'from-slate-300 to-slate-400'], ['Perunggu', sum.atlet_target_perunggu, 'from-orange-300 to-orange-500']].map(([l, v, g]: any) => (
               <div key={l} className="bg-white border border-gray-200 rounded-2xl p-4">
-                <Medal size={16} className="text-gray-300" /><div className="text-[11px] uppercase tracking-wider mt-1 text-gray-400">Atlet Target {l}</div><div className="text-2xl font-light text-[#3c4858]">{v ?? 0}</div>
+                <Medal size={16} className="text-gray-300" /><div className="text-[11px] uppercase tracking-wider mt-1 text-gray-400">Pernah Raih {l}</div><div className="text-2xl font-light text-[#3c4858]">{v ?? 0}</div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Tabel proyeksi per atlet */}
+        {/* Tabel capaian per atlet — kolom sumbernya CAPAIAN TERBAIK/TARGET,
+            yang berisi prestasi sudah diraih (mis. "EMAS, 260 kg"), bukan proyeksi. */}
         {kbaas?.ada && kbaas.atlet?.length > 0 && !pv && (
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
-            <div className="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-[#3c4858]">Proyeksi Medali per Atlet ({kbaas.atlet.length})</div>
+            <div className="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-[#3c4858]">Capaian Terbaik &amp; Pesaing per Atlet ({kbaas.atlet.length})</div>
             <div className="max-h-[28rem] overflow-auto">
               <table className="w-full text-sm">
-                <thead className="text-[10px] uppercase text-gray-400 bg-gray-50 sticky top-0"><tr><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">Cabang</th><th className="text-left px-4 py-2">Target</th><th className="text-left px-4 py-2">Pesaing</th></tr></thead>
+                <thead className="text-[10px] uppercase text-gray-400 bg-gray-50 sticky top-0"><tr><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">Cabang</th><th className="text-left px-4 py-2">Capaian Terbaik</th><th className="text-left px-4 py-2">Pesaing</th></tr></thead>
                 <tbody>
                   {kbaas.atlet.map((a: any, i: number) => (
                     <tr key={i} className="border-b border-gray-50">
