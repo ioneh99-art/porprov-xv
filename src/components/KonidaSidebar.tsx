@@ -6,7 +6,7 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
-  CreditCard,
+  CreditCard, FolderOpen,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -367,6 +367,7 @@ export default function KonidaSidebar() {
                 style={{ color: '#F5C518', opacity: 0.6 }}>Premium</span>
               <div className="flex-1 h-px bg-slate-800"/>
             </div>
+            <NavItemPremium label="Tarik Pasfoto"  href="/konida/atlet/kabbandung/foto"                       icon={FolderOpen} tc={tc}/>
             <NavItemPremium label="Cetak ID Card"  href="/konida/atlet/kabbandung/idcard"                     icon={CreditCard} tc={tc}/>
             <NavItemPremium label="Data Gateway"   href="/konida/export/kabbandung"                          icon={Database}  tc={tc}/>
             <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
