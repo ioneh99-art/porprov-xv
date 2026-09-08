@@ -370,6 +370,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   }, [atlets])
 
   // ── Alert strip untuk KPI+DQ card ──
+  const [alertSemua, setAlertSemua] = useState(false)
   const dashAlerts = useMemo(() => buildAlertsFromData({
     pendingVerifikasi: kpi.pending,
     dnsAtlet:          tesFisikData.dns,
@@ -383,7 +384,8 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
     totalAtlet:         kpi.total,
     prioritasTanpaFoto: kesiapan.prioritasTanpaFoto,
     prioritasTotal:     kesiapan.prioritasTotal,
-  }), [kpi, tesFisikData, kesiapan])
+  }).sort((a, b) => (a.severity === 'urgent' ? 0 : 1) - (b.severity === 'urgent' ? 0 : 1)),
+  [kpi, tesFisikData, kesiapan])
 
   // ── Drill-down: filter atlet per alert type ──
   const drilldownData = useMemo(() => {
@@ -688,10 +690,23 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
             </div>
           </div>
 
-          {/* Alert strip — 4 kolom, clickable drill-down */}
+          {/* Alert strip — urgent didahulukan, sisanya bisa dibuka */}
           {dashAlerts.length > 0 && (
-            <div className="px-4 py-3 border-t border-white/[0.06] grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {dashAlerts.slice(0, 4).map((a, i) => {
+            <>
+            <div className="px-4 pt-3 flex items-center justify-between border-t border-white/[0.06]">
+              <div className="text-[10px] uppercase tracking-widest" style={{color:'rgba(255,255,255,0.35)'}}>
+                Perlu Perhatian · {dashAlerts.length} hal
+              </div>
+              {dashAlerts.length > 4 && (
+                <button onClick={() => setAlertSemua(v => !v)}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/[0.06]"
+                  style={{color:'rgba(255,255,255,0.55)'}}>
+                  {alertSemua ? 'Ringkas' : `Lihat semua (${dashAlerts.length})`}
+                </button>
+              )}
+            </div>
+            <div className="px-4 py-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {(alertSemua ? dashAlerts : dashAlerts.slice(0, 4)).map((a, i) => {
                 const cfg = a.severity === 'urgent'
                   ? { color:'#ef4444', bg:'rgba(239,68,68,0.08)',  border:'rgba(239,68,68,0.25)',  label:'URGENT'  }
                   : { color:'#f97316', bg:'rgba(249,115,22,0.08)', border:'rgba(249,115,22,0.25)', label:'PENTING' }
@@ -716,6 +731,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
                 )
               })}
             </div>
+            </>
           )}
         </div>
 
