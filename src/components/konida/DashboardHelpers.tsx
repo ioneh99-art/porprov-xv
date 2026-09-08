@@ -459,9 +459,22 @@ export function buildAlertsFromData(d: {
   tanpaRekening?: number      // belum ada nama bank & no rekening
   pesertaBelumTertaut?: number // baris daftar KONI yang belum ketemu atletnya
   totalAtlet?: number
+  prioritasTanpaFoto?: number  // atlet prioritas emas yang belum punya pasfoto
+  prioritasTotal?: number
 }): CriticalAlert[] {
   const alerts: CriticalAlert[] = []
 
+  if ((d.prioritasTanpaFoto ?? 0) > 0) {
+    alerts.push({
+      severity: 'urgent',
+      icon: Trophy,
+      title: `${d.prioritasTanpaFoto} Atlet Prioritas Emas Belum Ada Pasfoto`,
+      message: `Dari ${d.prioritasTotal ?? 0} atlet yang ditandai pengurus hampir pasti meraih emas, ${d.prioritasTanpaFoto} belum punya pasfoto — kartu identitasnya tidak dapat dicetak. Dahulukan mereka.`,
+      action: 'Tarik Pasfoto',
+      actionHref: '/konida/atlet/kabbandung/foto',
+      count: d.prioritasTanpaFoto,
+    })
+  }
   if (d.pendingVerifikasi > 10) {
     alerts.push({
       severity: 'urgent',

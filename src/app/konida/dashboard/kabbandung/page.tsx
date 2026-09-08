@@ -55,6 +55,7 @@ interface AtletRaw {
   is_locked: boolean | null
   foto_url: string | null
   no_rekening: string | null
+  prioritas_emas: string | null
 }
 
 type DrilldownKey = 'kritis' | 'pending' | 'ditolak' | 'dns' | 'locked_nik' | 'cabor_lemah'
@@ -84,7 +85,7 @@ export default function DashboardKabBandung() {
   const [myMedali,  setMyMedali]  = useState({ emas:0, perak:0, perunggu:0, total:0 })
   const [loading,   setLoading]   = useState(true)
   const [animIn,    setAnimIn]    = useState(false)
-  const [kesiapan,  setKesiapan]  = useState({ tanpaFoto:0, tanpaRekening:0, nikBermasalah:0, belumTertaut:0 })
+  const [kesiapan,  setKesiapan]  = useState({ tanpaFoto:0, tanpaRekening:0, nikBermasalah:0, belumTertaut:0, prioritasTotal:0, prioritasTanpaFoto:0 })
 const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   const [pulse,     setPulse]     = useState(true)
   const [alertPanel, setAlertPanel] = useState<'pending'|'nonlokal'|'ditolak'|null>(null)
@@ -106,7 +107,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       let allAtlet: AtletRaw[] = []
       for (let page = 0; ; page++) {
         const { data: pageData } = await sb.from('atlet')
-          .select('id,nama_lengkap,no_ktp,status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked,foto_url,no_rekening')
+          .select('id,nama_lengkap,no_ktp,status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked,foto_url,no_rekening,prioritas_emas')
           .eq('kontingen_id', KONTINGEN_ID)
           .range(page * 1000, (page + 1) * 1000 - 1)
         if (!pageData || pageData.length === 0) break
@@ -124,6 +125,8 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       ])
       setKesiapan({
         tanpaFoto:     allAtlet.filter(a => !a.foto_url).length,
+        prioritasTotal:     allAtlet.filter(a => a.prioritas_emas).length,
+        prioritasTanpaFoto: allAtlet.filter(a => a.prioritas_emas && !a.foto_url).length,
         tanpaRekening: allAtlet.filter(a => !a.no_rekening).length,
         nikBermasalah: nikBermasalah.status === 'fulfilled' ? (nikBermasalah.value.count ?? 0) : 0,
         belumTertaut:  belumTertaut.status === 'fulfilled' ? (belumTertaut.value.count ?? 0) : 0,
@@ -378,6 +381,8 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
     tanpaRekening:      kesiapan.tanpaRekening,
     pesertaBelumTertaut: kesiapan.belumTertaut,
     totalAtlet:         kpi.total,
+    prioritasTanpaFoto: kesiapan.prioritasTanpaFoto,
+    prioritasTotal:     kesiapan.prioritasTotal,
   }), [kpi, tesFisikData, kesiapan])
 
   // ── Drill-down: filter atlet per alert type ──

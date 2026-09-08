@@ -70,6 +70,8 @@ interface Atlet {
   tes_fisik_kategori?: string | null
   tes_fisik_persen?:   number | null
   tes_fisik_rating?:   string | null
+  prioritas_emas?:     string | null
+  prioritas_capaian?:  string | null
   tes_fisik_id?:       number | null
 }
 
@@ -150,7 +152,7 @@ export default function PageAtletKabBandung() {
             let all: any[] = []
             for (let p = 0; ; p++) {
               const { data, error } = await sb.from('atlet')
-                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at,tes_fisik_status,tes_fisik_kategori,tes_fisik_persen,tes_fisik_rating,tes_fisik_id')
+                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at,tes_fisik_status,tes_fisik_kategori,tes_fisik_persen,tes_fisik_rating,tes_fisik_id,prioritas_emas,prioritas_capaian')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .order('cabor_nama_raw', { ascending: true })
                 .order('nama_lengkap',   { ascending: true })
@@ -910,7 +912,18 @@ export default function PageAtletKabBandung() {
                                     onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
                                     <td className="px-3 py-2.5 text-center text-[10px] font-mono" style={{color:'rgba(255,255,255,0.2)'}}>{a.id}</td>
                                     <td className="px-3 py-2.5">
-                                      <div className="text-sm font-bold text-zinc-200">{a.nama_lengkap}</div>
+                                      <div className="text-sm font-bold text-zinc-200 flex items-center gap-1.5">
+                                        {a.nama_lengkap}
+                                        {a.prioritas_emas && (
+                                          <span title={`Prioritas emas menurut pengurus cabor${a.prioritas_capaian ? ` — ${a.prioritas_capaian}` : ''}`}
+                                            className="text-[8px] font-black px-1.5 py-0.5 rounded tracking-wider shrink-0"
+                                            style={a.prioritas_emas === 'jingga'
+                                              ? { background:'rgba(249,115,22,0.18)', color:'#fb923c', border:'1px solid rgba(249,115,22,0.4)' }
+                                              : { background:'rgba(250,204,21,0.15)', color:'#facc15', border:'1px solid rgba(250,204,21,0.35)' }}>
+                                            EMAS
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="text-[10px] font-mono mt-0.5" style={{color:'rgba(255,255,255,0.25)'}}>{a.no_ktp}</div>
                                     </td>
                                     <td className="px-3 py-2.5">
