@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Upload, FileText, Trash2, CheckCircle, Clock, XCircle } from 'lucide-react'
 import Link from 'next/link'
+import BadgeElite from '@/components/konida/BadgeElite'
 
 const JENIS_DOKUMEN = [
   { key: 'ktp', label: 'KTP / NIK' },
@@ -114,7 +115,10 @@ export default function DetailAtletPage() {
           <ArrowLeft size={16} />
         </Link>
         <div>
-          <h1 className="text-lg font-semibold text-white">{atlet?.nama_lengkap}</h1>
+          <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+            {atlet?.nama_lengkap}
+            <BadgeElite prioritas={atlet?.prioritas_emas} capaian={atlet?.prioritas_capaian} ukuran="kecil" />
+          </h1>
           <p className="text-slate-500 text-xs mt-0.5">
             {atlet?.cabang_olahraga?.nama} · {atlet?.kontingen?.nama}
           </p>

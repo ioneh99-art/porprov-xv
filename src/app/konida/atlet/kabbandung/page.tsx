@@ -17,6 +17,7 @@ import { CaborCardV2, classifyCabor, countByStatus, type CaborCardData, type Cab
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts'
+import BadgeElite from '@/components/konida/BadgeElite'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -126,6 +127,8 @@ export default function PageAtletKabBandung() {
     return valid.includes(s as FilterStatus) ? (s as FilterStatus) : 'semua'
   })
   const [filterTesFisik, setFilterTesFisik] = useState<'semua'|'sudah'|'belum'|'top'>('semua')
+  // Grup ELITE: atlet prioritas emas menurut pengurus cabor.
+  const [hanyaElite, setHanyaElite] = useState(false)
   const [filterRating,   setFilterRating]   = useState<string>('all')
   const [filterKesiapan, setFilterKesiapan] = useState<'semua'|'belum_tes'|'perlu_perhatian'|'siap_tanding'>('semua')
   const [expandedCabor,setExpandedCabor]= useState<string|null>(null)
@@ -286,6 +289,8 @@ export default function PageAtletKabBandung() {
       ? data
       : data.filter(a=>a.status_registrasi===filterStatus)
 
+    if (hanyaElite) filtered = filtered.filter(a => a.prioritas_emas)
+
     if (filterTesFisik === 'sudah') filtered = filtered.filter(a => a.tes_fisik != null)
     else if (filterTesFisik === 'belum') filtered = filtered.filter(a => a.tes_fisik == null)
     else if (filterTesFisik === 'top')   filtered = filtered.filter(a => (a.tes_fisik?.kesimpulan_persen || 0) >= 80)
@@ -412,7 +417,7 @@ export default function PageAtletKabBandung() {
     })
 
     return list
-  },[data, searchCabor, searchNama, filterStatus, filterTesFisik, filterRating, filterKesiapan, filterCaborStat, sortMode])
+  },[data, searchCabor, searchNama, filterStatus, filterTesFisik, filterRating, filterKesiapan, filterCaborStat, sortMode, hanyaElite])
 
   // ── Export CSV ────────────────────────────────────────────
   const handleExport = useCallback(()=>{
@@ -679,6 +684,16 @@ export default function PageAtletKabBandung() {
             </div>
           </div>
 
+          {/* Grup ELITE — dipisah karena bukan status, tapi penilaian pengurus cabor */}
+          <button onClick={()=>setHanyaElite(v=>!v)}
+            title="Hanya atlet yang ditandai pengurus cabor hampir pasti meraih emas"
+            className="px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wider transition-all"
+            style={hanyaElite
+              ? {background:'rgba(250,204,21,0.18)', color:'#facc15', border:'1px solid rgba(250,204,21,0.45)'}
+              : {background:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.35)', border:'1px solid transparent'}}>
+            ELITE ({data.filter(a=>a.prioritas_emas).length})
+          </button>
+
           {/* Filter Tes Fisik */}
           <div className="flex items-center gap-2 pl-3 ml-1 border-l border-white/5">
             <Activity size={13} style={{color:'rgba(16,185,129,0.5)'}}/>
@@ -914,15 +929,7 @@ export default function PageAtletKabBandung() {
                                     <td className="px-3 py-2.5">
                                       <div className="text-sm font-bold text-zinc-200 flex items-center gap-1.5">
                                         {a.nama_lengkap}
-                                        {a.prioritas_emas && (
-                                          <span title={`Prioritas emas menurut pengurus cabor${a.prioritas_capaian ? ` — ${a.prioritas_capaian}` : ''}`}
-                                            className="text-[8px] font-black px-1.5 py-0.5 rounded tracking-wider shrink-0"
-                                            style={a.prioritas_emas === 'jingga'
-                                              ? { background:'rgba(249,115,22,0.18)', color:'#fb923c', border:'1px solid rgba(249,115,22,0.4)' }
-                                              : { background:'rgba(250,204,21,0.15)', color:'#facc15', border:'1px solid rgba(250,204,21,0.35)' }}>
-                                            EMAS
-                                          </span>
-                                        )}
+                                        <BadgeElite prioritas={a.prioritas_emas} capaian={a.prioritas_capaian} ukuran="mini" />
                                       </div>
                                       <div className="text-[10px] font-mono mt-0.5" style={{color:'rgba(255,255,255,0.25)'}}>{a.no_ktp}</div>
                                     </td>

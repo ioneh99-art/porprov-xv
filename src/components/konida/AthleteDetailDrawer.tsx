@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react'
 import { X, Activity, Heart, Target, Award, AlertTriangle, Flame } from 'lucide-react'
+import BadgeElite from '@/components/konida/BadgeElite'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -122,7 +123,10 @@ function AthleteProfile({ data, primary }: { data: any; primary: string }) {
     <>
       {/* Identitas */}
       <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${primary}30` }}>
-        <h3 className="text-white text-lg font-bold">{data.atlet.nama_lengkap}</h3>
+        <h3 className="text-white text-lg font-bold flex items-center gap-2">
+          {data.atlet.nama_lengkap}
+          <BadgeElite prioritas={data.atlet.prioritas_emas} capaian={data.atlet.prioritas_capaian} ukuran="kecil" />
+        </h3>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
           <span>NIK: <span className="text-slate-200 font-mono">{data.atlet.no_ktp}</span></span>
           <span>Cabor: <span className="text-slate-200">{data.atlet.cabor_nama_raw || '-'}</span></span>

@@ -93,7 +93,8 @@ export async function GET(
     .select(`
       id, nama_lengkap, no_ktp, gender, tgl_lahir,
       cabor_nama_raw, kontingen_id, nama_asal_daerah,
-      status_registrasi, portal_aktif
+      status_registrasi, portal_aktif,
+      prioritas_emas, prioritas_capaian
     `)
     .eq('id', atletId)
     .maybeSingle()

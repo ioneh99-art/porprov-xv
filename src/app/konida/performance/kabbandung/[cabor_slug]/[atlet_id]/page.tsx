@@ -28,6 +28,7 @@ import { LiftProgressionCard } from '@/components/konida/performance/LiftProgres
 import { AthleteActionItems } from '@/components/konida/performance/AthleteActionItems'
 import type { ReadinessInput } from '@/lib/performance/readiness-score'
 import { calculateReadiness } from '@/lib/performance/readiness-score'
+import BadgeElite from '@/components/konida/BadgeElite'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,6 +46,8 @@ interface AtletDetail {
   gender:              string
   tgl_lahir:           string
   status_registrasi:   string
+  prioritas_emas?:     string | null
+  prioritas_capaian?:  string | null
   kode_asal_daerah:    string | null
   nomor_koni?:         string | null
   domisili?:           string | null
@@ -306,7 +309,10 @@ export default function PerformanceDossierPage() {
             </Link>
             <Icon size={18} style={{ color: accent }}/>
             <div className="min-w-0">
-              <div className="text-sm font-bold text-white truncate">{atlet.nama_lengkap}</div>
+              <div className="text-sm font-bold text-white truncate flex items-center gap-1.5">
+                <span className="truncate">{atlet.nama_lengkap}</span>
+                <BadgeElite prioritas={atlet.prioritas_emas} ukuran="mini" />
+              </div>
               <div className="text-[10px] text-slate-500">{atlet.cabor?.nama ?? atlet.cabor_nama_raw}</div>
             </div>
           </div>
@@ -364,6 +370,7 @@ export default function PerformanceDossierPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <h1 className="text-2xl font-black text-white">{atlet.nama_lengkap}</h1>
+                    <BadgeElite prioritas={atlet.prioritas_emas} capaian={atlet.prioritas_capaian} ukuran="besar" />
                     {atlet.status_registrasi === 'Verified' && (
                       <CheckCircle2 size={18} style={{ color: '#22c55e' }}/>
                     )}

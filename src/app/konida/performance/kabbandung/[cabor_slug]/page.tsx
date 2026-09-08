@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { getCaborAccent, getCaborIcon, caborToSlug, slugToCaborName, hasBaselineData } from '@/lib/performance/cabor-accent-map'
 import { calculateReadiness, type ReadinessInput } from '@/lib/performance/readiness-score'
+import BadgeElite from '@/components/konida/BadgeElite'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,6 +27,8 @@ interface AtletDB {
   cabor_nama_raw: string
   gender:         string
   tgl_lahir:      string
+  prioritas_emas?:    string | null
+  prioritas_capaian?: string | null
 }
 
 interface BaselineRow {
@@ -142,7 +145,7 @@ export default function PerformanceRosterPage() {
       let allAtlets: any[] = []
       for (let p = 0; ; p++) {
         const { data } = await sb.from('atlet')
-          .select('id,nama_lengkap,cabor_nama_raw,gender,tgl_lahir')
+          .select('id,nama_lengkap,cabor_nama_raw,gender,tgl_lahir,prioritas_emas,prioritas_capaian')
           .eq('kontingen_id', KONTINGEN_ID)
           .in('cabor_nama_raw', queryNames)
           .in('status_registrasi', ['Verified', 'Posted'])
@@ -448,7 +451,10 @@ export default function PerformanceRosterPage() {
                 <div className="col-span-3 flex items-center gap-2 min-w-0">
                   <ChevronRight size={13} className="text-slate-700 group-hover:text-slate-300 shrink-0 transition-colors"/>
                   <div className="min-w-0">
-                    <div className="text-sm text-white truncate font-medium">{r.nama_lengkap}</div>
+                    <div className="text-sm text-white truncate font-medium flex items-center gap-1.5">
+                      <span className="truncate">{r.nama_lengkap}</span>
+                      <BadgeElite prioritas={r.prioritas_emas} capaian={r.prioritas_capaian} ukuran="mini" />
+                    </div>
                     <div className="text-[10px] text-slate-600">
                       {r.gender === 'L' ? 'Putra' : 'Putri'}
                       {r.fitnessPersen !== null && <span> · fisik {r.fitnessPersen}%</span>}
