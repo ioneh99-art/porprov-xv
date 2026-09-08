@@ -4,6 +4,8 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
+import ImporTemplate from '@/components/konida/gateway/ImporTemplate'
 import {
   Database, Download, UploadCloud, FileSpreadsheet,
   CheckCircle, XCircle, AlertTriangle, RefreshCw,
@@ -22,7 +24,7 @@ const sb = createClient(
 const KONTINGEN_ID = 4
 const ACCENT       = '#38bdf8'
 
-type Tab = 'import' | 'klasemen' | 'cabor'
+type Tab = 'identitas' | 'perlengkapan' | 'biomotorik' | 'lainnya' | 'import' | 'klasemen' | 'cabor'
 
 // ── Validasi import atlet ─────────────────────────────────
 const REQUIRED_COLS = ['nama_lengkap','no_ktp','tgl_lahir','gender','cabor_nama_raw']
@@ -912,8 +914,36 @@ function LoadingSkel() {
 // ════════════════════════════════════════════════════════
 // MAIN PAGE
 // ════════════════════════════════════════════════════════
+/** Tiga pemasukan data yang punya halamannya sendiri. Dipindah ke bawah gerbang
+ *  ini supaya operator hanya perlu mengingat satu tempat untuk memasukkan data. */
+function SumberLain() {
+  const ITEM = [
+    { href:'/konida/atlet/kabbandung/foto', judul:'Tarik Pasfoto Atlet',
+      ket:'Dari folder hasil unduhan Google Drive. Dicocokkan per cabor, dikecilkan di peramban.' },
+    { href:'/konida/rekonsiliasi', judul:'Rekonsiliasi Peserta',
+      ket:'Berkas rekapitulasi KONI. Menghasilkan daftar peserta sah dan tiga angka selisih.' },
+    { href:'/konida/intel', judul:'Target Medali (KBAAS)',
+      ket:'Berkas analisis strategis. Target emas dua lapis dan proyeksi per atlet.' },
+  ]
+  return (
+    <div className="space-y-3">
+      <p className="text-[12px] text-slate-500">
+        Ketiganya memakai alur yang sama: unggah → pratinjau → konfirmasi → simpan.
+        Bedanya hanya sumber berkasnya.
+      </p>
+      {ITEM.map(i => (
+        <Link key={i.href} href={i.href}
+          className="block rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:bg-white/[0.06] transition-colors">
+          <div className="text-white font-bold text-sm mb-1">{i.judul}</div>
+          <div className="text-[12px] text-slate-500">{i.ket}</div>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 export default function DataGatewayPage() {
-  const [tab,           setTab]           = useState<Tab>('import')
+  const [tab,           setTab]           = useState<Tab>('identitas')
   const [atletCount,    setAtletCount]    = useState(0)
   const [animIn,        setAnimIn]        = useState(false)
 
@@ -924,10 +954,16 @@ export default function DataGatewayPage() {
     return () => clearTimeout(t)
   }, [])
 
+  // Gerbang tunggal: semua pemasukan data lewat sini. Tab lama yang menyentuh
+  // data lintas kontingen dipisah ke kelompok terkunci superadmin.
   const TABS: { id: Tab; label: string; icon: React.ElementType; desc: string }[] = [
-    { id:'import',   label:'Import Atlet',    icon:UploadCloud, desc:'Excel → DB' },
-    { id:'klasemen', label:'Klasemen Medali', icon:Medal,       desc:'Edit langsung' },
-    { id:'cabor',    label:'Master Cabor',    icon:Layers,      desc:'Kelola cabor' },
+    { id:'identitas',    label:'Identitas Atlet', icon:UploadCloud, desc:'Excel' },
+    { id:'perlengkapan', label:'Perlengkapan',    icon:UploadCloud, desc:'Excel' },
+    { id:'biomotorik',   label:'Tes Biomotorik',  icon:UploadCloud, desc:'Excel berkala' },
+    { id:'lainnya',      label:'Sumber Lain',     icon:Database,    desc:'Foto · Rekonsiliasi · Target' },
+    { id:'import',       label:'Import Atlet Baru', icon:UploadCloud, desc:'Excel → DB' },
+    { id:'klasemen',     label:'Klasemen Medali', icon:Medal,       desc:'Superadmin' },
+    { id:'cabor',        label:'Master Cabor',    icon:Layers,      desc:'Superadmin' },
   ]
 
   return (
@@ -983,6 +1019,10 @@ export default function DataGatewayPage() {
         </div>
 
         {/* TAB CONTENT */}
+        {tab === 'identitas'    && <ImporTemplate jenis="identitas"    accent={ACCENT}/>}
+        {tab === 'perlengkapan' && <ImporTemplate jenis="perlengkapan" accent={ACCENT}/>}
+        {tab === 'biomotorik'   && <ImporTemplate jenis="biomotorik"   accent={ACCENT}/>}
+        {tab === 'lainnya'      && <SumberLain/>}
         {tab === 'import'   && <ImportTab existingAtletCount={atletCount}/>}
         {tab === 'klasemen' && <KlasemenTab/>}
         {tab === 'cabor'    && <CaborTab/>}

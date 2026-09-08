@@ -1,15 +1,39 @@
 // src/app/api/admin/data-gateway/route.ts
-// Secure CRUD endpoint for Data Gateway using service key
-// Modules: klasemen | cabor | stats | atlet_bulk
+// Endpoint Data Gateway (kunci layanan). Modul: klasemen | cabor | kontingen | stats | atlet_status
+//
+// Penjagaan (diperbaiki 2026-09-08):
+//   BACA  — cukup login.
+//   TULIS — dua lapis, karena sebelumnya penjaganya hanya "sudah login atau belum"
+//           dan penulisannya TIDAK dibatasi kontingen pemanggil:
+//             · atlet_status mengubah status registrasi hanya berdasarkan daftar id,
+//               sehingga satu akun mana pun bisa menolak atlet kontingen lain;
+//             · klasemen menerima kontingen_id dari kiriman peramban apa adanya,
+//               sehingga perolehan medali kontingen mana pun bisa ditulis ulang;
+//             · cabor mengubah daftar cabang olahraga secara GLOBAL.
+//           Ketiganya kini dibatasi: cabor & klasemen hanya superadmin, sedangkan
+//           atlet_status wajib berada dalam kontingen pemanggil.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/guard'
+import { writeAudit, reqMeta } from '@/lib/audit'
 import { createClient } from '@supabase/supabase-js'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
 )
+
+/** Modul yang menyentuh data lintas kontingen — superadmin saja. */
+const MODUL_SUPERADMIN = ['klasemen', 'klasemen_init', 'cabor']
+const isSuperadmin = (s: any) => s?.level === 'superadmin' || s?.role === 'superadmin'
+
+function tolakBilaBukanSuperadmin(s: any, modul: string | null) {
+  if (modul && MODUL_SUPERADMIN.includes(modul) && !isSuperadmin(s)) {
+    return NextResponse.json(
+      { error: 'Modul ini mengubah data lintas kontingen — hanya superadmin.' }, { status: 403 })
+  }
+  return null
+}
 
 // ── GET ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -69,8 +93,12 @@ export async function GET(req: NextRequest) {
 // ── PATCH — update rows ───────────────────────────────────
 export async function PATCH(req: NextRequest) {
   const _g = await requireRole(); if (_g instanceof NextResponse) return _g
+  const sesi = _g as any
   const body = await req.json()
   const { module, data } = body
+
+  const _tolak = tolakBilaBukanSuperadmin(sesi, module)
+  if (_tolak) return _tolak
 
   if (module === 'klasemen') {
     // Bulk upsert — re-calculate total from emas+perak+perunggu
@@ -103,13 +131,32 @@ export async function PATCH(req: NextRequest) {
     if (!VALID_STATUS.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
-    const { data: updated, error } = await sb
-      .from('atlet')
-      .update({ status_registrasi: status })
-      .in('id', ids)
-      .select('id')
+    // Batasi ke kontingen pemanggil. Tanpa ini satu akun mana pun bisa
+    // mengubah status atlet kontingen lain hanya dengan mengirim daftar id.
+    let q = sb.from('atlet').update({ status_registrasi: status }).in('id', ids)
+    if (!isSuperadmin(sesi)) {
+      if (sesi?.kontingen_id == null) {
+        return NextResponse.json({ error: 'Kontingen tidak diketahui dari sesi.' }, { status: 403 })
+      }
+      q = q.eq('kontingen_id', sesi.kontingen_id)
+    }
+    const { data: updated, error } = await q.select('id')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, updated: updated?.length ?? 0 })
+
+    const ditolak = ids.length - (updated?.length ?? 0)
+    await writeAudit({
+      action: 'GATEWAY_UBAH_STATUS_ATLET', resource: 'atlet', resource_id: null,
+      actor_id: sesi?.id != null ? String(sesi.id) : null,
+      actor_email: sesi?.username ?? sesi?.nama ?? null,
+      actor_role: sesi?.role ?? sesi?.level ?? null,
+      kontingen_id: sesi?.kontingen_id ?? null,
+      payload: { status, diminta: ids.length, terubah: updated?.length ?? 0, di_luar_kontingen: ditolak },
+      severity: 'warning', ...reqMeta(req),
+    })
+    return NextResponse.json({
+      ok: true, updated: updated?.length ?? 0,
+      dilewati_di_luar_kontingen: ditolak > 0 ? ditolak : undefined,
+    })
   }
 
   return NextResponse.json({ error: 'Unknown module' }, { status: 400 })
@@ -118,8 +165,12 @@ export async function PATCH(req: NextRequest) {
 // ── POST — create row ─────────────────────────────────────
 export async function POST(req: NextRequest) {
   const _g = await requireRole(); if (_g instanceof NextResponse) return _g
+  const sesi = _g as any
   const body = await req.json()
   const { module, data } = body
+
+  const _tolak = tolakBilaBukanSuperadmin(sesi, module)
+  if (_tolak) return _tolak
 
   if (module === 'cabor') {
     const nama = data.nama?.trim()
@@ -151,8 +202,12 @@ export async function POST(req: NextRequest) {
 // ── DELETE — remove / deactivate ─────────────────────────
 export async function DELETE(req: NextRequest) {
   const _g = await requireRole(); if (_g instanceof NextResponse) return _g
+  const sesi = _g as any
   const body = await req.json()
   const { module, id } = body
+
+  const _tolak = tolakBilaBukanSuperadmin(sesi, module)
+  if (_tolak) return _tolak
 
   if (module === 'cabor') {
     // Soft delete — keeps historical data intact
