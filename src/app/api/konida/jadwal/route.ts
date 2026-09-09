@@ -49,9 +49,10 @@ export async function GET() {
   }
   const aktif = atlet.filter(a => a.status_registrasi !== 'Ditolak Admin')
 
-  const [jadwalRes, upacaraRes] = await Promise.all([
+  const [jadwalRes, upacaraRes, panpelRes] = await Promise.all([
     db.from('v_jadwal_cabor').select('*'),
     db.from('jadwal_cabor').select('cabor_disiplin,mulai,venue').eq('jenis', 'upacara').order('mulai'),
+    db.from('kontak_panpel').select('cabor_nama_raw,cabor_disiplin,td_nama,td_hp,ketua_nama,ketua_hp'),
   ])
   const jadwal  = jadwalRes.data ?? []
   const upacara = (upacaraRes.data ?? []).map((u: any) => ({
@@ -59,6 +60,14 @@ export async function GET() {
   }))
 
   const punyaJadwal = new Set(jadwal.map((j: any) => j.cabor_nama_raw))
+
+  // Kontak panitia: satu cabor bisa punya beberapa disiplin dengan panitia
+  // berbeda, jadi disimpan sebagai daftar, bukan satu nama.
+  const panpel = new Map<string, any[]>()
+  for (const k of (panpelRes.data ?? [])) {
+    if (!k.cabor_nama_raw) continue
+    panpel.set(k.cabor_nama_raw, [...(panpel.get(k.cabor_nama_raw) ?? []), k])
+  }
 
   const perCabor = new Map<string, { atlet: number; tanpaFoto: number; elite: number }>()
   aktif.forEach(a => {
@@ -79,6 +88,7 @@ export async function GET() {
       tuan_rumah: j.tuan_rumah, venue: j.venue, wilayah: j.wilayah,
       hari_lagi: hariLagi(j.mulai_paling_awal),
       atlet: h.atlet, tanpa_foto: h.tanpaFoto, elite: h.elite,
+      kontak: panpel.get(j.cabor_nama_raw) ?? [],
     }
   }).sort((a: any, b: any) => (a.hari_lagi ?? 9e9) - (b.hari_lagi ?? 9e9))
 
