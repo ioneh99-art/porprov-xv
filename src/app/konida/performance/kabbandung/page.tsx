@@ -15,6 +15,7 @@ import PrestasiAlert from '@/components/konida/PrestasiAlert'
 import IntelPanel from '@/components/konida/performance/IntelPanel'
 import { PerformanceCaborCard, type PerformanceCaborData } from '@/components/konida/performance/PerformanceCaborCard'
 import { hasBaselineData, caborToSlug } from '@/lib/performance/cabor-accent-map'
+import PanelKlasifikasi from '@/components/konida/performance/PanelKlasifikasi'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -629,7 +630,8 @@ export default function PerformancePage() {
             Ditaruh di Performance Center, bukan Data Gateway: gerbang itu untuk
             MEMASUKKAN data, papan ini untuk DILIHAT. Sekaligus memperluas
             cakupan halaman ini dari 50 atlet ber-baseline ke 658 atlet. */}
-        <IntelPanel accent={ACCENT} />
+          <PanelKlasifikasi accent={ACCENT} />
+          <IntelPanel accent={ACCENT} />
 
         {/* ════ HERO IDENTITY ════ */}
         <div {...ani(0)} className="rounded-2xl p-6"

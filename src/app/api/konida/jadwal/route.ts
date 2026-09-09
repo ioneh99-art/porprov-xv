@@ -93,8 +93,50 @@ export async function GET() {
     ? cabor.filter((c: any) => c.mulai && c.mulai < pembukaan.tanggal)
     : []
 
+  // ── Rombongan keberangkatan: dikelompokkan per kota tujuan ──
+  // Yang menentukan logistik bukan cabor, tapi kota: satu bus, satu penginapan,
+  // satu tanggal berangkat untuk semua cabor yang tujuannya sama.
+  const { data: barisJadwal } = await db.from('jadwal_cabor')
+    .select('cabor_nama_raw,cabor_disiplin,tuan_rumah,akomodasi,mulai,selesai,venue,contact_person')
+    .eq('jenis', 'pertandingan')
+
+  const rom = new Map<string, any>()
+  for (const b of (barisJadwal ?? [])) {
+    if (!b.cabor_nama_raw) continue
+    const kota = (b.akomodasi || b.tuan_rumah || 'Belum ditentukan').trim()
+    if (!rom.has(kota)) rom.set(kota, {
+      kota, cabor: new Map<string, any>(), mulai: null as string | null,
+      selesai: null as string | null, kontak: new Set<string>(),
+    })
+    const e = rom.get(kota)
+    if (!e.cabor.has(b.cabor_nama_raw)) e.cabor.set(b.cabor_nama_raw, { mulai: b.mulai, venue: b.venue })
+    else if (b.mulai && (!e.cabor.get(b.cabor_nama_raw).mulai || b.mulai < e.cabor.get(b.cabor_nama_raw).mulai))
+      e.cabor.get(b.cabor_nama_raw).mulai = b.mulai
+    if (b.mulai   && (!e.mulai   || b.mulai   < e.mulai))   e.mulai = b.mulai
+    if (b.selesai && (!e.selesai || b.selesai > e.selesai)) e.selesai = b.selesai
+    if (b.contact_person) e.kontak.add(b.contact_person)
+  }
+
+  const rombongan = Array.from(rom.values()).map((e: any) => {
+    const daftar = Array.from(e.cabor.entries()).map(([nama, v]: any) => {
+      const h = perCabor.get(nama) ?? { atlet: 0, tanpaFoto: 0, elite: 0 }
+      return { cabor: nama, mulai: v.mulai, venue: v.venue, atlet: h.atlet, tanpa_foto: h.tanpaFoto, elite: h.elite }
+    }).sort((a: any, b: any) => (a.mulai ?? '').localeCompare(b.mulai ?? ''))
+    return {
+      kota: e.kota, mulai: e.mulai, selesai: e.selesai,
+      hari_lagi: hariLagi(e.mulai),
+      jumlah_cabor: daftar.length,
+      atlet: daftar.reduce((n: number, d: any) => n + d.atlet, 0),
+      elite: daftar.reduce((n: number, d: any) => n + d.elite, 0),
+      tanpa_foto: daftar.reduce((n: number, d: any) => n + d.tanpa_foto, 0),
+      contact_person: Array.from(e.kontak).join(', ') || null,
+      cabor: daftar,
+    }
+  }).sort((a: any, b: any) => (a.mulai ?? '9').localeCompare(b.mulai ?? '9'))
+
   return NextResponse.json({
     upacara,
+    rombongan,
     pertandingan_pertama: cabor[0]?.mulai ?? null,
     hari_ke_pertandingan_pertama: cabor[0]?.hari_lagi ?? null,
     cabor,

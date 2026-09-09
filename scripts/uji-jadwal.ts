@@ -66,13 +66,26 @@ uji('Mini 4WD', null); uji('Sakteboard', null); uji('Drumband', 'Drumband')
 uji('', null); uji('   ', null)
 
 // ── Tanggal: bentuk lain harus null, bukan ditebak ──
-const t = (s: string, harap: string | null) => {
+const t = (s: any, harap: string | null) => {
   const d = tanggalJadwal(s)
   if (d === harap) lulus++
   else { gagal++; console.log(`  GAGAL tanggal "${s}" → ${d} (harusnya ${harap})`) }
 }
 t('08/11/2026', '2026-11-08'); t('2026-11-20 00:00:00', '2026-11-20')
 t('11 s.d 19 November 2026', null); t('', null); t('8/11/2026', null)
+// Nomor seri Excel — bentuk sel tanggal yang sebenarnya. Dua angka pertama
+// diambil dari berkas panitia: 46333 = upacara pembukaan, 46346 = penutupan.
+// Sempat mundur sehari ketika dibaca sebagai Date di zona Asia/Jakarta.
+t(46333 as any, '2026-11-07')
+t(46346 as any, '2026-11-20')
+t(46343 as any, '2026-11-17')
+t(0 as any, null)
+
+// Date tetap diterima untuk berkas lain yang menyajikannya begitu.
+t(new Date(2026, 10, 20) as any, '2026-11-20')
+t(new Date(2026, 0, 1) as any, '2026-01-01')
+t(new Date('tidak valid') as any, null)
+t(null as any, null)
 
 console.log(`\nLULUS ${lulus} · GAGAL ${gagal}`)
 process.exit(gagal ? 1 : 0)

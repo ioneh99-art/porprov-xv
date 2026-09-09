@@ -17,6 +17,7 @@ import SportScienceCard from '@/components/konida/SportScienceCard'
 import CaborWatchlist, { CaborWatchData } from '@/components/konida/CaborWatchlist'
 import PapanKerjaData from '@/components/konida/PapanKerjaData'
 import PanelJadwal from '@/components/konida/PanelJadwal'
+import PapanKeberangkatan from '@/components/konida/PapanKeberangkatan'
 import {
   HealthIndexGauge,
   buildAlertsFromData,
@@ -577,6 +578,10 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
             Tepat di bawah papan kerja: papan itu menjawab "apa yang belum
             beres", panel ini menjawab "mana yang paling mepet waktunya". */}
         <PanelJadwal accent={ACCENT} />
+
+        {/* ── PAPAN KEBERANGKATAN ──
+            Setelah hitung mundur: bukan "kapan", tapi "berangkat bareng siapa". */}
+        <PapanKeberangkatan accent={ACCENT} />
 
         {/* ── ALERT PRESTASI (KBAAS) ── */}
         <PrestasiAlert title="Alert Prestasi — Atlet Andalan Kab. Bandung" />

@@ -35,25 +35,30 @@ async function main() {
   caborDb = Array.from(new Set(caborDb))
   console.log(`Cabor Kab. Bandung di sistem: ${caborDb.length}`)
 
+  // Dibaca apa adanya: sel tanggal keluar sebagai nomor seri Excel, yang
+  // diterjemahkan tanpa menyentuh zona waktu. cellDates justru menggeser
+  // tanggalnya mundur sehari di zona Asia/Jakarta.
   const wb = XLSX.readFile(berkas)
   const ws = wb.Sheets['AKOMODASI']
   if (!ws) { console.error('Sheet AKOMODASI tidak ada.'); process.exit(1) }
-  const baris = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: false, defval: '' })
+  const baris = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true, defval: '' })
 
   let wilayah = '', tuanRumah = ''
   const keluar: any[] = []
   for (const r of baris) {
-    const kol = (i: number) => String(r[i] ?? '').trim()
-    if (kol(2).toUpperCase().startsWith('WILAYAH')) { wilayah = kol(2); continue }
-    if (kol(0) === 'No.') { tuanRumah = kol(2); continue }
-    const nama = kol(3).replace(/\s+/g, ' ')
+    const kol  = (i: number) => (typeof r[i] === 'number' ? r[i] : String(r[i] ?? '').trim())
+    const teks = (i: number) => (typeof r[i] === 'number' ? '' : String(r[i] ?? '').trim())
+    if (teks(2).toUpperCase().startsWith('WILAYAH')) { wilayah = teks(2); continue }
+    if (teks(0) === 'No.') { tuanRumah = teks(2); continue }
+    const nama = teks(3).replace(/\s+/g, ' ')
     if (!nama || !kol(2)) continue
 
     const upacara = nama.toUpperCase().includes('UPACARA')
     const rentang = kol(2)
-    const m = /^(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})$/.exec(rentang)
-    const mulai   = tanggalJadwal(m ? m[1] : rentang)
-    const selesai = tanggalJadwal(m ? m[2] : rentang)
+    const m = typeof rentang === 'string'
+      ? /^(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})$/.exec(rentang) : null
+    const mulai   = tanggalJadwal(m ? m[1] : (rentang as any))
+    const selesai = tanggalJadwal(m ? m[2] : (rentang as any))
 
     keluar.push({
       jenis: upacara ? 'upacara' : 'pertandingan',
