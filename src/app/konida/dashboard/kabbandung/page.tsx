@@ -6,7 +6,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
-import PrestasiAlert from '@/components/konida/PrestasiAlert'
 import {
   Users, Trophy, Target, CheckCircle, Clock, AlertTriangle,
   Zap, ChevronRight, RefreshCw, Info,
@@ -14,10 +13,8 @@ import {
   Activity, FileCheck,
 } from 'lucide-react'
 import SportScienceCard from '@/components/konida/SportScienceCard'
-import CaborWatchlist, { CaborWatchData } from '@/components/konida/CaborWatchlist'
+import type { CaborWatchData } from '@/components/konida/CaborWatchlist'
 import PapanKerjaData from '@/components/konida/PapanKerjaData'
-import PanelJadwal from '@/components/konida/PanelJadwal'
-import PapanKeberangkatan from '@/components/konida/PapanKeberangkatan'
 import {
   HealthIndexGauge,
   buildAlertsFromData,
@@ -574,18 +571,6 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
             menyimpulkan tidak ada pekerjaan — padahal ada. */}
         <PapanKerjaData accent={ACCENT} />
 
-        {/* ── HITUNG MUNDUR PER CABOR ──
-            Tepat di bawah papan kerja: papan itu menjawab "apa yang belum
-            beres", panel ini menjawab "mana yang paling mepet waktunya". */}
-        <PanelJadwal accent={ACCENT} />
-
-        {/* ── PAPAN KEBERANGKATAN ──
-            Setelah hitung mundur: bukan "kapan", tapi "berangkat bareng siapa". */}
-        <PapanKeberangkatan accent={ACCENT} />
-
-        {/* ── ALERT PRESTASI (KBAAS) ── */}
-        <PrestasiAlert title="Alert Prestasi — Atlet Andalan Kab. Bandung" />
-
         {/* ── BRIEF / BANNER ── */}
         <div {...ani(0)} className="px-5 py-4 rounded-2xl flex items-center gap-4 shadow-lg backdrop-blur-md bg-gradient-to-r from-[#38bdf808] to-transparent border border-[#38bdf815]">
           <div className="p-2 rounded-full bg-[#38bdf810] shrink-0">
@@ -913,50 +898,6 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
         {/*          DIPINDAH ke War Room — section ini dihapus dari sini    */}
         {/* ════════════════════════════════════════════════════════════════ */}
 
-        {/* ── CABOR WATCHLIST (pengganti Intel Cabor) ── */}
-        {/* Operational tracker per cabor: status verifikasi + fitness UPI + alert demo */}
-        <div {...ani(120)}>
-          <CaborWatchlist
-            cabors={caborWatchList}
-            primary={ACCENT}
-            onClickCabor={(nama) => {
-              // Open detail panel sama kayak Intel Cabor lama
-              const target = cabors.find(c => c.nama === nama)
-              if (target) setSelCabor(target)
-            }}
-          />
-        </div>
-
-        {/* ── QUICK ACTIONS ── */}
-        <div {...ani(160)} className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {[
-            { l:'War Room Live', d:'Monitoring perolehan medali & prediksi', icon:Monitor,  c:ACCENT,    href:'/konida/warroom/kabbandung'          },
-            { l:'Laporan Tanding',d:'Jurnal dan hasil rekap harian lapangan',    icon:FileText, c:'#3b82f6', href:'/konida/lappertandingan/kabbandung' },
-            { l:'Premium Report', d:'Cetak SPJ, Piagam, dan Dokumen Resmi',      icon:Download, c:'#f59e0b', href:'/konida/Premiumreport/kabbandung'   },
-          ].map(a => (
-            <a key={a.l} href={a.href}
-              className="flex items-center justify-between p-5 rounded-3xl transition-all duration-300 group relative overflow-hidden"
-              style={{ background:'rgba(255,255,255,0.02)', border:`1px solid ${a.c}20` }}>
-              
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                style={{ background:`linear-gradient(to right, ${a.c}0a, transparent)` }} />
-                
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="p-3.5 rounded-2xl shadow-inner transition-transform group-hover:scale-110" 
-                  style={{ background:`${a.c}15`, border:`1px solid ${a.c}30` }}>
-                  <a.icon size={22} style={{ color:a.c }}/>
-                </div>
-                <div>
-                  <div className="font-bold text-white text-sm tracking-wide">{a.l}</div>
-                  <div className="text-xs text-zinc-400 mt-1">{a.d}</div>
-                </div>
-              </div>
-              <div className="relative z-10 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors border border-white/5">
-                <ChevronRight size={16} style={{ color:a.c }} className="group-hover:translate-x-0.5 transition-transform"/>
-              </div>
-            </a>
-          ))}
-        </div>
       </main>
 
       {/* ── SLIDE-OUT CABOR DETAIL ── */}
