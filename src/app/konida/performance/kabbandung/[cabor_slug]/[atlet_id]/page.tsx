@@ -65,6 +65,8 @@ interface BaselineEvent {
   medal_probability?: { emas: number; perak: number; perunggu: number } | null
   metric_type?:       string | null
   weight_class?:      string | null
+  tahun_baseline?:    number | null
+  sumber_data?:       string | null
 }
 
 interface FitnessRecord {
@@ -475,7 +477,14 @@ export default function PerformanceDossierPage() {
             Performance Baseline
             {baseline.length > 0 && (
               <span className="text-[10px] font-normal text-slate-500 ml-1">
-                {baseline.length} event · PORPROV 2022
+                {baseline.length} event · {(() => {
+                  // Tahun dibaca dari datanya. Dulu dipatok "PORPROV 2022" —
+                  // salah begitu baris dari sumber lain ikut masuk ke sini.
+                  const th = Array.from(new Set(baseline.map(b => b.tahun_baseline).filter(Boolean))).sort()
+                  return th.length === 0 ? 'tahun tidak tercatat'
+                       : th.length === 1 ? String(th[0])
+                       : `${th[0]}–${th[th.length - 1]}`
+                })()}
               </span>
             )}
           </h2>

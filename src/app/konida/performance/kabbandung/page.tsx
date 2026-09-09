@@ -69,7 +69,7 @@ type GenderFilter = 'Semua' | 'L' | 'P'
 
 interface AtletDB {
   id: number; nama_lengkap: string; cabor_nama_raw: string
-  gender: string; status_registrasi: string
+  gender: string; status_registrasi: string; cabor_id: number | null
 }
 
 interface BaselineRow {
@@ -167,7 +167,7 @@ export default function PerformancePage() {
             let all: AtletDB[] = []
             for (let p = 0; ; p++) {
               const { data } = await sb.from('atlet')
-                .select('id,nama_lengkap,cabor_nama_raw,gender,status_registrasi')
+                .select('id,nama_lengkap,cabor_nama_raw,gender,status_registrasi,cabor_id')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .in('status_registrasi', ['Verified', 'Posted'])
                 .range(p * 1000, (p + 1) * 1000 - 1)
@@ -209,6 +209,18 @@ export default function PerformancePage() {
     return m
   }, [atlets])
 
+  // Nama cabor diambil dari data atlet, bukan daftar tetap. CABOR_LABEL hanya
+  // menangani warisan lama (7/148 Akuatik); tanpa ini cabor yang baru masuk ke
+  // tabel baseline muncul sebagai "Cabor 147".
+  const caborNama = useMemo(() => {
+    const m = new Map<number, string>()
+    atlets.forEach(a => { if (a.cabor_id && a.cabor_nama_raw && !m.has(a.cabor_id)) m.set(a.cabor_id, a.cabor_nama_raw) })
+    return m
+  }, [atlets])
+  const labelCabor = (cid: number, asli?: number) =>
+    CABOR_LABEL[cid] || (asli != null ? CABOR_LABEL[asli] : undefined) ||
+    caborNama.get(cid) || (asli != null ? caborNama.get(asli) : undefined) || `Cabor ${cid}`
+
   // ── Overview: semua rows baseline (proyeksi medali semua cabor) ──
   const oRows = useMemo(() => baseline, [baseline])
 
@@ -237,7 +249,7 @@ export default function PerformancePage() {
     oRows.forEach(r => {
       if (!r.cabor_id) return
       const cid = normCaborId(r.cabor_id)
-      const nm  = CABOR_LABEL[cid] || CABOR_LABEL[r.cabor_id] || `Cabor ${cid}`
+      const nm  = labelCabor(cid, r.cabor_id)
       if (!map.has(cid)) map.set(cid, { cabor_id: cid, cabor_nama: nm, atlet_count: 0, nomor_count: 0, emas: 0, perak: 0, perunggu: 0, range: 0, total: 0 })
       const s = map.get(cid)!
       const c = classifyTarget(r.target_medali_text)
@@ -295,7 +307,7 @@ export default function PerformancePage() {
       result.push({
         atlet_id:     a.atlet_id,
         nama_display: isTeam ? `${nama.split(' ')[0]} & ${teamSize - 1} lainnya` : nama,
-        cabor_nama:   CABOR_LABEL[normCaborId(a.cabor_id)] || CABOR_LABEL[a.cabor_id] || `Cabor ${a.cabor_id}`,
+        cabor_nama:   labelCabor(normCaborId(a.cabor_id), a.cabor_id),
         cabor_id:     normCaborId(a.cabor_id),
         sub_desc:     a.cabor_id === 10 ? inferAtletikDesc(a.event_names, a.gender)
                      : isTeam ? 'renang artistik'
@@ -310,7 +322,7 @@ export default function PerformancePage() {
       b.perunggu !== a.perunggu ? b.perunggu - a.perunggu :
       b.range - a.range,
     )
-  }, [oRows, atletMap])
+  }, [oRows, atletMap, caborNama])
 
   const importedFiles = useMemo(() => {
     const s = new Set<string>()
