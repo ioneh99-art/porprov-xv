@@ -149,6 +149,7 @@ export default function PerformancePage() {
   const [pulse,       setPulse]       = useState(true)
 
   // Strategic Brief state
+  const [tab, setTab] = useState<'cabor'|'atlet'|'target'>('cabor')
   const [briefOpen,    setBriefOpen]    = useState(false)
   const [briefLoading, setBriefLoading] = useState(false)
   const [brief,        setBrief]        = useState<StrategicBrief | null>(null)
@@ -625,36 +626,6 @@ export default function PerformancePage() {
 
       <main className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 relative z-10">
 
-        {/* ════ ATLET ANDALAN — PRESTASI NASIONAL (KBAAS) ════ */}
-        <PrestasiAlert title="Atlet Andalan — Prestasi Nasional" />
-
-        {/* ════ INTELIJEN STRATEGIS — dari berkas Analisis Strategis ════
-            Ditaruh di Performance Center, bukan Data Gateway: gerbang itu untuk
-            MEMASUKKAN data, papan ini untuk DILIHAT. Sekaligus memperluas
-            cakupan halaman ini dari 50 atlet ber-baseline ke 658 atlet. */}
-          <PanelKlasifikasi accent={ACCENT} />
-
-        {/* ════ JADWAL & KEBERANGKATAN CABOR ════
-            Dipindahkan dari dasbor utama. Keduanya bicara tentang cabor —
-            kapan turun dan berangkat bersama siapa — jadi tempatnya di sini,
-            bukan menumpuk di halaman depan yang seharusnya menjawab satu
-            pertanyaan saja: apa yang perlu dikerjakan hari ini. */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2.5">
-            <CalendarClock size={16} style={{ color: ACCENT }} />
-            <div>
-              <h2 className="text-base font-black text-white">Jadwal &amp; Keberangkatan</h2>
-              <p className="text-[11px] text-zinc-500">
-                Kapan tiap cabor turun, dan rombongan mana berangkat bersama.
-              </p>
-            </div>
-          </div>
-          <PanelJadwal accent={ACCENT} />
-          <PapanKeberangkatan accent={ACCENT} />
-        </div>
-
-          <IntelPanel accent={ACCENT} />
-
         {/* ════ HERO IDENTITY ════ */}
         <div {...ani(0)} className="rounded-2xl p-6"
           style={{ background: `linear-gradient(135deg, ${ACCENT}08 0%, rgba(2,10,20,0) 100%)`, border: `1px solid ${ACCENT}18` }}>
@@ -704,6 +675,164 @@ export default function PerformancePage() {
           </div>
         </div>
 
+
+        {/* ════ TAB — satu halaman, tiga pertanyaan ════
+            Halaman ini sempat memuat sembilan papan dalam satu gulungan, dan
+            ketiganya menjawab hal berbeda: "cabor kita bagaimana", "atlet kita
+            siapa", "lawan dan targetnya apa". Digulung jadi satu, orang harus
+            menggulir jauh untuk menemukan yang dicarinya. Dipecah begini,
+            tiap tab menjawab satu pertanyaan dan selesai. */}
+        <div className="flex flex-wrap gap-2 border-b pb-3" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+          {([
+            { k: 'cabor',  l: 'Cabor',          d: 'Pemilahan, jadwal, dan kesiapan tiap cabor' },
+            { k: 'atlet',  l: 'Atlet',          d: 'Atlet andalan, grup ELITE, dan capaiannya' },
+            { k: 'target', l: 'Target & Lawan', d: 'Sasaran medali, peta ancaman, dan brief' },
+          ] as const).map(t => (
+            <button key={t.k} onClick={() => setTab(t.k)} title={t.d}
+              className="px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+              style={tab === t.k
+                ? { background: `${ACCENT}22`, color: ACCENT, border: `1px solid ${ACCENT}55` }
+                : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.40)', border: '1px solid transparent' }}>
+              {t.l}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'cabor' && (<div className="space-y-6">
+        {/* ════ INTELIJEN STRATEGIS — dari berkas Analisis Strategis ════
+            Ditaruh di Performance Center, bukan Data Gateway: gerbang itu untuk
+            MEMASUKKAN data, papan ini untuk DILIHAT. Sekaligus memperluas
+            cakupan halaman ini dari 50 atlet ber-baseline ke 658 atlet. */}
+          <PanelKlasifikasi accent={ACCENT} />
+
+        {/* ════ JADWAL & KEBERANGKATAN CABOR ════
+            Dipindahkan dari dasbor utama. Keduanya bicara tentang cabor —
+            kapan turun dan berangkat bersama siapa — jadi tempatnya di sini,
+            bukan menumpuk di halaman depan yang seharusnya menjawab satu
+            pertanyaan saja: apa yang perlu dikerjakan hari ini. */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2.5">
+            <CalendarClock size={16} style={{ color: ACCENT }} />
+            <div>
+              <h2 className="text-base font-black text-white">Jadwal &amp; Keberangkatan</h2>
+              <p className="text-[11px] text-zinc-500">
+                Kapan tiap cabor turun, dan rombongan mana berangkat bersama.
+              </p>
+            </div>
+          </div>
+          <PanelJadwal accent={ACCENT} />
+          <PapanKeberangkatan accent={ACCENT} />
+        </div>
+
+        {/* ════ PERFORMANCE CENTER — Cabor Cards ════ */}
+        <div {...ani(20)} className="rounded-3xl overflow-hidden"
+          style={{ background: 'rgba(2,10,20,0.65)', border: `1px solid ${ACCENT}18` }}>
+
+          {/* Header */}
+          <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-3"
+            style={{ background: 'rgba(0,0,0,0.30)', borderColor: `${ACCENT}12` }}>
+            <div>
+              <div className="text-sm font-black text-white">Performance Center — Kab. Bandung</div>
+              <div className="text-[10px] text-zinc-600 mt-0.5">PORPROV XV 2026 · Real-time aggregation</div>
+            </div>
+            <span className="text-[11px] font-bold px-3 py-1 rounded-full tabular-nums"
+              style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}>
+              {gKpi.atletTotal} atlet
+            </span>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* KPI strip */}
+            {oRows.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {([
+                  { l: 'Total target', v: oKpi.emas + oKpi.perak + oKpi.perunggu, c: '#94a3b8' },
+                  { l: 'Emas',         v: oKpi.emas,                               c: '#f59e0b' },
+                  { l: 'Perak',        v: oKpi.perak,                              c: '#94a3b8' },
+                  { l: 'Perunggu',     v: oKpi.perunggu,                           c: '#fb923c' },
+                ] as const).map(s => (
+                  <div key={s.l} className="rounded-xl px-4 py-3 text-center"
+                    style={{ background: `${s.c}09`, border: `1px solid ${s.c}20` }}>
+                    <div className="text-[9px] text-zinc-600 uppercase tracking-widest mb-1">{s.l}</div>
+                    <div className="text-2xl font-black tabular-nums" style={{ color: s.c }}>{s.v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Info banner */}
+            {showBanner && gKpi.totalMedals === 0 && baseline.length > 0 && (
+              <div className="px-4 py-3 rounded-2xl flex items-start gap-3 relative"
+                style={{ background: `${ACCENT}07`, border: `1px solid ${ACCENT}15` }}>
+                <div className="p-1.5 rounded-full shrink-0" style={{ background: `${ACCENT}12` }}>
+                  <Info size={13} style={{ color: ACCENT }}/>
+                </div>
+                <p className="text-sm text-zinc-300 leading-relaxed flex-1">
+                  Baseline PORPROV 2022 sudah dimuat.{' '}
+                  <span style={{ color: ACCENT }}>Data kejuaraan</span> bisa ditambah via dossier atlet.
+                </p>
+                <button onClick={() => setShowBanner(false)} className="opacity-40 hover:opacity-100 transition-opacity shrink-0">
+                  <X size={13} style={{ color: ACCENT }}/>
+                </button>
+              </div>
+            )}
+
+            {/* Label + filter */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Cabor cards</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {([
+                  { k: 'all',      l: 'Semua',             c: ACCENT    },
+                  { k: 'baseline', l: 'Ada Baseline',      c: '#f97316' },
+                  { k: 'medal',    l: 'Ada Medali',        c: '#fbbf24' },
+                  { k: 'both',     l: 'Baseline + Medali', c: '#10b981' },
+                ] as const).map(f => {
+                  const active = fSource === f.k
+                  return (
+                    <button key={f.k} onClick={() => setFSource(f.k)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
+                      style={{
+                        background: active ? `${f.c}15` : 'rgba(255,255,255,0.03)',
+                        color:      active ? f.c : 'rgba(255,255,255,0.3)',
+                        border:     `1px solid ${active ? f.c + '35' : 'rgba(255,255,255,0.06)'}`,
+                      }}>
+                      {f.l}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Cabor grid */}
+            {(() => {
+              const withData = caborAggregates.filter(c => c.baselineEvents > 0 || c.totalMedals > 0)
+              if (withData.length === 0) return (
+                <div className="py-16 text-center rounded-2xl"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="text-3xl mb-3">🏆</div>
+                  <div className="text-zinc-500 text-sm">Belum ada data baseline cabor</div>
+                </div>
+              )
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {withData.map(c => <PerformanceCaborCard key={c.nama} cabor={c} basePath={BASE_PATH}/>)}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+
+        </div>)}
+
+        {tab === 'atlet' && (<div className="space-y-6">
+        {/* ════ ATLET ANDALAN — PRESTASI NASIONAL (KBAAS) ════ */}
+        <PrestasiAlert title="Atlet Andalan — Prestasi Nasional" />
+
+          <IntelPanel accent={ACCENT} bagian="atlet" />
+        </div>)}
+
+        {tab === 'target' && (<div className="space-y-6">
+          <IntelPanel accent={ACCENT} bagian="lawan" />
         {/* ════ TOP-LINE PROJECTION (static, computed) ════ */}
         {(() => {
           const rows = caborAggregates.filter(c => c.baselineEvents > 0 || c.targetEmas + c.targetPerak + c.targetPerunggu > 0)
@@ -1056,104 +1185,6 @@ export default function PerformancePage() {
           </div>
         )}
 
-        {/* ════ PERFORMANCE CENTER — Cabor Cards ════ */}
-        <div {...ani(20)} className="rounded-3xl overflow-hidden"
-          style={{ background: 'rgba(2,10,20,0.65)', border: `1px solid ${ACCENT}18` }}>
-
-          {/* Header */}
-          <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-3"
-            style={{ background: 'rgba(0,0,0,0.30)', borderColor: `${ACCENT}12` }}>
-            <div>
-              <div className="text-sm font-black text-white">Performance Center — Kab. Bandung</div>
-              <div className="text-[10px] text-zinc-600 mt-0.5">PORPROV XV 2026 · Real-time aggregation</div>
-            </div>
-            <span className="text-[11px] font-bold px-3 py-1 rounded-full tabular-nums"
-              style={{ background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}>
-              {gKpi.atletTotal} atlet
-            </span>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {/* KPI strip */}
-            {oRows.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {([
-                  { l: 'Total target', v: oKpi.emas + oKpi.perak + oKpi.perunggu, c: '#94a3b8' },
-                  { l: 'Emas',         v: oKpi.emas,                               c: '#f59e0b' },
-                  { l: 'Perak',        v: oKpi.perak,                              c: '#94a3b8' },
-                  { l: 'Perunggu',     v: oKpi.perunggu,                           c: '#fb923c' },
-                ] as const).map(s => (
-                  <div key={s.l} className="rounded-xl px-4 py-3 text-center"
-                    style={{ background: `${s.c}09`, border: `1px solid ${s.c}20` }}>
-                    <div className="text-[9px] text-zinc-600 uppercase tracking-widest mb-1">{s.l}</div>
-                    <div className="text-2xl font-black tabular-nums" style={{ color: s.c }}>{s.v}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Info banner */}
-            {showBanner && gKpi.totalMedals === 0 && baseline.length > 0 && (
-              <div className="px-4 py-3 rounded-2xl flex items-start gap-3 relative"
-                style={{ background: `${ACCENT}07`, border: `1px solid ${ACCENT}15` }}>
-                <div className="p-1.5 rounded-full shrink-0" style={{ background: `${ACCENT}12` }}>
-                  <Info size={13} style={{ color: ACCENT }}/>
-                </div>
-                <p className="text-sm text-zinc-300 leading-relaxed flex-1">
-                  Baseline PORPROV 2022 sudah dimuat.{' '}
-                  <span style={{ color: ACCENT }}>Data kejuaraan</span> bisa ditambah via dossier atlet.
-                </p>
-                <button onClick={() => setShowBanner(false)} className="opacity-40 hover:opacity-100 transition-opacity shrink-0">
-                  <X size={13} style={{ color: ACCENT }}/>
-                </button>
-              </div>
-            )}
-
-            {/* Label + filter */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Cabor cards</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {([
-                  { k: 'all',      l: 'Semua',             c: ACCENT    },
-                  { k: 'baseline', l: 'Ada Baseline',      c: '#f97316' },
-                  { k: 'medal',    l: 'Ada Medali',        c: '#fbbf24' },
-                  { k: 'both',     l: 'Baseline + Medali', c: '#10b981' },
-                ] as const).map(f => {
-                  const active = fSource === f.k
-                  return (
-                    <button key={f.k} onClick={() => setFSource(f.k)}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
-                      style={{
-                        background: active ? `${f.c}15` : 'rgba(255,255,255,0.03)',
-                        color:      active ? f.c : 'rgba(255,255,255,0.3)',
-                        border:     `1px solid ${active ? f.c + '35' : 'rgba(255,255,255,0.06)'}`,
-                      }}>
-                      {f.l}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Cabor grid */}
-            {(() => {
-              const withData = caborAggregates.filter(c => c.baselineEvents > 0 || c.totalMedals > 0)
-              if (withData.length === 0) return (
-                <div className="py-16 text-center rounded-2xl"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div className="text-3xl mb-3">🏆</div>
-                  <div className="text-zinc-500 text-sm">Belum ada data baseline cabor</div>
-                </div>
-              )
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {withData.map(c => <PerformanceCaborCard key={c.nama} cabor={c} basePath={BASE_PATH}/>)}
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-
         {/* ════ STRATEGIC OVERVIEW ════ */}
         {oRows.length > 0 && (
           <div {...ani(30)} className="rounded-3xl overflow-hidden relative"
@@ -1235,6 +1266,7 @@ export default function PerformancePage() {
             </div>
           </div>
         )}
+        </div>)}
       </main>
     </div>
   )

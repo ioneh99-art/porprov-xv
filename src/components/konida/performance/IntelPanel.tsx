@@ -51,7 +51,14 @@ function pecahLawan(s: string | null): string[] {
     .map(x => x.replace(/^Kab\.?\s*/i, 'Kab. ').replace(/\s+/g, ' ').trim())
 }
 
-export default function IntelPanel({ accent = '#38bdf8' }: { accent?: string }) {
+/** Bagian mana yang ditampilkan. Papan ini menjawab dua pertanyaan berbeda —
+ *  "siapa atlet kita" dan "siapa lawan kita" — yang di halaman bertab layak
+ *  dipisah. 'semua' tetap ada supaya pemakaian lama tidak berubah. */
+export type BagianIntel = 'semua' | 'atlet' | 'lawan'
+
+export default function IntelPanel({
+  accent = '#38bdf8', bagian = 'semua',
+}: { accent?: string; bagian?: BagianIntel }) {
   const [data, setData]   = useState<any>(null)
   const [sibuk, setSibuk] = useState(true)
   const [galat, setGalat] = useState('')
@@ -150,10 +157,14 @@ export default function IntelPanel({ accent = '#38bdf8' }: { accent?: string }) 
   )
 
   const s = data.summary ?? {}
+  const tampilLawan = bagian === 'semua' || bagian === 'lawan'
+  const tampilAtlet = bagian === 'semua' || bagian === 'atlet'
+
   return (
     <div className="space-y-5">
 
       {/* ── Target dua lapis ── */}
+      {tampilLawan && (<>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Kotak label="Target Cabor" nilai={s.total_target_cabor_emas ?? '—'} ket="emas · versi pengurus" warna="#fbbf24" tebal />
         <Kotak label="Target KONI"  nilai={s.total_target_koni_emas ?? '—'}  ket="emas · sasaran resmi" warna="#f97316" tebal />
@@ -162,7 +173,12 @@ export default function IntelPanel({ accent = '#38bdf8' }: { accent?: string }) 
           warna={prioTanpaFoto.length ? '#ef4444' : '#34d399'} />
       </div>
 
-      {/* ── Saringan medali: menggerakkan seluruh papan di bawahnya ── */}
+      </>)}
+
+      {/* ── Saringan medali: menggerakkan seluruh papan di bawahnya ──
+          Sengaja di luar pembagian tab: tabel capaian di bagian atlet pun
+          tunduk padanya, jadi menyembunyikannya akan membuat daftar tersaring
+          tanpa ada yang memberi tahu. */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] uppercase tracking-wider text-slate-500 mr-1">Tampilkan target</span>
@@ -186,6 +202,7 @@ export default function IntelPanel({ accent = '#38bdf8' }: { accent?: string }) 
         </p>
       </div>
 
+      {tampilLawan && (<>
       {/* ── Peta ancaman ── */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.07] flex items-center gap-2.5">
@@ -277,8 +294,10 @@ export default function IntelPanel({ accent = '#38bdf8' }: { accent?: string }) 
         </div>
       </div>
 
+      </>)}
+
       {/* ── Atlet ELITE ── */}
-      {prioritas.length > 0 && (
+      {tampilAtlet && prioritas.length > 0 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.07] flex items-center gap-2.5">
             <Trophy size={16} className="text-amber-400" />
@@ -313,6 +332,7 @@ export default function IntelPanel({ accent = '#38bdf8' }: { accent?: string }) 
       )}
 
       {/* ── Capaian & pesaing per atlet ── */}
+      {tampilAtlet && (
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.07] flex items-center gap-2.5">
           <Medal size={16} style={{ color: accent }} />
@@ -365,6 +385,7 @@ export default function IntelPanel({ accent = '#38bdf8' }: { accent?: string }) 
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }
