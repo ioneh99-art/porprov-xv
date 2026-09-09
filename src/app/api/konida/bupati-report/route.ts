@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServerSession } from '@/lib/guard'
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!)
 const KON = 4
@@ -11,6 +12,14 @@ export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
 export async function GET(_req: NextRequest) {
+  // GERBANG SESI — ditambahkan setelah audit menyeluruh.
+  // Rute ini memakai service key (menembus RLS) dan sebelumnya bisa dibuka siapa
+  // pun tanpa login. Dua di antaranya mengeluarkan NIK atlet apa adanya.
+  // Semua pemanggilnya adalah halaman yang memang di balik login, jadi menutup
+  // pintunya tidak memutus apa pun.
+  const _sesi = await getServerSession()
+  if (!_sesi) return NextResponse.json({ error: 'Silakan login dulu.' }, { status: 401 })
+
   try {
     const now = new Date()
     const quarter = Math.floor(now.getMonth() / 3) + 1
