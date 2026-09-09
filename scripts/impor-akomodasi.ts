@@ -4,9 +4,12 @@
 // Sheet ini memuat 21 baris — cabor yang atletnya harus menginap di luar
 // kluster tuan rumah utama. Isinya TIDAK selalu sama dengan sheet jadwal:
 // ada disiplin yang cuma muncul di sini, ada satu baris kembar, dan ada
-// tanggal yang berbeda untuk pertandingan yang sama. Skrip ini menambahkan
-// akomodasinya, MELAPORKAN bedanya, dan tidak menimpa tanggal — tanggal yang
-// bertentangan adalah keputusan manusia, bukan tebakan skrip.
+// tanggal yang berbeda untuk pertandingan yang sama.
+//
+// KEPUTUSAN PENGELOLA: bila tanggalnya bertentangan, YANG DIPAKAI ADALAH
+// SHEET JADWAL. Skrip mengisi akomodasinya saja, tidak pernah menyentuh
+// tanggal, dan menuliskan tanggal yang ditolak ke kolom catatan supaya
+// jejaknya tetap ada bila suatu saat perlu ditinjau ulang.
 
 import * as XLSX from 'xlsx'
 import { createClient } from '@supabase/supabase-js'
@@ -90,8 +93,12 @@ async function main() {
       return new Set(norm(t).split(' ').filter(w => w.length > 2 && !buang.has(w)))
     }
     const kx = buangCabor(x.disiplin, x.cabor ?? '')
+    // Bila cabornya bukan milik Kab. Bandung, cocokkan lewat nama disiplin
+    // apa adanya. Tanpa ini "Aerosport - Terbang Layang" dianggap belum ada
+    // lalu ditambahkan sebagai baris kedua — kembar dengan yang dari sheet
+    // jadwal, dan tanggalnya pun berbeda.
     const kandidat = ada
-      .filter(a => a.cabor_nama_raw && a.cabor_nama_raw === x.cabor)
+      .filter(a => x.cabor ? a.cabor_nama_raw === x.cabor : norm(a.cabor_disiplin) === norm(x.disiplin))
       .map(a => {
         const ka = buangCabor(a.cabor_disiplin, a.cabor_nama_raw ?? '')
         if (ka.size === 0 && kx.size === 0) return { a, skor: 1 }   // dua-duanya polos
@@ -112,23 +119,29 @@ async function main() {
       continue
     }
     const p = kandidat[0]
-    if (p.mulai !== x.mulai) {
-      bentrokTanggal.push(`${x.disiplin}: jadwal ${p.mulai} vs rencana ${x.mulai}`)
-    }
-    perbarui.push({ id: p.id, akomodasi: x.akomodasi, _k: norm(x.disiplin) + x.mulai })
+    const beda = p.mulai !== x.mulai
+    if (beda) bentrokTanggal.push(`${x.disiplin}: dipakai ${p.mulai} (sheet jadwal), diabaikan ${x.mulai} (sheet rencana)`)
+    perbarui.push({
+      id: p.id, akomodasi: x.akomodasi, _k: norm(x.disiplin) + x.mulai,
+      catatan: beda
+        ? `Sheet rencana perjalanan menyebut ${x.mulai}; yang dipakai tanggal sheet jadwal. Keputusan pengelola.`
+        : undefined,
+    })
   }
 
   console.log(`\nAkan diisi akomodasinya : ${perbarui.length} baris`)
   console.log(`Baris baru (hanya di rencana): ${tambahBaru.length}`)
   tambahBaru.forEach(t => console.log(`   + ${t.cabor_disiplin} → ${t.cabor_nama_raw ?? '(bukan cabor kita)'}`))
   if (bentrokTanggal.length) {
-    console.log(`\nTANGGAL BERTENTANGAN — TIDAK ditimpa, perlu keputusan manusia:`)
-    bentrokTanggal.forEach(b => console.log(`   ! ${b}`))
+    console.log(`\nTanggal bertentangan — sheet jadwal yang dipakai (keputusan pengelola):`)
+    bentrokTanggal.forEach(b => console.log(`   · ${b}`))
   }
 
   if (process.argv.includes('--simpan')) {
     for (const p of perbarui) {
-      await sb.from('jadwal_cabor').update({ akomodasi: p.akomodasi, updated_at: new Date().toISOString() }).eq('id', p.id)
+      const isi: any = { akomodasi: p.akomodasi, updated_at: new Date().toISOString() }
+      if (p.catatan) isi.catatan = p.catatan
+      await sb.from('jadwal_cabor').update(isi).eq('id', p.id)
     }
     if (tambahBaru.length) {
       const { error } = await sb.from('jadwal_cabor')
