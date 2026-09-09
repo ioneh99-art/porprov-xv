@@ -15,6 +15,7 @@ import {
 import SportScienceCard from '@/components/konida/SportScienceCard'
 import type { CaborWatchData } from '@/components/konida/CaborWatchlist'
 import PapanKerjaData from '@/components/konida/PapanKerjaData'
+import { ambilBersama } from '@/lib/ambil-bersama'
 import {
   HealthIndexGauge,
   buildAlertsFromData,
@@ -103,8 +104,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   const [dqTerbuka, setDqTerbuka] = useState(0)
   useEffect(() => {
     let hidup = true
-    fetch('/api/konida/pekerjaan-data')
-      .then(r => r.ok ? r.json() : null)
+    ambilBersama('/api/konida/pekerjaan-data')
       .then(d => {
         if (!hidup || !d?.mesin) return
         setDqTerbuka(d.mesin.temuan_terbuka ?? 0)

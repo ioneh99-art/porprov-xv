@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getServerSession } from '@/lib/guard'
+import { hariLagi, AMBANG_MENDESAK_HARI, caborTakDikenali } from '@/lib/papan-kerja'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -183,29 +184,39 @@ export async function GET() {
     contoh: tanpaJadwal.map(([c, v]) => `${c} (${v.length} atlet)`),
   })
 
-  // Mendesak = bertanding dalam 45 hari DAN berkasnya belum lengkap.
-  const hariLagi = (t: string | null) => {
-    if (!t) return null
-    const [y, m, d] = t.split('-').map(Number)
-    const kini = new Date()
-    return Math.round((new Date(y, m - 1, d).getTime()
-      - new Date(kini.getFullYear(), kini.getMonth(), kini.getDate()).getTime()) / 86400000)
-  }
+  // Mendesak = bertanding dalam ambang hari DAN berkasnya belum lengkap.
+  // Hitungannya dipakai dari src/lib/papan-kerja.ts supaya terkunci uji.
   const mendesak = jadwal
     .map((j: any) => {
       const h = hariLagi(j.mulai_paling_awal)
       const anggota = caborKita.get(j.cabor_nama_raw) ?? []
       return { cabor: j.cabor_nama_raw, hari: h, belumFoto: anggota.filter(a => !a.foto_url).length }
     })
-    .filter((x: any) => x.hari != null && x.hari >= 0 && x.hari <= 45 && x.belumFoto > 0)
+    .filter((x: any) => x.hari != null && x.hari >= 0 && x.hari <= AMBANG_MENDESAK_HARI && x.belumFoto > 0)
     .sort((a: any, b: any) => a.hari - b.hari)
   tambah({
-    kunci: 'cabor_dekat_belum_siap', judul: 'Bertanding < 45 hari, berkas belum lengkap',
+    kunci: 'cabor_dekat_belum_siap', judul: `Bertanding < ${AMBANG_MENDESAK_HARI} hari, berkas belum lengkap`,
     jumlah: mendesak.length, dari: jadwal.length,
     keterangan: 'Cabor yang paling dekat jadwalnya tapi masih ada atlet tanpa pasfoto.',
     akibat: 'Kartu identitas belum bisa dicetak, padahal waktunya paling sempit. Kerjakan cabor ini lebih dulu.',
     tingkat: 'kritis', tautan: '/konida/atlet/kabbandung/foto',
     contoh: mendesak.slice(0, 3).map((x: any) => `${x.cabor} — ${x.hari} hari lagi, ${x.belumFoto} tanpa foto`),
+  })
+
+  // Penautan memakai nama cabor (teks bebas), sebab penomoran cabor berbeda
+  // antar tabel. Konsekuensinya satu salah ketik memutus atlet dari jadwal dan
+  // kategorinya tanpa suara. Butir ini yang membuatnya bersuara.
+  const takDikenali = caborTakDikenali(
+    Array.from(caborKita.keys()),
+    jadwal.map((j: any) => j.cabor_nama_raw),
+  )
+  tambah({
+    kunci: 'nama_cabor_asing', judul: 'Nama cabor tidak dikenali jadwal',
+    jumlah: takDikenali.length, dari: caborKita.size,
+    keterangan: 'Nama cabor pada data atlet tidak ketemu padanannya di jadwal resmi — kemungkinan salah ketik.',
+    akibat: 'Atletnya terputus dari jadwal dan kategori tanpa peringatan: tidak muncul di hitung mundur, tidak terhitung di analisa kategori.',
+    tingkat: 'penting', tautan: '/konida/atlet/kabbandung',
+    contoh: takDikenali.slice(0, 5).map(c => `${c} (${caborKita.get(c)?.length ?? 0} atlet)`),
   })
 
   const urut = { kritis: 0, penting: 1, biasa: 2 }

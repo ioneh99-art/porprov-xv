@@ -10,6 +10,7 @@
 
 import { useState, useEffect } from 'react'
 import { Bus, Loader2, ChevronDown, ChevronRight, MapPin, UserCheck } from 'lucide-react'
+import { ambilBersama } from '@/lib/ambil-bersama'
 
 interface Cabor { cabor: string; mulai: string | null; venue: string | null; atlet: number; tanpa_foto: number; elite: number }
 interface Rombongan {
@@ -31,8 +32,7 @@ export default function PapanKeberangkatan({ accent = '#38bdf8' }: { accent?: st
 
   useEffect(() => {
     let hidup = true
-    fetch('/api/konida/jadwal')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('gagal')))
+    ambilBersama('/api/konida/jadwal')
       .then(x => { if (hidup) setD(x) })
       .catch(() => {})
       .finally(() => { if (hidup) setSibuk(false) })

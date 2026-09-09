@@ -17,6 +17,7 @@ import Link from 'next/link'
 import {
   ClipboardList, Loader2, ChevronRight, CheckCircle2, ChevronDown, Wrench,
 } from 'lucide-react'
+import { ambilBersama } from '@/lib/ambil-bersama'
 
 interface Pekerjaan {
   kunci: string; judul: string; jumlah: number; dari: number | null
@@ -39,8 +40,7 @@ export default function PapanKerjaData({ accent = '#38bdf8' }: { accent?: string
 
   useEffect(() => {
     let hidup = true
-    fetch('/api/konida/pekerjaan-data')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('gagal')))
+    ambilBersama('/api/konida/pekerjaan-data')
       .then(d => { if (hidup) setData(d) })
       .catch(() => {})
       .finally(() => { if (hidup) setSibuk(false) })

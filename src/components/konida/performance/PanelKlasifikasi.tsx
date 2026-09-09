@@ -11,6 +11,7 @@
 import { useState, useEffect } from 'react'
 import { Layers, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
 import { WARNA_KATEGORI } from '@/lib/kategori-cabor'
+import { ambilBersama } from '@/lib/ambil-bersama'
 
 const WARNA_PRIORITAS: Record<string, string> = {
   '1': '#ef4444', '2': '#f97316', '3': '#eab308', '4': '#64748b',
@@ -24,8 +25,7 @@ export default function PanelKlasifikasi({ accent = '#38bdf8' }: { accent?: stri
 
   useEffect(() => {
     let hidup = true
-    fetch('/api/konida/klasifikasi')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('gagal')))
+    ambilBersama('/api/konida/klasifikasi')
       .then(x => { if (hidup) setD(x) })
       .catch(() => {})
       .finally(() => { if (hidup) setSibuk(false) })

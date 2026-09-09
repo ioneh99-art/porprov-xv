@@ -6,10 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "uji:gateway": "tsx scripts/uji-gateway.ts",
-    "uji:pencocokan": "tsx scripts/uji-pencocokan.ts",
-    "uji:perubahan": "tsx scripts/uji-perubahan.ts",
-    "uji:jadwal": "tsx scripts/uji-jadwal.ts"
+    "uji:gateway": "npx tsx scripts/uji-gateway.ts",
+    "uji:pencocokan": "npx tsx scripts/uji-pencocokan.ts",
+    "uji:perubahan": "npx tsx scripts/uji-perubahan.ts",
+    "uji:jadwal": "npx tsx scripts/uji-jadwal.ts",
+    "uji:papan": "npx tsx scripts/uji-papan-kerja.ts",
+    "uji": "npm run uji:perubahan && npm run uji:gateway && npm run uji:pencocokan && npm run uji:jadwal && npm run uji:papan"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",

@@ -10,6 +10,7 @@
 
 import { useState, useEffect } from 'react'
 import { CalendarClock, Loader2, MapPin, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { ambilBersama } from '@/lib/ambil-bersama'
 
 interface Kontak {
   cabor_disiplin: string; td_nama: string | null; td_hp: string | null
@@ -44,8 +45,7 @@ export default function PanelJadwal({ accent = '#38bdf8' }: { accent?: string })
 
   useEffect(() => {
     let hidup = true
-    fetch('/api/konida/jadwal')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('gagal')))
+    ambilBersama('/api/konida/jadwal')
       .then(x => { if (hidup) setD(x) })
       .catch(() => {})
       .finally(() => { if (hidup) setSibuk(false) })
