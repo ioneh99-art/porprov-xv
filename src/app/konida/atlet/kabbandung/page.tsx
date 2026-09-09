@@ -10,7 +10,7 @@ import {
   AlertTriangle, Download, FileCheck, XCircle, Loader2,
   ChevronDown, Activity, Users, Award, RefreshCw,
   CreditCard, Shirt, Banknote, Hash, Filter, FileSpreadsheet,
-  Target, Heart, Flame, Eye,
+  Target, Heart, Flame, Eye, Layers,
 } from 'lucide-react'
 import { ExportModal } from '@/components/ExportModal'
 import { CaborCardV2, classifyCabor, countByStatus, type CaborCardData, type CaborStatus } from '@/components/konida/CaborCardV2'
@@ -18,6 +18,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts'
 import BadgeElite from '@/components/konida/BadgeElite'
+import { KATEGORI_CABOR, warnaKategori, TANPA_KATEGORI } from '@/lib/kategori-cabor'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -129,6 +130,9 @@ export default function PageAtletKabBandung() {
   const [filterTesFisik, setFilterTesFisik] = useState<'semua'|'sudah'|'belum'|'top'>('semua')
   // Grup ELITE: atlet prioritas emas menurut pengurus cabor.
   const [hanyaElite, setHanyaElite] = useState(false)
+  // Kategori sifat pertandingan (Beladiri, Terukur, ...) — pemilahan pengurus.
+  const [petaKategori, setPetaKategori] = useState<Record<string, any>>({})
+  const [filterKategori, setFilterKategori] = useState<string>('all')
   const [filterRating,   setFilterRating]   = useState<string>('all')
   const [filterKesiapan, setFilterKesiapan] = useState<'semua'|'belum_tes'|'perlu_perhatian'|'siap_tanding'>('semua')
   const [expandedCabor,setExpandedCabor]= useState<string|null>(null)
@@ -284,6 +288,17 @@ export default function PageAtletKabBandung() {
   }, [data])
 
   // ── Group by cabor + classify status v2 ──────────────────
+  useEffect(() => {
+    let hidup = true
+    fetch('/api/konida/kategori-cabor')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (hidup && d?.peta) setPetaKategori(d.peta) })
+      .catch(() => {})
+    return () => { hidup = false }
+  }, [])
+
+  const kategoriDari = (nama: string) => petaKategori[nama]?.kategori ?? null
+
   const groupedCabors = useMemo(()=>{
     let filtered = filterStatus==='semua'
       ? data
@@ -393,6 +408,11 @@ export default function PageAtletKabBandung() {
       list = list.filter(c => c.status === filterCaborStat)
     }
 
+    // Filter by kategori sifat pertandingan
+    if (filterKategori !== 'all') {
+      list = list.filter(c => (petaKategori[c.nama]?.kategori ?? null) === (filterKategori === 'none' ? null : filterKategori))
+    }
+
     // Filter by cabor name search
     if (searchCabor) {
       list = list.filter(c => c.nama.toLowerCase().includes(searchCabor.toLowerCase()))
@@ -417,7 +437,7 @@ export default function PageAtletKabBandung() {
     })
 
     return list
-  },[data, searchCabor, searchNama, filterStatus, filterTesFisik, filterRating, filterKesiapan, filterCaborStat, sortMode, hanyaElite])
+  },[data, searchCabor, searchNama, filterStatus, filterTesFisik, filterRating, filterKesiapan, filterCaborStat, sortMode, hanyaElite, filterKategori, petaKategori])
 
   // ── Export CSV ────────────────────────────────────────────
   const handleExport = useCallback(()=>{
@@ -815,6 +835,54 @@ export default function PageAtletKabBandung() {
             </div>
           </div>
 
+          {/* ── Saringan kategori sifat pertandingan ──
+              Pemilahan pengurus Kab. Bandung: Beladiri, Terukur, Penilaian,
+              Permainan, Beregu. Ditaruh di ATAS status karena inilah lapisan
+              yang dipakai KONI membaca kontingen — 61 cabor terlalu banyak
+              untuk dibaca sekaligus, lima kategori tidak. */}
+          {Object.keys(petaKategori).length > 0 && (() => {
+            const hitung: Record<string, { cabor: number; atlet: number }> = {}
+            data.forEach(a => {
+              const k = petaKategori[a.cabor_nama_raw ?? '']?.kategori ?? 'none'
+              if (!hitung[k]) hitung[k] = { cabor: 0, atlet: 0 }
+              hitung[k].atlet++
+            })
+            const setCabor: Record<string, Set<string>> = {}
+            data.forEach(a => {
+              const k = petaKategori[a.cabor_nama_raw ?? '']?.kategori ?? 'none'
+              ;(setCabor[k] ??= new Set()).add(a.cabor_nama_raw ?? '')
+            })
+            Object.keys(hitung).forEach(k => { hitung[k].cabor = setCabor[k]?.size ?? 0 })
+            const urut = [...KATEGORI_CABOR.filter(k => hitung[k]), ...(hitung['none'] ? ['none'] : [])]
+            return (
+              <div className="flex flex-wrap items-center gap-1.5 mb-3 pb-3 border-b" style={{borderColor:'rgba(255,255,255,0.05)'}}>
+                <Layers size={13} className="mr-1" style={{color:'rgba(255,255,255,0.3)'}}/>
+                <button onClick={()=>setFilterKategori('all')}
+                  className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
+                  style={filterKategori==='all'
+                    ? {background:`${ACCENT}20`, color:ACCENT, border:`1px solid ${ACCENT}40`}
+                    : {background:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.35)', border:'1px solid transparent'}}>
+                  Semua Kategori
+                </button>
+                {urut.map(k => {
+                  const w = k === 'none' ? '#64748b' : warnaKategori(k)
+                  const aktif = filterKategori === k
+                  return (
+                    <button key={k} onClick={()=>setFilterKategori(aktif?'all':k)}
+                      title={`${hitung[k].cabor} cabor · ${hitung[k].atlet} atlet`}
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all capitalize"
+                      style={aktif
+                        ? {background:`${w}22`, color:w, border:`1px solid ${w}55`}
+                        : {background:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.35)', border:'1px solid transparent'}}>
+                      {k === 'none' ? TANPA_KATEGORI : k.charAt(0) + k.slice(1).toLowerCase()}
+                      <span className="ml-1.5 font-mono opacity-70">{hitung[k].atlet}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
           {/* Status summary strip */}
           {!loading && (() => {
             const counts = countByStatus(groupedCabors)
@@ -859,6 +927,7 @@ export default function PageAtletKabBandung() {
                 return (
                   <div key={cabor.nama}>
                     <CaborCardV2
+                    kategori={kategoriDari(cabor.nama)}
                       cabor={cabor}
                       isExpanded={isExpanded}
                       onToggle={() => setExpandedCabor(isExpanded ? null : cabor.nama)}

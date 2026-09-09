@@ -23,6 +23,8 @@ import {
 } from '@/lib/dokumen-helpers'
 import { CriticalAlertsCard, type CriticalAlert } from '@/components/konida/DashboardHelpers'
 import { AtletDokumenRowV2, type AtletRowData } from '@/components/konida/AtletDokumenRowV2'
+import { KATEGORI_CABOR, warnaKategori, TANPA_KATEGORI } from '@/lib/kategori-cabor'
+import { Layers } from 'lucide-react'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -98,12 +100,15 @@ export default function PageDokumenAtlet() {
   const [animIn, setAnimIn] = useState(false)
   const [search, setSearch] = useState('')
   const [filterCompliance, setFilterCompliance] = useState<FilterCompliance>('all')
+  // Kategori sifat pertandingan — pemilahan pengurus Kab. Bandung.
+  const [petaKategori, setPetaKategori] = useState<Record<string, any>>({})
+  const [filterKategori, setFilterKategori] = useState<string>('all')
   const [sortMode, setSortMode]                           = useState<SortMode>('urgency')
   const [filterMissingJenis, setFilterMissingJenis]       = useState<number | null>(null)
   const [expandedAtletId, setExpandedAtletId]             = useState<number | null>(null)
   const [listLimit, setListLimit]                         = useState(10)
 
-  useEffect(() => { setListLimit(10) }, [filterCompliance, filterMissingJenis, search, sortMode])
+  useEffect(() => { setListLimit(10) }, [filterCompliance, filterMissingJenis, search, sortMode, filterKategori, petaKategori])
   const [filterPerlengkapan, setFilterPerlengkapan] = useState<FilterPerlengkapan>('all')
   const [selectedAtlet, setSelectedAtlet] = useState<AtletInfo | null>(null)
   const [modalType, setModalType] = useState<'dokumen' | 'perlengkapan'>('dokumen')
@@ -153,6 +158,15 @@ export default function PageDokumenAtlet() {
   }, [])
 
   // ═════════ DOKUMEN COMPUTATIONS ═════════
+  useEffect(() => {
+    let hidup = true
+    fetch('/api/konida/kategori-cabor')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (hidup && d?.peta) setPetaKategori(d.peta) })
+      .catch(() => {})
+    return () => { hidup = false }
+  }, [])
+
   const totalMandatory = useMemo(() =>
     jenisList.filter(j => j.is_mandatory).length,
   [jenisList])
@@ -227,6 +241,10 @@ export default function PageDokumenAtlet() {
 
       if (filterCompliance !== 'all')
         list = list.filter(a => a.status === filterCompliance)
+
+      if (filterKategori !== 'all')
+        list = list.filter(a =>
+          (petaKategori[a.cabor_nama_raw]?.kategori ?? null) === (filterKategori === 'none' ? null : filterKategori))
 
       if (filterMissingJenis !== null) {
         list = list.filter(a => {
@@ -565,6 +583,66 @@ export default function PageDokumenAtlet() {
             {/* ════════ TAB: DOKUMEN ════════ */}
             {mainTab === 'dokumen' && (
               <>
+                {/* ── Kelengkapan per kategori ──
+                    Di halaman ini yang berharga bukan pengelompokannya, tapi
+                    PERBANDINGANNYA: kategori mana yang paling tertinggal
+                    berkasnya. Tanpa papan ini, "107 atlet Terukur belum
+                    berfoto" tersembunyi di antara 1.142 baris tabel. */}
+                {Object.keys(petaKategori).length > 0 && (() => {
+                  const per: Record<string, { total: number; lengkap: number }> = {}
+                  atletCompliance.forEach(a => {
+                    const k = petaKategori[a.cabor_nama_raw]?.kategori ?? 'none'
+                    per[k] ??= { total: 0, lengkap: 0 }
+                    per[k].total++
+                    // "Lengkap" di sini berarti compliant — semua dokumen wajib
+                    // terverifikasi dan tidak ada yang mendekati kedaluwarsa.
+                    if (a.status === 'compliant') per[k].lengkap++
+                  })
+                  const urut = [...KATEGORI_CABOR.filter(k => per[k]), ...(per['none'] ? ['none'] : [])]
+                  if (urut.length === 0) return null
+                  return (
+                    <div {...ani(15)} className="rounded-2xl p-5"
+                      style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)' }}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Layers size={14} style={{ color:'rgba(255,255,255,0.4)' }}/>
+                        <h3 className="text-sm font-bold text-white">Kelengkapan Berkas per Kategori</h3>
+                        <span className="text-[11px] text-zinc-500">klik untuk menyaring tabel di bawah</span>
+                        {filterKategori !== 'all' && (
+                          <button onClick={()=>setFilterKategori('all')}
+                            className="ml-auto text-[11px] px-2.5 py-1 rounded-lg border border-white/10 text-zinc-400 hover:bg-white/5">
+                            Tampilkan semua
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        {urut.map(k => {
+                          const v = per[k]
+                          const pct = v.total ? Math.round(100 * v.lengkap / v.total) : 0
+                          const w = k === 'none' ? '#64748b' : warnaKategori(k)
+                          const aktif = filterKategori === k
+                          return (
+                            <button key={k} onClick={()=>setFilterKategori(aktif?'all':k)}
+                              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-left"
+                              style={{ background: aktif ? `${w}12` : 'transparent',
+                                       border: `1px solid ${aktif ? `${w}40` : 'transparent'}` }}>
+                              <span className="text-[12px] font-bold w-24 shrink-0 capitalize" style={{ color: w }}>
+                                {k === 'none' ? TANPA_KATEGORI : k.charAt(0) + k.slice(1).toLowerCase()}
+                              </span>
+                              <span className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.05)' }}>
+                                <span className="block h-full rounded-full" style={{ width:`${pct}%`, background:w }}/>
+                              </span>
+                              <span className="text-[12px] font-bold w-10 text-right shrink-0" style={{ color:w }}>{pct}%</span>
+                              <span className="text-[11px] text-zinc-500 w-28 text-right shrink-0">
+                                {v.lengkap}/{v.total} lengkap
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {/* KPI Strip — 5 clickable status cards */}
                 <div {...ani(20)} className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                   {([

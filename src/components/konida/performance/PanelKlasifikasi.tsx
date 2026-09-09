@@ -10,11 +10,8 @@
 
 import { useState, useEffect } from 'react'
 import { Layers, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
+import { WARNA_KATEGORI } from '@/lib/kategori-cabor'
 
-const WARNA_KATEGORI: Record<string, string> = {
-  BELADIRI: '#ef4444', TERUKUR: '#38bdf8', PENILAIAN: '#a855f7',
-  PERMAINAN: '#34d399', BEREGU: '#fbbf24',
-}
 const WARNA_PRIORITAS: Record<string, string> = {
   '1': '#ef4444', '2': '#f97316', '3': '#eab308', '4': '#64748b',
 }
@@ -72,6 +69,50 @@ export default function PanelKlasifikasi({ accent = '#38bdf8' }: { accent?: stri
           ))}
         </div>
       </div>
+
+      {/* ── Efisiensi: berapa emas dihasilkan tiap 100 atlet ──
+          Angka mentah menyesatkan. Terukur punya atlet paling banyak (321)
+          tapi emasnya 18; Beladiri dengan 217 atlet menghasilkan 35. Dibaca
+          sebagai jumlah, Terukur tampak lebih besar; dibaca sebagai hasil per
+          atlet, Beladiri enam kali lebih efisien daripada Beregu. Itu
+          pembacaan yang mengubah keputusan, dan hanya muncul kalau dibagi. */}
+      {lihat === 'kategori' && (
+        <div className="px-4 pt-4">
+          <div className="rounded-xl p-3.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-2.5">
+              Emas per 100 atlet — hasil Babak Kualifikasi dibagi jumlah atlet
+            </div>
+            <div className="space-y-1">
+              {(() => {
+                const eff = kelompok
+                  .filter((k: any) => k.atlet > 0)
+                  .map((k: any) => ({ ...k, rasio: 100 * k.emas / k.atlet }))
+                  .sort((a: any, b: any) => b.rasio - a.rasio)
+                const maks = Math.max(1, ...eff.map((e: any) => e.rasio))
+                return eff.map((e: any) => {
+                  const w = warna(e.nama)
+                  return (
+                    <div key={e.nama} className="flex items-center gap-3">
+                      <span className="text-[11px] w-24 shrink-0 capitalize" style={{ color: w }}>
+                        {judul(e.nama).toLowerCase()}
+                      </span>
+                      <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <span className="block h-full rounded-full" style={{ width: `${Math.round(100 * e.rasio / maks)}%`, background: w }} />
+                      </span>
+                      <span className="text-[11px] font-bold w-10 text-right shrink-0" style={{ color: w }}>
+                        {e.rasio.toFixed(1)}
+                      </span>
+                      <span className="text-[10px] text-slate-600 w-32 text-right shrink-0 hidden md:block">
+                        {e.emas} emas · {e.atlet} atlet
+                      </span>
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-4 space-y-1.5">
         {kelompok.map((k: any) => {

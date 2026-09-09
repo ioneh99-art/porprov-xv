@@ -24,6 +24,14 @@ const sb = createClient(ambil('NEXT_PUBLIC_SUPABASE_URL'), ambil('SUPABASE_SERVI
   { auth: { autoRefreshToken: false, persistSession: false } })
 
 const KATEGORI = ['BELADIRI', 'PENILAIAN', 'TERUKUR', 'PERMAINAN', 'BEREGU']
+
+/** Cabor yang tidak tercantum di sheet PER KATEGORI, kategorinya ditetapkan
+ *  pengelola. Tanpa ini, impor ulang akan mengosongkannya lagi dan 67 atlet
+ *  kembali jatuh ke keranjang "belum berkategori". */
+const KATEGORI_PENGELOLA: Record<string, string> = {
+  'Bola Basket': 'BEREGU',
+  'Rugby':       'BEREGU',
+}
 const angka = (v: any) => (typeof v === 'number' ? v : Number(String(v ?? '').trim()) || 0)
 
 async function main() {
@@ -87,7 +95,11 @@ async function main() {
   baris.forEach(b => {
     b.kategori = kategoriPer.get(b.cabor_nama_raw ?? '')
       ?? kategoriPer.get(b.cabor_berkas.toUpperCase())
-      ?? null
+      ?? KATEGORI_PENGELOLA[b.cabor_nama_raw ?? ''] ?? null
+    if (!kategoriPer.has(b.cabor_nama_raw ?? '') && KATEGORI_PENGELOLA[b.cabor_nama_raw ?? '']) {
+      b.keterangan = [b.keterangan, `Kategori ${b.kategori} ditetapkan pengelola; cabor ini tidak tercantum di sheet PER KATEGORI berkas pengurus.`]
+        .filter(Boolean).join(' ')
+    }
   })
 
   const ketemu = baris.filter(b => b.cabor_nama_raw)

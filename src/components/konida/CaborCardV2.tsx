@@ -6,6 +6,7 @@ import {
   AlertTriangle, Eye, CheckCircle, Star, ChevronDown,
   Activity, Clock, type LucideIcon,
 } from 'lucide-react'
+import { warnaKategori } from '@/lib/kategori-cabor'
 
 export type CaborStatus = 'critical' | 'watch' | 'stable' | 'excellence'
 
@@ -88,7 +89,7 @@ interface Props {
   onAction:   (action: CaborAction) => void
 }
 
-export function CaborCardV2({ cabor, isExpanded, onToggle, onAction }: Props) {
+export function CaborCardV2({ cabor, isExpanded, onToggle, onAction, kategori }: Props & { kategori?: string | null }) {
   const cfg        = STATUS_CFG[cabor.status]
   const StatusIcon = cfg.icon
 
@@ -132,7 +133,17 @@ export function CaborCardV2({ cabor, isExpanded, onToggle, onAction }: Props) {
               style={{ background: `${cfg.spine}18` }}>
               <Activity size={14} style={{ color: cfg.spine }}/>
             </div>
-            <h3 className="text-sm font-bold text-white truncate">{cabor.nama}</h3>
+            <h3 className="text-sm font-bold text-white truncate flex items-center gap-1.5">
+              <span className="truncate">{cabor.nama}</span>
+              {kategori && (
+                <span title="Kategori sifat pertandingan menurut pengurus"
+                  className="text-[8px] font-black px-1.5 py-0.5 rounded tracking-wider shrink-0 capitalize"
+                  style={{ background: `${warnaKategori(kategori)}20`, color: warnaKategori(kategori),
+                           border: `1px solid ${warnaKategori(kategori)}45` }}>
+                  {kategori.charAt(0) + kategori.slice(1).toLowerCase()}
+                </span>
+              )}
+            </h3>
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border"
               style={{ background: cfg.badgeBg, color: cfg.badgeText, borderColor: cfg.badgeBg }}>
               <StatusIcon size={10}/>
