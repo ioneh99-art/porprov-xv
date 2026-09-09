@@ -16,6 +16,7 @@ import {
 import SportScienceCard from '@/components/konida/SportScienceCard'
 import CaborWatchlist, { CaborWatchData } from '@/components/konida/CaborWatchlist'
 import PapanKerjaData from '@/components/konida/PapanKerjaData'
+import PanelJadwal from '@/components/konida/PanelJadwal'
 import {
   HealthIndexGauge,
   buildAlertsFromData,
@@ -571,6 +572,11 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
             terbaca adalah panel hijau "99,3% AKURASI", sehingga tim teknis
             menyimpulkan tidak ada pekerjaan — padahal ada. */}
         <PapanKerjaData accent={ACCENT} />
+
+        {/* ── HITUNG MUNDUR PER CABOR ──
+            Tepat di bawah papan kerja: papan itu menjawab "apa yang belum
+            beres", panel ini menjawab "mana yang paling mepet waktunya". */}
+        <PanelJadwal accent={ACCENT} />
 
         {/* ── ALERT PRESTASI (KBAAS) ── */}
         <PrestasiAlert title="Alert Prestasi — Atlet Andalan Kab. Bandung" />

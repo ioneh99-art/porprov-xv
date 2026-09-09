@@ -65,7 +65,7 @@ export async function GET() {
   const aktif = atlet.filter(a => a.status_registrasi !== 'Ditolak Admin')
   const total = aktif.length
 
-  const [issuesRes, rekonRes, auditRes] = await Promise.all([
+  const [issuesRes, rekonRes, auditRes, jadwalRes] = await Promise.all([
     db.from('jarvis_issues').select('id,issue_type,severity,title,description')
       .eq('kontingen_id', kontingen).eq('status', 'open'),
     db.from('rekonsiliasi_peserta').select('id,nama_peserta')
@@ -73,10 +73,12 @@ export async function GET() {
     // Jejak koreksi otomatis. Dulu angkanya ditulis mati di halaman dasbor,
     // jadi membeku sejak hari diketik; sekarang dihitung tiap kali dibuka.
     db.from('atlet_data_quality_audit').select('action_type').range(0, 4999),
+    db.from('v_jadwal_cabor').select('cabor_nama_raw,mulai_paling_awal,tuan_rumah'),
   ])
   const issues = issuesRes.data ?? []
   const belumTertaut = rekonRes.data ?? []
   const audit = auditRes.data ?? []
+  const jadwal = jadwalRes.data ?? []
 
   const nama = (xs: Atl[]) => xs.slice(0, 3).map(a => a.nama_lengkap ?? `Atlet ${a.id}`)
 
@@ -157,6 +159,53 @@ export async function GET() {
     keterangan: 'Atlet tidak terhubung ke cabor mana pun.',
     akibat: 'Tidak muncul di daftar cabor mana pun.',
     tingkat: 'penting', tautan: '/konida/atlet/kabbandung', contoh: nama(tanpaCabor),
+  })
+
+  // ── Silang jadwal dengan data atlet ──
+  // Dua fakta yang selama ini hidup terpisah: "cabor X bertanding tanggal
+  // sekian" ada di berkas panitia, "cabor X punya N atlet tanpa foto" ada di
+  // basis data. Dipertemukan, keduanya jadi urutan kerja.
+  const punyaJadwal = new Set(jadwal.map((j: any) => j.cabor_nama_raw))
+  const caborKita = new Map<string, Atl[]>()
+  aktif.forEach(a => {
+    const c = (a.cabor_nama_raw ?? '').trim()
+    if (!c) return
+    caborKita.set(c, [...(caborKita.get(c) ?? []), a])
+  })
+
+  const tanpaJadwal = Array.from(caborKita.entries()).filter(([c]) => !punyaJadwal.has(c))
+  tambah({
+    kunci: 'cabor_tanpa_jadwal', judul: 'Punya atlet tapi tidak ada jadwalnya',
+    jumlah: tanpaJadwal.length, dari: caborKita.size,
+    keterangan: 'Cabor ini punya atlet terdaftar, tapi namanya tidak ada di jadwal resmi panitia.',
+    akibat: 'Entah cabornya batal dipertandingkan, atau jadwalnya belum turun. Perlu ditanyakan ke panitia.',
+    tingkat: 'kritis', tautan: '/konida/atlet/kabbandung',
+    contoh: tanpaJadwal.map(([c, v]) => `${c} (${v.length} atlet)`),
+  })
+
+  // Mendesak = bertanding dalam 45 hari DAN berkasnya belum lengkap.
+  const hariLagi = (t: string | null) => {
+    if (!t) return null
+    const [y, m, d] = t.split('-').map(Number)
+    const kini = new Date()
+    return Math.round((new Date(y, m - 1, d).getTime()
+      - new Date(kini.getFullYear(), kini.getMonth(), kini.getDate()).getTime()) / 86400000)
+  }
+  const mendesak = jadwal
+    .map((j: any) => {
+      const h = hariLagi(j.mulai_paling_awal)
+      const anggota = caborKita.get(j.cabor_nama_raw) ?? []
+      return { cabor: j.cabor_nama_raw, hari: h, belumFoto: anggota.filter(a => !a.foto_url).length }
+    })
+    .filter((x: any) => x.hari != null && x.hari >= 0 && x.hari <= 45 && x.belumFoto > 0)
+    .sort((a: any, b: any) => a.hari - b.hari)
+  tambah({
+    kunci: 'cabor_dekat_belum_siap', judul: 'Bertanding < 45 hari, berkas belum lengkap',
+    jumlah: mendesak.length, dari: jadwal.length,
+    keterangan: 'Cabor yang paling dekat jadwalnya tapi masih ada atlet tanpa pasfoto.',
+    akibat: 'Kartu identitas belum bisa dicetak, padahal waktunya paling sempit. Kerjakan cabor ini lebih dulu.',
+    tingkat: 'kritis', tautan: '/konida/atlet/kabbandung/foto',
+    contoh: mendesak.slice(0, 3).map((x: any) => `${x.cabor} — ${x.hari} hari lagi, ${x.belumFoto} tanpa foto`),
   })
 
   const urut = { kritis: 0, penting: 1, biasa: 2 }
