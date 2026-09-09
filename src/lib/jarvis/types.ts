@@ -9,6 +9,7 @@ export interface Atlet {
   cabor_nama_raw?: string | null
   status_verifikasi?: string | null
   status_registrasi?: string | null
+  no_registrasi_koni?: string | null
 }
 
 export interface JarvisIssue {

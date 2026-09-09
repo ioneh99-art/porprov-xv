@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import SportScienceCard from '@/components/konida/SportScienceCard'
 import CaborWatchlist, { CaborWatchData } from '@/components/konida/CaborWatchlist'
+import PapanKerjaData from '@/components/konida/PapanKerjaData'
 import {
   HealthIndexGauge,
   buildAlertsFromData,
@@ -97,6 +98,23 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
   }>({hadir:0,dns:0,avgSkor:0,topAtlet:0,lowAtlet:0,lemahCount:0})
   // Per-cabor fitness map: cabor → { hadir, avg }
   const [caborFitness, setCaborFitness] = useState<Record<string,{hadir:number;avg:number}>>({})
+
+  // Angka Data Quality Engine dibaca hidup, bukan ditulis mati di berkas ini.
+  const [dqKoreksi, setDqKoreksi] = useState({ total:0, cabor:0, tgl_lahir:0, gender:0, dikunci:0 })
+  const [dqTerbuka, setDqTerbuka] = useState(0)
+  useEffect(() => {
+    let hidup = true
+    fetch('/api/konida/pekerjaan-data')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!hidup || !d?.mesin) return
+        setDqTerbuka(d.mesin.temuan_terbuka ?? 0)
+        setDqKoreksi({ total: d.mesin.koreksi_total ?? 0, ...(d.mesin.koreksi ?? {}) })
+      })
+      .catch(() => {})
+    return () => { hidup = false }
+  }, [])
+  const fmtID = (n: number) => (n ?? 0).toLocaleString('id-ID')
 
   useEffect(() => { const t = setTimeout(() => setAnimIn(true), 80); return () => clearTimeout(t) }, [])
   useEffect(() => { const i = setInterval(() => setPulse(p => !p), 800); return () => clearInterval(i) }, [])
@@ -548,6 +566,12 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
 
       <main className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 lg:space-y-8 relative z-10">
 
+        {/* ── PAPAN KERJA DATA ──
+            Diletakkan paling atas dengan sengaja. Sebelumnya yang pertama
+            terbaca adalah panel hijau "99,3% AKURASI", sehingga tim teknis
+            menyimpulkan tidak ada pekerjaan — padahal ada. */}
+        <PapanKerjaData accent={ACCENT} />
+
         {/* ── ALERT PRESTASI (KBAAS) ── */}
         <PrestasiAlert title="Alert Prestasi — Atlet Andalan Kab. Bandung" />
 
@@ -665,19 +689,25 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
               <span className="text-xs text-zinc-500 hidden lg:inline">
                 — Cross-validate otomatis: NIK → gender &amp; tgl lahir · Rekap KONI → cabang olahraga
               </span>
+              {/* Dulu di sini tertulis "99.3% AKURASI" — angka hiasan yang tidak
+                  dihitung dari mana pun. Diganti temuan yang masih terbuka. */}
               <span className="ml-auto text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0"
-                style={{ background:'rgba(16,185,129,0.1)', color:'#34d399', border:'1px solid rgba(16,185,129,0.2)' }}>
-                99.3% AKURASI
+                style={dqTerbuka > 0
+                  ? { background:'rgba(239,68,68,0.1)', color:'#f87171', border:'1px solid rgba(239,68,68,0.25)' }
+                  : { background:'rgba(16,185,129,0.1)', color:'#34d399', border:'1px solid rgba(16,185,129,0.2)' }}>
+                {dqTerbuka > 0 ? `${dqTerbuka} TEMUAN TERBUKA` : 'TIDAK ADA TEMUAN'}
               </span>
             </div>
             {/* 5 Stat cards */}
             <div className="px-4 pb-3 grid grid-cols-2 lg:grid-cols-5 gap-2.5">
               {([
-                { emoji:'🔧', value:'1.196', label:'Tindakan Koreksi',     sub:'Total aksi perbaikan data otomatis oleh sistem',   color:'#38bdf8' },
-                { emoji:'👤', value:'25',    label:'Gender Dikoreksi',     sub:'NIK ↔ gender tidak cocok, diperbaiki otomatis',    color:'#34d399' },
-                { emoji:'📅', value:'107',   label:'Tgl Lahir Dikoreksi',  sub:'NIK ↔ tgl lahir tidak cocok, diperbaiki otomatis', color:'#34d399' },
-                { emoji:'🏆', value:'1.064', label:'Cabor Disinkronisasi', sub:'Nama cabor diselaraskan dari rekap resmi KONI',    color:'#38bdf8' },
-                { emoji:'🔐', value:'8',     label:'NIK Perlu Verifikasi', sub:'Format NIK invalid — diisolasi, tunggu KONI',      color:'#fbbf24' },
+                // Angka-angka ini dulu ditulis mati sebagai teks ('1.196', '25', …),
+                // jadi membeku sejak hari diketik. Sekarang dibaca dari jejak audit.
+                { emoji:'🔧', value:fmtID(dqKoreksi.total),     label:'Tindakan Koreksi',     sub:'Total aksi perbaikan data otomatis oleh sistem',   color:'#38bdf8' },
+                { emoji:'👤', value:fmtID(dqKoreksi.gender),    label:'Gender Dikoreksi',     sub:'NIK ↔ gender tidak cocok, diperbaiki otomatis',    color:'#34d399' },
+                { emoji:'📅', value:fmtID(dqKoreksi.tgl_lahir), label:'Tgl Lahir Dikoreksi',  sub:'NIK ↔ tgl lahir tidak cocok, diperbaiki otomatis', color:'#34d399' },
+                { emoji:'🏆', value:fmtID(dqKoreksi.cabor),     label:'Cabor Disinkronisasi', sub:'Nama cabor diselaraskan dari rekap resmi KONI',    color:'#38bdf8' },
+                { emoji:'🔐', value:fmtID(dqKoreksi.dikunci),   label:'NIK Perlu Verifikasi', sub:'Format NIK invalid — diisolasi, tunggu KONI',      color:'#fbbf24' },
               ] as const).map(s => (
                 <div key={s.label} className="rounded-xl p-3"
                   style={{ background:'rgba(0,0,0,0.2)', border:`1px solid ${s.color}25` }}>

@@ -20,7 +20,7 @@ export async function runJarvisQA(kontingenId: number): Promise<{
   for (let page = 0; ; page++) {
     const { data } = await sb
       .from('atlet')
-      .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,kontingen_id,cabor_id,cabor_nama_raw,status_verifikasi,status_registrasi')
+      .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,kontingen_id,cabor_id,cabor_nama_raw,status_verifikasi,status_registrasi,no_registrasi_koni')
       .eq('kontingen_id', kontingenId)
       .range(page * 1000, (page + 1) * 1000 - 1)
     if (!data || data.length === 0) break
@@ -93,8 +93,11 @@ export async function runJarvisQA(kontingenId: number): Promise<{
     // Untuk group issues (duplicate) yang tidak punya source_record_id unik, fallback ke title
     const seen = new Set<string>()
     const unique = allIssues.filter(i => {
+      // Tingkat ikut jadi kunci: satu atlet bisa punya temuan kritis DAN
+      // peringatan bertipe sama (kolom wajib kosong + kolom perlu kosong),
+      // dan yang kedua jangan sampai terbuang diam-diam.
       const key = i.source_record_id != null
-        ? `${i.issue_type}|${i.source_record_id}`
+        ? `${i.issue_type}|${i.severity}|${i.source_record_id}`
         : i.title
       if (seen.has(key)) return false
       seen.add(key)
