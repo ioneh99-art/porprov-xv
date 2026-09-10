@@ -11,7 +11,7 @@ const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_
 
 interface Row {
   id: number; nama_lengkap: string; gender: string | null; tgl_lahir: string | null
-  no_ktp: string | null; nomor_peserta: string | null
+  no_ktp?: string | null; nomor_peserta: string | null
   status_registrasi: string | null; status_verifikasi: string | null; foto_url: string | null
   fitnes: number | null; fitnes_kat: string | null
 }
@@ -30,8 +30,8 @@ export default function DayungRosterPage() {
       const caborId = me?.cabor_id ?? DAYUNG.caborId
       const kontingenId = me?.kontingen_id ?? DAYUNG.kontingenId
 
-      const { data: atlet } = await sb.from('atlet')
-        .select('id,nama_lengkap,gender,tgl_lahir,no_ktp,nomor_peserta,status_registrasi,status_verifikasi,foto_url')
+      const { data: atlet } = await sb.from('atlet_umum')
+        .select('id,nama_lengkap,gender,tgl_lahir,nomor_peserta,status_registrasi,status_verifikasi,foto_url')
         .eq('cabor_id', caborId).eq('kontingen_id', kontingenId).order('nama_lengkap')
 
       const ids = (atlet ?? []).map(a => a.id)

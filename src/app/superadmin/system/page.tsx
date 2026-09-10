@@ -106,8 +106,8 @@ export default function SystemHealthPage() {
       ] = await Promise.all([
         sb.from('users').select('*',{count:'exact',head:true}),
         sb.from('users').select('*',{count:'exact',head:true}).eq('is_active',true),
-        sb.from('atlet').select('*',{count:'exact',head:true}),
-        sb.from('atlet').select('*',{count:'exact',head:true}).eq('status_registrasi','Verified'),
+        sb.from('atlet_umum').select('*',{count:'exact',head:true}),
+        sb.from('atlet_umum').select('*',{count:'exact',head:true}).eq('status_registrasi','Verified'),
         sb.from('kontingen').select('*',{count:'exact',head:true}),
         sb.from('cabang_olahraga').select('*',{count:'exact',head:true}),
         sb.from('subscriptions').select('*',{count:'exact',head:true}).eq('is_active',true),

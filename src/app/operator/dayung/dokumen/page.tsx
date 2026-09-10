@@ -23,6 +23,7 @@ import {
 } from '@/lib/dokumen-helpers'
 import { CriticalAlertsCard, type CriticalAlert } from '@/components/konida/DashboardHelpers'
 import { AtletDokumenRowV2, type AtletRowData } from '@/components/konida/AtletDokumenRowV2'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +47,7 @@ type MainTab = 'dokumen' | 'perlengkapan'
 interface AtletInfo {
   id: number
   nama_lengkap: string
-  no_ktp: string
+  no_ktp?: string | null
   cabor_nama_raw: string
   status_registrasi: string
 }
@@ -122,8 +123,8 @@ export default function PageDokumenAtlet() {
         // Atlet fetch dengan pagination (>1000 records)
         let allAtlets: any[] = []
         for (let page = 0; ; page++) {
-          const { data, error } = await sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,cabor_nama_raw,status_registrasi')
+          const { data, error } = await sb.from('atlet_umum')
+            .select('id,nama_lengkap,cabor_nama_raw,status_registrasi')
             .eq('kontingen_id', KONTINGEN_ID)
                 .eq('cabor_id', CABOR_ID)
             .range(page * 1000, (page + 1) * 1000 - 1)
@@ -132,6 +133,9 @@ export default function PageDokumenAtlet() {
           allAtlets = allAtlets.concat(data)
           if (data.length < 1000) break
         }
+        // NIK & rekening ditempelkan lewat rute bergerbang sesi — tidak lagi ikut
+        // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
+        allAtlets = await lengkapiPii(allAtlets)
 
         const [jenisRes, dokRes, statsRes, perlengkapanRes] = await Promise.all([
           sb.from('dokumen_jenis').select('*').order('urutan'),

@@ -17,6 +17,7 @@ import { CaborCardV2, classifyCabor, countByStatus, type CaborCardData, type Cab
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,7 +51,7 @@ interface TesFisikInfo {
 interface Atlet {
   id:                  number
   nama_lengkap:        string
-  no_ktp:              string
+  no_ktp?:              string | null
   tgl_lahir:           string
   gender:              string
   cabor_nama_raw:      string
@@ -61,8 +62,8 @@ interface Atlet {
   status_verifikasi:   string
   ukuran_kemeja:       string | null
   ukuran_sepatu:       string | null
-  nama_bank:           string | null
-  no_rekening:         string | null
+  nama_bank?:           string | null
+  no_rekening?:         string | null
   catatan_verifikasi:  string | null
   kontingen_id:        number
   created_at:          string
@@ -150,8 +151,8 @@ export default function PageAtletKabBandung() {
           (async () => {
             let all: any[] = []
             for (let p = 0; ; p++) {
-              const { data, error } = await sb.from('atlet')
-                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at,tes_fisik_status,tes_fisik_kategori,tes_fisik_persen,tes_fisik_rating,tes_fisik_id')
+              const { data, error } = await sb.from('atlet_umum')
+                .select('id,nama_lengkap,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,catatan_verifikasi,kontingen_id,created_at,tes_fisik_status,tes_fisik_kategori,tes_fisik_persen,tes_fisik_rating,tes_fisik_id')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .eq('cabor_id', CABOR_ID)
                 .order('cabor_nama_raw', { ascending: true })
@@ -162,6 +163,9 @@ export default function PageAtletKabBandung() {
               all = all.concat(data)
               if (data.length < 1000) break
             }
+            // NIK & rekening ditempelkan lewat rute bergerbang sesi — tidak lagi ikut
+            // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
+            all = await lengkapiPii(all)
             return { data: all, error: null }
           })(),
           sb.from('v_atlet_tes_fisik_terbaru')

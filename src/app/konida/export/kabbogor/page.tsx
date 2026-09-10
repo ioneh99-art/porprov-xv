@@ -94,8 +94,16 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    sb.from('atlet').select('no_ktp').eq('kontingen_id', KONTINGEN_ID)
-      .then(({ data }) => { if (data) setExistingNIKs(new Set(data.map((a: any) => a.no_ktp||''))) })
+;(async () => {
+      // Daftar NIK yang sudah terdaftar, untuk mendeteksi impor ganda.
+      // Diambil dari rute bergerbang sesi — NIK tidak lagi bisa dibaca kunci
+      // anon langsung dari tabel atlet.
+      const r = await fetch('/api/konida/atlet-pii')
+      if (!r.ok) return
+      const d = await r.json()
+      const nik = Object.values(d?.pii ?? {}).map((x: any) => x?.no_ktp || '').filter(Boolean)
+      setExistingNIKs(new Set(nik as string[]))
+    })()
   }, [])
 
   const stats = useMemo(() => {
@@ -176,7 +184,7 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
   }
 
   async function exportMasterDump() {
-    const { data } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID)
+    const { data } = await sb.from('atlet_umum').select('*').eq('kontingen_id', KONTINGEN_ID)
       .order('cabor_nama_raw',{ascending:true}).order('nama_lengkap',{ascending:true})
     if (!data) return
     const XLSX = await import('xlsx')
@@ -368,7 +376,7 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
               { l:'Master Dump Database',   d:`Export semua atlet Kab. Bogor — ${existingAtletCount} records`, icon:Database, c:ACCENT, badge:`${existingAtletCount} REC`, action: exportMasterDump },
               { l:'Export Atlet Verified',  d:'Hanya Verified/Posted — untuk SK Bupati', icon:Shield, c:'#60a5fa', badge:'SK KONTINGEN',
                 action: async () => {
-                  const { data } = await sb.from('atlet').select('*').eq('kontingen_id',KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true})
+                  const { data } = await sb.from('atlet_umum').select('*').eq('kontingen_id',KONTINGEN_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true})
                   if (!data) return
                   const XLSX = await import('xlsx')
                   const cols = ['No','Nama','NIK','Tgl Lahir','Gender','Cabor','Asal','Status','No KONI']
@@ -1012,7 +1020,7 @@ export default function DataGatewayPage() {
 
   useEffect(() => {
     const t = setTimeout(() => setAnimIn(true), 60)
-    sb.from('atlet').select('id', { count:'exact', head:true }).eq('kontingen_id', KONTINGEN_ID)
+    sb.from('atlet_umum').select('id', { count:'exact', head:true }).eq('kontingen_id', KONTINGEN_ID)
       .then(({ count }) => { if (count !== null) setAtletCount(count) })
     return () => clearTimeout(t)
   }, [])

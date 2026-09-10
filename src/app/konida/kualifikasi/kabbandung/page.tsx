@@ -19,6 +19,7 @@ import {
   STATUS_KUOTA_CFG, KLASTER_CFG,
   aggregateKpi, validateKuota, groupByKlaster,
 } from '@/lib/kuota-helpers'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +34,7 @@ const CABOR_DEFAULT = 6
 interface AtletRow {
   id:                 number
   nama_lengkap:       string
-  no_ktp:             string
+  no_ktp?:             string | null
   tgl_lahir:          string
   gender:             string
   cabor_nama_raw:     string
@@ -89,8 +90,8 @@ export default function PageKualifikasi() {
           (async () => {
             let all: any[] = []
             for (let p = 0; ; p++) {
-              const { data, error } = await sb.from('atlet')
-                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,status_registrasi,no_registrasi_koni')
+              const { data, error } = await sb.from('atlet_umum')
+                .select('id,nama_lengkap,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,status_registrasi,no_registrasi_koni')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .order('cabor_nama_raw',{ascending:true})
                 .order('nama_lengkap',{ascending:true})
@@ -100,6 +101,9 @@ export default function PageKualifikasi() {
               all = all.concat(data)
               if (data.length < 1000) break
             }
+            // NIK & rekening ditempelkan lewat rute bergerbang sesi — tidak lagi ikut
+            // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
+            all = await lengkapiPii(all)
             return { data: all, error: null }
           })(),
           sb.from('v_cabor_kuota_summary')

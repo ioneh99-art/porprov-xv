@@ -2,12 +2,12 @@ import { useState, useMemo } from 'react'
 import { Download, X, FileSpreadsheet, CheckCircle, Filter, Users } from 'lucide-react'
 
 interface Atlet {
-  id: number; nama_lengkap: string; no_ktp: string; tgl_lahir: string
+  id: number; nama_lengkap: string; no_ktp?: string | null; tgl_lahir: string
   gender: string; cabor_nama_raw: string; kode_asal_daerah: string
   nama_asal_daerah: string; no_registrasi_koni: number|null
   status_registrasi: string; ukuran_kemeja: string|null
-  ukuran_sepatu: string|null; nama_bank: string|null
-  no_rekening: string|null; catatan_verifikasi: string|null
+  ukuran_sepatu: string|null; nama_bank?: string|null
+  no_rekening?: string | null; catatan_verifikasi: string|null
   tes_fisik_rating?: string|null
   tes_fisik_persen?: number|null
   tes_fisik_status?: string|null

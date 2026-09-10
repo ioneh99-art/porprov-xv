@@ -51,7 +51,7 @@ interface TesFisikInfo {
 interface Atlet {
   id:                  number
   nama_lengkap:        string
-  no_ktp:              string
+  no_ktp?:              string | null
   tgl_lahir:           string
   gender:              string
   cabor_nama_raw:      string
@@ -62,8 +62,8 @@ interface Atlet {
   status_verifikasi:   string
   ukuran_kemeja:       string | null
   ukuran_sepatu:       string | null
-  nama_bank:           string | null
-  no_rekening:         string | null
+  nama_bank?:           string | null
+  no_rekening?:         string | null
   catatan_verifikasi:  string | null
   kontingen_id:        number
   created_at:          string
@@ -119,8 +119,8 @@ export default function PageAtletKabBogor() {
       try {
         // Step 1 — atlet + tes_fisik headers (parallel)
         const [atletRes, tesFisikRes] = await Promise.all([
-          sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,catatan_verifikasi,kontingen_id,created_at')
+          sb.from('atlet_umum')
+            .select('id,nama_lengkap,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,catatan_verifikasi,kontingen_id,created_at')
             .eq('kontingen_id', KONTINGEN_ID)
             .order('cabor_nama_raw', { ascending: true })
             .order('nama_lengkap',   { ascending: true }),

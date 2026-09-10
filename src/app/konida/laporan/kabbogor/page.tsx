@@ -39,7 +39,7 @@ const TOTAL_HARI_PORPROV = 14
 interface AtletDB {
   id:                 number
   nama_lengkap:       string
-  no_ktp:             string
+  no_ktp?:             string | null
   tgl_lahir:          string
   gender:             string
   cabor_nama_raw:     string
@@ -49,8 +49,8 @@ interface AtletDB {
   status_registrasi:  string
   ukuran_kemeja:      string|null
   ukuran_sepatu:      string|null
-  nama_bank:          string|null
-  no_rekening:        string|null
+  nama_bank?:          string | null
+  no_rekening?:        string | null
 }
 
 interface TesFisik {
@@ -224,8 +224,8 @@ export default function PageLaporan() {
     async function load() {
       try {
         const [atletRes, tesRes, perlRes, riwayatRes, dokRes] = await Promise.all([
-          sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening')
+          sb.from('atlet_umum')
+            .select('id,nama_lengkap,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu')
             .eq('kontingen_id', KONTINGEN_ID)
             .order('cabor_nama_raw',{ascending:true})
             .order('nama_lengkap',{ascending:true}),

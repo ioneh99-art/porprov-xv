@@ -15,7 +15,7 @@ const sb = createClient(
 interface Atlet {
   id:                 number
   nama_lengkap:       string
-  no_ktp:             string
+  no_ktp?:             string | null
   tgl_lahir:          string
   gender:             string
   status_registrasi:  string
@@ -52,8 +52,8 @@ export default function PentathlonAtletPage() {
       if (!cabor_id) return
 
       const { data, error: err } = await sb
-        .from('atlet')
-        .select('id, nama_lengkap, no_ktp, tgl_lahir, gender, status_registrasi, catatan_verifikasi, no_registrasi_koni, created_at, kontingen_id, kontingen(nama)')
+        .from('atlet_umum')
+        .select('id, nama_lengkap, tgl_lahir, gender, status_registrasi, catatan_verifikasi, no_registrasi_koni, created_at, kontingen_id, kontingen(nama)')
         .eq('cabor_id', cabor_id)
         .order('nama_lengkap')
 

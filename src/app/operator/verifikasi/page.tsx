@@ -30,9 +30,9 @@ export default function OperatorVerifikasiPage() {
     )
 
     const { data } = await supabase
-      .from('atlet')
+      .from('atlet_umum')
       .select(`
-        id, nama_lengkap, no_ktp, gender, tgl_lahir,
+        id, nama_lengkap, gender, tgl_lahir,
         status_registrasi, status_verifikasi,
         catatan_cabor, catatan_verifikasi,
         approved_cabor_at,

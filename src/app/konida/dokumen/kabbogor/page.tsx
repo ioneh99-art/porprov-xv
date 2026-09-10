@@ -41,7 +41,7 @@ type MainTab = 'dokumen' | 'perlengkapan'
 interface AtletInfo {
   id: number
   nama_lengkap: string
-  no_ktp: string
+  no_ktp?: string | null
   cabor_nama_raw: string
   status_registrasi: string
 }
@@ -111,8 +111,8 @@ export default function PageDokumenAtlet() {
         const [jenisRes, dokRes, atletRes, statsRes, perlengkapanRes] = await Promise.all([
           sb.from('dokumen_jenis').select('*').order('urutan'),
           sb.from('atlet_dokumen').select('*'),
-          sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,cabor_nama_raw,status_registrasi')
+          sb.from('atlet_umum')
+            .select('id,nama_lengkap,cabor_nama_raw,status_registrasi')
             .eq('kontingen_id', KONTINGEN_ID),
           sb.from('v_dokumen_stats').select('*'),
           sb.from('atlet_perlengkapan').select('*'),

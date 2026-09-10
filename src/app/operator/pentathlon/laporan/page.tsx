@@ -38,7 +38,7 @@ interface AtletDB {
   id: number; nama_lengkap: string; no_ktp: string; tgl_lahir: string
   gender: string; no_registrasi_koni: number | null; status_registrasi: string
   ukuran_kemeja: string | null; ukuran_sepatu: string | null
-  nama_bank: string | null; no_rekening: string | null
+  nama_bank?: string | null; no_rekening: string | null
   kode_asal_daerah: string | null; nama_asal_daerah: string | null
 }
 interface TesFisik { atlet_id: number; bmi: number | null; kesimpulan_persen: number | null; kesimpulan_kategori: string | null }
@@ -142,8 +142,8 @@ export default function PageLaporanPentathlon() {
         if (me.cabor_nama) setCaborNama(me.cabor_nama.toUpperCase())
 
         const atletRes = await sb
-          .from('atlet')
-          .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening,kode_asal_daerah,nama_asal_daerah')
+          .from('atlet_umum')
+          .select('id,nama_lengkap,tgl_lahir,gender,no_registrasi_koni,status_registrasi,ukuran_kemeja,ukuran_sepatu,kode_asal_daerah,nama_asal_daerah')
           .eq('cabor_id', caborId)
           .order('nama_lengkap', { ascending: true })
 

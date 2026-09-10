@@ -106,7 +106,7 @@ export default function KejuaraanAtletDossierPage() {
       setLoading(true)
 
       const [atletRes, recordsRes, caborRes] = await Promise.all([
-        sb.from('atlet').select('*').eq('id', atletId).single(),
+        sb.from('atlet_umum').select('*').eq('id', atletId).single(),
         sb.from('riwayat_prestasi').select('*').eq('atlet_id', atletId).order('tahun', { ascending: false }),
         // Paginasi 1000 — atlet Kab. Bandung > 1000, tanpa ini ada cabor yang tak terdaftar.
         (async () => {

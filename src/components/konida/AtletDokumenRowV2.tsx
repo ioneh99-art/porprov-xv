@@ -16,7 +16,7 @@ import { getDocCellState } from '@/lib/dokumen-helpers'
 export interface AtletRowData {
   id:                number
   nama_lengkap:      string
-  no_ktp:            string
+  no_ktp?:           string | null
   cabor_nama_raw:    string
   status_registrasi: string
   pct:               number

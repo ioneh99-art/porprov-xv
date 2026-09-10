@@ -20,6 +20,7 @@ import {
   HealthIndexGauge,
   buildAlertsFromData,
 } from '@/components/konida/DashboardHelpers'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,7 +48,7 @@ const CABOR_KATEGORI: Record<string, string> = {
 }
 
 interface AtletRaw {
-  id: number; nama_lengkap: string; no_ktp: string
+  id: number; nama_lengkap: string; no_ktp?: string | null
   status_registrasi:string; status_verifikasi:string|null; gender:string; cabor_nama_raw:string
   kode_asal_daerah:string; nama_asal_daerah:string; tgl_lahir:string
   tes_fisik_rating: string | null
@@ -55,7 +56,7 @@ interface AtletRaw {
   tes_fisik_status: string | null
   is_locked: boolean | null
   foto_url: string | null
-  no_rekening: string | null
+  no_rekening?: string | null
   prioritas_emas: string | null
 }
 
@@ -123,14 +124,17 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       // Pagination karena PostgREST max_rows=1000 — .limit() tidak bisa override
       let allAtlet: AtletRaw[] = []
       for (let page = 0; ; page++) {
-        const { data: pageData } = await sb.from('atlet')
-          .select('id,nama_lengkap,no_ktp,status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked,foto_url,no_rekening,prioritas_emas')
+        const { data: pageData } = await sb.from('atlet_umum')
+          .select('id,nama_lengkap,status_registrasi,status_verifikasi,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,tgl_lahir,tes_fisik_rating,tes_fisik_persen,tes_fisik_status,is_locked,foto_url,prioritas_emas')
           .eq('kontingen_id', KONTINGEN_ID)
           .range(page * 1000, (page + 1) * 1000 - 1)
         if (!pageData || pageData.length === 0) break
         allAtlet = allAtlet.concat(pageData)
         if (pageData.length < 1000) break
       }
+      // NIK & rekening ditempelkan lewat rute bergerbang sesi — tidak lagi ikut
+      // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
+      allAtlet = await lengkapiPii(allAtlet)
 
       // ── Angka kesiapan untuk peringatan dasbor ──
       // Semuanya dihitung langsung; JANGAN ditulis mati seperti lockedNik: 8 dulu.

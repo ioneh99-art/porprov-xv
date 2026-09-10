@@ -142,7 +142,7 @@ export default function PerformanceDossierPage() {
     if (!atletId) return
     
     const [atletRes, blRes, fitRes, rwRes, cabornamesRes] = await Promise.all([
-      sb.from('atlet')
+      sb.from('atlet_umum')
         .select('*, cabor:cabor_id(id,nama,min_umur,avg_umur,max_umur)')
         .eq('id', atletId)
         .eq('kontingen_id', KONTINGEN_ID)

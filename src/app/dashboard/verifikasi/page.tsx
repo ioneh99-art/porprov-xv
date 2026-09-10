@@ -29,9 +29,9 @@ export default function VerifikasiPage() {
     )
 
     const { data } = await supabase
-      .from('atlet')
+      .from('atlet_umum')
       .select(`
-        id, nama_lengkap, no_ktp, gender,
+        id, nama_lengkap, gender,
         status_registrasi, status_verifikasi,
         catatan_verifikasi, catatan_cabor,
         approved_cabor_at, approved_admin_at,

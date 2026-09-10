@@ -13,6 +13,7 @@ import {
   Flame, Target, Package, Zap, Star, XCircle, Clock,
 } from 'lucide-react'
 import { CriticalAlertsCard, type CriticalAlert } from '@/components/konida/DashboardHelpers'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +41,7 @@ const TOTAL_HARI_PORPROV = 14 // PORPROV XV: 7–21 November 2026
 interface AtletDB {
   id:                 number
   nama_lengkap:       string
-  no_ktp:             string
+  no_ktp?:             string | null
   tgl_lahir:          string
   gender:             string
   cabor_nama_raw:     string
@@ -51,8 +52,8 @@ interface AtletDB {
   status_verifikasi:  string|null
   ukuran_kemeja:      string|null
   ukuran_sepatu:      string|null
-  nama_bank:          string|null
-  no_rekening:        string|null
+  nama_bank?:          string | null
+  no_rekening?:        string | null
 }
 
 interface TesFisik {
@@ -229,8 +230,8 @@ export default function PageLaporan() {
           (async () => {
             let all: any[] = []
             for (let p = 0; ; p++) {
-              const { data, error } = await sb.from('atlet')
-                .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu,nama_bank,no_rekening')
+              const { data, error } = await sb.from('atlet_umum')
+                .select('id,nama_lengkap,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,no_registrasi_koni,status_registrasi,status_verifikasi,ukuran_kemeja,ukuran_sepatu')
                 .eq('kontingen_id', KONTINGEN_ID)
                 .order('cabor_nama_raw',{ascending:true})
                 .order('nama_lengkap',{ascending:true})
@@ -240,6 +241,9 @@ export default function PageLaporan() {
               all = all.concat(data)
               if (data.length < 1000) break
             }
+            // NIK & rekening ditempelkan lewat rute bergerbang sesi — tidak lagi ikut
+            // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
+            all = await lengkapiPii(all)
             return { data: all, error: null }
           })(),
           sb.from('atlet_tes_fisik')

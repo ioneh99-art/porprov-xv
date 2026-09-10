@@ -11,6 +11,7 @@ import {
   TrendingUp, CreditCard as IdCard, ExternalLink, X, Brain,
   Zap, Target, Copy, CheckCircle, Cpu, Wand2,
 } from 'lucide-react'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -157,14 +158,16 @@ export default function PagePremiumReport() {
   useEffect(()=>{
     async function load() {
       const [a, k, t, r, kuota, dok] = await Promise.allSettled([
-        sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).in('status_registrasi',['Verified','Posted']),
+        sb.from('atlet_umum').select('*').eq('kontingen_id', KONTINGEN_ID).in('status_registrasi',['Verified','Posted']),
         sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id', KONTINGEN_ID).maybeSingle(),
         sb.from('atlet_tes_fisik').select('atlet_id,kesimpulan_persen,kesimpulan_kategori,bmi').eq('kontingen_id', KONTINGEN_ID),
         sb.from('riwayat_prestasi').select('atlet_id,hasil,tahun,event'),
         sb.from('v_cabor_kuota_summary').select('cabor_nama,kuota_total,aktif,status_kuota,pct').eq('kontingen_id', KONTINGEN_ID).order('aktif',{ascending:false}),
         sb.from('v_dokumen_stats').select('*'),
       ])
-      if (a.status==='fulfilled'&&a.value.data)     setAtlets(a.value.data as AtletDB[])
+      // NIK & rekening ditempelkan lewat rute bergerbang sesi — tabel sudah
+      // tidak memberikannya kepada kunci anon.
+      if (a.status==='fulfilled'&&a.value.data)     setAtlets(await lengkapiPii(a.value.data as any) as AtletDB[])
       if (k.status==='fulfilled'&&k.value.data)     setKlasemen(k.value.data)
       if (t.status==='fulfilled'&&t.value.data)     setTesFisik(t.value.data as TesFisik[])
       if (r.status==='fulfilled'&&r.value.data)     setRiwayat(r.value.data as Riwayat[])

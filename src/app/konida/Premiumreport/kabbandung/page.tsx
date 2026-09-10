@@ -12,6 +12,7 @@ import {
   Zap, Target, Copy, CheckCircle, Cpu, Wand2,
   Radar, Crosshair, Building2,
 } from 'lucide-react'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -163,12 +164,15 @@ export default function PagePremiumReport() {
         (async () => {
           let all: any[] = []
           for (let p = 0; ; p++) {
-            const { data, error } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).range(p * 1000, (p + 1) * 1000 - 1)
+            const { data, error } = await sb.from('atlet_umum').select('*').eq('kontingen_id', KONTINGEN_ID).range(p * 1000, (p + 1) * 1000 - 1)
             if (error) return { data: null, error }
             if (!data || data.length === 0) break
             all = all.concat(data)
             if (data.length < 1000) break
           }
+          // NIK & rekening ditempelkan lewat rute bergerbang sesi — tabel sudah
+          // tidak memberikannya kepada kunci anon.
+          all = await lengkapiPii(all)
           return { data: all, error: null }
         })(),
         sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id', KONTINGEN_ID).maybeSingle(),

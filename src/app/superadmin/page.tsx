@@ -178,11 +178,11 @@ export default function SuperadminDashboard() {
         { count: totalAtlet }, { count: totalUser }, { count: pendingVerif },
         { count: atletL },     { count: atletP },
       ] = await Promise.all([
-        sb.from('atlet').select('*',{count:'exact',head:true}),
+        sb.from('atlet_umum').select('*',{count:'exact',head:true}),
         sb.from('users').select('*',{count:'exact',head:true}),
-        sb.from('atlet').select('*',{count:'exact',head:true}).eq('status_verifikasi','pending'),
-        sb.from('atlet').select('*',{count:'exact',head:true}).eq('gender','L'),
-        sb.from('atlet').select('*',{count:'exact',head:true}).eq('gender','P'),
+        sb.from('atlet_umum').select('*',{count:'exact',head:true}).eq('status_verifikasi','pending'),
+        sb.from('atlet_umum').select('*',{count:'exact',head:true}).eq('gender','L'),
+        sb.from('atlet_umum').select('*',{count:'exact',head:true}).eq('gender','P'),
       ])
 
       if (id !== reqId) return

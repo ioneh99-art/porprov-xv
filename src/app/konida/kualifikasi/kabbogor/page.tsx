@@ -33,7 +33,7 @@ const CABOR_DEFAULT = 6
 interface AtletRow {
   id:                 number
   nama_lengkap:       string
-  no_ktp:             string
+  no_ktp?:             string | null
   tgl_lahir:          string
   gender:             string
   cabor_nama_raw:     string
@@ -86,8 +86,8 @@ export default function PageKualifikasi() {
     async function fetchAll() {
       try {
         const [atletRes, summaryRes] = await Promise.all([
-          sb.from('atlet')
-            .select('id,nama_lengkap,no_ktp,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,status_registrasi,no_registrasi_koni')
+          sb.from('atlet_umum')
+            .select('id,nama_lengkap,tgl_lahir,gender,cabor_nama_raw,kode_asal_daerah,nama_asal_daerah,status_registrasi,no_registrasi_koni')
             .eq('kontingen_id', KONTINGEN_ID)
             .order('cabor_nama_raw',{ascending:true})
             .order('nama_lengkap',{ascending:true}),

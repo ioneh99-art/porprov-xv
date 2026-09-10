@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, Upload, FileText, Trash2, CheckCircle, Clock, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import BadgeElite from '@/components/konida/BadgeElite'
+import { lengkapiPiiSatu } from '@/lib/atlet-pii-klien'
 
 const JENIS_DOKUMEN = [
   { key: 'ktp', label: 'KTP / NIK' },
@@ -37,11 +38,13 @@ export default function DetailAtletPage() {
     )
 
     const [{ data: atletData }, { data: dokumenData }] = await Promise.all([
-      supabase.from('atlet').select('*, cabang_olahraga(nama), kontingen(nama)').eq('id', id).single(),
+      supabase.from('atlet_umum').select('*, cabang_olahraga(nama), kontingen(nama)').eq('id', id).single(),
       supabase.from('dokumen_atlet').select('*').eq('atlet_id', id),
     ])
 
-    setAtlet(atletData)
+    // NIK & rekening ditempelkan lewat rute bergerbang sesi — tabel sudah
+    // tidak memberikannya kepada kunci anon.
+    setAtlet(await lengkapiPiiSatu(atletData as any))
     setDokumen(dokumenData ?? [])
     setLoading(false)
   }

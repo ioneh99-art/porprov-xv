@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Save, Send } from 'lucide-react'
 import Link from 'next/link'
+import { lengkapiPiiSatu } from '@/lib/atlet-pii-klien'
 
 export default function EditAtletPage() {
   const router = useRouter()
@@ -34,28 +35,31 @@ export default function EditAtletPage() {
     )
 
     const [{ data: atlet }, { data: caborList }] = await Promise.all([
-      supabase.from('atlet').select('*').eq('id', id).single(),
+      supabase.from('atlet_umum').select('*').eq('id', id).single(),
       supabase.from('cabang_olahraga').select('id, nama').eq('is_active', true).order('nama'),
     ])
 
-    if (atlet) {
+    // NIK & rekening ditempelkan lewat rute bergerbang sesi — tabel sudah
+    // tidak memberikannya kepada kunci anon.
+    const atlet2: any = await lengkapiPiiSatu(atlet as any)
+    if (atlet2) {
       setForm({
-        nama_lengkap: atlet.nama_lengkap ?? '',
-        no_ktp: atlet.no_ktp ?? '',
-        no_kk: atlet.no_kk ?? '',
-        gender: atlet.gender ?? 'L',
-        tgl_lahir: atlet.tgl_lahir ?? '',
-        tempat_lahir: atlet.tempat_lahir ?? '',
-        cabor_id: atlet.cabor_id?.toString() ?? '',
-        telepon: atlet.telepon ?? '',
-        email: atlet.email ?? '',
-        alamat: atlet.alamat ?? '',
-        kecamatan: atlet.kecamatan ?? '',
-        status_registrasi: atlet.status_registrasi ?? 'Draft',
-        catatan_verifikasi: atlet.catatan_verifikasi ?? '',
+        nama_lengkap: atlet2.nama_lengkap ?? '',
+        no_ktp: atlet2.no_ktp ?? '',
+        no_kk: atlet2.no_kk ?? '',
+        gender: atlet2.gender ?? 'L',
+        tgl_lahir: atlet2.tgl_lahir ?? '',
+        tempat_lahir: atlet2.tempat_lahir ?? '',
+        cabor_id: atlet2.cabor_id?.toString() ?? '',
+        telepon: atlet2.telepon ?? '',
+        email: atlet2.email ?? '',
+        alamat: atlet2.alamat ?? '',
+        kecamatan: atlet2.kecamatan ?? '',
+        status_registrasi: atlet2.status_registrasi ?? 'Draft',
+        catatan_verifikasi: atlet2.catatan_verifikasi ?? '',
       })
-      setStatusVerif(atlet.status_verifikasi ?? 'Draft')
-      setCatatanCabor(atlet.catatan_cabor ?? '')
+      setStatusVerif(atlet2.status_verifikasi ?? 'Draft')
+      setCatatanCabor(atlet2.catatan_cabor ?? '')
     }
     setCabors(caborList ?? [])
     setFetching(false)

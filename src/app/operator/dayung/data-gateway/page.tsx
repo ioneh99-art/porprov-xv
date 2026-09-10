@@ -13,6 +13,7 @@ import {
   Edit3, Plus, Trash2, ToggleLeft, ToggleRight,
   Save, X,
 } from 'lucide-react'
+import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,14 +97,14 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
 
   useEffect(() => {
     ;(async () => {
-      let all: any[] = []
-      for (let p = 0; ; p++) {
-        const { data } = await sb.from('atlet').select('no_ktp').eq('kontingen_id', KONTINGEN_ID).eq('cabor_id', CABOR_ID).range(p * 1000, (p + 1) * 1000 - 1)
-        if (!data || data.length === 0) break
-        all = all.concat(data)
-        if (data.length < 1000) break
-      }
-      setExistingNIKs(new Set(all.map((a: any) => a.no_ktp||'')))
+      // Daftar NIK yang sudah terdaftar, untuk mendeteksi impor ganda.
+      // Diambil dari rute bergerbang sesi — NIK tidak lagi bisa dibaca kunci
+      // anon langsung dari tabel atlet.
+      const r = await fetch('/api/konida/atlet-pii')
+      if (!r.ok) return
+      const d = await r.json()
+      const nik = Object.values(d?.pii ?? {}).map((x: any) => x?.no_ktp || '').filter(Boolean)
+      setExistingNIKs(new Set(nik as string[]))
     })()
   }, [])
 
@@ -187,12 +188,15 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
   async function exportMasterDump() {
     let data: any[] = []
     for (let p = 0; ; p++) {
-      const { data: pg } = await sb.from('atlet').select('*').eq('kontingen_id', KONTINGEN_ID).eq('cabor_id', CABOR_ID)
+      const { data: pg } = await sb.from('atlet_umum').select('*').eq('kontingen_id', KONTINGEN_ID).eq('cabor_id', CABOR_ID)
         .order('cabor_nama_raw',{ascending:true}).order('nama_lengkap',{ascending:true}).range(p * 1000, (p + 1) * 1000 - 1)
       if (!pg || pg.length === 0) break
       data = data.concat(pg)
       if (pg.length < 1000) break
     }
+    // NIK & rekening ditempelkan lewat rute bergerbang sesi — tidak lagi ikut
+    // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
+    data = await lengkapiPii(data)
     if (!data.length) return
     const XLSX = await import('xlsx')
     const header = ['ID','Nama Lengkap','No KTP','Tgl Lahir','Gender','Cabor','Kode Asal','Asal Daerah','Status','No Reg KONI','Kemeja','Sepatu','Bank','Rekening']
@@ -385,11 +389,14 @@ function ImportTab({ existingAtletCount }: { existingAtletCount: number }) {
                 action: async () => {
                   let data: any[] = []
                   for (let p = 0; ; p++) {
-                    const { data: pg } = await sb.from('atlet').select('*').eq('kontingen_id',KONTINGEN_ID).eq('cabor_id', CABOR_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true}).range(p * 1000, (p + 1) * 1000 - 1)
+                    const { data: pg } = await sb.from('atlet_umum').select('*').eq('kontingen_id',KONTINGEN_ID).eq('cabor_id', CABOR_ID).in('status_registrasi',['Verified','Posted']).order('cabor_nama_raw',{ascending:true}).range(p * 1000, (p + 1) * 1000 - 1)
                     if (!pg || pg.length === 0) break
                     data = data.concat(pg)
                     if (pg.length < 1000) break
                   }
+                  // NIK & rekening ditempelkan lewat rute bergerbang sesi — tidak lagi ikut
+                  // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
+                  data = await lengkapiPii(data)
                   if (!data.length) return
                   const XLSX = await import('xlsx')
                   const cols = ['No','Nama','NIK','Tgl Lahir','Gender','Cabor','Asal','Status','No KONI']
@@ -920,7 +927,7 @@ export default function DataGatewayPage() {
 
   useEffect(() => {
     const t = setTimeout(() => setAnimIn(true), 60)
-    sb.from('atlet').select('id', { count:'exact', head:true }).eq('kontingen_id', KONTINGEN_ID).eq('cabor_id', CABOR_ID)
+    sb.from('atlet_umum').select('id', { count:'exact', head:true }).eq('kontingen_id', KONTINGEN_ID).eq('cabor_id', CABOR_ID)
       .then(({ count }) => { if (count !== null) setAtletCount(count) })
     return () => clearTimeout(t)
   }, [])

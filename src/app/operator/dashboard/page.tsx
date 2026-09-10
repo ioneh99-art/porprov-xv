@@ -38,7 +38,7 @@ export default function OperatorDashboardPage() {
           .select('*', { count: 'exact', head: true })
           .eq('cabor_id', meData.cabor_id),
         supabase
-          .from('atlet')
+          .from('atlet_umum')
           .select('*', { count: 'exact', head: true })
           .eq('cabor_id', meData.cabor_id)
           .eq('status_registrasi', 'Menunggu Cabor'),
