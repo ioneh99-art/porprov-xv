@@ -33,8 +33,34 @@ War Room, dan seluruh halaman operator — 49 hari sebelum PORPROV.
 3. **Rute `/api/konida/atlet-pii`** — bergerbang sesi, kepemilikan diperiksa
    ulang di server, hanya mengembalikan atlet milik kontingen si pemanggil.
 
-Sampai di sini **kebocorannya masih terbuka**: kolomnya masih ada di tabel
-`atlet`. Yang sudah ada adalah jalannya.
+## SELESAI — 10 September 2026
+
+Kebocorannya **sudah tertutup**. Diuji langsung sesudah penguncian:
+
+| Permintaan kunci anon | Hasil |
+|---|---|
+| `select=nama_lengkap,no_ktp` | ditolak — permission denied |
+| `select=*` | ditolak — permission denied |
+| `select=no_rekening` | ditolak — permission denied |
+| `select=id,nama_lengkap,gender` | **jalan** (kolom biasa tetap boleh) |
+| view `atlet_umum` | **jalan** (yang dipakai halaman) |
+
+Caranya bukan membuang kolom, melainkan **mencabut hak baca setingkat tabel
+lalu memberikannya lagi per kolom kecuali ketiganya**. Hak per-kolom saja
+tidak mempan selama hak tabel masih ada — yang menaungi selalu menang, dan
+itulah sebabnya percobaan sebelumnya di proyek ini gagal.
+
+Keuntungan cara ini dibanding membuang kolom: datanya tidak dipindah sama
+sekali, dan pembatalannya satu perintah.
+
+**Membatalkan bila ada yang rusak:**
+
+```sql
+grant select on public.atlet to anon, authenticated;
+```
+
+Tiga puluhan halaman sudah dialihkan ke view `atlet_umum` dan menempelkan data
+pribadinya lewat `/api/konida/atlet-pii`.
 
 ## Yang tersisa — dan urutannya
 
