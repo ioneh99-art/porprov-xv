@@ -95,3 +95,33 @@ Catat: **halaman apa · langkah ke berapa · pesan error apa (kalau ada)** → k
 - Detail juga di memori `rekap-atlet-kabbandung-2026` & `analisis-strategis-kabbandung-2026`.
 
 **Semua di branch `main`, ter-deploy. Aman berhenti di sini.** 🎯
+
+---
+
+## 6. Tambahan 2026-10-11 — 19 atlet hilang: sudah masuk, tautannya dibetulkan
+
+Ke-19 atlet "hilang" ternyata sudah ditambahkan ke tabel `atlet` pada 2026-09-08 (id 2955–2999, NIK cocok). Dua hal dibetulkan langsung di database (tanpa migration):
+
+1. **Tautan cabor** — 44 atlet rombongan 8 Sep (id 2956–2999) punya `cabor_nama_raw` tapi `cabor_id` kosong. Diisi dari padanan nama persis di `cabang_olahraga` (tiap nama tepat satu padanan aktif).
+   Batal: `update atlet set cabor_id = null where id between 2956 and 2999;`
+2. **`rekonsiliasi_peserta`** — 18 baris diarahkan ke atlet yang benar berdasarkan NIK (`match_method='nik'`, `match_score=1`, `status_peserta='peserta_resmi'`). Hasil: peserta resmi 659, tidak ketemu 15.
+   Nilai lama (rekon_id → atlet_id lama / metode / skor):
+   - Dulu `tidak_ketemu`, atlet_id kosong: 105 (0.500), 110 (0.526), 113 (0.467), 154 (0.524), 165 (0.545), 276 (0.476), 586 (0.455), 694 (0.455)
+   - Dulu `manual` ke orang lain: 95→2300 (0.727), 207→2262 (0.769), 237→2145 (0.600), 273→1785 (0.591), 274→1803 (0.556), 406→2771 (0.632), 555→2637 (0.571), 559→1863 (0.722), 613→2673 (0.563), 630→1841 (0.550)
+
+3. **`intel_target_atlet`** — 9 baris dengan salah-taut yang sama diarahkan ke atlet yang benar (dicocokkan lewat nama + cabang file ke `rekonsiliasi_peserta`). Target emas Wandi dan Fikri Yansyah Akbar, serta perunggu Ramdhan Firmansyah, kini menempel ke orangnya sendiri.
+   Nilai lama (intel_id → atlet_id lama): 733→2300, 845→2262, 875→2145, 911→1785, 912→1803, 1044→2771, 1193→2637, 1197→1863, 1252→1841.
+
+## 7. Tambahan 2026-10-11 — Herlin Aprilin Lali, perunggu Asian Games 2026
+
+Atlet Dayung Kab. Bandung (id 2096) tercantum di Rekap Medali Asian Games Kemenpora v.24092026: perunggu Canoe Sprint Women's Canoe Single 200m, 24 Sep 2026, 47.309. Dicocokkan lewat nama + provinsi + cabor (rekap tidak memuat NIK). Diinput manual atas perintah Bos:
+
+- `riwayat_prestasi` id 105 (dossier Performance) dan `riwayat_kejuaraan` id 3 (menu Kejuaraan + halaman spotlight).
+- Spotlight publik menyala: `/spotlight/herlin-aprilin-lali-2096`.
+
+Batal:
+```sql
+update atlet set is_public=false, public_slug=null where id=2096;
+delete from riwayat_kejuaraan where id=3;
+delete from riwayat_prestasi where id=105;
+```
