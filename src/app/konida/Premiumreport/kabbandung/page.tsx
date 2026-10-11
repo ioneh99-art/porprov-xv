@@ -13,6 +13,7 @@ import {
   Radar, Crosshair, Building2,
 } from 'lucide-react'
 import { lengkapiPii } from '@/lib/atlet-pii-klien'
+import { ambilRekapLapangan } from '@/lib/lapor-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -182,7 +183,10 @@ export default function PagePremiumReport() {
         sb.from('v_dokumen_stats').select('*'),
       ])
       if (a.status==='fulfilled'&&a.value.data)     setAtlets(a.value.data as AtletDB[])
-      if (k.status==='fulfilled'&&k.value.data)     setKlasemen(k.value.data)
+      // Begitu ada laporan lapangan yang disahkan, medali memakai hitungan itu.
+      const lap = await ambilRekapLapangan(KONTINGEN_ID)
+      if (lap.ok && lap.data.rekap.laga > 0) setKlasemen(lap.data.rekap)
+      else if (k.status==='fulfilled'&&k.value.data) setKlasemen(k.value.data)
       if (t.status==='fulfilled'&&t.value.data)     setTesFisik(t.value.data as TesFisik[])
       if (r.status==='fulfilled'&&r.value.data)     setRiwayat(r.value.data as Riwayat[])
       if (kuota.status==='fulfilled'&&kuota.value.data) setKuotaSummary(kuota.value.data as CaborKuota[])
