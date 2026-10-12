@@ -5,7 +5,8 @@
 import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { BATAS_FOTO_BYTE, adalahFinal, jenisGambar, kunciKembar, periksaLaporan, tanggalWIB } from '@/lib/lapor'
-import { ambilSesiLapor, dbLapor, keluargaCabor } from '@/lib/lapor-sesi'
+import { rapikan, tulisNomorResmi } from '@/lib/pendaftaran'
+import { ambilSesiLapor, atletCabor, dbLapor, keluargaCabor, pendaftaranCabor } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { writeAudit, reqMeta } from '@/lib/audit'
 
@@ -38,12 +39,24 @@ export async function POST(req: NextRequest) {
   const isi = hasil.isi
   const db = dbLapor()
 
-  // Atlet yang dikirim peramban tidak dipercaya: semuanya harus milik kontingen
-  // dan cabor yang terikat pada kode ini.
-  const { data: milik } = await db.from('atlet').select('id')
-    .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).in('id', isi.atlet_ids)
-  if ((milik ?? []).length !== isi.atlet_ids.length)
+  // Atlet yang dikirim peramban tidak dipercaya: semuanya harus termasuk atlet
+  // yang boleh dilaporkan lewat kode ini (cabornya, atau terdaftar resmi di cabornya).
+  const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id)
+  const boleh = new Set((await atletCabor(s.kontingen_id, s.cabor_id, daftar)).map(a => a.id))
+  if (isi.atlet_ids.some(id => !boleh.has(id)))
     return NextResponse.json({ error: 'Ada atlet yang bukan dari cabor Anda.' }, { status: 403 })
+
+  // Nomor dari daftar resmi: disiplin dan namanya dicocokkan ulang di server, dan
+  // tulisan nomornya disusun di sini — bukan memakai tulisan kiriman peramban.
+  let disiplin: string | null = null
+  if (mentah?.disiplin != null && mentah.disiplin !== '') {
+    const d = rapikan(mentah.disiplin), n = rapikan(mentah.nomor_resmi)
+    if (!daftar.some(x => x.disiplin === d && x.nomor === n))
+      return NextResponse.json({ error: 'Nomor itu tidak ada di daftar resmi cabor Anda.' }, { status: 422 })
+    disiplin = d
+    isi.nomor_id = null
+    isi.nomor_teks = tulisNomorResmi(d, n, new Set(daftar.map(x => x.disiplin)).size)
+  }
 
   if (isi.nomor_id != null) {
     const idKeluarga = (await keluargaCabor(s.cabor_id)).map(k => k.id)
@@ -73,7 +86,7 @@ export async function POST(req: NextRequest) {
 
   const { data: baru, error } = await db.from('laporan_hasil').insert({
     kontingen_id: s.kontingen_id, cabor_id: s.cabor_id,
-    ...isi, tanggal, foto_path,
+    ...isi, disiplin, tanggal, foto_path,
     akses_id: s.akses_id, pelapor_nama: s.nama_pic, pelapor_wa: s.no_wa,
   }).select('id').single()
   if (error) {

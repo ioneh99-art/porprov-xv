@@ -7,13 +7,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HASIL, LABEL_HASIL, tulisHasil, type Hasil } from '@/lib/lapor'
 
 interface Atlet { id: number; nama: string; gender: string | null }
-interface Nomor { id: number; nama: string; gender: string | null; sub: string | null }
+interface Nomor {
+  id: number | null; kunci: string; nama: string; gender: string | null; sub: string | null
+  /** Terisi bila nomor berasal dari daftar resmi pendaftaran. */
+  disiplin: string | null
+  /** Atlet yang terdaftar resmi di nomor ini dan sudah ada di sistem. */
+  atlet_ids: number[]
+  /** Atlet terdaftar resmi yang belum ada di sistem — tidak bisa dipilih. */
+  belum_ada: number
+}
 interface Laporan {
   id: number; nomor_teks: string; atlet_ids: number[]; hasil: Hasil; peringkat: number | null
   nilai_teks: string | null; keterangan: string | null; tanggal: string; status: string
   alasan_tolak: string | null; created_at: string; ada_foto?: boolean
 }
-interface Bahan { pic: { nama: string }; kontingen: string; cabor: string; atlet: Atlet[]; nomor: Nomor[]; laporan: Laporan[] }
+interface Bahan { pic: { nama: string }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[] }
 
 const WARNA_HASIL: Record<Hasil, string> = {
   emas: '#facc15', perak: '#cbd5e1', perunggu: '#d08a4a', peringkat: '#38bdf8', lolos: '#34d399', gugur: '#94a3b8',
@@ -53,7 +61,8 @@ export default function HalamanLapor() {
   const [terkirim, setTerkirim] = useState(false)
 
   const [nomorTeks, setNomorTeks] = useState('')
-  const [nomorId, setNomorId] = useState<number | null>(null)
+  const [nomorPilih, setNomorPilih] = useState<Nomor | null>(null)
+  const [semuaAtlet, setSemuaAtlet] = useState(false)
   const [bukaDaftar, setBukaDaftar] = useState(false)
   const [cariAtlet, setCariAtlet] = useState('')
   const [pilihan, setPilihan] = useState<number[]>([])
@@ -109,23 +118,38 @@ export default function HalamanLapor() {
   // Saran muncul saat mengetik; daftar penuh hanya bila diminta, supaya isian
   // berikutnya tidak terdorong jauh ke bawah layar HP.
   const saranNomor = useMemo(() => {
-    if (!bahan || nomorId != null) return []
+    if (!bahan || nomorPilih) return []
     const q = nomorTeks.trim().toLowerCase()
     if (q) return bahan.nomor.filter(n => labelNomor(n).toLowerCase().includes(q)).slice(0, 8)
     return bukaDaftar ? bahan.nomor : []
-  }, [bahan, nomorTeks, nomorId, bukaDaftar])
+  }, [bahan, nomorTeks, nomorPilih, bukaDaftar])
 
+  // Atlet yang terdaftar resmi di nomor terpilih. Selama ada, hanya mereka yang
+  // ditampilkan — daftar seluruh cabor baru dibuka bila diminta atau saat mencari.
+  const terdaftar = useMemo(() => new Set(nomorPilih?.atlet_ids ?? []), [nomorPilih])
   const atletTampil = useMemo(() => {
     if (!bahan) return []
     const q = cariAtlet.trim().toLowerCase()
-    return q ? bahan.atlet.filter(a => a.nama.toLowerCase().includes(q)) : bahan.atlet
-  }, [bahan, cariAtlet])
+    if (q) return bahan.atlet.filter(a => a.nama.toLowerCase().includes(q))
+    if (terdaftar.size > 0 && !semuaAtlet) return bahan.atlet.filter(a => terdaftar.has(a.id))
+    // Yang terdaftar selalu di atas.
+    return [...bahan.atlet].sort((a, b) => Number(terdaftar.has(b.id)) - Number(terdaftar.has(a.id)))
+  }, [bahan, cariAtlet, terdaftar, semuaAtlet])
+
+  const pilihNomor = (n: Nomor) => {
+    setNomorPilih(n); setNomorTeks(labelNomor(n)); setBukaDaftar(false); setSemuaAtlet(false); setCariAtlet('')
+    // Satu atlet terdaftar: langsung dicentang. Lebih dari satu: TIDAK dicentang
+    // otomatis — nomor perorangan yang diikuti dua atlet harus dilaporkan
+    // masing-masing, dan mencentang keduanya akan menjadikannya satu laporan beregu.
+    if (n.atlet_ids.length === 1) setPilihan([n.atlet_ids[0]])
+    else if (n.atlet_ids.length > 1) setPilihan([])
+  }
 
   const namaAtlet = useMemo(() => new Map((bahan?.atlet ?? []).map(a => [a.id, a.nama])), [bahan])
   const ubahPilihan = (id: number) => setPilihan(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
 
   const kosongkan = () => {
-    setNomorTeks(''); setNomorId(null); setBukaDaftar(false); setCariAtlet(''); setPilihan([]); setHasil(null)
+    setNomorTeks(''); setNomorPilih(null); setSemuaAtlet(false); setBukaDaftar(false); setCariAtlet(''); setPilihan([]); setHasil(null)
     setPeringkat(''); setNilai(''); setKeterangan(''); buangFoto()
   }
 
@@ -148,7 +172,9 @@ export default function HalamanLapor() {
     setSibuk(true)
     try {
       const isi = JSON.stringify({
-        nomor_id: nomorId, nomor_teks: nomorTeks, atlet_ids: pilihan, hasil,
+        nomor_id: nomorPilih?.id ?? null, nomor_teks: nomorTeks, atlet_ids: pilihan, hasil,
+        // Nomor dari daftar resmi dicocokkan ulang di server lewat dua isian ini.
+        ...(nomorPilih?.disiplin ? { disiplin: nomorPilih.disiplin, nomor_resmi: nomorPilih.nama } : {}),
         peringkat: hasil === 'peringkat' ? Number(peringkat) : null, nilai_teks: nilai, keterangan,
       })
       let r: Response
@@ -217,15 +243,19 @@ export default function HalamanLapor() {
               <div>
                 <label htmlFor="nomor" className={judulIsian}>1 · Nomor pertandingan</label>
                 <input id="nomor" value={nomorTeks} placeholder={bahan.nomor.length ? 'Ketik untuk mencari, atau tulis sendiri' : 'Contoh: 53 kg Putri'}
-                  onChange={e => { setNomorTeks(e.target.value); setNomorId(null) }} className={kotak} autoComplete="off" />
-                {nomorId != null && <p className="text-xs text-emerald-300 mt-1.5">Dipilih dari daftar resmi.</p>}
-                {nomorId == null && nomorTeks.trim() !== '' && saranNomor.length === 0 && bahan.nomor.length > 0 && (
-                  <p className="text-xs text-amber-300 mt-1.5">Tidak ada di daftar. Tidak apa-apa: laporan dikirim sesuai yang Anda ketik.</p>
+                  onChange={e => { setNomorTeks(e.target.value); setNomorPilih(null) }} className={kotak} autoComplete="off" />
+                {nomorPilih && <p className="text-xs text-emerald-300 mt-1.5">{nomorPilih.disiplin ? 'Dipilih dari daftar resmi pendaftaran.' : 'Dipilih dari daftar.'}</p>}
+                {!nomorPilih && nomorTeks.trim() !== '' && saranNomor.length === 0 && bahan.nomor.length > 0 && (
+                  <p className="text-xs text-amber-300 mt-1.5">
+                    {bahan.nomor_resmi
+                      ? 'Tidak ada di daftar resmi cabor ini. Laporan tetap dikirim sesuai yang Anda ketik, dan KONI akan memeriksanya.'
+                      : 'Tidak ada di daftar. Tidak apa-apa: laporan dikirim sesuai yang Anda ketik.'}
+                  </p>
                 )}
-                {nomorId == null && !nomorTeks.trim() && bahan.nomor.length > 0 && (
+                {!nomorPilih && !nomorTeks.trim() && bahan.nomor.length > 0 && (
                   <button type="button" onClick={() => setBukaDaftar(b => !b)} aria-expanded={bukaDaftar}
                     className="mt-2 text-sm font-bold text-sky-300 underline underline-offset-4">
-                    {bukaDaftar ? 'Tutup daftar' : `Lihat daftar nomor (${bahan.nomor.length})`}
+                    {bukaDaftar ? 'Tutup daftar' : `Lihat daftar nomor${bahan.nomor_resmi ? ' resmi' : ''} (${bahan.nomor.length})`}
                   </button>
                 )}
                 {saranNomor.length > 0 && (
@@ -233,11 +263,12 @@ export default function HalamanLapor() {
                     {saranNomor.map(n => {
                       const label = labelNomor(n), g = labelGender(n.gender)
                       return (
-                        <button key={n.id} type="button" onClick={() => { setNomorId(n.id); setNomorTeks(label); setBukaDaftar(false) }}
+                        <button key={n.kunci} type="button" onClick={() => pilihNomor(n)}
                           className="w-full text-left px-4 py-3 bg-slate-900/70 active:bg-slate-800">
                           <span className="text-sm text-white">{label}</span>
                           {/* Jenis kelamin hanya ditulis bila belum tersebut di nama nomornya. */}
-                          {g && !label.toLowerCase().includes(g.toLowerCase()) && <span className="ml-2 text-xs text-slate-400">{g}</span>}
+                          {g && !n.disiplin && !label.toLowerCase().includes(g.toLowerCase()) && <span className="ml-2 text-xs text-slate-400">{g}</span>}
+                          {n.disiplin && <span className="ml-2 text-xs text-slate-500">{n.atlet_ids.length + n.belum_ada} atlet</span>}
                         </button>
                       )
                     })}
@@ -257,7 +288,19 @@ export default function HalamanLapor() {
                     ))}
                   </div>
                 )}
-                {bahan.atlet.length > 8 && (
+                {terdaftar.size > 0 && (
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-xs text-emerald-300">{terdaftar.size} atlet terdaftar di nomor ini.</span>
+                    {terdaftar.size > 1 && (
+                      <button type="button" onClick={() => setPilihan(Array.from(terdaftar))}
+                        className="shrink-0 rounded-lg border border-sky-400/50 px-3 py-1.5 text-xs font-bold text-sky-200">Pilih semua (beregu)</button>
+                    )}
+                  </div>
+                )}
+                {nomorPilih && nomorPilih.belum_ada > 0 && (
+                  <p className="mb-2 text-xs text-amber-300">{nomorPilih.belum_ada} atlet lain terdaftar di nomor ini tapi belum ada di sistem. Kabari KONI.</p>
+                )}
+                {bahan.atlet.length > 8 && (terdaftar.size === 0 || semuaAtlet) && (
                   <input value={cariAtlet} onChange={e => setCariAtlet(e.target.value)} placeholder="Cari nama atlet" aria-label="Cari nama atlet"
                     className={`${kotak} mb-2`} autoComplete="off" />
                 )}
@@ -270,12 +313,23 @@ export default function HalamanLapor() {
                         className={`w-full flex items-center gap-3 text-left px-4 py-3 ${aktif ? 'bg-sky-500/15' : 'bg-slate-900/70'}`}>
                         <span className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center text-xs font-black ${aktif ? 'bg-sky-400 border-sky-400 text-slate-950' : 'border-slate-600'}`}>{aktif ? '✓' : ''}</span>
                         <span className="text-sm text-white flex-1">{a.nama}</span>
+                        {semuaAtlet && terdaftar.has(a.id) && <span className="text-[10px] font-bold text-emerald-300">terdaftar</span>}
                         <span className="text-xs text-slate-500">{labelGender(a.gender)}</span>
                       </button>
                     )
                   })}
                 </div>
-                <p className="text-xs text-slate-500 mt-1.5">Nomor beregu: pilih semua pemain. Tetap dihitung satu medali.</p>
+                {terdaftar.size > 0 && (
+                  <button type="button" onClick={() => { setSemuaAtlet(v => !v); setCariAtlet('') }}
+                    className="mt-2 text-sm font-bold text-sky-300 underline underline-offset-4">
+                    {semuaAtlet ? 'Tampilkan yang terdaftar saja' : `Atlet pengganti? Tampilkan semua atlet cabor (${bahan.atlet.length})`}
+                  </button>
+                )}
+                <p className="text-xs text-slate-500 mt-1.5">
+                  {terdaftar.size > 1
+                    ? 'Nomor perorangan: centang SATU atlet per laporan. Nomor beregu: centang semua pemainnya, tetap dihitung satu medali.'
+                    : 'Nomor beregu: pilih semua pemain. Tetap dihitung satu medali.'}
+                </p>
               </div>
 
               <div>

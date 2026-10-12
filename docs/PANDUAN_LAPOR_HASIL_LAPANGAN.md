@@ -149,3 +149,53 @@ drop table if exists public.lapor_akses;
 | Antrean, jurnal, kode | `src/app/konida/lappertandingan/kabbandung/page.tsx` |
 | Mode layar | `src/components/konida/LayarMedali.tsx` |
 | Migrasi | `src/app/migrations/053_…`, `054_…` (sudah diterapkan ke database) |
+
+---
+
+## 10. Pembaruan 12 Oktober 2026 (sore): daftar resmi, jadwal, jenis kelamin
+
+Dua berkas dari KONI Kab. Bandung dipakai sebagai acuan: `klasifikasi_verified` (1.860 pendaftaran resmi, 929 atlet, 637 nomor) dan `Matriks Jadwal Harian`.
+
+### Nomor di form PIC sekarang dari daftar resmi
+
+- Tabel baru `pendaftaran_nomor` (migrasi 055): satu baris = satu atlet di satu nomor. **NIK tidak disimpan**; berkas hanya dipakai saat impor untuk menemukan atlet di sistem.
+- Di form `/lapor`, PIC memilih nomor resmi cabornya. Katalog lama `nomor_pertandingan` hanya dipakai untuk cabor yang belum punya daftar resmi (Terjun Payung, Paramotor).
+- Nomor dengan **satu** atlet terdaftar: atletnya langsung tercentang. Nomor dengan **lebih dari satu**: yang tampil hanya atlet terdaftar, tetapi tidak dicentang otomatis. Nomor perorangan yang diikuti dua atlet harus dilaporkan sendiri-sendiri; mencentang keduanya akan menjadikannya satu laporan beregu. Untuk beregu ada tombol **Pilih semua**.
+- Atlet pengganti tetap bisa dipilih lewat "Tampilkan semua atlet cabor".
+- Nomor yang diketik sendiri masih diterima, dan ditandai sebagai bukan dari daftar resmi.
+
+Mengimpor ulang bila KONI mengirim berkas baru (menggantikan seluruh daftar kontingen itu):
+```bash
+npx tsx scripts/impor-pendaftaran.ts "<berkas.xlsx>"            # pratinjau
+npx tsx scripts/impor-pendaftaran.ts "<berkas.xlsx>" --simpan
+```
+
+Yang perlu ditindaklanjuti ke KONI ada di `~/Downloads/Temuan_Pemeriksaan_Klasifikasi_KabBandung_12Okt.xlsx`: 17 atlet terdaftar resmi belum ada di sistem, 7 atlet bertarget emas tidak terdaftar, 33 NIK janggal di berkas resmi.
+
+### Jadwal diperbarui dari matriks
+
+22 baris `jadwal_cabor` diperbarui (tanggal, venue, atau kota), 1 ditambah (Equestrian Endurance), 60 tidak berubah. Akomodasi dan kontak panitia yang sudah ada tidak disentuh, kecuali akomodasi Balap Sepeda MTB yang dikosongkan karena pertandingannya pindah dari Kab. Cirebon ke Kab. Bogor.
+
+Perubahan tanggal terbesar: Hapkido 5–8 → 12–15 Nov, Kick Boxing 16–19 → 12–15 Nov, Floorball 13–18 → 9–14 Nov, Modern Pentathlon 12–14 → 12–19 Nov, Berkuda Dressage 10–16 → 12–19 Nov (pindah Bekasi → Kota Depok).
+
+Tujuh baris tidak ada di matriks dan dibiarkan apa adanya: Paramotor, Terbang Layang, Loncat Indah, Ice Skating, Dayung SUP, Marathon, dan satu baris lama "Akuatik - Renang 8–13 Nov" (matriks menyebut Renang 5–10 Nov).
+
+Membatalkan: baris lama tersimpan di `_backup_jadwal_cabor_2026-10-12.json` di akar repo (tidak ikut git).
+```bash
+npx tsx scripts/impor-matriks-jadwal.ts "<berkas.xlsx>"            # pratinjau perubahan
+```
+
+### Jenis kelamin 22 atlet dibetulkan
+
+Jenis kelamin di sistem ternyata diturunkan dari angka NIK, sehingga NIK yang salah ketik membuatnya terbalik. Dibetulkan mengikuti berkas resmi; 20 di antaranya didukung nomor putra/putri yang diikuti atlet itu. Dua hanya turun di nomor campuran sehingga tidak punya bukti kedua dan perlu dipastikan: **Marselly Ericks** (Berkuda, id 2553) dan **Aira Puspita Rahmadani** (Dayung, id 2972).
+
+Tanggal lahir mereka tidak diubah (juga turunan NIK, dan tanggal yang benar tidak diketahui), jadi umur beberapa di antaranya masih keliru.
+
+Membatalkan:
+```sql
+-- dikembalikan ke P (sebelum koreksi)
+update atlet set gender = 'P' where id in (1797, 1954, 1980, 2127, 2210, 2242, 2248, 2359, 2361, 2405, 2442, 2553, 2819, 2988);
+-- dikembalikan ke L (sebelum koreksi)
+update atlet set gender = 'L' where id in (2101, 2239, 2368, 2739, 2750, 2838, 2870, 2972);
+```
+Jejaknya ada di `audit_logs` dengan aksi `KOREKSI_GENDER_BERKAS_RESMI`.

@@ -91,3 +91,35 @@ export async function ambilSemua<T = any>(
     if (!data || data.length < UKURAN) return semua
   }
 }
+
+// ── Daftar resmi pendaftaran ─────────────────────────────────────────────────
+export interface BarisDaftar { disiplin: string; nomor: string; penanda: string | null; atlet_id: number | null }
+
+/** Pendaftaran resmi (klasifikasi_verified) untuk satu cabor. Kosong = cabor itu belum punya daftar resmi. */
+export function pendaftaranCabor(kontingenId: number, caborId: number): Promise<BarisDaftar[]> {
+  const db = dbLapor()
+  return ambilSemua<BarisDaftar>((dari, sampai) => db.from('pendaftaran_nomor')
+    .select('disiplin,nomor,penanda,atlet_id').eq('kontingen_id', kontingenId).eq('cabor_id', caborId).order('id').range(dari, sampai))
+}
+
+/**
+ * Atlet yang boleh dilaporkan lewat sebuah kode: atlet cabor itu di sistem,
+ * DITAMBAH atlet yang terdaftar resmi di cabor itu walau di sistem tercatat di
+ * cabor lain (ada cabor kembar di tabel cabang_olahraga, mis. "IBCA MMA" dan
+ * "Ibca Mma"). Daftar resmi yang jadi patokan, bukan pencatatan kita.
+ */
+export async function atletCabor(kontingenId: number, caborId: number, daftar: BarisDaftar[]): Promise<{ id: number; nama_lengkap: string; gender: string | null }[]> {
+  const db = dbLapor()
+  const { data: milik } = await db.from('atlet').select('id,nama_lengkap,gender')
+    .eq('kontingen_id', kontingenId).eq('cabor_id', caborId).order('nama_lengkap').range(0, 999)
+  const hasil = [...(milik ?? [])]
+  const sudah = new Set(hasil.map(a => a.id))
+  const tambahan = Array.from(new Set(daftar.map(d => d.atlet_id).filter((id): id is number => id != null && !sudah.has(id))))
+  if (tambahan.length) {
+    // Tetap dibatasi kontingen: tautan di daftar resmi tidak boleh membuka atlet kontingen lain.
+    const { data: lain } = await db.from('atlet').select('id,nama_lengkap,gender').eq('kontingen_id', kontingenId).in('id', tambahan)
+    hasil.push(...(lain ?? []))
+    hasil.sort((a, b) => a.nama_lengkap.localeCompare(b.nama_lengkap))
+  }
+  return hasil
+}
