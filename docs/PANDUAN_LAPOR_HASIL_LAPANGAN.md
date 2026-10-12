@@ -1,6 +1,6 @@
 # Lapor Hasil Lapangan — panduan uji dan catatan serah-terima
 
-**Tanggal:** 2026-10-12 · **Branch:** `fitur/lapor-hasil-lapangan` (belum digabung ke `main`) · **Commit:** `ee73f26`
+**Tanggal:** 2026-10-12 · **Status:** digabung ke `main` pada 2026-10-12 atas perintah Bos, tayang di produksi · **Commit fitur:** `ee73f26`
 
 Fitur tambahan untuk KONI Kab. Bandung: PIC cabor melapor hasil pertandingan dari HP, KONI mengesahkan, dan angkanya tampil di Report Pertandingan, Dashboard, War Room, dan layar videotron.
 
@@ -8,20 +8,13 @@ Fitur tambahan untuk KONI Kab. Bandung: PIC cabor melapor hasil pertandingan dar
 
 ## 1. Alamat untuk mencoba
 
-**Cara 1 — pratinjau Vercel (belum menyentuh produksi):**
-https://kab-bandung-cnuc73itx-iwans-projects-1619769f.vercel.app
+- KONIDA: `https://kab-bandung.vercel.app` (atau `https://porprov-xv.vercel.app`) → login seperti biasa → menu **Report Pertandingan**.
+- PIC di HP: `https://kab-bandung.vercel.app/lapor`.
+- Layar videotron: `https://kab-bandung.vercel.app/konida/warroom/kabbandung?layar=1`.
 
-Alamat ini terkunci login Vercel: buka di browser yang sudah login ke akun Vercel pemilik proyek. Build-nya berhasil, tetapi isinya belum bisa saya periksa dari luar karena kunci itu. Kalau login aplikasi di pratinjau gagal, kemungkinan variabel lingkungan Preview belum diisi; pakai cara 2.
+Tautan di pesan WhatsApp untuk PIC mengikuti alamat yang sedang dibuka saat kode dibuat. Buat kode dari alamat yang memang akan dipakai PIC.
 
-**Cara 2 — server lokal di Mac (sudah terbukti jalan saat pengujian):**
-```bash
-cd ~/Documents/VScode/porprov && git checkout fitur/lapor-hasil-lapangan && npm run dev
-```
-Lalu buka `http://localhost:3000`. Untuk mencoba dari HP di Wi-Fi yang sama, cari alamat Mac dengan `ipconfig getifaddr en0`, lalu buka `http://ALAMAT-ITU:3000/lapor` di HP.
-
-**Alamat produksi (`kab-bandung.vercel.app`, `porprov-xv.vercel.app`) belum memuat fitur ini** sampai branch digabung ke `main`.
-
-Catatan untuk cara 2: tautan di pesan WhatsApp mengikuti alamat yang sedang dibuka. Kalau kode dibuat dari `localhost`, ganti `localhost` di tautannya dengan alamat Mac sebelum dibuka di HP, atau ketik kodenya langsung di `/lapor`.
+Untuk mencoba perubahan berikutnya tanpa menyentuh produksi, jalankan di Mac: `cd ~/Documents/VScode/porprov && npm run dev`, lalu buka `http://localhost:3000`.
 
 Yang dibutuhkan: login KONIDA Kab. Bandung seperti biasa, dan satu HP.
 
@@ -132,7 +125,7 @@ Data uji sudah dihapus semua dari database. Yang tersisa hanya jejak di `audit_l
 
 ## 8. Cara membatalkan
 
-Kode: branch ini belum digabung ke `main`; cukup jangan digabung.
+Kode: batalkan commit gabungan di `main` (`git revert -m 1 <commit gabungan>`), lalu push. Halaman lama kembali; tabel di database boleh dibiarkan karena tidak dibaca kode lama.
 
 Database (hanya bila fitur dibatalkan total; ini menghapus semua laporan):
 ```sql
