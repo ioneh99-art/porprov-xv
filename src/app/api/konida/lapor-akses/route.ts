@@ -30,9 +30,15 @@ export async function GET(req: NextRequest) {
     : { data: [] as any[] }
   const nama = new Map((cabor ?? []).map((c: any) => [c.id, c.nama]))
 
+  // Jumlah laporan per kode: cabor sebuah kode hanya boleh diganti selagi belum dipakai melapor.
+  const dipakai = await ambilSemua<{ akses_id: number | null }>((dari, sampai) =>
+    db.from('laporan_hasil').select('akses_id').eq('kontingen_id', a.kontingen_id).not('akses_id', 'is', null).order('id').range(dari, sampai))
+  const jumlahLaporan: Record<number, number> = {}
+  for (const r of dipakai) if (r.akses_id != null) jumlahLaporan[r.akses_id] = (jumlahLaporan[r.akses_id] ?? 0) + 1
+
   return NextResponse.json({
     cabor: (cabor ?? []).map((c: any) => ({ id: c.id, nama: c.nama, atlet: jumlah[c.id] ?? 0 })),
-    akses: (akses ?? []).map((x: any) => ({ ...x, cabor: nama.get(x.cabor_id) ?? `Cabor ${x.cabor_id}` })),
+    akses: (akses ?? []).map((x: any) => ({ ...x, cabor: nama.get(x.cabor_id) ?? `Cabor ${x.cabor_id}`, jumlah_laporan: jumlahLaporan[x.id] ?? 0 })),
   })
 }
 
@@ -88,24 +94,39 @@ export async function POST(req: NextRequest) {
   }
 
   if (aksi === 'ubah') {
-    // Membetulkan nama atau nomor WA PIC. Kodenya sendiri tidak berubah, jadi
-    // PIC yang sudah menerima kode tidak perlu dikirimi ulang.
+    // Membetulkan nama, nomor WA, atau cabor PIC. Kodenya sendiri tidak berubah,
+    // jadi PIC yang sudah menerima kode tidak perlu dikirimi ulang.
     const id = Number(b?.id)
     if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: 'Kode tidak dikenali.' }, { status: 400 })
     const nama_pic = typeof b?.nama_pic === 'string' ? b.nama_pic.replace(/\s+/g, ' ').trim().slice(0, 80) : ''
     const no_wa = typeof b?.no_wa === 'string' ? b.no_wa.replace(/[^0-9+]/g, '').slice(0, 20) : ''
     if (!nama_pic) return NextResponse.json({ error: 'Nama PIC tidak boleh kosong.' }, { status: 422 })
 
-    const { data: lama } = await db.from('lapor_akses').select('id,nama_pic,no_wa').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
+    const { data: lama } = await db.from('lapor_akses').select('id,nama_pic,no_wa,cabor_id').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
     if (!lama) return NextResponse.json({ error: 'Kode tidak ditemukan.' }, { status: 404 })
-    const { error } = await db.from('lapor_akses').update({ nama_pic, no_wa: no_wa || null }).eq('id', id).eq('kontingen_id', a.kontingen_id)
+
+    const ubah: Record<string, any> = { nama_pic, no_wa: no_wa || null }
+    if (b?.cabor_id != null && b.cabor_id !== '' && Number(b.cabor_id) !== lama.cabor_id) {
+      const cabor_id = Number(b.cabor_id)
+      if (!Number.isInteger(cabor_id) || cabor_id <= 0) return NextResponse.json({ error: 'Cabor tidak dikenali.' }, { status: 422 })
+      // Laporan menyimpan cabornya sendiri. Kalau kode yang sudah dipakai melapor
+      // dipindah cabor, daftar "Laporan saya" di HP PIC memuat atlet yang bukan cabornya lagi.
+      const { count: sudahLapor } = await db.from('laporan_hasil').select('id', { count: 'exact', head: true }).eq('akses_id', id)
+      if (sudahLapor) return NextResponse.json({ error: 'Kode ini sudah dipakai melapor, jadi cabornya tidak bisa diganti. Matikan kode ini lalu buat kode baru untuk cabor yang benar.' }, { status: 409 })
+      const { count: adaAtlet } = await db.from('atlet').select('id', { count: 'exact', head: true })
+        .eq('kontingen_id', a.kontingen_id).eq('cabor_id', cabor_id)
+      if (!adaAtlet) return NextResponse.json({ error: 'Kontingen ini tidak punya atlet di cabor tersebut.' }, { status: 422 })
+      ubah.cabor_id = cabor_id
+    }
+
+    const { error } = await db.from('lapor_akses').update(ubah).eq('id', id).eq('kontingen_id', a.kontingen_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     await writeAudit({
       action: 'LAPOR_AKSES_UBAH', resource: 'lapor_akses', resource_id: id,
       actor_id: a.sesi.id != null ? String(a.sesi.id) : null, actor_email: a.sesi.username ?? null,
       actor_role: a.sesi.role ?? a.sesi.level ?? null, kontingen_id: a.kontingen_id,
-      payload: { sebelum: { nama_pic: lama.nama_pic, no_wa: lama.no_wa }, sesudah: { nama_pic, no_wa: no_wa || null } }, ...reqMeta(req),
+      payload: { sebelum: { nama_pic: lama.nama_pic, no_wa: lama.no_wa, cabor_id: lama.cabor_id }, sesudah: { cabor_id: lama.cabor_id, ...ubah } }, ...reqMeta(req),
     })
     return NextResponse.json({ ok: true })
   }
