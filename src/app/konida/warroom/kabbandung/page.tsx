@@ -18,6 +18,9 @@ import {
   StrategicActionsCard,
   generateStrategicActions,
 } from '@/components/konida/WarRoomHelpers'
+import LayarMedali from '@/components/konida/LayarMedali'
+import { timpaKlasemen } from '@/lib/lapor'
+import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,6 +55,11 @@ export default function PageWarRoom() {
   const [pulse,    setPulse]    = useState(true)
 
   const [tesFisikSum, setTesFisikSum] = useState({topAtlet:0, lowAtlet:0, weakCabors:0})
+  const [lapangan, setLapangan] = useState<RekapLapangan | null>(null)
+  const [layar,    setLayar]    = useState(false)
+
+  // Alamat ...?layar=1 langsung membuka mode layar — untuk komputer videotron.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('layar') === '1') setLayar(true) }, [])
 
   useEffect(() => { const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
   useEffect(() => { const i=setInterval(()=>setPulse(p=>!p),800); return()=>clearInterval(i) },[])
@@ -59,6 +67,11 @@ export default function PageWarRoom() {
   useEffect(() => {
     async function load() {
       try {
+        const lap = await ambilRekapLapangan(4)
+        if (lap.ok) setLapangan(lap.data)
+        // Begitu ada laporan lapangan yang disahkan, angka Kab. Bandung memakai hitungan itu.
+        const rekapLap = lap.ok && lap.data.rekap.laga > 0 ? lap.data.rekap : null
+
         const [k, m, a, tf] = await Promise.allSettled([
           sb.from('klasemen_medali')
             .select('emas,perak,perunggu,total,kontingen(nama)')
@@ -87,16 +100,19 @@ export default function PageWarRoom() {
 
         if (k.status==='fulfilled' && k.value.data) {
           const raw = k.value.data as any[]
-          setKlasemen(raw.map(r => ({
+          const flat = raw.map(r => ({
             nama:     (r.kontingen as any)?.nama ?? '-',
             emas:     r.emas    ?? 0,
             perak:    r.perak   ?? 0,
             perunggu: r.perunggu ?? 0,
             total:    r.total   ?? 0,
-          })))
+          }))
+          setKlasemen(rekapLap ? timpaKlasemen(flat, rekapLap, 'KAB. BANDUNG') : flat)
         }
 
-        if (m.status==='fulfilled' && m.value.data) {
+        if (rekapLap) {
+          setSummary(prev => ({ ...prev, emas: rekapLap.emas, perak: rekapLap.perak, perunggu: rekapLap.perunggu, total_medali: rekapLap.total }))
+        } else if (m.status==='fulfilled' && m.value.data) {
           const d = m.value.data
           setSummary(prev => ({
             ...prev,
@@ -204,6 +220,11 @@ export default function PageWarRoom() {
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/30 border border-white/5">
               <Clock size={14} style={{ color:ACCENT }}/><LiveClock/>
             </div>
+            <button onClick={() => setLayar(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border"
+              style={{ background:`${ACCENT}18`, borderColor:`${ACCENT}50`, color:ACCENT }}>
+              <Monitor size={11}/> Mode Layar
+            </button>
             <button onClick={() => window.location.reload()}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
               <RefreshCw size={11}/> Refresh
@@ -212,7 +233,21 @@ export default function PageWarRoom() {
         </div>
       </header>
 
+      {layar && <LayarMedali kontingenId={4} onTutup={() => setLayar(false)} />}
+
       <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative z-10 space-y-6">
+
+        {/* ════ 0. LAPORAN LAPANGAN — sumber angka medali selama PORPROV ════ */}
+        {lapangan && (lapangan.rekap.laga > 0 || lapangan.menunggu > 0) && (
+          <a href="/konida/lappertandingan/kabbandung" className="flex items-center justify-between gap-3 flex-wrap rounded-xl px-4 py-2.5 border"
+            style={{ background:`${ACCENT}0a`, borderColor:`${ACCENT}30` }}>
+            <span className="text-xs text-zinc-300">
+              <b style={{ color:ACCENT }}>Laporan lapangan disahkan:</b> {lapangan.rekap.emas} emas · {lapangan.rekap.perak} perak · {lapangan.rekap.perunggu} perunggu dari {lapangan.rekap.laga} nomor
+              {lapangan.target.ada && lapangan.target.emas_koni > 0 ? ` · target emas KONI ${lapangan.target.emas_koni}` : ''}
+            </span>
+            {lapangan.menunggu > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{lapangan.menunggu} menunggu disahkan</span>}
+          </a>
+        )}
 
         {/* ════ 1. KPI STRIP — 5 panel ════ */}
         <div {...ani(0)} className="grid grid-cols-5 gap-2">

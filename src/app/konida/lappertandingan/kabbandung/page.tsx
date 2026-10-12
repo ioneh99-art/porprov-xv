@@ -1,844 +1,339 @@
 'use client'
-// src/app/konida/lappertandingan/kabbandung/page.tsx — v3
-// PORPROV XV: 7-20 November 2026 (14 hari)
-// Fitur: Demo data auto-seed (hari 1-7), 3-layer demo signal, filter Real/Demo,
-//        bulk import + voice + photo placeholders, localStorage persist
+// src/app/konida/lappertandingan/kabbandung/page.tsx
+// Report Pertandingan: antrean pengesahan laporan PIC lapangan, jurnal harian
+// dari laporan yang sudah disahkan, dan pengelolaan kode lapor PIC.
+// Semua data lewat rute server — tidak ada yang disimpan di peramban.
 
-import { useState, useEffect, useMemo } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import {
-  FileText, Clock, Download, CheckCircle, Plus,
-  ListOrdered, Trophy, X, Medal, Mic, Camera,
-  RefreshCw, Printer, Save, Edit2, Trash2,
-  Info, Calendar, AlertTriangle, Upload, Filter,
-  Eye, EyeOff, Sparkles, Database,
-} from 'lucide-react'
-
-const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CheckCircle, ClipboardList, Copy, KeyRound, Pencil, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { HASIL, LABEL_HASIL, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
+const Q = `?kontingen_id=${KONTINGEN_ID}`   // hanya dipakai admin pusat; untuk KONIDA kontingen diambil dari sesi
 
-// ═════════ PORPROV XV: 7-20 November 2026 (14 hari) ═════════
-const HARI_PORPROV = Array.from({length:14},(_,i)=>{
-  const d = new Date('2026-11-07')
-  d.setDate(d.getDate()+i)
-  return {
-    hari:   i+1,
-    tanggal: d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}),
-    iso:     d.toISOString().slice(0,10),
-    dayName: d.toLocaleDateString('id-ID',{weekday:'short'}),
-  }
-})
-
-interface JurnalLaga {
-  id:      string
-  waktu:   string
-  cabor:   string
-  hasil:   string
-  medali:  'Emas'|'Perak'|'Perunggu'|'Tanpa Medali'
-  catatan: string
-  isDemo?: boolean        // ⚠ NEW: flag untuk membedakan demo vs real
+interface Laporan {
+  id: number; cabor: string; nomor_teks: string; atlet: string[]; hasil: Hasil; peringkat: number | null
+  nilai_teks: string | null; keterangan: string | null; tanggal: string; pelapor_nama: string; pelapor_wa: string | null
+  status: 'menunggu' | 'disahkan' | 'ditolak'; diputus_oleh: string | null; alasan_tolak: string | null; created_at: string; ada_foto?: boolean
 }
+interface Akses { id: number; cabor: string; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null }
+interface Cabor { id: number; nama: string; atlet: number }
 
-const MEDALI_CFG = {
-  'Emas':        { text:'#ffd700', bg:'rgba(255,215,0,0.1)',    border:'rgba(255,215,0,0.25)',    dot:'#ffd700', emoji:'🥇' },
-  'Perak':       { text:'#c0c0c0', bg:'rgba(192,192,192,0.1)',  border:'rgba(192,192,192,0.25)',  dot:'#c0c0c0', emoji:'🥈' },
-  'Perunggu':    { text:'#cd7f32', bg:'rgba(205,127,50,0.1)',   border:'rgba(205,127,50,0.25)',   dot:'#cd7f32', emoji:'🥉' },
-  'Tanpa Medali':{ text:'#6b7280', bg:'rgba(107,114,128,0.06)', border:'rgba(107,114,128,0.1)',  dot:'#374151', emoji:'—' },
-}
+const WARNA: Record<Hasil, string> = { emas: '#ffd700', perak: '#c0c0c0', perunggu: '#cd7f32', peringkat: ACCENT, lolos: '#34d399', gugur: '#6b7280' }
 
-const EMPTY_FORM: Omit<JurnalLaga,'id'> = {
-  waktu:'', cabor:'', hasil:'', medali:'Tanpa Medali', catatan:''
-}
+const tglTampil = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
+const tglLaporTampil = (ts: string) => new Date(ts).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', timeZone: 'Asia/Jakarta' })
+const jamTampil = (ts: string) => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+const HARI_PORPROV = Array.from({ length: PORPROV_HARI }, (_, i) => new Date(Date.parse(PORPROV_MULAI + 'T00:00:00Z') + i * 86_400_000).toISOString().slice(0, 10))
+const aman = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 
-const LS_KEY = 'porprov_jurnal_v2'  // Bump version karena format berubah (tambah isDemo)
-
-function generateDemoData(): Record<number, JurnalLaga[]> {
-  return {
-    1: [
-      { id:'demo-1-1', waktu:'09:00', cabor:'Pencak Silat', hasil:'Final Kelas D Putra — Menang Poin 3-2 vs Kab. Garut', medali:'Emas', catatan:'Atlet: Rizky Maulana — tampil dominan di babak final', isDemo:true },
-      { id:'demo-1-2', waktu:'11:30', cabor:'Karate', hasil:'Semi Final Kata Putri — Skor 24.6 (Medali Perunggu otomatis)', medali:'Perunggu', catatan:'Atlet: Siti Nurhaliza — lolos ke final kata putri', isDemo:true },
-      { id:'demo-1-3', waktu:'14:00', cabor:'Renang', hasil:'100m Gaya Bebas Putra — Peringkat 2 waktu 52.4 detik', medali:'Perak', catatan:'Selisih 0.3 detik dari juara — performa terbaik musim ini', isDemo:true },
-      { id:'demo-1-4', waktu:'16:00', cabor:'Atletik', hasil:'Lompat Jauh Putri — Lompatan 5.82m (Tanpa Medali)', medali:'Tanpa Medali', catatan:'Peringkat 5 — perlu peningkatan awalan', isDemo:true },
-    ],
-    2: [
-      { id:'demo-2-1', waktu:'08:30', cabor:'Taekwondo', hasil:'Final -58kg Putra — Menang KO Ronde 2 vs Kab. Bogor', medali:'Emas', catatan:'Atlet: Dimas Prasetyo — teknik dollyo chagi terbaik', isDemo:true },
-      { id:'demo-2-2', waktu:'10:00', cabor:'Karate', hasil:'Final Kata Putri — Skor 25.1 (Kalah tipis 0.2 poin)', medali:'Perak', catatan:'Penampilan teknis sangat bagus, kalah poin saja', isDemo:true },
-      { id:'demo-2-3', waktu:'13:00', cabor:'Bulutangkis', hasil:'Perempat Final Ganda Putra — Menang 21-18 21-15', medali:'Tanpa Medali', catatan:'Lanjut ke semi final besok vs Kab. Bandung Barat', isDemo:true },
-      { id:'demo-2-4', waktu:'15:30', cabor:'Pencak Silat', hasil:'Final Kelas F Putri — Menang Mutlak', medali:'Emas', catatan:'Atlet: Dewi Rahayu — dominasi penuh seluruh babak', isDemo:true },
-    ],
-    3: [
-      { id:'demo-3-1', waktu:'09:30', cabor:'Bulutangkis', hasil:'Semi Final Ganda Putra — Kalah 19-21 18-21 vs Kota Bandung', medali:'Perunggu', catatan:'Performa bagus tapi belum bisa imbangi teknik Kota Bandung', isDemo:true },
-      { id:'demo-3-2', waktu:'11:00', cabor:'Angkat Besi', hasil:'69kg Putri — Total Angkatan 185kg (Peringkat 2)', medali:'Perak', catatan:'Atlet: Yuni Rahayu — personal best baru!', isDemo:true },
-      { id:'demo-3-3', waktu:'14:30', cabor:'Panahan', hasil:'Recurve Putri 50m — Skor 630/720 (Peringkat 3)', medali:'Perunggu', catatan:'Konsisten di semua end, angin tidak mempengaruhi', isDemo:true },
-      { id:'demo-3-4', waktu:'16:00', cabor:'Renang', hasil:'200m Gaya Dada Putri — Waktu 2:42.1 (Peringkat 4)', medali:'Tanpa Medali', catatan:'Kurang 0.8 detik dari perunggu — potensial untuk estafet', isDemo:true },
-    ],
-  }
-}
-
-function loadFromLS(): Record<number, JurnalLaga[]> {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)||'{}') } catch { return {} }
-}
-function saveToLS(data: Record<number, JurnalLaga[]>) {
-  localStorage.setItem(LS_KEY, JSON.stringify(data))
-}
-
-type FilterMode = 'all' | 'real' | 'demo'
+const kotak = 'w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-400'
+const kartu = 'rounded-xl border border-slate-800 bg-slate-900/60'
 
 export default function PageLapPertandingan() {
-  const [selectedHari, setSelectedHari] = useState(1)
-  const [jurnalData,   setJurnalData]   = useState<Record<number,JurnalLaga[]>>({})
-  const [klasemen,     setKlasemen]     = useState<any>(null)
-  const [showForm,     setShowForm]     = useState(false)
-  const [editId,       setEditId]       = useState<string|null>(null)
-  const [form,         setForm]         = useState<Omit<JurnalLaga,'id'>>(EMPTY_FORM)
-  const [animIn,       setAnimIn]       = useState(false)
-  const [saved,        setSaved]        = useState(false)
-  const [caborList,    setCaborList]    = useState<string[]>([])
-  const [showAllHari,  setShowAllHari]  = useState(false)
-  const [filterMode,   setFilterMode]   = useState<FilterMode>('all')
-  const [showDemoBanner, setShowDemoBanner] = useState(true)
+  const [tab, setTab] = useState<'antrean' | 'jurnal' | 'kode'>('antrean')
+  const [laporan, setLaporan] = useState<Laporan[]>([])
+  const [akses, setAkses] = useState<Akses[]>([])
+  const [cabor, setCabor] = useState<Cabor[]>([])
+  const [memuat, setMemuat] = useState(true)
+  const [galat, setGalat] = useState('')
+  const [sibuk, setSibuk] = useState<number | null>(null)
+  const [tanggal, setTanggal] = useState<string | null>(null)
 
-  useEffect(()=>{ const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
+  const [menolak, setMenolak] = useState<number | null>(null)
+  const [alasan, setAlasan] = useState('')
+  const [memperbaiki, setMemperbaiki] = useState<number | null>(null)
+  const [koreksi, setKoreksi] = useState({ nomor_teks: '', hasil: 'emas' as Hasil, peringkat: '', nilai_teks: '', tanggal: '' })
 
-  // Load + auto-seed demo kalau localStorage kosong
-  useEffect(()=>{
-    const stored = loadFromLS()
-    if (Object.keys(stored).length === 0) {
-      const demo = generateDemoData()
-      setJurnalData(demo)
-      saveToLS(demo)
-    } else {
-      setJurnalData(stored)
-    }
-  },[])
+  const [formKode, setFormKode] = useState({ cabor_id: '', nama_pic: '', no_wa: '' })
+  const [kodeBaru, setKodeBaru] = useState<{ kode: string; cabor: string; nama: string; wa: string } | null>(null)
+  const [tersalin, setTersalin] = useState(false)
 
-  // Fetch klasemen + cabor list
-  useEffect(()=>{
-    sb.from('klasemen_medali').select('emas,perak,perunggu,total').eq('kontingen_id',KONTINGEN_ID).maybeSingle()
-      .then(({data})=>{ if(data) setKlasemen(data) })
-    ;(async () => {
-      let all: any[] = []
-      for (let p = 0; ; p++) {
-        const { data } = await sb.from('atlet').select('cabor_nama_raw').eq('kontingen_id',KONTINGEN_ID).eq('status_registrasi','Verified').range(p * 1000, (p + 1) * 1000 - 1)
-        if (!data || data.length === 0) break
-        all = all.concat(data)
-        if (data.length < 1000) break
-      }
-      return { data: all }
-    })()
-      .then(({data})=>{
-        if(data){
-          const cabors = Array.from(new Set((data as any[]).map(a=>a.cabor_nama_raw).filter(Boolean))).sort()
-          setCaborList(cabors)
-        }
-      })
-  },[])
+  const muatLaporan = useCallback(async () => {
+    const r = await fetch(`/api/konida/laporan-hasil${Q}`, { cache: 'no-store' })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) { setGalat(j.error ?? 'Gagal memuat laporan.'); return }
+    setGalat(''); setLaporan(j.laporan ?? [])
+  }, [])
+  const muatAkses = useCallback(async () => {
+    const r = await fetch(`/api/konida/lapor-akses${Q}`, { cache: 'no-store' })
+    const j = await r.json().catch(() => ({}))
+    if (r.ok) { setAkses(j.akses ?? []); setCabor(j.cabor ?? []) }
+  }, [])
 
-  // Filtered jurnal untuk hari aktif
-  const jurnalRaw = jurnalData[selectedHari]??[]
-  const jurnal = useMemo(()=>{
-    if (filterMode === 'real') return jurnalRaw.filter(j => !j.isDemo)
-    if (filterMode === 'demo') return jurnalRaw.filter(j => j.isDemo)
-    return jurnalRaw
-  }, [jurnalRaw, filterMode])
+  useEffect(() => {
+    Promise.all([muatLaporan(), muatAkses()]).finally(() => setMemuat(false))
+    // Antrean disegarkan sendiri supaya laporan baru muncul tanpa menekan apa pun.
+    const iv = setInterval(() => { if (document.visibilityState === 'visible') muatLaporan() }, 20_000)
+    return () => clearInterval(iv)
+  }, [muatLaporan, muatAkses])
 
-  // Summary per hari untuk sidebar (always show all, regardless of filter)
-  const hariSummary = useMemo(()=>{
-    const m: Record<number,{emas:number;total:number;laga:number;hasDemo:boolean;hasReal:boolean}> = {}
-    Object.entries(jurnalData).forEach(([h,list])=>{
-      const hi = Number(h)
-      const arr = list as JurnalLaga[]
-      m[hi] = {
-        emas:    arr.filter(j=>j.medali==='Emas').length,
-        total:   arr.filter(j=>j.medali!=='Tanpa Medali').length,
-        laga:    arr.length,
-        hasDemo: arr.some(j=>j.isDemo),
-        hasReal: arr.some(j=>!j.isDemo),
-      }
-    })
-    return m
-  },[jurnalData])
+  const menunggu = useMemo(() => laporan.filter(l => l.status === 'menunggu'), [laporan])
+  const ditolak = useMemo(() => laporan.filter(l => l.status === 'ditolak'), [laporan])
+  const disahkan = useMemo(() => laporan.filter(l => l.status === 'disahkan'), [laporan])
+  const rekapSemua = useMemo(() => rekapMedali(laporan), [laporan])
 
-  // Total counters
-  const totalCounters = useMemo(()=>{
-    let realEntries = 0, demoEntries = 0
-    let realMedali = {e:0,p:0,pg:0}, demoMedali = {e:0,p:0,pg:0}
-    Object.values(jurnalData).forEach(list=>{
-      list.forEach(j=>{
-        if (j.isDemo) {
-          demoEntries++
-          if(j.medali==='Emas') demoMedali.e++
-          if(j.medali==='Perak') demoMedali.p++
-          if(j.medali==='Perunggu') demoMedali.pg++
-        } else {
-          realEntries++
-          if(j.medali==='Emas') realMedali.e++
-          if(j.medali==='Perak') realMedali.p++
-          if(j.medali==='Perunggu') realMedali.pg++
-        }
-      })
-    })
-    return { realEntries, demoEntries, realMedali, demoMedali }
-  },[jurnalData])
+  // Pilihan tanggal: 14 hari PORPROV, ditambah tanggal lain yang ternyata punya laporan.
+  const daftarTanggal = useMemo(() => {
+    const luar = Array.from(new Set(disahkan.map(l => l.tanggal).filter(t => hariPorprov(t) == null))).sort()
+    return [...luar, ...HARI_PORPROV]
+  }, [disahkan])
+  const tanggalAktif = tanggal ?? (disahkan[0]?.tanggal ?? HARI_PORPROV[0])
+  const jurnal = useMemo(() => disahkan.filter(l => l.tanggal === tanggalAktif).sort((a, b) => a.created_at.localeCompare(b.created_at)), [disahkan, tanggalAktif])
+  const rekapHari = useMemo(() => rekapMedali(jurnal), [jurnal])
 
-  function openAdd() {
-    setForm(EMPTY_FORM); setEditId(null); setShowForm(true)
-  }
-  function openEdit(j: JurnalLaga) {
-    setForm({waktu:j.waktu,cabor:j.cabor,hasil:j.hasil,medali:j.medali,catatan:j.catatan})
-    setEditId(j.id); setShowForm(true)
+  async function putuskan(id: number, body: Record<string, unknown>) {
+    setSibuk(id); setGalat('')
+    try {
+      const r = await fetch(`/api/konida/laporan-hasil${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, ...body }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setGalat(j.error ?? 'Gagal menyimpan.'); return false }
+      await muatLaporan(); return true
+    } finally { setSibuk(null) }
   }
 
-  function handleSave() {
-    if (!form.cabor||!form.hasil) return
-    const newData = {...jurnalData}
-    if (!newData[selectedHari]) newData[selectedHari]=[]
-    if (editId) {
-      // Preserve isDemo flag pas edit
-      const existing = newData[selectedHari].find(j => j.id === editId)
-      newData[selectedHari] = newData[selectedHari].map(j=>
-        j.id===editId
-          ? { ...form, id:editId, isDemo: existing?.isDemo }
-          : j
-      )
-    } else {
-      // Entry baru = REAL data (bukan demo)
-      newData[selectedHari] = [...newData[selectedHari], { ...form, id:Date.now().toString(), isDemo: false }]
-    }
-    newData[selectedHari].sort((a,b)=>a.waktu.localeCompare(b.waktu))
-    setJurnalData(newData)
-    saveToLS(newData)
-    setShowForm(false); setForm(EMPTY_FORM); setEditId(null)
-    setSaved(true); setTimeout(()=>setSaved(false),2000)
+  async function buatKode() {
+    setGalat('')
+    const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'buat', ...formKode, cabor_id: Number(formKode.cabor_id) }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) { setGalat(j.error ?? 'Gagal membuat kode.'); return }
+    setKodeBaru({ kode: j.kode, cabor: cabor.find(c => c.id === Number(formKode.cabor_id))?.nama ?? '', nama: formKode.nama_pic, wa: formKode.no_wa })
+    setFormKode({ cabor_id: '', nama_pic: '', no_wa: '' }); setTersalin(false)
+    await muatAkses()
+  }
+  async function ubahAkses(id: number, aksi: 'aktifkan' | 'matikan') {
+    await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi, id }) })
+    await muatAkses()
   }
 
-  function handleDelete(id: string) {
-    if (!confirm('Hapus entry ini?')) return
-    const newData = {...jurnalData}
-    newData[selectedHari] = (newData[selectedHari]||[]).filter(j=>j.id!==id)
-    setJurnalData(newData); saveToLS(newData)
+  const pesanWA = kodeBaru
+    ? `Yth. ${kodeBaru.nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${kodeBaru.cabor}.\n\nTautan: ${typeof window !== 'undefined' ? window.location.origin : ''}/lapor#${kodeBaru.kode}\nKode: ${kodeBaru.kode}\n\nLaporkan setiap nomor segera setelah selesai. Mohon kode ini tidak dibagikan ke orang lain.`
+    : ''
+
+  function cetak() {
+    const baris = jurnal.map((l, i) => `<tr><td>${i + 1}</td><td>${aman(jamTampil(l.created_at))}</td><td><b>${aman(l.cabor)}</b></td><td>${aman(l.nomor_teks)}</td><td>${aman(l.atlet.join(', '))}</td><td><b>${aman(tulisHasil(l))}</b></td><td>${aman(l.nilai_teks ?? '—')}</td><td>${aman(l.pelapor_nama)}</td></tr>`).join('')
+    const hari = hariPorprov(tanggalAktif)
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Jurnal ${aman(tanggalAktif)}</title><style>
+      body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:24px}h2{font-size:15px;margin:0 0 2px}p{color:#555;font-size:10px;margin:0 0 14px}
+      table{width:100%;border-collapse:collapse}th{background:#075985;color:#fff;padding:6px 8px;text-align:left;font-size:10px}
+      td{padding:6px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top}.r{margin-top:14px;padding:10px;border:1px solid #bae6fd;background:#f0f9ff}
+    </style></head><body><h2>Jurnal Hasil Pertandingan Harian</h2>
+    <p>${hari ? `Hari ke-${hari} · ` : ''}${aman(tglTampil(tanggalAktif))} · Kontingen Kab. Bandung · PORPROV XV Jawa Barat 2026 · hanya laporan yang sudah disahkan</p>
+    <table><thead><tr><th>#</th><th>Lapor</th><th>Cabor</th><th>Nomor</th><th>Atlet</th><th>Hasil</th><th>Catatan angka</th><th>Pelapor</th></tr></thead><tbody>${baris}</tbody></table>
+    <div class="r"><b>Rekap hari ini:</b> ${rekapHari.emas} emas · ${rekapHari.perak} perak · ${rekapHari.perunggu} perunggu · total ${rekapHari.total} medali dari ${rekapHari.laga} nomor</div>
+    <script>window.print()</script></body></html>`
+    const w = window.open('', '_blank'); w?.document.write(html); w?.document.close()
   }
 
-  function clearAllDemo() {
-    if (!confirm('Hapus SEMUA data demo? (Data real tetap aman)')) return
-    const newData: Record<number,JurnalLaga[]> = {}
-    Object.entries(jurnalData).forEach(([h,list])=>{
-      const filtered = (list as JurnalLaga[]).filter(j => !j.isDemo)
-      if (filtered.length > 0) newData[Number(h)] = filtered
-    })
-    setJurnalData(newData); saveToLS(newData)
-    setShowDemoBanner(false)
-  }
-
-  function reseedDemo() {
-    if (!confirm('Reset ke data demo awal? (Data real akan tetap, demo lama diganti)')) return
-    const realOnly: Record<number,JurnalLaga[]> = {}
-    Object.entries(jurnalData).forEach(([h,list])=>{
-      const filtered = (list as JurnalLaga[]).filter(j => !j.isDemo)
-      if (filtered.length > 0) realOnly[Number(h)] = filtered
-    })
-    const demo = generateDemoData()
-    // Merge demo + real
-    const merged: Record<number,JurnalLaga[]> = {...demo}
-    Object.entries(realOnly).forEach(([h,list])=>{
-      const hi = Number(h)
-      merged[hi] = [...(merged[hi]||[]), ...list].sort((a,b)=>a.waktu.localeCompare(b.waktu))
-    })
-    setJurnalData(merged); saveToLS(merged)
-  }
-
-  function printJurnal() {
-    const hari = HARI_PORPROV[selectedHari-1]
-    const html = `<!DOCTYPE html><html><head><title>Jurnal Hari ${selectedHari}</title>
-    <style>
-      body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:24px}
-      h2{font-size:15px;margin-bottom:2px}p{color:#666;font-size:10px;margin-bottom:16px}
-      table{width:100%;border-collapse:collapse}
-      th{background:#075985;color:#fff;padding:6px 10px;text-align:left;font-size:10px}
-      td{padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:10px;vertical-align:top}
-      tr:nth-child(even){background:#f9fafb}
-      tr.demo{background:#fef3c7 !important}
-      tr.demo td:first-child::after{content:" ⚠";color:#d97706}
-      .emas{color:#b45309;font-weight:800} .perak{color:#64748b;font-weight:700}
-      .perunggu{color:#92400e;font-weight:700} .none{color:#9ca3af}
-      .demobadge{background:#fbbf24;color:#7c2d12;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:bold}
-      .summary{margin-top:16px;padding:12px;background:#f0f9ff;border:1px solid #bbf7d0;border-radius:8px}
-      @media print{button{display:none}}
-    </style></head><body>
-    <h2>📋 Jurnal Hasil Pertandingan Harian</h2>
-    <p>Hari ke-${selectedHari} · ${hari.tanggal} · Kontingen Kab. Bandung · PORPROV XV Jawa Barat 2026</p>
-    <button onclick="window.print()" style="margin-bottom:16px;padding:6px 16px;background:#075985;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Print</button>
-    <table>
-      <thead><tr><th>#</th><th>Waktu</th><th>Cabor</th><th>Hasil</th><th>Medali</th><th>Type</th><th>Catatan</th></tr></thead>
-      <tbody>
-        ${jurnal.map((j,i)=>`<tr class="${j.isDemo?'demo':''}">
-          <td>${i+1}</td>
-          <td>${j.waktu||'—'} WIB</td>
-          <td><strong>${j.cabor}</strong></td>
-          <td>${j.hasil}</td>
-          <td class="${j.medali==='Emas'?'emas':j.medali==='Perak'?'perak':j.medali==='Perunggu'?'perunggu':'none'}">${j.medali==='Emas'?'🥇 Emas':j.medali==='Perak'?'🥈 Perak':j.medali==='Perunggu'?'🥉 Perunggu':'—'}</td>
-          <td>${j.isDemo?'<span class="demobadge">DEMO</span>':'<span style="color:#0ea5e9;font-weight:bold">REAL</span>'}</td>
-          <td>${j.catatan||'—'}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-    <div class="summary">
-      <strong>Rekap Hari Ini:</strong>
-      🥇 ${jurnal.filter(j=>j.medali==='Emas').length} Emas &nbsp;
-      🥈 ${jurnal.filter(j=>j.medali==='Perak').length} Perak &nbsp;
-      🥉 ${jurnal.filter(j=>j.medali==='Perunggu').length} Perunggu &nbsp;|&nbsp;
-      Total ${jurnal.filter(j=>j.medali!=='Tanpa Medali').length} Medali dari ${jurnal.length} Pertandingan
-    </div>
-    </body></html>`
-    const w = window.open('','_blank')
-    w?.document.write(html); w?.document.close()
-  }
-
-  function placeholderFeature(name: string) {
-    alert(`🚧 Fitur "${name}" akan tersedia di update berikutnya.\n\nSaat ini masih dalam tahap development. Stay tuned!`)
-  }
-
-  const ani=(d=0)=>({
-    style:{transitionDelay:`${d}ms`,transition:'all 0.5s ease'},
-    className:animIn?'opacity-100 translate-y-0':'opacity-0 translate-y-4',
-  })
-
-  const displayedHari = showAllHari ? HARI_PORPROV : HARI_PORPROV.slice(0,7)
-
-  return (
-    <div className="min-h-screen text-zinc-300 flex flex-col"
-      style={{background:'linear-gradient(135deg,#020a14 0%,#03101c 100%)'}}>
-
-      <div className="fixed inset-0 pointer-events-none"
-        style={{backgroundImage:`linear-gradient(${ACCENT}03 1px,transparent 1px),linear-gradient(90deg,${ACCENT}03 1px,transparent 1px)`,backgroundSize:'32px 32px',zIndex:0}}/>
-
-      {/* HEADER */}
-      <div className="sticky top-0 z-40 border-b backdrop-blur-xl px-6 py-4"
-        style={{background:'rgba(2,10,20,0.95)',borderColor:`${ACCENT}12`}}>
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`}}>
-              <FileText size={20} style={{color:ACCENT}}/>
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-white">Jurnal Hasil Pertandingan Harian</h1>
-              <p className="text-[11px] font-mono mt-0.5" style={{color:'rgba(255,255,255,0.35)'}}>
-                7-20 November 2026 · Kab. Bandung · PORPROV XV Jabar
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {klasemen && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                style={{background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.2)'}}>
-                <span className="text-sm font-black text-yellow-400">🥇{klasemen.emas}</span>
-                <span className="text-sm text-zinc-400">🥈{klasemen.perak}</span>
-                <span className="text-sm text-orange-400">🥉{klasemen.perunggu}</span>
-                <div className="w-px h-4 bg-zinc-700 mx-1"/>
-                <span className="text-xs font-bold text-zinc-400">{klasemen.total} total</span>
-              </div>
-            )}
-            {jurnal.length>0 && (
-              <button onClick={printJurnal}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold"
-                style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,color:ACCENT}}>
-                <Printer size={13}/> Print
-              </button>
-            )}
-          </div>
+  // Fungsi biasa, bukan komponen: komponen yang dibuat di dalam komponen lain
+  // dipasang ulang tiap ketikan, sehingga kotak isian kehilangan fokus.
+  const kartuLaporan = (l: Laporan) => (
+    <div key={l.id} className={`${kartu} p-4`}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <div className="text-xs font-bold uppercase tracking-wider" style={{ color: ACCENT }}>{l.cabor}</div>
+          <div className="text-base font-bold text-white mt-0.5">{l.nomor_teks}</div>
+          <div className="text-sm text-slate-300 mt-1">{l.atlet.join(', ')}</div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-lg font-black" style={{ color: WARNA[l.hasil] }}>{tulisHasil(l)}</div>
+          {l.nilai_teks && <div className="text-sm font-mono text-slate-300">{l.nilai_teks}</div>}
         </div>
       </div>
+      {l.keterangan && <p className="text-sm text-slate-400 mt-2">{l.keterangan}</p>}
+      {l.ada_foto && (
+        <a href={`/api/konida/laporan-hasil/foto${Q}&id=${l.id}`} target="_blank" rel="noopener" className="mt-3 inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/konida/laporan-hasil/foto${Q}&id=${l.id}`} alt={`Foto bukti ${l.nomor_teks}`} loading="lazy"
+            className="h-28 w-auto rounded-lg border border-slate-700 object-cover" />
+        </a>
+      )}
+      <div className="text-xs text-slate-500 mt-2">
+        Pertandingan {tglTampil(l.tanggal)} · dilaporkan {l.pelapor_nama}{l.pelapor_wa ? ` (${l.pelapor_wa})` : ''} pada {tglLaporTampil(l.created_at)} pukul {jamTampil(l.created_at)}
+        {l.status !== 'menunggu' && l.diputus_oleh ? ` · ${l.status} oleh ${l.diputus_oleh}` : ''}
+      </div>
+      {l.status === 'ditolak' && l.alasan_tolak && <p className="text-xs text-red-300 mt-1">Alasan ditolak: {l.alasan_tolak}</p>}
 
-      <main className="flex-1 p-5 max-w-[1600px] w-full mx-auto relative z-10">
+      {menolak === l.id && (
+        <div className="mt-3 flex gap-2 flex-wrap">
+          <input autoFocus value={alasan} onChange={e => setAlasan(e.target.value)} placeholder="Alasan penolakan (terlihat oleh PIC)" aria-label="Alasan penolakan" className={`${kotak} flex-1 min-w-[200px]`} />
+          <button onClick={async () => { if (await putuskan(l.id, { aksi: 'tolak', alasan })) { setMenolak(null); setAlasan('') } }} disabled={sibuk === l.id || !alasan.trim()} className="rounded-lg bg-red-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-40">Tolak</button>
+          <button onClick={() => { setMenolak(null); setAlasan('') }} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300">Batal</button>
+        </div>
+      )}
 
-        {/* ════════ DEMO BANNER ════════ */}
-        {showDemoBanner && totalCounters.demoEntries > 0 && (
-          <div {...ani(0)} className="mb-4 rounded-2xl p-4 relative overflow-hidden"
-            style={{
-              background:'linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(245,158,11,0.04) 100%)',
-              border:'1px solid rgba(251,191,36,0.25)',
-            }}>
-            {/* Diagonal stripes pattern */}
-            <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
-              style={{
-                backgroundImage: `repeating-linear-gradient(45deg, #fbbf24 0, #fbbf24 1px, transparent 1px, transparent 12px)`,
-              }}/>
-            <div className="relative flex items-start gap-3 flex-wrap">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{background:'rgba(251,191,36,0.15)',border:'1px solid rgba(251,191,36,0.3)'}}>
-                <AlertTriangle size={16} className="text-amber-400"/>
-              </div>
-              <div className="flex-1 min-w-[200px]">
-                <div className="text-sm font-black text-amber-300 mb-1 flex items-center gap-2 flex-wrap">
-                  Mode Preview Demo
-                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest"
-                    style={{background:'rgba(251,191,36,0.2)',color:'#fbbf24',border:'1px solid rgba(251,191,36,0.4)'}}>
-                    {totalCounters.demoEntries} entries
-                  </span>
-                </div>
-                <p className="text-[11px] text-amber-200/80 leading-relaxed">
-                  Halaman ini berisi <strong>{totalCounters.demoEntries} data demo</strong> untuk hari 1-7 (preview gambaran). Saat PORPROV dimulai 7 November 2026, input data real akan menggantikan demo secara bertahap.
-                  {totalCounters.realEntries > 0 && (
-                    <> · Sudah ada <strong className="text-sky-400">{totalCounters.realEntries} data REAL</strong> tercatat.</>
-                  )}
-                </p>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <button onClick={() => setShowDemoBanner(false)}
-                  className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all"
-                  style={{background:'rgba(255,255,255,0.05)',color:'rgba(255,255,255,0.5)',border:'1px solid rgba(255,255,255,0.1)'}}>
-                  Sembunyikan
-                </button>
-                <button onClick={clearAllDemo}
-                  className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all"
-                  style={{background:'rgba(239,68,68,0.1)',color:'#ef4444',border:'1px solid rgba(239,68,68,0.25)'}}>
-                  🗑 Hapus Semua Demo
-                </button>
-              </div>
+      {memperbaiki === l.id && (
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
+          <input value={koreksi.nomor_teks} onChange={e => setKoreksi({ ...koreksi, nomor_teks: e.target.value })} aria-label="Nomor pertandingan" className={`${kotak} md:col-span-2`} />
+          <select value={koreksi.hasil} onChange={e => setKoreksi({ ...koreksi, hasil: e.target.value as Hasil })} aria-label="Hasil" className={kotak}>
+            {HASIL.map(h => <option key={h} value={h}>{LABEL_HASIL[h]}</option>)}
+          </select>
+          {koreksi.hasil === 'peringkat'
+            ? <input value={koreksi.peringkat} onChange={e => setKoreksi({ ...koreksi, peringkat: e.target.value.replace(/\D/g, '') })} placeholder="Peringkat ke-" aria-label="Peringkat" className={kotak} />
+            : <input value={koreksi.nilai_teks} onChange={e => setKoreksi({ ...koreksi, nilai_teks: e.target.value })} placeholder="Catatan angka" aria-label="Catatan angka" className={kotak} />}
+          <label className="md:col-span-2 flex items-center gap-2 text-xs text-slate-400">
+            Tanggal pertandingan
+            <input type="date" value={koreksi.tanggal} onChange={e => setKoreksi({ ...koreksi, tanggal: e.target.value })} className={`${kotak} flex-1`} />
+          </label>
+          <div className="md:col-span-4 flex gap-2">
+            <button onClick={async () => { if (await putuskan(l.id, { aksi: 'perbaiki', ...koreksi, peringkat: Number(koreksi.peringkat) })) setMemperbaiki(null) }} disabled={sibuk === l.id} className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40">Simpan perbaikan</button>
+            <button onClick={() => setMemperbaiki(null)} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300">Batal</button>
+          </div>
+        </div>
+      )}
+
+      {menolak !== l.id && memperbaiki !== l.id && (
+        <div className="mt-3 flex gap-2 flex-wrap">
+          {l.status === 'menunggu' ? (
+            <>
+              <button onClick={() => putuskan(l.id, { aksi: 'sahkan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"><CheckCircle size={15} /> Sahkan</button>
+              <button onClick={() => { setMemperbaiki(l.id); setKoreksi({ nomor_teks: l.nomor_teks, hasil: l.hasil, peringkat: l.peringkat ? String(l.peringkat) : '', nilai_teks: l.nilai_teks ?? '', tanggal: l.tanggal }) }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"><Pencil size={14} /> Perbaiki</button>
+              <button onClick={() => { setMenolak(l.id); setAlasan('') }} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300"><XCircle size={15} /> Tolak</button>
+            </>
+          ) : (
+            <button onClick={() => putuskan(l.id, { aksi: 'kembalikan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 disabled:opacity-40"><RotateCcw size={13} /> Kembalikan ke antrean</button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const TombolTab = ({ id, label, jumlah, Ikon }: { id: typeof tab; label: string; jumlah?: number; Ikon: any }) => (
+    <button onClick={() => setTab(id)} aria-pressed={tab === id}
+      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold border ${tab === id ? 'text-slate-950' : 'text-slate-300 border-slate-700'}`}
+      style={tab === id ? { background: ACCENT, borderColor: ACCENT } : {}}>
+      <Ikon size={15} /> {label}
+      {jumlah != null && jumlah > 0 && <span className={`rounded-full px-1.5 text-xs ${tab === id ? 'bg-slate-950/20' : 'bg-red-500 text-white'}`}>{jumlah}</span>}
+    </button>
+  )
+
+  return (
+    <div className="min-h-screen text-zinc-300" style={{ background: 'linear-gradient(135deg,#020a14 0%,#03101c 100%)' }}>
+      <div className="max-w-[1200px] mx-auto px-6 py-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-black text-white">Report Pertandingan</h1>
+            <p className="text-sm text-slate-400 mt-0.5">Laporan PIC cabor dari lapangan. Hanya yang disahkan yang dihitung sebagai medali.</p>
+          </div>
+          <button onClick={() => { muatLaporan(); muatAkses() }} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300"><RefreshCw size={14} /> Muat ulang</button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+          {([['Emas', rekapSemua.emas, WARNA.emas], ['Perak', rekapSemua.perak, WARNA.perak], ['Perunggu', rekapSemua.perunggu, WARNA.perunggu], ['Total medali', rekapSemua.total, '#fff'], ['Menunggu disahkan', menunggu.length, menunggu.length ? '#fbbf24' : '#64748b']] as [string, number, string][]).map(([label, n, warna]) => (
+            <div key={label} className={`${kartu} px-4 py-3`}>
+              <div className="text-2xl font-black tabular-nums" style={{ color: warna }}>{n}</div>
+              <div className="text-xs text-slate-400">{label}</div>
             </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 mt-6 flex-wrap">
+          <TombolTab id="antrean" label="Antrean" jumlah={menunggu.length} Ikon={ClipboardList} />
+          <TombolTab id="jurnal" label="Jurnal Harian" Ikon={Trophy} />
+          <TombolTab id="kode" label="Kode PIC" Ikon={KeyRound} />
+        </div>
+
+        {galat && <p role="alert" className="mt-4 rounded-lg bg-red-500/15 border border-red-400/40 px-4 py-3 text-sm font-bold text-red-300">{galat}</p>}
+        {memuat && <p className="mt-8 text-slate-400">Memuat…</p>}
+
+        {!memuat && tab === 'antrean' && (
+          <div className="mt-5 space-y-3">
+            {menunggu.length === 0 && (
+              <div className={`${kartu} p-8 text-center`}>
+                <p className="text-slate-300 font-bold">Tidak ada laporan yang menunggu.</p>
+                <p className="text-sm text-slate-500 mt-1">{akses.length === 0 ? 'Belum ada PIC yang punya kode lapor. Buat dulu di tab Kode PIC.' : 'Laporan baru dari PIC akan muncul di sini dengan sendirinya.'}</p>
+              </div>
+            )}
+            {menunggu.map(kartuLaporan)}
+            {ditolak.length > 0 && (
+              <details className="pt-4">
+                <summary className="cursor-pointer text-sm font-bold text-slate-400">Ditolak ({ditolak.length})</summary>
+                <div className="mt-3 space-y-3">{ditolak.map(kartuLaporan)}</div>
+              </details>
+            )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-
-          {/* SIDEBAR */}
-          <div className="lg:col-span-1">
-
-            {/* Akumulasi separated Real + Demo */}
-            <div {...ani(0)} className="rounded-2xl p-4 mb-3"
-              style={{background:`${ACCENT}06`,border:`1px solid ${ACCENT}18`}}>
-              <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1">
-                <Trophy size={10} style={{color:ACCENT}}/> Akumulasi Jurnal
-              </div>
-
-              {/* REAL data */}
-              {totalCounters.realEntries > 0 && (
-                <div className="mb-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <CheckCircle size={9} className="text-sky-400"/>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-sky-400">REAL DATA</span>
-                  </div>
-                  <div className="flex gap-1.5">
-                    {[
-                      {v:totalCounters.realMedali.e, c:'#ffd700', e:'🥇'},
-                      {v:totalCounters.realMedali.p, c:'#c0c0c0', e:'🥈'},
-                      {v:totalCounters.realMedali.pg,c:'#cd7f32', e:'🥉'},
-                    ].map((m,i)=>(
-                      <div key={i} className="flex-1 text-center rounded-lg py-1.5"
-                        style={{background:`${m.c}10`,border:`1px solid ${m.c}25`}}>
-                        <div className="text-xs">{m.e}</div>
-                        <div className="text-sm font-black" style={{color:m.c}}>{m.v}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-[9px] mt-1 text-center text-sky-400/60">
-                    {totalCounters.realEntries} pertandingan
-                  </div>
-                </div>
-              )}
-
-              {/* DEMO data */}
-              {totalCounters.demoEntries > 0 && (
-                <div className="pt-3" style={{borderTop:'1px dashed rgba(255,255,255,0.08)'}}>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <AlertTriangle size={9} className="text-amber-400"/>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">DEMO DATA</span>
-                  </div>
-                  <div className="flex gap-1.5">
-                    {[
-                      {v:totalCounters.demoMedali.e, c:'#ffd700', e:'🥇'},
-                      {v:totalCounters.demoMedali.p, c:'#c0c0c0', e:'🥈'},
-                      {v:totalCounters.demoMedali.pg,c:'#cd7f32', e:'🥉'},
-                    ].map((m,i)=>(
-                      <div key={i} className="flex-1 text-center rounded-lg py-1.5 relative overflow-hidden"
-                        style={{background:`${m.c}06`,border:`1px dashed ${m.c}30`}}>
-                        <div className="text-xs opacity-60">{m.e}</div>
-                        <div className="text-sm font-black opacity-70" style={{color:m.c}}>{m.v}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-[9px] mt-1 text-center text-amber-400/60">
-                    {totalCounters.demoEntries} pertandingan
-                  </div>
-                </div>
-              )}
-
-              {saved && (
-                <div className="mt-3 flex items-center gap-1.5 text-[10px] text-green-400 justify-center py-1.5 rounded-lg"
-                  style={{background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.2)'}}>
-                  <CheckCircle size={10}/> Tersimpan!
-                </div>
-              )}
-            </div>
-
-            {/* Nice-to-have actions */}
-            <div {...ani(40)} className="space-y-1.5 mb-4">
-              <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest px-1 mb-1.5">
-                Quick Input
-              </div>
-              {[
-                { icon:Mic,    label:'Voice Input',  color:'#8b5cf6', action:() => placeholderFeature('Voice Input') },
-                { icon:Camera, label:'Foto Hasil',   color:'#3b82f6', action:() => placeholderFeature('Photo Upload') },
-                { icon:Upload, label:'Bulk Import',  color:'#f59e0b', action:() => placeholderFeature('Bulk Import Excel') },
-                { icon:Database, label:'Reload Demo', color:'#94a3b8', action:reseedDemo },
-              ].map(a=>(
-                <button key={a.label} onClick={a.action}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-bold transition-all hover:scale-[1.02]"
-                  style={{background:`${a.color}08`,border:`1px solid ${a.color}18`,color:`${a.color}cc`}}>
-                  <a.icon size={11}/>
-                  <span className="flex-1 text-left">{a.label}</span>
-                  <span className="text-[8px] uppercase tracking-widest opacity-50">
-                    {a.label === 'Reload Demo' ? 'Reset' : 'Soon'}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Day list */}
-            <div className="text-[10px] text-zinc-600 uppercase tracking-widest font-mono px-1 mb-2">
-              Pilih Hari · 14 Hari
-            </div>
-            <div className="space-y-1.5">
-              {displayedHari.map(h=>{
-                const s       = hariSummary[h.hari]
-                const isAct   = selectedHari===h.hari
-                const hasData = s && s.laga>0
+        {!memuat && tab === 'jurnal' && (
+          <div className="mt-5">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {daftarTanggal.map(t => {
+                const h = hariPorprov(t), n = disahkan.filter(l => l.tanggal === t).length, aktif = t === tanggalAktif
                 return (
-                  <button key={h.hari} onClick={()=>setSelectedHari(h.hari)}
-                    className="w-full p-3 rounded-xl text-left transition-all"
-                    style={{
-                      background: isAct?`${ACCENT}10`:'rgba(255,255,255,0.02)',
-                      border:`1px solid ${isAct?`${ACCENT}25`:'rgba(255,255,255,0.06)'}`,
-                    }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-bold"
-                        style={{color:isAct?ACCENT:'rgba(255,255,255,0.5)'}}>
-                        Hari {h.hari}
-                      </span>
-                      {hasData && (
-                        <div className="flex gap-1">
-                          {s.hasReal && <div className="w-1.5 h-1.5 rounded-full bg-sky-400" title="Ada data real"/>}
-                          {s.hasDemo && <div className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Ada data demo"/>}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-[9px]" style={{color:'rgba(255,255,255,0.3)'}}>
-                      {h.dayName}, {h.tanggal}
-                    </div>
-                    {hasData && (
-                      <div className="flex gap-1.5 mt-1.5">
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono"
-                          style={{background:'rgba(255,215,0,0.1)',color:'#ffd700'}}>
-                          {s.emas}🥇
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono"
-                          style={{background:'rgba(255,255,255,0.04)',color:'rgba(255,255,255,0.35)'}}>
-                          {s.laga} laga
-                        </span>
-                      </div>
-                    )}
+                  <button key={t} onClick={() => setTanggal(t)} aria-pressed={aktif}
+                    className={`shrink-0 rounded-lg border px-3 py-2 text-left ${aktif ? 'border-sky-400 bg-sky-500/15' : 'border-slate-800 bg-slate-900/60'}`}>
+                    <div className="text-xs font-bold text-white">{h ? `Hari ${h}` : 'Di luar jadwal'}</div>
+                    <div className="text-[11px] text-slate-400">{tglTampil(t)}</div>
+                    <div className="text-[11px] mt-0.5" style={{ color: n ? ACCENT : '#475569' }}>{n} laporan</div>
                   </button>
                 )
               })}
             </div>
-            {HARI_PORPROV.length>7 && (
-              <button onClick={()=>setShowAllHari(v=>!v)}
-                className="w-full mt-2 py-2 rounded-xl text-[10px] font-bold"
-                style={{background:`${ACCENT}08`,color:ACCENT,border:`1px solid ${ACCENT}15`}}>
-                {showAllHari?'Sembunyikan':'Lihat semua 14 hari'}
-              </button>
-            )}
-          </div>
-
-          {/* MAIN — Jurnal timeline */}
-          <div {...ani(60)} className="lg:col-span-3">
-            <div className="rounded-2xl overflow-hidden"
-              style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.07)'}}>
-
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b flex-wrap gap-3"
-                style={{borderColor:'rgba(255,255,255,0.07)'}}>
-                <div className="flex items-center gap-3">
-                  <ListOrdered size={14} style={{color:ACCENT}}/>
-                  <div>
-                    <span className="text-sm font-bold text-white">
-                      Hari ke-{selectedHari} · {HARI_PORPROV[selectedHari-1].tanggal}
-                    </span>
-                    <div className="text-[10px] mt-0.5" style={{color:'rgba(255,255,255,0.3)'}}>
-                      {jurnal.length} pertandingan tampil ·{' '}
-                      {jurnal.filter(j=>j.medali!=='Tanpa Medali').length} medali
-                      {filterMode !== 'all' && (
-                        <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
-                          style={{
-                            background: filterMode === 'real' ? 'rgba(16,185,129,0.1)' : 'rgba(251,191,36,0.1)',
-                            color:      filterMode === 'real' ? '#0ea5e9' : '#fbbf24',
-                          }}>
-                          filter: {filterMode}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Filter */}
-                  <div className="flex items-center gap-1 px-1 py-1 rounded-lg"
-                    style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)'}}>
-                    <Filter size={10} className="text-zinc-500 ml-1.5"/>
-                    {([
-                      { k:'all',  l:`Semua (${jurnalRaw.length})`,                                    c:ACCENT   },
-                      { k:'real', l:`✅ Real (${jurnalRaw.filter(j=>!j.isDemo).length})`,             c:'#0ea5e9' },
-                      { k:'demo', l:`⚠ Demo (${jurnalRaw.filter(j=>j.isDemo).length})`,              c:'#fbbf24' },
-                    ] as const).map(f => (
-                      <button key={f.k} onClick={()=>setFilterMode(f.k as FilterMode)}
-                        className="px-2.5 py-1 rounded text-[10px] font-bold transition-all"
-                        style={{
-                          background: filterMode === f.k ? `${f.c}15` : 'transparent',
-                          color:      filterMode === f.k ? f.c : 'rgba(255,255,255,0.4)',
-                          border:     filterMode === f.k ? `1px solid ${f.c}30` : '1px solid transparent',
-                        }}>
-                        {f.l}
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={openAdd}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold"
-                    style={{background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,color:ACCENT}}>
-                    <Plus size={13}/> Input Hasil
-                  </button>
-                </div>
-              </div>
-
-              {/* Timeline */}
-              <div className="p-5">
-                {jurnal.length===0 ? (
-                  <div className="py-16 text-center">
-                    <Calendar size={32} className="mx-auto mb-3 opacity-15"/>
-                    <div className="text-sm font-bold text-zinc-600 mb-1">
-                      {filterMode !== 'all' ? `Tidak ada data ${filterMode}` : 'Belum ada hasil pertandingan'}
-                    </div>
-                    <p className="text-xs text-zinc-700 mb-4">
-                      {filterMode === 'all'
-                        ? 'Klik "Input Hasil" untuk menambah jurnal hari ini'
-                        : `Ubah filter untuk lihat data lain`}
-                    </p>
-                    <button onClick={openAdd}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold mx-auto"
-                      style={{background:`${ACCENT}12`,border:`1px solid ${ACCENT}25`,color:ACCENT}}>
-                      <Plus size={14}/> Input Hasil Pertandingan
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="absolute left-5 top-0 bottom-0 w-px"
-                      style={{background:'rgba(56,189,248,0.1)'}}/>
-                    <div className="space-y-4">
-                      {jurnal.map((j,i)=>{
-                        const mc = MEDALI_CFG[j.medali]
-                        const isDemo = j.isDemo
-                        return (
-                          <div key={j.id} className="relative pl-14">
-                            {/* Timeline dot */}
-                            <div className="absolute left-[17px] top-3.5 w-7 h-7 rounded-full flex items-center justify-center z-10"
-                              style={{
-                                background:mc.bg,
-                                border:`2px solid ${mc.dot}`,
-                                boxShadow:`0 0 8px ${mc.dot}40`,
-                              }}>
-                              <span className="text-xs">{mc.emoji}</span>
-                            </div>
-
-                            <div className="rounded-xl p-4 group relative overflow-hidden"
-                              style={{
-                                background: isDemo ? 'rgba(251,191,36,0.025)' : 'rgba(255,255,255,0.025)',
-                                border: `1px solid ${isDemo ? 'rgba(251,191,36,0.2)' : mc.border}`,
-                              }}>
-                              {/* Diagonal stripes pattern untuk demo */}
-                              {isDemo && (
-                                <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-                                  style={{
-                                    backgroundImage:`repeating-linear-gradient(45deg, #fbbf24 0, #fbbf24 1px, transparent 1px, transparent 10px)`,
-                                  }}/>
-                              )}
-
-                              <div className="relative flex items-start justify-between gap-3 mb-2">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    {j.waktu && (
-                                      <span className="text-[10px] font-mono text-zinc-500 flex items-center gap-1">
-                                        <Clock size={9}/> {j.waktu} WIB
-                                      </span>
-                                    )}
-                                    <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase"
-                                      style={{background:mc.bg,color:mc.text,border:`1px solid ${mc.border}`}}>
-                                      {j.medali}
-                                    </span>
-                                    {/* DATA TYPE BADGE */}
-                                    {isDemo ? (
-                                      <span className="text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest flex items-center gap-1"
-                                        style={{background:'rgba(251,191,36,0.15)',color:'#fbbf24',border:'1px solid rgba(251,191,36,0.35)'}}>
-                                        <AlertTriangle size={8}/> DEMO
-                                      </span>
-                                    ) : (
-                                      <span className="text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest flex items-center gap-1"
-                                        style={{background:'rgba(16,185,129,0.15)',color:'#0ea5e9',border:'1px solid rgba(16,185,129,0.35)'}}>
-                                        <CheckCircle size={8}/> REAL
-                                      </span>
-                                    )}
-                                  </div>
-                                  <h3 className="text-base font-black text-zinc-100">{j.cabor}</h3>
-                                </div>
-                                <div className="flex gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={()=>openEdit(j)}
-                                    className="p-1.5 rounded-lg"
-                                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.4)'}}>
-                                    <Edit2 size={12}/>
-                                  </button>
-                                  <button onClick={()=>handleDelete(j.id)}
-                                    className="p-1.5 rounded-lg"
-                                    style={{background:'rgba(248,113,113,0.08)',border:'1px solid rgba(248,113,113,0.2)',color:'#f87171'}}>
-                                    <Trash2 size={12}/>
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="relative text-sm font-semibold text-zinc-300 p-3 rounded-lg mb-2"
-                                style={{background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.06)'}}>
-                                {j.hasil}
-                              </div>
-
-                              {j.catatan && (
-                                <div className="relative pl-3 border-l-2"
-                                  style={{borderColor: isDemo ? 'rgba(251,191,36,0.25)' : 'rgba(56,189,248,0.2)'}}>
-                                  <span className="text-[9px] font-mono text-zinc-600 uppercase block mb-0.5">Catatan:</span>
-                                  <p className="text-[11px] text-zinc-400 leading-relaxed">{j.catatan}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+            <div className="flex items-center justify-between gap-3 mt-4 flex-wrap">
+              <p className="text-sm text-slate-300">
+                <b className="text-white">{tglTampil(tanggalAktif)}</b> · {rekapHari.emas} emas · {rekapHari.perak} perak · {rekapHari.perunggu} perunggu · {rekapHari.laga} nomor selesai
+              </p>
+              <button onClick={cetak} disabled={jurnal.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 disabled:opacity-40"><Printer size={14} /> Cetak</button>
+            </div>
+            <div className="mt-3 space-y-3">
+              {jurnal.length === 0 && <div className={`${kartu} p-8 text-center text-slate-400`}>Belum ada hasil yang disahkan untuk tanggal ini.</div>}
+              {jurnal.map(kartuLaporan)}
             </div>
           </div>
-        </div>
-      </main>
+        )}
 
-      {/* INPUT FORM MODAL */}
-      {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-          style={{background:'rgba(0,0,0,0.75)',backdropFilter:'blur(6px)'}}>
-          <div className="w-full max-w-[500px] rounded-2xl overflow-hidden"
-            style={{background:'#03101c',border:`1px solid ${ACCENT}20`,boxShadow:'0 25px 60px rgba(0,0,0,0.8)'}}>
-
-            <div className="flex items-center justify-between px-6 py-4 border-b"
-              style={{borderColor:`${ACCENT}12`,background:`${ACCENT}04`}}>
-              <div className="text-white font-bold flex items-center gap-2">
-                {editId?'Edit Hasil Pertandingan':'Input Hasil Pertandingan'}
-                {!editId && (
-                  <span className="text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest"
-                    style={{background:'rgba(16,185,129,0.15)',color:'#0ea5e9',border:'1px solid rgba(16,185,129,0.35)'}}>
-                    ✅ REAL
-                  </span>
-                )}
+        {!memuat && tab === 'kode' && (
+          <div className="mt-5 grid grid-cols-1 lg:grid-cols-5 gap-5">
+            <div className={`${kartu} p-5 lg:col-span-2 h-fit`}>
+              <h2 className="text-sm font-black text-white">Buat kode untuk PIC</h2>
+              <div className="mt-3 space-y-3">
+                <select value={formKode.cabor_id} onChange={e => setFormKode({ ...formKode, cabor_id: e.target.value })} aria-label="Cabor" className={kotak}>
+                  <option value="">Pilih cabor…</option>
+                  {cabor.map(c => <option key={c.id} value={c.id}>{c.nama} ({c.atlet} atlet)</option>)}
+                </select>
+                <input value={formKode.nama_pic} onChange={e => setFormKode({ ...formKode, nama_pic: e.target.value })} placeholder="Nama PIC" aria-label="Nama PIC" className={kotak} />
+                <input value={formKode.no_wa} onChange={e => setFormKode({ ...formKode, no_wa: e.target.value })} placeholder="Nomor WhatsApp (boleh kosong)" aria-label="Nomor WhatsApp" inputMode="tel" className={kotak} />
+                <button onClick={buatKode} disabled={!formKode.cabor_id || !formKode.nama_pic.trim()} className="w-full rounded-lg bg-sky-500 py-2.5 text-sm font-black text-slate-950 disabled:opacity-40">Buat kode</button>
               </div>
-              <button onClick={()=>setShowForm(false)} className="p-2 rounded-xl"
-                style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.4)'}}>
-                <X size={15}/>
-              </button>
+
+              {kodeBaru && (
+                <div className="mt-5 rounded-lg border border-amber-400/40 bg-amber-500/10 p-4">
+                  <p className="text-xs font-bold text-amber-300">Kode ini hanya tampil sekali. Salin sekarang.</p>
+                  <div className="text-2xl font-mono font-black text-white tracking-widest mt-2">{kodeBaru.kode}</div>
+                  <pre className="mt-3 whitespace-pre-wrap text-xs text-slate-300 font-sans">{pesanWA}</pre>
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    <button onClick={async () => { await navigator.clipboard.writeText(pesanWA); setTersalin(true) }} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white"><Copy size={13} /> {tersalin ? 'Tersalin' : 'Salin pesan'}</button>
+                    <button onClick={() => setKodeBaru(null)} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Sudah saya simpan</button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="text-[11px] px-3 py-2 rounded-lg"
-                style={{background:`${ACCENT}06`,border:`1px solid ${ACCENT}12`,color:`${ACCENT}80`}}>
-                Hari ke-{selectedHari} · {HARI_PORPROV[selectedHari-1].tanggal}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Waktu (WIB)</label>
-                  <input type="time" value={form.waktu} onChange={e=>setForm(f=>({...f,waktu:e.target.value}))}
-                    className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none"
-                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}
-                    onFocus={e=>e.target.style.borderColor=ACCENT}
-                    onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Cabor *</label>
-                  <select value={form.cabor} onChange={e=>setForm(f=>({...f,cabor:e.target.value}))}
-                    className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none"
-                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}>
-                    <option value="" style={{background:'#03101c'}}>Pilih cabor...</option>
-                    {caborList.map(c=><option key={c} value={c} style={{background:'#03101c'}}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Hasil Pertandingan *</label>
-                <input value={form.hasil} onChange={e=>setForm(f=>({...f,hasil:e.target.value}))}
-                  placeholder="Contoh: Juara 1 Final — Menang vs Kota Bandung"
-                  className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none"
-                  style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e=>e.target.style.borderColor=ACCENT}
-                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Medali Diraih</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {(['Emas','Perak','Perunggu','Tanpa Medali'] as const).map(m=>{
-                    const mc = MEDALI_CFG[m]
-                    return (
-                      <button key={m} onClick={()=>setForm(f=>({...f,medali:m}))}
-                        className="py-2.5 rounded-xl text-[11px] font-bold text-center transition-all"
-                        style={{
-                          background: form.medali===m?mc.bg:'rgba(255,255,255,0.03)',
-                          color:      form.medali===m?mc.text:'rgba(255,255,255,0.4)',
-                          border:     form.medali===m?`1px solid ${mc.border}`:'1px solid rgba(255,255,255,0.07)',
-                        }}>
-                        {mc.emoji} {m==='Tanpa Medali'?'Tanpa':''}
-                        {m!=='Tanpa Medali'?m:'Medali'}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">Catatan Tim</label>
-                <textarea value={form.catatan} onChange={e=>setForm(f=>({...f,catatan:e.target.value}))}
-                  rows={3} placeholder="Evaluasi performa, highlight, atau hal yang perlu ditindaklanjuti..."
-                  className="w-full rounded-xl px-3 py-2.5 text-sm text-zinc-200 outline-none resize-none"
-                  style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}
-                  onFocus={e=>e.target.style.borderColor=ACCENT}
-                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.1)'}/>
-              </div>
-            </div>
-
-            <div className="px-6 pb-6 flex gap-3">
-              <button onClick={()=>setShowForm(false)}
-                className="flex-1 py-3 rounded-xl text-sm font-bold"
-                style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.4)'}}>
-                Batal
-              </button>
-              <button onClick={handleSave} disabled={!form.cabor||!form.hasil}
-                className="flex-[2] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
-                style={{background:`${ACCENT}15`,border:`1px solid ${ACCENT}30`,color:ACCENT}}>
-                <Save size={15}/> {editId?'Simpan Perubahan':'Simpan Jurnal'}
-              </button>
+            <div className={`${kartu} lg:col-span-3 overflow-x-auto`}>
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-800">
+                  <th className="px-4 py-3">Cabor</th><th className="px-4 py-3">PIC</th><th className="px-4 py-3">Kode</th><th className="px-4 py-3">Terakhir dipakai</th><th className="px-4 py-3"></th>
+                </tr></thead>
+                <tbody>
+                  {akses.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Belum ada kode. Buat satu untuk tiap PIC cabor.</td></tr>}
+                  {akses.map(a => (
+                    <tr key={a.id} className={`border-b border-slate-800/60 ${a.aktif ? '' : 'opacity-50'}`}>
+                      <td className="px-4 py-3 font-bold text-white">{a.cabor}</td>
+                      <td className="px-4 py-3">{a.nama_pic}{a.no_wa && <div className="text-xs text-slate-500">{a.no_wa}</div>}</td>
+                      <td className="px-4 py-3 font-mono text-slate-400">••••-{a.kode_ujung}</td>
+                      <td className="px-4 py-3 text-xs text-slate-400">{a.terakhir_dipakai ? new Date(a.terakhir_dipakai).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }) : 'Belum pernah'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => ubahAkses(a.id, a.aktif ? 'matikan' : 'aktifkan')} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300">{a.aktif ? 'Matikan' : 'Aktifkan'}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

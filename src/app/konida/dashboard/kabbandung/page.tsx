@@ -21,6 +21,8 @@ import {
   buildAlertsFromData,
 } from '@/components/konida/DashboardHelpers'
 import { lengkapiPii } from '@/lib/atlet-pii-klien'
+import { timpaKlasemen } from '@/lib/lapor'
+import { ambilRekapLapangan } from '@/lib/lapor-klien'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -153,6 +155,10 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
         belumTertaut:  belumTertaut.status === 'fulfilled' ? (belumTertaut.value.count ?? 0) : 0,
       })
 
+      // Begitu ada laporan lapangan yang disahkan, medali Kab. Bandung memakai hitungan itu.
+      const lap = await ambilRekapLapangan(KONTINGEN_ID)
+      const rekapLap = lap.ok && lap.data.rekap.laga > 0 ? lap.data.rekap : null
+
       const [k, m] = await Promise.allSettled([
         sb.from('klasemen_medali')
           .select('emas,perak,perunggu,total,kontingen(nama)')
@@ -246,9 +252,11 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
           perunggu: r.perunggu ?? 0,
           total:    r.total   ?? 0,
         }))
-        setKlasemen(flat)
+        setKlasemen(rekapLap ? timpaKlasemen(flat, rekapLap, 'KAB. BANDUNG') : flat)
       }
-      if (m.status==='fulfilled' && m.value.data) {
+      if (rekapLap) {
+        setMyMedali({ emas:rekapLap.emas, perak:rekapLap.perak, perunggu:rekapLap.perunggu, total:rekapLap.total })
+      } else if (m.status==='fulfilled' && m.value.data) {
         const d = m.value.data
         setMyMedali({ emas:d.emas??0, perak:d.perak??0, perunggu:d.perunggu??0, total:d.total??0 })
       }
