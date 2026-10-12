@@ -87,5 +87,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  if (aksi === 'ubah') {
+    // Membetulkan nama atau nomor WA PIC. Kodenya sendiri tidak berubah, jadi
+    // PIC yang sudah menerima kode tidak perlu dikirimi ulang.
+    const id = Number(b?.id)
+    if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: 'Kode tidak dikenali.' }, { status: 400 })
+    const nama_pic = typeof b?.nama_pic === 'string' ? b.nama_pic.replace(/\s+/g, ' ').trim().slice(0, 80) : ''
+    const no_wa = typeof b?.no_wa === 'string' ? b.no_wa.replace(/[^0-9+]/g, '').slice(0, 20) : ''
+    if (!nama_pic) return NextResponse.json({ error: 'Nama PIC tidak boleh kosong.' }, { status: 422 })
+
+    const { data: lama } = await db.from('lapor_akses').select('id,nama_pic,no_wa').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
+    if (!lama) return NextResponse.json({ error: 'Kode tidak ditemukan.' }, { status: 404 })
+    const { error } = await db.from('lapor_akses').update({ nama_pic, no_wa: no_wa || null }).eq('id', id).eq('kontingen_id', a.kontingen_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    await writeAudit({
+      action: 'LAPOR_AKSES_UBAH', resource: 'lapor_akses', resource_id: id,
+      actor_id: a.sesi.id != null ? String(a.sesi.id) : null, actor_email: a.sesi.username ?? null,
+      actor_role: a.sesi.role ?? a.sesi.level ?? null, kontingen_id: a.kontingen_id,
+      payload: { sebelum: { nama_pic: lama.nama_pic, no_wa: lama.no_wa }, sesudah: { nama_pic, no_wa: no_wa || null } }, ...reqMeta(req),
+    })
+    return NextResponse.json({ ok: true })
+  }
+
   return NextResponse.json({ error: 'Aksi tidak dikenali.' }, { status: 400 })
 }

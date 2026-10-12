@@ -49,6 +49,8 @@ export default function PageLapPertandingan() {
   const [formKode, setFormKode] = useState({ cabor_id: '', nama_pic: '', no_wa: '' })
   const [kodeBaru, setKodeBaru] = useState<{ kode: string; cabor: string; nama: string; wa: string } | null>(null)
   const [tersalin, setTersalin] = useState(false)
+  const [mengubahPic, setMengubahPic] = useState<number | null>(null)
+  const [formPic, setFormPic] = useState({ nama_pic: '', no_wa: '' })
 
   const muatLaporan = useCallback(async () => {
     const r = await fetch(`/api/konida/laporan-hasil${Q}`, { cache: 'no-store' })
@@ -104,6 +106,14 @@ export default function PageLapPertandingan() {
   }
   async function ubahAkses(id: number, aksi: 'aktifkan' | 'matikan') {
     await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi, id }) })
+    await muatAkses()
+  }
+  async function simpanPic(id: number) {
+    setGalat('')
+    const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'ubah', id, ...formPic }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) { setGalat(j.error ?? 'Gagal menyimpan perubahan.'); return }
+    setMengubahPic(null)
     await muatAkses()
   }
 
@@ -320,11 +330,30 @@ export default function PageLapPertandingan() {
                   {akses.map(a => (
                     <tr key={a.id} className={`border-b border-slate-800/60 ${a.aktif ? '' : 'opacity-50'}`}>
                       <td className="px-4 py-3 font-bold text-white">{a.cabor}</td>
-                      <td className="px-4 py-3">{a.nama_pic}{a.no_wa && <div className="text-xs text-slate-500">{a.no_wa}</div>}</td>
+                      <td className="px-4 py-3">
+                        {mengubahPic === a.id ? (
+                          <div className="space-y-1.5 min-w-[160px]">
+                            <input autoFocus value={formPic.nama_pic} onChange={e => setFormPic({ ...formPic, nama_pic: e.target.value })} placeholder="Nama PIC" aria-label="Nama PIC" className={kotak} />
+                            <input value={formPic.no_wa} onChange={e => setFormPic({ ...formPic, no_wa: e.target.value })} placeholder="Nomor WhatsApp" aria-label="Nomor WhatsApp" inputMode="tel" className={kotak} />
+                          </div>
+                        ) : (
+                          <>{a.nama_pic}<div className="text-xs text-slate-500">{a.no_wa ?? 'tanpa nomor WA'}</div></>
+                        )}
+                      </td>
                       <td className="px-4 py-3 font-mono text-slate-400">••••-{a.kode_ujung}</td>
                       <td className="px-4 py-3 text-xs text-slate-400">{a.terakhir_dipakai ? new Date(a.terakhir_dipakai).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }) : 'Belum pernah'}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => ubahAkses(a.id, a.aktif ? 'matikan' : 'aktifkan')} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300">{a.aktif ? 'Matikan' : 'Aktifkan'}</button>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {mengubahPic === a.id ? (
+                          <>
+                            <button onClick={() => simpanPic(a.id)} disabled={!formPic.nama_pic.trim()} className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-bold text-slate-950 disabled:opacity-40">Simpan</button>
+                            <button onClick={() => setMengubahPic(null)} className="ml-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300">Batal</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => { setMengubahPic(a.id); setFormPic({ nama_pic: a.nama_pic, no_wa: a.no_wa ?? '' }) }} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300">Ubah</button>
+                            <button onClick={() => ubahAkses(a.id, a.aktif ? 'matikan' : 'aktifkan')} className="ml-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300">{a.aktif ? 'Matikan' : 'Aktifkan'}</button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
