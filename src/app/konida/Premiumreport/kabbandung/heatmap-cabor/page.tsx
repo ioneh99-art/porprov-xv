@@ -15,6 +15,7 @@ import {
 } from 'recharts'
 import { Heatmap } from '@/components/konida/TesFisikHelpers'
 import AthleteDetailDrawer from '@/components/konida/AthleteDetailDrawer'
+import { KEMBALI_DARI_PREMIUM_KABBANDUNG } from '@/lib/saklar-menu'
 
 const KATEGORI_COLOR: Record<string, string> = {
   'Baik Sekali':   '#0ea5e9',
@@ -37,7 +38,7 @@ const OPTION_STYLE: React.CSSProperties = {
 }
 
 const PRIMARY = '#075985'
-const BACK    = '/konida/Premiumreport/kabbandung'
+const BACK    = KEMBALI_DARI_PREMIUM_KABBANDUNG
 
 // ── Helpers ──────────────────────────────────────────────
 function getZone(val: number): { label: string; color: string; bg: string } {

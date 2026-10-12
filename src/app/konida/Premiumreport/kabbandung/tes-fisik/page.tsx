@@ -2,6 +2,7 @@
 // Premium Report > Tes Biomotorik untuk Kab. Bandung (kontingen_id=4)
 
 import TesFisikDetailReport from '@/components/konida/TesFisikDetailReport'
+import { KEMBALI_DARI_PREMIUM_KABBANDUNG } from '@/lib/saklar-menu'
 
 export default function TesFisikKabBandungPage() {
   return (
@@ -10,7 +11,7 @@ export default function TesFisikKabBandungPage() {
       tenantName="Kab. Bandung"
       tenantSlug="kabbandung"
       primary="#075985"
-      backHref="/konida/Premiumreport/kabbandung"
+      backHref={KEMBALI_DARI_PREMIUM_KABBANDUNG}
     />
   )
 }

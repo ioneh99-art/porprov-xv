@@ -9,6 +9,7 @@ import {
   CreditCard,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { PREMIUM_REPORT_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
 
 const TENANT_COLORS: Record<string, { primary: string; dark: string; nama: string }> = {
   kabbogor:       { primary: '#065f46', dark: '#047857', nama: 'Kab. Bogor'          },
@@ -380,7 +381,9 @@ export default function KonidaSidebar() {
                 style={{ color: '#a78bfa', opacity: 0.7 }}>Command Center</span>
               <div className="flex-1 h-px bg-slate-800"/>
             </div>
-            <NavItemVIP label="Premium Report"      href="/konida/Premiumreport/kabbandung"    icon={Download} />
+            {PREMIUM_REPORT_KABBANDUNG_TAMPIL && (
+              <NavItemVIP label="Premium Report"    href="/konida/Premiumreport/kabbandung"    icon={Download} />
+            )}
             <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
             <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
           </>

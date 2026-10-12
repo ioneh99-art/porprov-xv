@@ -94,7 +94,7 @@ export default function TesFisikDetailReport({
       <div className="min-h-screen p-5" style={{ background:'#020617' }}>
         <Link href={backHref}
           className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white mb-4">
-          <ArrowLeft size={14}/> Kembali ke Premium Report
+          <ArrowLeft size={14}/> Kembali
         </Link>
         <div className="rounded-2xl p-6"
           style={{ background:'rgba(251,191,36,0.06)', border:'1px solid rgba(251,191,36,0.25)' }}>
