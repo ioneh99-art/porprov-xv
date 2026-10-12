@@ -3,7 +3,7 @@
 // Form lapor hasil pertandingan untuk PIC cabor di lapangan. Dirancang untuk HP:
 // satu kolom, tombol besar, sesedikit mungkin mengetik.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HASIL, LABEL_HASIL, tulisHasil, type Hasil } from '@/lib/lapor'
 
 interface Atlet { id: number; nama: string; gender: string | null }
@@ -81,16 +81,29 @@ export default function HalamanLapor() {
     } catch { setGalat('Tidak ada sambungan. Coba lagi.') } finally { setSibuk(false) }
   }, [muat])
 
+  const kosongkanRef = useRef<() => void>(() => {})
+
   useEffect(() => {
     // Kode boleh dibawa di belakang tanda # pada tautan WhatsApp. Bagian itu
     // tidak ikut terkirim ke server, jadi tidak tercatat di log mana pun.
-    const dariTautan = decodeURIComponent(window.location.hash.slice(1))
-    if (dariTautan) {
-      history.replaceState(null, '', window.location.pathname)
-      masuk(dariTautan).then(() => setTahap(t => t === 'memuat' ? 'masuk' : t))
-    } else {
-      muat()
+    const prosesTautan = (pertamaKali: boolean) => {
+      let dariTautan = ''
+      try { dariTautan = decodeURIComponent(window.location.hash.slice(1)) } catch { /* tautan rusak: anggap tanpa kode */ }
+      if (dariTautan) {
+        history.replaceState(null, '', window.location.pathname)
+        kosongkanRef.current()   // isian cabor sebelumnya tidak boleh terbawa ke cabor baru
+        masuk(dariTautan).then(() => setTahap(t => t === 'memuat' ? 'masuk' : t))
+      } else if (pertamaKali) {
+        muat()
+      }
     }
+    prosesTautan(true)
+    // Orang yang memegang dua cabor berpindah dengan mengetuk tautan cabor lain.
+    // Kalau halaman ini sudah terbuka, browser hanya mengganti bagian # tanpa
+    // memuat ulang — tanpa pendengar ini kode barunya tidak pernah diproses.
+    const saatTautanBerganti = () => prosesTautan(false)
+    window.addEventListener('hashchange', saatTautanBerganti)
+    return () => window.removeEventListener('hashchange', saatTautanBerganti)
   }, [masuk, muat])
 
   // Saran muncul saat mengetik; daftar penuh hanya bila diminta, supaya isian
@@ -117,6 +130,7 @@ export default function HalamanLapor() {
   }
 
   const buangFoto = () => { setFoto(null); setPratinjau(lama => { if (lama) URL.revokeObjectURL(lama); return '' }) }
+  kosongkanRef.current = kosongkan
   const pilihFoto = async (berkas: File | undefined) => {
     if (!berkas) return
     setGalat('')
@@ -205,6 +219,9 @@ export default function HalamanLapor() {
                 <input id="nomor" value={nomorTeks} placeholder={bahan.nomor.length ? 'Ketik untuk mencari, atau tulis sendiri' : 'Contoh: 53 kg Putri'}
                   onChange={e => { setNomorTeks(e.target.value); setNomorId(null) }} className={kotak} autoComplete="off" />
                 {nomorId != null && <p className="text-xs text-emerald-300 mt-1.5">Dipilih dari daftar resmi.</p>}
+                {nomorId == null && nomorTeks.trim() !== '' && saranNomor.length === 0 && bahan.nomor.length > 0 && (
+                  <p className="text-xs text-amber-300 mt-1.5">Tidak ada di daftar. Tidak apa-apa: laporan dikirim sesuai yang Anda ketik.</p>
+                )}
                 {nomorId == null && !nomorTeks.trim() && bahan.nomor.length > 0 && (
                   <button type="button" onClick={() => setBukaDaftar(b => !b)} aria-expanded={bukaDaftar}
                     className="mt-2 text-sm font-bold text-sky-300 underline underline-offset-4">

@@ -1,7 +1,7 @@
 // scripts/uji-lapor.ts — mengunci aturan laporan hasil lapangan.
 // Dijalankan: npm run uji:lapor
 import {
-  ABJAD_KODE, adalahFinal, bakukanKode, buatKode, capaianTarget, hariPorprov, jenisGambar, kunciKembar,
+  ABJAD_KODE, adalahFinal, bakukanKode, buangNomorKembar, buatKode, capaianTarget, hariPorprov, jenisGambar, kunciKembar,
   periksaLaporan, petaCabang, rekapMedali, tanggalSah, tanggalWIB, timpaKlasemen, tulisHasil,
 } from '../src/lib/lapor'
 
@@ -136,6 +136,23 @@ cek('png', jenisGambar(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a,
 cek('webp', jenisGambar(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]))?.ext, 'webp')
 cek('html menyamar .jpg ditolak', jenisGambar(new TextEncoder().encode('<html><script>')), null)
 cek('berkas kosong ditolak', jenisGambar(new Uint8Array([])), null)
+
+// ── nomor kembar di daftar resmi ──
+const daftar = [
+  { id: 2620, nama: 'Angkat Besi -55kg Putra', gender: 'L', sub: null },
+  { id: 2434, nama: 'Angkat Besi -55kg Putra', gender: 'L', sub: null },
+  { id: 2446, nama: 'Angkat Besi -55kg Putri', gender: 'P', sub: null },
+  { id: 2632, nama: 'angkat  besi -55KG putri ', gender: 'P', sub: null },
+  { id: 9001, nama: 'Sprint 200m', gender: 'L', sub: 'Dayung - Canoe' },
+  { id: 9002, nama: 'Sprint 200m', gender: 'L', sub: 'Dayung - Rowing' },
+  { id: 9003, nama: 'Sprint 200m', gender: 'P', sub: 'Dayung - Canoe' },
+]
+const bersih = buangNomorKembar(daftar)
+cek('kembar dibuang, id terkecil yang dipertahankan', bersih.map(n => n.id), [2434, 2446, 9001, 9002, 9003])
+cek('beda jenis kelamin bukan kembar', bersih.filter(n => n.nama.includes('55')).length, 2)
+cek('beda sub-cabor bukan kembar', bersih.filter(n => n.nama === 'Sprint 200m' && n.gender === 'L').length, 2)
+cek('daftar tanpa kembar tidak berubah', buangNomorKembar(bersih).map(n => n.id), bersih.map(n => n.id))
+cek('daftar kosong', buangNomorKembar([]), [])
 
 console.log(`\n${lulus} lulus, ${gagal} gagal`)
 if (gagal > 0) process.exit(1)

@@ -229,3 +229,24 @@ export function tanggalSah(t: unknown): t is string {
   const d = new Date(t + 'T00:00:00Z')
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t
 }
+
+// ── Daftar nomor ─────────────────────────────────────────────────────────────
+export interface NomorPilihan { id: number; nama: string; gender: string | null; sub: string | null }
+
+/**
+ * Tabel nomor_pertandingan memuat baris kembar (185 baris di 19 cabor: nama,
+ * jenis kelamin, dan cabor sama persis, hasil impor ganda). Di form PIC cukup
+ * satu yang tampil — yang id-nya paling kecil, supaya pilihannya tetap sama
+ * dari waktu ke waktu.
+ */
+export function buangNomorKembar<T extends NomorPilihan>(nomor: T[]): T[] {
+  const terpilih = new Map<string, T>()
+  for (const n of nomor) {
+    const kunci = [n.sub ?? '', n.gender ?? '', n.nama.toLowerCase().replace(/\s+/g, ' ').trim()].join('|')
+    const lama = terpilih.get(kunci)
+    if (!lama || n.id < lama.id) terpilih.set(kunci, n)
+  }
+  // Urutan asli dipertahankan.
+  const boleh = new Set(Array.from(terpilih.values()).map(n => n.id))
+  return nomor.filter(n => boleh.has(n.id))
+}

@@ -3,6 +3,7 @@
 // Hanya nama dan jenis kelamin atlet yang keluar dari sini — tidak ada data pribadi.
 
 import { NextResponse } from 'next/server'
+import { buangNomorKembar } from '@/lib/lapor'
 import { ambilSesiLapor, dbLapor, keluargaCabor } from '@/lib/lapor-sesi'
 
 export const runtime = 'nodejs'
@@ -34,11 +35,11 @@ export async function GET() {
     kontingen: kontingen?.nama ?? '',
     cabor: namaCabor,
     atlet: (atlet ?? []).map((a: any) => ({ id: a.id, nama: a.nama_lengkap, gender: a.gender })),
-    nomor: (nomor ?? []).map((n: any) => ({
-      id: n.id, nama: n.nama, gender: n.gender,
+    nomor: buangNomorKembar((nomor ?? []).map((n: any) => ({
+      id: n.id as number, nama: n.nama as string, gender: n.gender as string | null,
       // Sub-cabor hanya ditulis bila berbeda dari cabor induknya.
       sub: n.cabor_id !== s.cabor_id ? (namaAnak.get(n.cabor_id) ?? null) : null,
-    })),
+    }))),
     laporan: (laporan ?? []).map(({ foto_path, ...l }: any) => ({ ...l, ada_foto: !!foto_path })),
   })
 }
