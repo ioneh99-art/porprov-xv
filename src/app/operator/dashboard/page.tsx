@@ -36,7 +36,8 @@ export default function OperatorDashboardPage() {
         supabase
           .from('nomor_pertandingan')
           .select('*', { count: 'exact', head: true })
-          .eq('cabor_id', meData.cabor_id),
+          .eq('cabor_id', meData.cabor_id)
+          .eq('is_active', true),
         supabase
           .from('atlet_umum')
           .select('*', { count: 'exact', head: true })

@@ -29,6 +29,7 @@ export default function AturanNomorPage() {
       for (let p = 0; ; p++) {
         const { data } = await sb.from('nomor_pertandingan')
           .select('id,nama,gender,usia_min,usia_maks,max_peserta_kontingen,max_nomor_per_atlet,cabang_olahraga(nama)')
+          .eq('is_active', true)
           .order('id').range(p * 1000, (p + 1) * 1000 - 1)
         if (!data || data.length === 0) break
         all = all.concat(data); if (data.length < 1000) break

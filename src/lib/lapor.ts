@@ -63,10 +63,22 @@ export interface IsiLaporan {
   peringkat: number | null
   nilai_teks: string | null
   keterangan: string | null
+  /** Lawan atau pesaing terdekat; untuk kolom Lawan di matriks KONI. */
+  lawan: string | null
+  /** Jam tanding HH:MM (WIB). Kosong = jurnal memakai jam laporan dikirim. */
+  jam: string | null
 }
 
 const rapikan = (v: unknown, maks: number): string =>
   typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, maks) : ''
+
+/** Jam HH:MM yang sah, null bila kosong, false bila bentuknya salah. "9:05" diterima dan dijadikan "09:05". */
+export function periksaJam(v: unknown): string | null | false {
+  if (v == null || v === '') return null
+  const m = /^(\d{1,2})[:.](\d{2})$/.exec(String(v).trim())
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return false
+  return `${m[1].padStart(2, '0')}:${m[2]}`
+}
 
 /** Mengembalikan isi yang sudah dirapikan, atau pesan galat untuk ditampilkan ke PIC. */
 export function periksaLaporan(b: any): { isi: IsiLaporan } | { galat: string } {
@@ -94,11 +106,16 @@ export function periksaLaporan(b: any): { isi: IsiLaporan } | { galat: string } 
     if (!Number.isInteger(nomor_id) || nomor_id <= 0) return { galat: 'Nomor pertandingan tidak dikenali.' }
   }
 
+  const jam = periksaJam(b?.jam)
+  if (jam === false) return { galat: 'Jam tanding tidak dikenali. Tulis seperti 14:30.' }
+
   return {
     isi: {
       nomor_id, nomor_teks, atlet_ids, hasil, peringkat,
       nilai_teks: rapikan(b?.nilai_teks, 80) || null,
       keterangan: rapikan(b?.keterangan, 300) || null,
+      lawan: rapikan(b?.lawan, 120) || null,
+      jam,
     },
   }
 }

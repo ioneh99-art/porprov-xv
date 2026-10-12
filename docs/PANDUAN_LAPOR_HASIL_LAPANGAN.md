@@ -199,3 +199,47 @@ update atlet set gender = 'P' where id in (1797, 1954, 1980, 2127, 2210, 2242, 2
 update atlet set gender = 'L' where id in (2101, 2239, 2368, 2739, 2750, 2838, 2870, 2972);
 ```
 Jejaknya ada di `audit_logs` dengan aksi `KOREKSI_GENDER_BERKAS_RESMI`.
+
+---
+
+## 11. Pembaruan 12 Oktober 2026 (malam): nomor kembar, Lawan dan Jam, jurnal format KONI
+
+### 185 nomor kembar dinonaktifkan
+
+Di `nomor_pertandingan`, 185 baris yang nama, jenis kelamin, dan cabornya sama persis dengan baris lain (impor ganda 13 Mei) diberi `is_active = false`. Yang dipertahankan dari tiap kelompok adalah yang id-nya terkecil. Tidak satu pun dari ke-185 baris itu dirujuk data peserta, hasil, kualifikasi, kuota, jadwal, baseline, maupun laporan. Nomor aktif sekarang 1.151.
+
+Tujuh halaman yang sebelumnya tidak menyaring nomor aktif sekarang menyaringnya: operator Hasil, Kualifikasi, Jadwal, dan Dashboard; superadmin Aturan Nomor; Dashboard utama; dan hitungan notifikasi. Halaman khusus operator Dayung dan Pentathlon tidak diubah (cabornya tidak punya baris kembar).
+
+Membatalkan:
+```sql
+update nomor_pertandingan set is_active = true, catatan_approval = null
+where catatan_approval like 'Dinonaktifkan 2026-10-12: kembaran%';
+```
+
+### Isian Lawan dan Jam tanding
+
+Dua isian baru di form PIC (migrasi 056), keduanya boleh kosong. Bila Jam kosong, jurnal memakai jam laporan dikirim. KONIDA bisa mengisi atau membetulkan keduanya lewat **Perbaiki**.
+
+### Jurnal dalam format "Matrix Jadwal Harian" KONI
+
+Di tab **Jurnal Harian** ada tiga tombol baru:
+
+| Tombol | Hasil |
+|---|---|
+| Cetak format KONI | Lembar mendatar untuk tanggal yang sedang dipilih |
+| Excel hari ini | Berkas `.xlsx` untuk tanggal yang sedang dipilih |
+| Excel seluruh jadwal | Berkas `.xlsx` dari hari pertama sampai terakhir jadwal (28 Okt–20 Nov) |
+
+Kolomnya sama dengan berkas KONI: No, Tanggal, Jam, Klaster Wilayah, Wilayah Venue, Cabor/Kegiatan, Nomor Pertandingan, Nama Atlet, Lawan, Hasil Pertandingan, Venue, Status Target, PIC.
+
+Cara terisinya:
+- **Tanggal, Klaster, Wilayah Venue, Kegiatan, Venue** dari jadwal.
+- **Nomor, Nama Atlet, Lawan, Hasil, Jam, PIC** dari laporan yang sudah disahkan. Satu laporan = satu baris.
+- **Status Target** dihitung dari target medali atlet di berkas analisis: tercapai, belum tercapai, atau masih berjalan (bila hasilnya baru "lolos"). Kosong bila atlet tidak punya target.
+- Kegiatan yang terjadwal hari itu tetapi belum punya laporan tetap ditulis dengan kolom hasil kosong, supaya terlihat cabor mana yang belum melapor.
+
+Batasannya:
+- Jadwal tersimpan per kegiatan (rentang hari), bukan per nomor. Jadi matriks tidak tahu nomor mana yang seharusnya bertanding hari itu; yang tampil hanya yang sudah dilaporkan.
+- Tiga baris BMX di berkas KONI (Park, Trial, Flat Land) adalah satu baris di sistem; begitu juga X Rugby dan Rugby 7s.
+- Laporan dari cabor yang tidak punya jadwal ditaruh di akhir hari itu dengan kolom kota dan venue kosong.
+- Baris jadwal Mini 4WD ditautkan ke cabor Balap Motor (sebelumnya tidak tertaut).

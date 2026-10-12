@@ -42,6 +42,7 @@ export default function JadwalOperatorPage() {
       supabase.from('nomor_pertandingan')
         .select('id, nama, gender')
         .eq('cabor_id', meData.cabor_id)
+        .eq('is_active', true)
         .eq('status', 'Approved')
         .order('nama'),
       supabase.from('venue')

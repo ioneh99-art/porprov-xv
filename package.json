@@ -13,7 +13,8 @@
     "uji:papan": "npx tsx scripts/uji-papan-kerja.ts",
     "uji:lapor": "npx tsx scripts/uji-lapor.ts",
     "uji:pendaftaran": "npx tsx scripts/uji-pendaftaran.ts",
-    "uji": "npm run uji:perubahan && npm run uji:gateway && npm run uji:pencocokan && npm run uji:jadwal && npm run uji:papan && npm run uji:lapor && npm run uji:pendaftaran"
+    "uji:matriks": "npx tsx scripts/uji-matriks.ts",
+    "uji": "npm run uji:perubahan && npm run uji:gateway && npm run uji:pencocokan && npm run uji:jadwal && npm run uji:papan && npm run uji:lapor && npm run uji:pendaftaran && npm run uji:matriks"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",

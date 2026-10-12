@@ -93,6 +93,7 @@ export async function GET(req: NextRequest) {
         .from('nomor_pertandingan')
         .select('id')
         .eq('cabor_id', parseInt(cabor_id))
+        .eq('is_active', true)
 
       const nomorIds = (nomorList ?? []).map((n: any) => n.id)
       const { count: kualifikasiPending } = await sb()

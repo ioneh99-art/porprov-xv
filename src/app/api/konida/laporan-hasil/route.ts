@@ -3,7 +3,7 @@
 // dihitung sebagai medali — keputusan itu milik KONIDA, bukan PIC.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { HASIL, tanggalSah } from '@/lib/lapor'
+import { HASIL, periksaJam, tanggalSah } from '@/lib/lapor'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { writeAudit, reqMeta } from '@/lib/audit'
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   let laporan: any[]
   try {
     laporan = await ambilSemua((dari, sampai) => db.from('laporan_hasil')
-      .select('id,cabor_id,nomor_id,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,keterangan,foto_path,tanggal,pelapor_nama,pelapor_wa,status,diputus_oleh,diputus_at,alasan_tolak,created_at')
+      .select('id,cabor_id,nomor_id,nomor_teks,disiplin,atlet_ids,hasil,peringkat,nilai_teks,keterangan,lawan,jam,foto_path,tanggal,pelapor_nama,pelapor_wa,status,diputus_oleh,diputus_at,alasan_tolak,created_at')
       .eq('kontingen_id', a.kontingen_id).order('created_at', { ascending: false }).order('id', { ascending: false }).range(dari, sampai))
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
   const db = dbLapor()
   const { data: lama } = await db.from('laporan_hasil')
-    .select('id,status,hasil,peringkat,nilai_teks,nomor_teks,tanggal').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
+    .select('id,status,hasil,peringkat,nilai_teks,nomor_teks,tanggal,lawan,jam').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
   if (!lama) return NextResponse.json({ error: 'Laporan tidak ditemukan.' }, { status: 404 })
 
   const kini = new Date().toISOString()
@@ -89,6 +89,13 @@ export async function POST(req: NextRequest) {
     ubah = {
       hasil: b.hasil, peringkat, nomor_teks: nomor,
       nilai_teks: typeof b?.nilai_teks === 'string' ? (b.nilai_teks.trim().slice(0, 80) || null) : null,
+    }
+    // Lawan dan jam hanya diubah bila ikut dikirim — form lama yang belum mengenalnya tidak menghapusnya.
+    if (typeof b?.lawan === 'string') ubah.lawan = b.lawan.replace(/\s+/g, ' ').trim().slice(0, 120) || null
+    if (b?.jam !== undefined) {
+      const jam = periksaJam(b.jam)
+      if (jam === false) return NextResponse.json({ error: 'Jam tanding tidak dikenali. Tulis seperti 14:30.' }, { status: 422 })
+      ubah.jam = jam
     }
     // Laporan yang dikirim lewat tengah malam tercatat di hari berikutnya; KONIDA boleh membetulkannya.
     if (b?.tanggal != null && b.tanggal !== '') {

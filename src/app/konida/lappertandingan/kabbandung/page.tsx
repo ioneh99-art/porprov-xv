@@ -5,8 +5,9 @@
 // Semua data lewat rute server — tidak ada yang disimpan di peramban.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle, ClipboardList, Copy, KeyRound, Pencil, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { CheckCircle, ClipboardList, Copy, Download, KeyRound, Pencil, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { HASIL, LABEL_HASIL, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
+import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
@@ -14,7 +15,7 @@ const Q = `?kontingen_id=${KONTINGEN_ID}`   // hanya dipakai admin pusat; untuk 
 
 interface Laporan {
   id: number; cabor: string; nomor_teks: string; atlet: string[]; hasil: Hasil; peringkat: number | null
-  nilai_teks: string | null; keterangan: string | null; tanggal: string; pelapor_nama: string; pelapor_wa: string | null
+  nilai_teks: string | null; keterangan: string | null; lawan: string | null; jam: string | null; tanggal: string; pelapor_nama: string; pelapor_wa: string | null
   status: 'menunggu' | 'disahkan' | 'ditolak'; diputus_oleh: string | null; alasan_tolak: string | null; created_at: string; ada_foto?: boolean
 }
 interface Akses { id: number; cabor: string; cabor_id: number; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null; jumlah_laporan: number }
@@ -44,7 +45,8 @@ export default function PageLapPertandingan() {
   const [menolak, setMenolak] = useState<number | null>(null)
   const [alasan, setAlasan] = useState('')
   const [memperbaiki, setMemperbaiki] = useState<number | null>(null)
-  const [koreksi, setKoreksi] = useState({ nomor_teks: '', hasil: 'emas' as Hasil, peringkat: '', nilai_teks: '', tanggal: '' })
+  const [koreksi, setKoreksi] = useState({ nomor_teks: '', hasil: 'emas' as Hasil, peringkat: '', nilai_teks: '', tanggal: '', lawan: '', jam: '' })
+  const [sibukMatriks, setSibukMatriks] = useState(false)
 
   const [formKode, setFormKode] = useState({ cabor_id: '', nama_pic: '', no_wa: '' })
   const [kodeBaru, setKodeBaru] = useState<{ kode: string; cabor: string; nama: string; wa: string } | null>(null)
@@ -121,6 +123,49 @@ export default function PageLapPertandingan() {
     ? `Yth. ${kodeBaru.nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${kodeBaru.cabor}.\n\nTautan: ${typeof window !== 'undefined' ? window.location.origin : ''}/lapor#${kodeBaru.kode}\nKode: ${kodeBaru.kode}\n\nLaporkan setiap nomor segera setelah selesai. Mohon kode ini tidak dibagikan ke orang lain.`
     : ''
 
+  // ── Jurnal dalam format "Matrix Jadwal Harian" KONI ──
+  async function ambilMatriks(semua: boolean): Promise<{ kontingen: string; dari: string; sampai: string; baris: BarisMatriks[] } | null> {
+    setGalat(''); setSibukMatriks(true)
+    try {
+      const r = await fetch(`/api/konida/matriks-harian${Q}&${semua ? 'semua=1' : `dari=${tanggalAktif}&sampai=${tanggalAktif}`}`, { cache: 'no-store' })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setGalat(j.error ?? 'Gagal menyusun matriks.'); return null }
+      return j
+    } catch { setGalat('Tidak ada sambungan.'); return null } finally { setSibukMatriks(false) }
+  }
+
+  async function cetakMatriks() {
+    // Jendela dibuka sebelum menunggu data: jendela yang dibuka sesudah jeda dianggap pop-up dan diblokir peramban.
+    const w = window.open('', '_blank')
+    const m = await ambilMatriks(false)
+    if (!m) { w?.close(); return }
+    const sel = (b: BarisMatriks) => [b.no, tglTampil(b.tanggal), b.jam, b.klaster, b.wilayah_venue, b.kegiatan, b.nomor, b.atlet, b.lawan, b.hasil, b.venue, b.status_target, b.pic]
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Matrix Jadwal Harian ${aman(m.dari)}</title><style>
+      @page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;font-size:9px;color:#111}
+      h2{font-size:13px;margin:0;text-align:center}h3{font-size:11px;margin:2px 0 10px;text-align:center;font-weight:normal}
+      table{width:100%;border-collapse:collapse}th{background:#075985;color:#fff;padding:4px 5px;text-align:left;font-size:8.5px;border:1px solid #075985}
+      td{padding:4px 5px;border:1px solid #cbd5e1;vertical-align:top}tr.isi td{background:#f0f9ff}.k{color:#64748b;font-size:8px;margin-top:8px}
+    </style></head><body><h2>MATRIX JADWAL HARIAN PORPROV XV 2026</h2>
+    <h3>KONTINGEN ${aman(m.kontingen.toUpperCase().replace(/^KAB\.\s*/, 'KABUPATEN '))} · ${aman(tglTampil(m.dari))}</h3>
+    <table><thead><tr>${KEPALA_MATRIKS.map(k => `<th>${aman(k)}</th>`).join('')}</tr></thead><tbody>
+    ${m.baris.map(b => `<tr class="${b.nomor ? 'isi' : ''}">${sel(b).map(c => `<td>${aman(c)}</td>`).join('')}</tr>`).join('')}
+    </tbody></table>
+    <p class="k">Kolom Nomor, Nama Atlet, Lawan, Hasil, Status Target, dan PIC terisi dari laporan PIC cabor yang sudah disahkan. Baris kosong berarti kegiatan terjadwal hari itu tetapi belum ada hasil yang disahkan.</p>
+    <script>window.print()</script></body></html>`
+    w?.document.write(html); w?.document.close()
+  }
+
+  async function unduhMatriks(semua: boolean) {
+    const m = await ambilMatriks(semua)
+    if (!m) return
+    const XLSX = await import('xlsx')
+    const ws = XLSX.utils.aoa_to_sheet(lembarMatriks(m.baris, m.kontingen))
+    ws['!cols'] = [5, 11, 7, 13, 15, 26, 34, 34, 22, 24, 34, 26, 18].map(wch => ({ wch }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Matrix Jadwal Harian')
+    XLSX.writeFile(wb, `Matrix_Jadwal_Harian_${semua ? `${m.dari}_sd_${m.sampai}` : m.dari}.xlsx`)
+  }
+
   function cetak() {
     const baris = jurnal.map((l, i) => `<tr><td>${i + 1}</td><td>${aman(jamTampil(l.created_at))}</td><td><b>${aman(l.cabor)}</b></td><td>${aman(l.nomor_teks)}</td><td>${aman(l.atlet.join(', '))}</td><td><b>${aman(tulisHasil(l))}</b></td><td>${aman(l.nilai_teks ?? '—')}</td><td>${aman(l.pelapor_nama)}</td></tr>`).join('')
     const hari = hariPorprov(tanggalAktif)
@@ -151,6 +196,11 @@ export default function PageLapPertandingan() {
           {l.nilai_teks && <div className="text-sm font-mono text-slate-300">{l.nilai_teks}</div>}
         </div>
       </div>
+      {(l.lawan || l.jam) && (
+        <p className="text-sm text-slate-300 mt-2">
+          {l.lawan && <>Lawan: <span className="text-white">{l.lawan}</span></>}{l.lawan && l.jam ? ' · ' : ''}{l.jam && <>Jam tanding {l.jam}</>}
+        </p>
+      )}
       {l.keterangan && <p className="text-sm text-slate-400 mt-2">{l.keterangan}</p>}
       {l.ada_foto && (
         <a href={`/api/konida/laporan-hasil/foto${Q}&id=${l.id}`} target="_blank" rel="noopener" className="mt-3 inline-block">
@@ -186,6 +236,8 @@ export default function PageLapPertandingan() {
             Tanggal pertandingan
             <input type="date" value={koreksi.tanggal} onChange={e => setKoreksi({ ...koreksi, tanggal: e.target.value })} className={`${kotak} flex-1`} />
           </label>
+          <input value={koreksi.lawan} onChange={e => setKoreksi({ ...koreksi, lawan: e.target.value })} placeholder="Lawan" aria-label="Lawan" className={kotak} />
+          <input type="time" value={koreksi.jam} onChange={e => setKoreksi({ ...koreksi, jam: e.target.value })} aria-label="Jam tanding" className={kotak} />
           <div className="md:col-span-4 flex gap-2">
             <button onClick={async () => { if (await putuskan(l.id, { aksi: 'perbaiki', ...koreksi, peringkat: Number(koreksi.peringkat) })) setMemperbaiki(null) }} disabled={sibuk === l.id} className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40">Simpan perbaikan</button>
             <button onClick={() => setMemperbaiki(null)} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300">Batal</button>
@@ -198,7 +250,7 @@ export default function PageLapPertandingan() {
           {l.status === 'menunggu' ? (
             <>
               <button onClick={() => putuskan(l.id, { aksi: 'sahkan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"><CheckCircle size={15} /> Sahkan</button>
-              <button onClick={() => { setMemperbaiki(l.id); setKoreksi({ nomor_teks: l.nomor_teks, hasil: l.hasil, peringkat: l.peringkat ? String(l.peringkat) : '', nilai_teks: l.nilai_teks ?? '', tanggal: l.tanggal }) }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"><Pencil size={14} /> Perbaiki</button>
+              <button onClick={() => { setMemperbaiki(l.id); setKoreksi({ nomor_teks: l.nomor_teks, hasil: l.hasil, peringkat: l.peringkat ? String(l.peringkat) : '', nilai_teks: l.nilai_teks ?? '', tanggal: l.tanggal, lawan: l.lawan ?? '', jam: l.jam ?? '' }) }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"><Pencil size={14} /> Perbaiki</button>
               <button onClick={() => { setMenolak(l.id); setAlasan('') }} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300"><XCircle size={15} /> Tolak</button>
             </>
           ) : (
@@ -284,7 +336,12 @@ export default function PageLapPertandingan() {
               <p className="text-sm text-slate-300">
                 <b className="text-white">{tglTampil(tanggalAktif)}</b> · {rekapHari.emas} emas · {rekapHari.perak} perak · {rekapHari.perunggu} perunggu · {rekapHari.laga} nomor selesai
               </p>
-              <button onClick={cetak} disabled={jurnal.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 disabled:opacity-40"><Printer size={14} /> Cetak</button>
+              <div className="flex gap-2 flex-wrap">
+                <button onClick={cetak} disabled={jurnal.length === 0} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 disabled:opacity-40"><Printer size={14} /> Cetak ringkas</button>
+                <button onClick={cetakMatriks} disabled={sibukMatriks} className="inline-flex items-center gap-2 rounded-lg border border-sky-400/50 px-3 py-2 text-sm font-bold text-sky-200 disabled:opacity-40"><Printer size={14} /> Cetak format KONI</button>
+                <button onClick={() => unduhMatriks(false)} disabled={sibukMatriks} className="inline-flex items-center gap-2 rounded-lg border border-sky-400/50 px-3 py-2 text-sm font-bold text-sky-200 disabled:opacity-40"><Download size={14} /> Excel hari ini</button>
+                <button onClick={() => unduhMatriks(true)} disabled={sibukMatriks} className="inline-flex items-center gap-2 rounded-lg border border-sky-400/50 px-3 py-2 text-sm font-bold text-sky-200 disabled:opacity-40"><Download size={14} /> Excel seluruh jadwal</button>
+              </div>
             </div>
             <div className="mt-3 space-y-3">
               {jurnal.length === 0 && <div className={`${kartu} p-8 text-center text-slate-400`}>Belum ada hasil yang disahkan untuk tanggal ini.</div>}

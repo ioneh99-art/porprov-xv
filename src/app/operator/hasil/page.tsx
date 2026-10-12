@@ -30,6 +30,7 @@ export default function InputHasilPage() {
       .from('nomor_pertandingan')
       .select('*, venue(nama)')
       .eq('cabor_id', meData.cabor_id)
+      .eq('is_active', true)
       .order('tanggal_pertandingan')
 
     setNomors(data ?? [])

@@ -340,7 +340,7 @@ export default function DashboardKONI() {
       sb.from('cabang_olahraga').select('id, nama').order('nama'),
       sb.from('klasemen_medali').select('*, kontingen(nama)').order('emas', { ascending:false }).limit(10),
       sb.from('riwayat_kejuaraan').select('id, status'),
-      sb.from('nomor_pertandingan').select('id'),
+      sb.from('nomor_pertandingan').select('id').eq('is_active', true),
     ])
 
     const atlet = atletAll ?? []

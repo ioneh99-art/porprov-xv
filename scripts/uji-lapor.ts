@@ -2,7 +2,7 @@
 // Dijalankan: npm run uji:lapor
 import {
   ABJAD_KODE, adalahFinal, bakukanKode, buangNomorKembar, buatKode, capaianTarget, hariPorprov, jenisGambar, kunciKembar,
-  periksaLaporan, petaCabang, rekapMedali, tanggalSah, tanggalWIB, timpaKlasemen, tulisHasil,
+  periksaJam, periksaLaporan, petaCabang, rekapMedali, tanggalSah, tanggalWIB, timpaKlasemen, tulisHasil,
 } from '../src/lib/lapor'
 
 let lulus = 0, gagal = 0
@@ -53,6 +53,15 @@ cek('nomor_id ngawur', 'galat' in periksaLaporan({ ...dasar, nomor_id: 'abc' }),
 cek('keterangan dipotong 300', (periksaLaporan({ ...dasar, keterangan: 'x'.repeat(500) }) as any).isi.keterangan.length, 300)
 cek('catatan kosong jadi null', (periksaLaporan({ ...dasar, nilai_teks: '   ' }) as any).isi.nilai_teks, null)
 cek('badan kosong', 'galat' in periksaLaporan(null), true)
+cek('lawan dirapikan', (periksaLaporan({ ...dasar, lawan: '  Kota   Bandung ' }) as any).isi.lawan, 'Kota Bandung')
+cek('lawan kosong jadi null', (periksaLaporan(dasar) as any).isi.lawan, null)
+cek('jam sah', (periksaLaporan({ ...dasar, jam: '14:30' }) as any).isi.jam, '14:30')
+cek('jam satu digit dilengkapi', periksaJam('9:05'), '09:05')
+cek('jam bertitik diterima', periksaJam('14.30'), '14:30')
+cek('jam kosong', [periksaJam(''), periksaJam(null), periksaJam(undefined)], [null, null, null])
+cek('jam 25:00 ditolak', periksaJam('25:00'), false)
+cek('jam 12:60 ditolak', periksaJam('12:60'), false)
+cek('jam ngawur menggagalkan laporan', 'galat' in periksaLaporan({ ...dasar, jam: 'sore' }), true)
 
 // ── tanggal koreksi ──
 cek('tanggal sah', tanggalSah('2026-11-07'), true)

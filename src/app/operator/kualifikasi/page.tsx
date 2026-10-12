@@ -26,6 +26,7 @@ export default function OperatorKualifikasiPage() {
       .from('nomor_pertandingan')
       .select('id, nama, gender')
       .eq('cabor_id', meData.cabor_id)
+      .eq('is_active', true)
       .order('nama')
     setNomors(data ?? [])
   }

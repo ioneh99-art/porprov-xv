@@ -70,6 +70,8 @@ export default function HalamanLapor() {
   const [peringkat, setPeringkat] = useState('')
   const [nilai, setNilai] = useState('')
   const [keterangan, setKeterangan] = useState('')
+  const [lawan, setLawan] = useState('')
+  const [jam, setJam] = useState('')
   const [foto, setFoto] = useState<Blob | null>(null)
   const [pratinjau, setPratinjau] = useState('')
 
@@ -150,7 +152,7 @@ export default function HalamanLapor() {
 
   const kosongkan = () => {
     setNomorTeks(''); setNomorPilih(null); setSemuaAtlet(false); setBukaDaftar(false); setCariAtlet(''); setPilihan([]); setHasil(null)
-    setPeringkat(''); setNilai(''); setKeterangan(''); buangFoto()
+    setPeringkat(''); setNilai(''); setKeterangan(''); setLawan(''); setJam(''); buangFoto()
   }
 
   const buangFoto = () => { setFoto(null); setPratinjau(lama => { if (lama) URL.revokeObjectURL(lama); return '' }) }
@@ -175,7 +177,7 @@ export default function HalamanLapor() {
         nomor_id: nomorPilih?.id ?? null, nomor_teks: nomorTeks, atlet_ids: pilihan, hasil,
         // Nomor dari daftar resmi dicocokkan ulang di server lewat dua isian ini.
         ...(nomorPilih?.disiplin ? { disiplin: nomorPilih.disiplin, nomor_resmi: nomorPilih.nama } : {}),
-        peringkat: hasil === 'peringkat' ? Number(peringkat) : null, nilai_teks: nilai, keterangan,
+        peringkat: hasil === 'peringkat' ? Number(peringkat) : null, nilai_teks: nilai, keterangan, lawan, jam,
       })
       let r: Response
       if (foto) {
@@ -358,13 +360,25 @@ export default function HalamanLapor() {
                 <input id="nilai" value={nilai} onChange={e => setNilai(e.target.value)} placeholder="Waktu, skor, atau total. Contoh: 159 kg" className={kotak} />
               </div>
 
+              <div className="grid grid-cols-5 gap-3">
+                <div className="col-span-3">
+                  <label htmlFor="lawan" className={judulIsian}>5 · Lawan <span className="normal-case font-normal text-slate-500">(boleh kosong)</span></label>
+                  <input id="lawan" value={lawan} onChange={e => setLawan(e.target.value)} placeholder="Nama atau daerahnya" className={kotak} />
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="jam" className={judulIsian}>Jam tanding</label>
+                  <input id="jam" type="time" value={jam} onChange={e => setJam(e.target.value)} className={kotak} />
+                </div>
+              </div>
+              <p className="-mt-4 text-xs text-slate-500">Jam boleh dikosongkan; yang dicatat jam laporan ini dikirim.</p>
+
               <div>
-                <label htmlFor="ket" className={judulIsian}>5 · Keterangan <span className="normal-case font-normal text-slate-500">(boleh kosong)</span></label>
-                <textarea id="ket" value={keterangan} onChange={e => setKeterangan(e.target.value)} rows={2} placeholder="Lawan, babak, atau hal penting lain" className={kotak} />
+                <label htmlFor="ket" className={judulIsian}>6 · Keterangan <span className="normal-case font-normal text-slate-500">(boleh kosong)</span></label>
+                <textarea id="ket" value={keterangan} onChange={e => setKeterangan(e.target.value)} rows={2} placeholder="Babak, kondisi atlet, atau hal penting lain" className={kotak} />
               </div>
 
               <div>
-                <div className={judulIsian}>6 · Foto bukti <span className="normal-case font-normal text-slate-500">(boleh kosong)</span></div>
+                <div className={judulIsian}>7 · Foto bukti <span className="normal-case font-normal text-slate-500">(boleh kosong)</span></div>
                 {pratinjau ? (
                   <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
