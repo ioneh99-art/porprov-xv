@@ -1,12 +1,15 @@
 'use client'
 // src/app/konida/lappertandingan/kabbandung/page.tsx
-// Report Pertandingan: antrean pengesahan laporan PIC lapangan, jurnal harian
-// dari laporan yang sudah disahkan, dan pengelolaan kode lapor PIC.
+// Report Pertandingan: antrean pengesahan laporan PIC lapangan, catatan lapangan
+// yang perlu ditindaklanjuti, jurnal harian dari laporan yang sudah disahkan,
+// laporan monitoring per cabor, dan pengelolaan kode lapor PIC.
 // Semua data lewat rute server — tidak ada yang disimpan di peramban.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle, ClipboardList, Copy, Download, KeyRound, Pencil, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ClipboardList, Copy, Download, FileText, KeyRound, Pencil, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
 import { HASIL, LABEL_HASIL, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
+import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
 import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
 
 const ACCENT = '#38bdf8'
@@ -14,14 +17,22 @@ const KONTINGEN_ID = 4
 const Q = `?kontingen_id=${KONTINGEN_ID}`   // hanya dipakai admin pusat; untuk KONIDA kontingen diambil dari sesi
 
 interface Laporan {
-  id: number; cabor: string; nomor_teks: string; atlet: string[]; hasil: Hasil; peringkat: number | null
+  id: number; cabor: string; cabor_id: number; nomor_teks: string; atlet: string[]; hasil: Hasil; peringkat: number | null
   nilai_teks: string | null; keterangan: string | null; lawan: string | null; jam: string | null; tanggal: string; pelapor_nama: string; pelapor_wa: string | null
   status: 'menunggu' | 'disahkan' | 'ditolak'; diputus_oleh: string | null; alasan_tolak: string | null; created_at: string; ada_foto?: boolean
 }
 interface Akses { id: number; cabor: string; cabor_id: number; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null; jumlah_laporan: number }
 interface Cabor { id: number; nama: string; atlet: number }
+interface Catatan {
+  id: number; cabor: string; cabor_id: number; jenis: JenisCatatan; mendesak: boolean; tanggal: string; jam: string | null
+  nomor_teks: string | null; atlet: string[]; isi: string; pelapor_nama: string; pelapor_wa: string | null
+  status: StatusCatatan; tanggapan: string | null; ditangani_oleh: string | null; ditangani_at: string | null; created_at: string; ada_foto?: boolean
+}
 
 const WARNA: Record<Hasil, string> = { emas: '#ffd700', perak: '#c0c0c0', perunggu: '#cd7f32', peringkat: ACCENT, lolos: '#34d399', gugur: '#6b7280' }
+const WARNA_JENIS: Record<JenisCatatan, string> = { aturan: '#fbbf24', teknis: '#38bdf8', nonteknis: '#a78bfa' }
+const WARNA_STATUS: Record<StatusCatatan, string> = { baru: '#fbbf24', ditangani: '#38bdf8', selesai: '#34d399', diabaikan: '#64748b' }
+type FilterCatatan = 'aktif' | 'selesai' | 'diabaikan' | 'semua'
 
 const tglTampil = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const tglLaporTampil = (ts: string) => new Date(ts).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', timeZone: 'Asia/Jakarta' })
@@ -33,8 +44,13 @@ const kotak = 'w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 
 const kartu = 'rounded-xl border border-slate-800 bg-slate-900/60'
 
 export default function PageLapPertandingan() {
-  const [tab, setTab] = useState<'antrean' | 'jurnal' | 'kode'>('antrean')
+  const [tab, setTab] = useState<'antrean' | 'catatan' | 'jurnal' | 'cabor' | 'kode'>('antrean')
   const [laporan, setLaporan] = useState<Laporan[]>([])
+  const [catatan, setCatatan] = useState<Catatan[]>([])
+  const [filterCatatan, setFilterCatatan] = useState<FilterCatatan>('aktif')
+  const [menanggapi, setMenanggapi] = useState<{ id: number; aksi: 'tangani' | 'selesai' | 'abaikan' } | null>(null)
+  const [teksTanggapan, setTeksTanggapan] = useState('')
+  const [sibukCabor, setSibukCabor] = useState<number | null>(null)
   const [akses, setAkses] = useState<Akses[]>([])
   const [cabor, setCabor] = useState<Cabor[]>([])
   const [memuat, setMemuat] = useState(true)
@@ -65,18 +81,40 @@ export default function PageLapPertandingan() {
     const j = await r.json().catch(() => ({}))
     if (r.ok) { setAkses(j.akses ?? []); setCabor(j.cabor ?? []) }
   }, [])
+  const muatCatatan = useCallback(async () => {
+    const r = await fetch(`/api/konida/catatan-lapangan${Q}`, { cache: 'no-store' })
+    const j = await r.json().catch(() => ({}))
+    if (r.ok) setCatatan(j.catatan ?? [])
+  }, [])
 
   useEffect(() => {
-    Promise.all([muatLaporan(), muatAkses()]).finally(() => setMemuat(false))
-    // Antrean disegarkan sendiri supaya laporan baru muncul tanpa menekan apa pun.
-    const iv = setInterval(() => { if (document.visibilityState === 'visible') muatLaporan() }, 20_000)
+    Promise.all([muatLaporan(), muatAkses(), muatCatatan()]).finally(() => setMemuat(false))
+    // Antrean dan catatan disegarkan sendiri supaya yang baru muncul tanpa menekan apa pun.
+    const iv = setInterval(() => { if (document.visibilityState === 'visible') { muatLaporan(); muatCatatan() } }, 20_000)
     return () => clearInterval(iv)
-  }, [muatLaporan, muatAkses])
+  }, [muatLaporan, muatAkses, muatCatatan])
 
   const menunggu = useMemo(() => laporan.filter(l => l.status === 'menunggu'), [laporan])
   const ditolak = useMemo(() => laporan.filter(l => l.status === 'ditolak'), [laporan])
   const disahkan = useMemo(() => laporan.filter(l => l.status === 'disahkan'), [laporan])
   const rekapSemua = useMemo(() => rekapMedali(laporan), [laporan])
+  const catatanBaru = useMemo(() => catatan.filter(c => c.status === 'baru'), [catatan])
+  const mendesakBaru = useMemo(() => catatanBaru.filter(c => c.mendesak), [catatanBaru])
+  const catatanTampil = useMemo(() => urutCatatan(catatan.filter(c =>
+    filterCatatan === 'semua' ? true
+      : filterCatatan === 'aktif' ? c.status === 'baru' || c.status === 'ditangani'
+      : c.status === filterCatatan)), [catatan, filterCatatan])
+
+  // Ringkasan per cabor untuk tab Laporan Cabor: yang sudah ada kegiatannya di atas.
+  const ringkasCabor = useMemo(() => cabor.map(c => {
+    const hasilC = disahkan.filter(l => l.cabor_id === c.id)
+    const catatanC = catatan.filter(x => x.cabor_id === c.id && x.status !== 'diabaikan')
+    return {
+      ...c, rekap: rekapMedali(hasilC), hasil: hasilC.length, catatan: catatanC.length,
+      catatanBaru: catatanC.filter(x => x.status === 'baru').length,
+      pic: Array.from(new Set(akses.filter(a => a.cabor_id === c.id && a.aktif).map(a => a.nama_pic))),
+    }
+  }).sort((a, b) => (b.hasil + b.catatan) - (a.hasil + a.catatan) || a.nama.localeCompare(b.nama)), [cabor, disahkan, catatan, akses])
 
   // Pilihan tanggal: 14 hari PORPROV, ditambah tanggal lain yang ternyata punya laporan.
   const daftarTanggal = useMemo(() => {
@@ -95,6 +133,44 @@ export default function PageLapPertandingan() {
       if (!r.ok) { setGalat(j.error ?? 'Gagal menyimpan.'); return false }
       await muatLaporan(); return true
     } finally { setSibuk(null) }
+  }
+
+  async function tindakCatatan(id: number, aksi: 'tangani' | 'selesai' | 'abaikan' | 'buka', tanggapan = '') {
+    setSibuk(id); setGalat('')
+    try {
+      const r = await fetch(`/api/konida/catatan-lapangan${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, aksi, tanggapan }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setGalat(j.error ?? 'Gagal menyimpan.'); return false }
+      await muatCatatan(); return true
+    } finally { setSibuk(null) }
+  }
+
+  // ── Laporan monitoring per cabor (kerangka format Monev, versi kontingen) ──
+  async function laporanCabor(caborId: number, untuk: 'cetak' | 'word') {
+    // Jendela cetak dibuka sebelum menunggu data, supaya tidak diblokir sebagai pop-up.
+    const w = untuk === 'cetak' ? window.open('', '_blank') : null
+    setSibukCabor(caborId); setGalat('')
+    try {
+      const r = await fetch(`/api/konida/laporan-cabor${Q}&cabor_id=${caborId}`, { cache: 'no-store' })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { w?.close(); setGalat(j.error ?? 'Gagal menyusun laporan cabor.'); return }
+      const bahan = j as BahanLaporanCabor
+      const asal = window.location.origin
+      if (untuk === 'cetak') {
+        w?.document.write(htmlLaporanCabor(bahan, {
+          // Lambang Kab. Bandung (latar transparen) — logo PORPROV berlatar gelap dan tampak sebagai kotak hitam di kertas.
+          untuk: 'cetak', cetakOtomatis: true, logo: `${asal}/logos/kab-bandung.png`,
+          alamatFoto: (jenis, id) => `${asal}/api/konida/${jenis === 'hasil' ? 'laporan-hasil' : 'catatan-lapangan'}/foto${Q}&id=${id}`,
+        }))
+        w?.document.close()
+      } else {
+        const tautan = document.createElement('a')
+        tautan.href = URL.createObjectURL(new Blob([htmlLaporanCabor(bahan, { untuk: 'word' })], { type: 'application/msword' }))
+        tautan.download = `Laporan_Monitoring_${bahan.cabor.replace(/[^A-Za-z0-9]+/g, '_')}_${bahan.dibuat}.doc`
+        tautan.click()
+        setTimeout(() => URL.revokeObjectURL(tautan.href), 10_000)
+      }
+    } catch { w?.close(); setGalat('Tidak ada sambungan.') } finally { setSibukCabor(null) }
   }
 
   async function buatKode() {
@@ -120,7 +196,7 @@ export default function PageLapPertandingan() {
   }
 
   const pesanWA = kodeBaru
-    ? `Yth. ${kodeBaru.nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${kodeBaru.cabor}.\n\nTautan: ${typeof window !== 'undefined' ? window.location.origin : ''}/lapor#${kodeBaru.kode}\nKode: ${kodeBaru.kode}\n\nLaporkan setiap nomor segera setelah selesai. Mohon kode ini tidak dibagikan ke orang lain.`
+    ? `Yth. ${kodeBaru.nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${kodeBaru.cabor}.\n\nTautan: ${typeof window !== 'undefined' ? window.location.origin : ''}/lapor#${kodeBaru.kode}\nKode: ${kodeBaru.kode}\n\nLaporkan setiap nomor segera setelah selesai. Kejadian penting (tidak sesuai aturan, masalah teknis, akomodasi/transportasi) laporkan di tab "Catatan Lapangan". Mohon kode ini tidak dibagikan ke orang lain.`
     : ''
 
   // ── Jurnal dalam format "Matrix Jadwal Harian" KONI ──
@@ -261,6 +337,75 @@ export default function PageLapPertandingan() {
     </div>
   )
 
+  const kartuCatatan = (c: Catatan) => {
+    const wa = tautanWA(c.pelapor_wa)
+    const sedangMenanggapi = menanggapi?.id === c.id
+    return (
+      <div key={c.id} className={`${kartu} p-4`} style={c.mendesak && c.status === 'baru' ? { borderColor: 'rgba(248,113,113,0.6)', background: 'rgba(127,29,29,0.18)' } : {}}>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="rounded px-2 py-0.5 text-xs font-black" style={{ color: WARNA_JENIS[c.jenis], background: `${WARNA_JENIS[c.jenis]}1f`, border: `1px solid ${WARNA_JENIS[c.jenis]}55` }}>{LABEL_JENIS[c.jenis]}</span>
+            {c.mendesak && <span className={`rounded px-2 py-0.5 text-xs font-black text-red-200 bg-red-500/25 border border-red-400/50 ${c.status === 'baru' ? 'animate-pulse' : ''}`}>MENDESAK</span>}
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: ACCENT }}>{c.cabor}</span>
+          </div>
+          <span className="text-xs font-bold" style={{ color: WARNA_STATUS[c.status] }}>{LABEL_STATUS_CATATAN[c.status]}</span>
+        </div>
+        {(c.nomor_teks || c.atlet.length > 0) && (
+          <div className="text-sm text-slate-300 mt-2">{[c.nomor_teks, c.atlet.join(', ')].filter(Boolean).join(' — ')}</div>
+        )}
+        <p className="text-sm text-white mt-2 whitespace-pre-line">{c.isi}</p>
+        {c.ada_foto && (
+          <a href={`/api/konida/catatan-lapangan/foto${Q}&id=${c.id}`} target="_blank" rel="noopener" className="mt-3 inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/konida/catatan-lapangan/foto${Q}&id=${c.id}`} alt="Foto catatan" loading="lazy" className="h-28 w-auto rounded-lg border border-slate-700 object-cover" />
+          </a>
+        )}
+        <div className="text-xs text-slate-500 mt-2">
+          Kejadian {tglTampil(c.tanggal)}{c.jam ? ` pukul ${c.jam}` : ''} · dilaporkan {c.pelapor_nama} pada {tglLaporTampil(c.created_at)} pukul {jamTampil(c.created_at)}
+          {wa && <> · <a href={wa} target="_blank" rel="noopener" className="font-bold text-emerald-300 underline underline-offset-2">Hubungi lewat WA</a></>}
+          {!wa && c.pelapor_wa ? ` (${c.pelapor_wa})` : ''}
+        </div>
+        {c.tanggapan && (
+          <p className="text-xs text-sky-200 mt-2 rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-2">
+            Tanggapan: {c.tanggapan}{c.ditangani_oleh ? <span className="text-slate-400"> — {c.ditangani_oleh}</span> : null}
+          </p>
+        )}
+
+        {sedangMenanggapi && menanggapi && (
+          <div className="mt-3 flex gap-2 flex-wrap">
+            <input autoFocus value={teksTanggapan} onChange={e => setTeksTanggapan(e.target.value)} maxLength={500}
+              placeholder={menanggapi.aksi === 'abaikan' ? 'Alasan diabaikan (terlihat oleh PIC)' : 'Tanggapan / tindak lanjut (terlihat oleh PIC, boleh kosong)'}
+              aria-label="Tanggapan" className={`${kotak} flex-1 min-w-[220px]`} />
+            <button onClick={async () => { if (await tindakCatatan(c.id, menanggapi.aksi, teksTanggapan)) { setMenanggapi(null); setTeksTanggapan('') } }}
+              disabled={sibuk === c.id || (menanggapi.aksi === 'abaikan' && !teksTanggapan.trim())}
+              className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40">
+              {menanggapi.aksi === 'tangani' ? 'Simpan · sedang ditangani' : menanggapi.aksi === 'selesai' ? 'Simpan · selesai' : 'Abaikan'}
+            </button>
+            <button onClick={() => { setMenanggapi(null); setTeksTanggapan('') }} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300">Batal</button>
+          </div>
+        )}
+
+        {!sedangMenanggapi && (
+          <div className="mt-3 flex gap-2 flex-wrap">
+            {(c.status === 'baru' || c.status === 'ditangani') && (
+              <>
+                <button onClick={() => { setMenanggapi({ id: c.id, aksi: 'tangani' }); setTeksTanggapan(c.tanggapan ?? '') }} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/50 px-3 py-1.5 text-xs font-bold text-sky-200">
+                  {c.status === 'baru' ? 'Tangani' : 'Ubah tanggapan'}
+                </button>
+                <button onClick={() => { setMenanggapi({ id: c.id, aksi: 'selesai' }); setTeksTanggapan(c.tanggapan ?? '') }} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-950"><CheckCircle size={13} /> Selesai</button>
+                {c.status === 'baru' && <button onClick={() => { setMenanggapi({ id: c.id, aksi: 'abaikan' }); setTeksTanggapan('') }} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300">Abaikan</button>}
+                {c.status === 'ditangani' && <button onClick={() => tindakCatatan(c.id, 'buka')} disabled={sibuk === c.id} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 disabled:opacity-40"><RotateCcw size={12} /> Jadikan belum ditangani</button>}
+              </>
+            )}
+            {(c.status === 'selesai' || c.status === 'diabaikan') && (
+              <button onClick={() => tindakCatatan(c.id, 'buka')} disabled={sibuk === c.id} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 disabled:opacity-40"><RotateCcw size={12} /> Buka lagi</button>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const TombolTab = ({ id, label, jumlah, Ikon }: { id: typeof tab; label: string; jumlah?: number; Ikon: any }) => (
     <button onClick={() => setTab(id)} aria-pressed={tab === id}
       className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold border ${tab === id ? 'text-slate-950' : 'text-slate-300 border-slate-700'}`}
@@ -278,11 +423,22 @@ export default function PageLapPertandingan() {
             <h1 className="text-xl font-black text-white">Report Pertandingan</h1>
             <p className="text-sm text-slate-400 mt-0.5">Laporan PIC cabor dari lapangan. Hanya yang disahkan yang dihitung sebagai medali.</p>
           </div>
-          <button onClick={() => { muatLaporan(); muatAkses() }} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300"><RefreshCw size={14} /> Muat ulang</button>
+          <button onClick={() => { muatLaporan(); muatAkses(); muatCatatan() }} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300"><RefreshCw size={14} /> Muat ulang</button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
-          {([['Emas', rekapSemua.emas, WARNA.emas], ['Perak', rekapSemua.perak, WARNA.perak], ['Perunggu', rekapSemua.perunggu, WARNA.perunggu], ['Total medali', rekapSemua.total, '#fff'], ['Menunggu disahkan', menunggu.length, menunggu.length ? '#fbbf24' : '#64748b']] as [string, number, string][]).map(([label, n, warna]) => (
+        {mendesakBaru.length > 0 && (
+          <button onClick={() => { setTab('catatan'); setFilterCatatan('aktif') }}
+            className="mt-5 w-full flex items-center gap-3 rounded-xl border border-red-400/60 bg-red-500/15 px-4 py-3 text-left">
+            <AlertTriangle size={20} className="text-red-300 shrink-0" />
+            <span className="flex-1 text-sm font-bold text-red-200">
+              {mendesakBaru.length} catatan MENDESAK belum ditangani · {Array.from(new Set(mendesakBaru.map(c => c.cabor))).join(', ')}
+            </span>
+            <span className="text-xs font-bold text-red-200 underline underline-offset-2">Buka</span>
+          </button>
+        )}
+
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mt-5">
+          {([['Emas', rekapSemua.emas, WARNA.emas], ['Perak', rekapSemua.perak, WARNA.perak], ['Perunggu', rekapSemua.perunggu, WARNA.perunggu], ['Total medali', rekapSemua.total, '#fff'], ['Menunggu disahkan', menunggu.length, menunggu.length ? '#fbbf24' : '#64748b'], ['Catatan belum ditangani', catatanBaru.length, mendesakBaru.length ? '#f87171' : catatanBaru.length ? '#fbbf24' : '#64748b']] as [string, number, string][]).map(([label, n, warna]) => (
             <div key={label} className={`${kartu} px-4 py-3`}>
               <div className="text-2xl font-black tabular-nums" style={{ color: warna }}>{n}</div>
               <div className="text-xs text-slate-400">{label}</div>
@@ -292,7 +448,9 @@ export default function PageLapPertandingan() {
 
         <div className="flex gap-2 mt-6 flex-wrap">
           <TombolTab id="antrean" label="Antrean" jumlah={menunggu.length} Ikon={ClipboardList} />
+          <TombolTab id="catatan" label="Catatan Lapangan" jumlah={catatanBaru.length} Ikon={AlertTriangle} />
           <TombolTab id="jurnal" label="Jurnal Harian" Ikon={Trophy} />
+          <TombolTab id="cabor" label="Laporan Cabor" Ikon={FileText} />
           <TombolTab id="kode" label="Kode PIC" Ikon={KeyRound} />
         </div>
 
@@ -314,6 +472,60 @@ export default function PageLapPertandingan() {
                 <div className="mt-3 space-y-3">{ditolak.map(kartuLaporan)}</div>
               </details>
             )}
+          </div>
+        )}
+
+        {!memuat && tab === 'catatan' && (
+          <div className="mt-5">
+            <div className="flex gap-2 flex-wrap">
+              {([['aktif', 'Perlu tindak lanjut', catatan.filter(c => c.status === 'baru' || c.status === 'ditangani').length], ['selesai', 'Selesai', catatan.filter(c => c.status === 'selesai').length], ['diabaikan', 'Diabaikan', catatan.filter(c => c.status === 'diabaikan').length], ['semua', 'Semua', catatan.length]] as [FilterCatatan, string, number][]).map(([f, label, n]) => (
+                <button key={f} onClick={() => setFilterCatatan(f)} aria-pressed={filterCatatan === f}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${filterCatatan === f ? 'border-sky-400 bg-sky-500/15 text-sky-200' : 'border-slate-700 text-slate-400'}`}>
+                  {label} ({n})
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">Catatan dari PIC tentang kejadian di lapangan. Tidak mengubah angka medali. Tanggapan Anda terlihat oleh PIC di HP-nya, dan catatan yang tidak diabaikan masuk ke laporan cabor bagian III–V.</p>
+            <div className="mt-3 space-y-3">
+              {catatanTampil.length === 0 && (
+                <div className={`${kartu} p-8 text-center`}>
+                  <p className="text-slate-300 font-bold">{filterCatatan === 'aktif' ? 'Tidak ada catatan yang perlu ditindaklanjuti.' : 'Tidak ada catatan di sini.'}</p>
+                  <p className="text-sm text-slate-500 mt-1">PIC mengirim catatan lewat tab “Catatan Lapangan” di halaman lapor.</p>
+                </div>
+              )}
+              {catatanTampil.map(kartuCatatan)}
+            </div>
+          </div>
+        )}
+
+        {!memuat && tab === 'cabor' && (
+          <div className="mt-5">
+            <p className="text-sm text-slate-400">Laporan monitoring per cabor, berkerangka format Laporan Monitoring PORPROV XV: informasi umum, hasil, catatan lapangan (aturan/THB, teknis, non-teknis), pengesahan, dan lampiran. <b className="text-slate-300">Cetak</b> menyertakan foto bukti; <b className="text-slate-300">Word</b> bisa disunting tetapi tanpa foto.</p>
+            <div className={`${kartu} mt-3 overflow-x-auto`}>
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-800">
+                  <th className="px-4 py-3">Cabor</th><th className="px-4 py-3">PIC</th><th className="px-4 py-3 text-right">Hasil disahkan</th><th className="px-4 py-3">Medali</th><th className="px-4 py-3 text-right">Catatan</th><th className="px-4 py-3"></th>
+                </tr></thead>
+                <tbody>
+                  {ringkasCabor.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Belum ada cabor.</td></tr>}
+                  {ringkasCabor.map(c => (
+                    <tr key={c.id} className="border-b border-slate-800/60">
+                      <td className="px-4 py-2.5"><div className="font-bold text-white">{c.nama}</div><div className="text-xs text-slate-500">{c.atlet} atlet</div></td>
+                      <td className="px-4 py-2.5 text-xs text-slate-300">{c.pic.length ? c.pic.join(', ') : <span className="text-slate-600">belum ada kode</span>}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{c.hasil || <span className="text-slate-600">0</span>}</td>
+                      <td className="px-4 py-2.5 text-xs tabular-nums whitespace-nowrap">
+                        {c.rekap.total ? <><span style={{ color: WARNA.emas }}>{c.rekap.emas}E</span> · <span style={{ color: WARNA.perak }}>{c.rekap.perak}P</span> · <span style={{ color: WARNA.perunggu }}>{c.rekap.perunggu}Pr</span></> : <span className="text-slate-600">—</span>}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{c.catatan || <span className="text-slate-600">0</span>}{c.catatanBaru ? <span className="ml-1 text-xs text-amber-300">({c.catatanBaru} baru)</span> : null}</td>
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                        <button onClick={() => laporanCabor(c.id, 'cetak')} disabled={sibukCabor === c.id} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/50 px-3 py-1.5 text-xs font-bold text-sky-200 disabled:opacity-40"><Printer size={13} /> Cetak</button>
+                        <button onClick={() => laporanCabor(c.id, 'word')} disabled={sibukCabor === c.id} className="ml-1.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 disabled:opacity-40"><Download size={13} /> Word</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

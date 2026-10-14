@@ -6,15 +6,15 @@
 //   ?semua=1                             seluruh rentang jadwal yang ada
 
 import { NextRequest, NextResponse } from 'next/server'
-import { petaCabang, tanggalSah, tanggalWIB } from '@/lib/lapor'
+import { tanggalSah, tanggalWIB } from '@/lib/lapor'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { rentangTanggal, susunMatriks, type BarisJadwal, type LaporanMatriks } from '@/lib/matriks'
+import { targetAtlet, targetTim } from '@/lib/target-atlet'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const URUTAN: Record<string, number> = { emas: 1, perak: 2, perunggu: 3 }
 const jamWIB = (ts: string) => new Date(new Date(ts).getTime() + 7 * 3600_000).toISOString().slice(11, 16)
 
 export async function GET(req: NextRequest) {
@@ -59,39 +59,14 @@ export async function GET(req: NextRequest) {
   ])
   const namaCabor = new Map((cabor ?? []).map((c: any) => [c.id, c.nama]))
 
-  // Target medali per atlet dari berkas analisis. Tautan ke atlet cabor lain
-  // diabaikan — itu sisa salah-taut nama, bukan target atlet tersebut.
-  const target: Record<number, string> = {}
-  if (idAtlet.length) {
-    const { data: akhir } = await db.from('intel_target_atlet').select('batch_id').eq('kontingen_id', a.kontingen_id)
-      .order('batch_id', { ascending: false }).limit(1).maybeSingle()
-    if (akhir) {
-      const semuaTarget = await ambilSemua<any>((d, s) => db.from('intel_target_atlet').select('atlet_id,cabang_file,target_medali')
-        .eq('batch_id', akhir.batch_id).not('atlet_id', 'is', null).order('id').range(d, s)).catch(() => [])
-      const idTarget = Array.from(new Set(semuaTarget.map(t => t.atlet_id as number)))
-      const caborAtlet: Record<number, number | null> = {}
-      for (let i = 0; i < idTarget.length; i += 500) {
-        const { data } = await db.from('atlet').select('id,cabor_id').in('id', idTarget.slice(i, i + 500))
-        for (const r of (data ?? [])) caborAtlet[r.id] = r.cabor_id
-      }
-      const peta = petaCabang(semuaTarget.map(t => ({ cabang: t.cabang_file, cabor_id: caborAtlet[t.atlet_id] ?? null })))
-      for (const t of semuaTarget) {
-        if (!URUTAN[t.target_medali] || peta.get(t.cabang_file) !== caborAtlet[t.atlet_id]) continue
-        if (!target[t.atlet_id] || URUTAN[t.target_medali] < URUTAN[target[t.atlet_id]]) target[t.atlet_id] = t.target_medali
-      }
-    }
-  }
+  const target = idAtlet.length ? await targetAtlet(db, a.kontingen_id) : {}
 
-  const isi: LaporanMatriks[] = laporan.map(l => {
-    // Untuk beregu, target tim = target tertinggi di antara anggotanya.
-    const tt = (l.atlet_ids as number[]).map(id => target[id]).filter(Boolean).sort((x, y) => URUTAN[x] - URUTAN[y])[0] ?? null
-    return {
-      id: l.id, tanggal: l.tanggal, cabor: namaCabor.get(l.cabor_id) ?? '', disiplin: l.disiplin, nomor_teks: l.nomor_teks,
-      atlet: (l.atlet_ids as number[]).map(id => atlet[id]?.nama ?? `Atlet ${id}`),
-      hasil: l.hasil, peringkat: l.peringkat, nilai_teks: l.nilai_teks, lawan: l.lawan, jam: l.jam, jam_lapor: jamWIB(l.created_at),
-      pelapor_nama: l.pelapor_nama, target: tt as LaporanMatriks['target'],
-    }
-  })
+  const isi: LaporanMatriks[] = laporan.map(l => ({
+    id: l.id, tanggal: l.tanggal, cabor: namaCabor.get(l.cabor_id) ?? '', disiplin: l.disiplin, nomor_teks: l.nomor_teks,
+    atlet: (l.atlet_ids as number[]).map(id => atlet[id]?.nama ?? `Atlet ${id}`),
+    hasil: l.hasil, peringkat: l.peringkat, nilai_teks: l.nilai_teks, lawan: l.lawan, jam: l.jam, jam_lapor: jamWIB(l.created_at),
+    pelapor_nama: l.pelapor_nama, target: targetTim(l.atlet_ids as number[], target),
+  }))
 
   return NextResponse.json({
     kontingen: kontingen?.nama ?? '', dari, sampai,

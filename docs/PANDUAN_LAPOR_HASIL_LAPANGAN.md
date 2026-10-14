@@ -243,3 +243,62 @@ Batasannya:
 - Tiga baris BMX di berkas KONI (Park, Trial, Flat Land) adalah satu baris di sistem; begitu juga X Rugby dan Rugby 7s.
 - Laporan dari cabor yang tidak punya jadwal ditaruh di akhir hari itu dengan kolom kota dan venue kosong.
 - Baris jadwal Mini 4WD ditautkan ke cabor Balap Motor (sebelumnya tidak tertaut).
+
+---
+
+## 12. Pembaruan 14 Oktober 2026: catatan lapangan dan laporan per cabor
+
+Acuannya format **Laporan Monitoring PORPROV XV** dari KONI Jabar. Atas arahan Bos, yang diambil hanya yang berguna bagi KONI Kab. Bandung. Yang tidak dipakai: jumlah dan daftar peserta kab/kota lain, bagian "nomor yang pesertanya sedikit" (datanya milik penyelenggara), tanda tangan Tim Monev, dan logo KONI Jabar.
+
+### Catatan lapangan (form PIC)
+
+Halaman `/lapor` sekarang punya dua tab: **Lapor Hasil** dan **Catatan Lapangan**. Ada tiga jenis catatan, mengikuti bagian III–V format Monev:
+
+| Jenis | Contoh |
+|---|---|
+| Tidak sesuai aturan/THB | Kelas, jadwal, atau undian diubah mendadak; penilaian tidak sesuai aturan; bahan protes |
+| Masalah teknis pertandingan | Alat atau lapangan bermasalah, pertandingan tertunda, atlet cedera saat bertanding |
+| Di luar teknis pertandingan | Akomodasi, transportasi, konsumsi, kesehatan atlet |
+
+Isian lainnya: centang **Perlu tindakan segera** (ditandai merah di KONIDA), nomor pertandingan dan atlet terkait (boleh kosong), jam kejadian, uraian minimal 10 huruf, dan satu foto. Catatan **tidak mengubah angka apa pun** dan tidak perlu disahkan. Bila PIC mengirim catatan mendesak, layar HP-nya mengingatkan untuk juga menelepon atau WA pengurus KONI, karena sistem ini bukan alarm.
+
+Tabelnya `catatan_lapangan` (migrasi 057). Seperti `laporan_hasil`, tabel ini hanya bisa disentuh lewat rute server. Foto masuk ke wadah privat yang sama (`bukti-hasil`), di folder `<kontingen>/catatan/<tanggal>/`.
+
+### Tab "Catatan Lapangan" (KONIDA)
+
+- Bila ada catatan mendesak yang belum ditangani, muncul **peringatan merah** di atas semua tab. Ada juga kotak angka baru "Catatan belum ditangani". Daftar disegarkan sendiri tiap 20 detik.
+- Alurnya: **Belum ditangani → Sedang ditangani → Selesai**. Tanggapan boleh diisi di tiap langkah dan terlihat oleh PIC di HP-nya.
+- **Abaikan** wajib disertai alasan. Catatan yang diabaikan tidak ikut tercetak di laporan cabor. **Buka lagi** mengembalikannya.
+- Ada tautan **Hubungi lewat WA** ke nomor PIC bila nomornya tercatat.
+
+### Tab "Laporan Cabor" (KONIDA)
+
+Satu baris per cabor berisi PIC, jumlah hasil yang disahkan, medali, dan jumlah catatan. Dua tombol per baris:
+- **Cetak**: laporan siap cetak/simpan PDF (A4, Arial 12, spasi 1,5), dengan foto bukti dan lambang Kab. Bandung di kepala.
+- **Word**: berkas `.doc` yang bisa disunting di Word, tanpa foto (sudah dicoba dibuka di Microsoft Word).
+
+Isinya:
+
+| Bagian | Sumber |
+|---|---|
+| I. Informasi umum: tuan rumah, waktu, tempat, disiplin, nomor, jumlah atlet, PIC, periode | Jadwal (matriks) dan daftar resmi pendaftaran |
+| II. Hasil pertandingan: perolehan medali, daftar medali, capaian target | Laporan yang sudah **disahkan** |
+| III. Kesesuaian dengan aturan (THB) | Catatan jenis aturan |
+| IV. Permasalahan teknis pertandingan | Catatan jenis teknis |
+| V. Lain-lain (di luar teknis) | Catatan jenis non-teknis |
+| VI. Pengesahan | PIC pelapor dan KONIDA pengesah, kolom TTD kosong |
+| VII. Lampiran: dokumentasi, jadwal, hasil per nomor, daftar atlet per nomor | Foto bukti, jadwal, laporan disahkan, daftar resmi |
+
+### Membatalkan
+
+```sql
+-- hapus foto catatan dulu lewat Storage (folder <kontingen>/catatan/), lalu:
+drop table if exists public.catatan_lapangan;
+```
+Kode tab dan rutenya ada di commit fitur ini; `git revert` commit itu mengembalikan halaman seperti sebelumnya. Laporan hasil tidak tersentuh.
+
+### Uji
+
+- `npm run uji:catatan` (30) dan `npm run uji:laporan-cabor` (52) untuk aturan dan penyusunan laporan, termasuk penetralan isian berbahaya.
+- Uji ujung-ke-ujung di server lokal dengan basis data produksi: 51 pemeriksaan untuk catatan, laporan cabor, kirim hasil berfoto, dan uji lama 97 + 26. Semuanya lulus, dan data uji sudah dihapus.
+- Belum dicoba: kamera HP sungguhan dan akun KONIDA asli di cloud.

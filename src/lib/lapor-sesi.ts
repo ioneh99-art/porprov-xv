@@ -5,8 +5,11 @@
 // diberi awalan sebelum ditandatangani. Tanpa awalan, cookie PIC yang sah bisa
 // disalin menjadi porprov_session + porprov_sig dan lolos sebagai sesi admin.
 
+import { randomUUID } from 'crypto'
 import { cookies } from 'next/headers'
+import type { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { BATAS_FOTO_BYTE, jenisGambar } from './lapor'
 import { signValue } from './session'
 
 const AWALAN_SESI = 'lapor-sesi:'
@@ -90,6 +93,37 @@ export async function ambilSemua<T = any>(
     semua.push(...(data ?? []))
     if (!data || data.length < UKURAN) return semua
   }
+}
+
+// ── Kiriman PIC dan foto bukti ───────────────────────────────────────────────
+export const WADAH_BUKTI = 'bukti-hasil'
+
+/** Kiriman PIC: multipart (isian 'isi' berupa JSON + berkas 'foto') bila berfoto, JSON biasa bila tidak. null = tak terbaca. */
+export async function bacaKiriman(req: NextRequest): Promise<{ mentah: any; foto: File | null } | null> {
+  if ((req.headers.get('content-type') ?? '').includes('multipart/form-data')) {
+    const fd = await req.formData().catch(() => null)
+    if (!fd) return null
+    let mentah: any = {}
+    try { mentah = JSON.parse(String(fd.get('isi') ?? '{}')) } catch { mentah = {} }
+    const f = fd.get('foto')
+    return { mentah, foto: f && typeof f !== 'string' && f.size > 0 ? f : null }
+  }
+  return { mentah: await req.json().catch(() => ({})), foto: null }
+}
+
+/**
+ * Memeriksa lalu mengunggah satu foto bukti ke wadah privat. Jenisnya dibaca
+ * dari isi berkas, dan namanya acak supaya alamatnya tidak bisa ditebak.
+ */
+export async function simpanFotoBukti(folder: string, foto: File): Promise<{ path: string } | { status: number; error: string }> {
+  if (foto.size > BATAS_FOTO_BYTE) return { status: 413, error: 'Foto terlalu besar (maksimal 3 MB).' }
+  const isi = new Uint8Array(await foto.arrayBuffer())
+  const jenis = jenisGambar(isi)
+  if (!jenis) return { status: 415, error: 'Berkas itu bukan foto (JPEG, PNG, atau WebP).' }
+  const path = `${folder}/${randomUUID()}.${jenis.ext}`
+  const { error } = await dbLapor().storage.from(WADAH_BUKTI).upload(path, isi, { contentType: jenis.mime, upsert: false })
+  if (error) return { status: 502, error: 'Foto gagal diunggah. Coba lagi, atau kirim tanpa foto.' }
+  return { path }
 }
 
 // ── Daftar resmi pendaftaran ─────────────────────────────────────────────────

@@ -1,10 +1,12 @@
 'use client'
 // src/app/lapor/page.tsx
-// Form lapor hasil pertandingan untuk PIC cabor di lapangan. Dirancang untuk HP:
-// satu kolom, tombol besar, sesedikit mungkin mengetik.
+// Form lapor hasil pertandingan dan catatan lapangan untuk PIC cabor. Dirancang
+// untuk HP: satu kolom, tombol besar, sesedikit mungkin mengetik.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HASIL, LABEL_HASIL, tulisHasil, type Hasil } from '@/lib/lapor'
+import FormCatatan, { type CatatanSaya } from './FormCatatan'
+import { kecilkanFoto } from './foto'
 
 interface Atlet { id: number; nama: string; gender: string | null }
 interface Nomor {
@@ -21,7 +23,7 @@ interface Laporan {
   nilai_teks: string | null; keterangan: string | null; tanggal: string; status: string
   alasan_tolak: string | null; created_at: string; ada_foto?: boolean
 }
-interface Bahan { pic: { nama: string }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[] }
+interface Bahan { pic: { nama: string }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[] }
 
 const WARNA_HASIL: Record<Hasil, string> = {
   emas: '#facc15', perak: '#cbd5e1', perunggu: '#d08a4a', peringkat: '#38bdf8', lolos: '#34d399', gugur: '#94a3b8',
@@ -37,23 +39,9 @@ const labelNomor = (n: Nomor) => [n.sub, n.nama].filter(Boolean).join(' · ')
 const kotak = 'w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3.5 text-base text-white placeholder-slate-500 focus:outline-none focus:border-sky-400'
 const judulIsian = 'block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'
 
-/**
- * Foto kamera HP bisa 5–10 MB. Dikecilkan di HP sebelum dikirim supaya tetap
- * terkirim di sinyal lemah — sisi terpanjang 1600 px sudah cukup untuk membaca lembar hasil.
- */
-async function kecilkanFoto(berkas: File): Promise<Blob> {
-  const gambar = await createImageBitmap(berkas)
-  const skala = Math.min(1, 1600 / Math.max(gambar.width, gambar.height))
-  const kanvas = document.createElement('canvas')
-  kanvas.width = Math.round(gambar.width * skala)
-  kanvas.height = Math.round(gambar.height * skala)
-  kanvas.getContext('2d')!.drawImage(gambar, 0, 0, kanvas.width, kanvas.height)
-  gambar.close()
-  return new Promise((ok, gagal) => kanvas.toBlob(b => b ? ok(b) : gagal(new Error('gagal')), 'image/jpeg', 0.82))
-}
-
 export default function HalamanLapor() {
   const [tahap, setTahap] = useState<'memuat' | 'masuk' | 'form'>('memuat')
+  const [mode, setMode] = useState<'hasil' | 'catatan'>('hasil')
   const [bahan, setBahan] = useState<Bahan | null>(null)
   const [kode, setKode] = useState('')
   const [galat, setGalat] = useState('')
@@ -205,7 +193,7 @@ export default function HalamanLapor() {
       <div className="max-w-md mx-auto px-4 pb-16">
         <header className="pt-6 pb-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.25em] text-sky-300">PORPROV XV Jawa Barat 2026</div>
-          <h1 className="text-2xl font-black text-white mt-1">Lapor Hasil Pertandingan</h1>
+          <h1 className="text-2xl font-black text-white mt-1">{tahap === 'form' && mode === 'catatan' ? 'Catatan Lapangan' : 'Lapor Hasil Pertandingan'}</h1>
         </header>
 
         {tahap === 'memuat' && <p className="text-slate-400 py-10 text-center">Memuat…</p>}
@@ -235,6 +223,31 @@ export default function HalamanLapor() {
               <button onClick={keluar} className="shrink-0 text-xs font-bold text-slate-400 border border-slate-700 rounded-lg px-3 py-2">Keluar</button>
             </div>
 
+            <div role="tablist" className="mt-4 grid grid-cols-2 gap-2">
+              {([['hasil', 'Lapor Hasil'], ['catatan', 'Catatan Lapangan']] as const).map(([m, label]) => {
+                const aktif = mode === m
+                const baru = m === 'catatan' ? bahan.catatan.filter(c => c.tanggapan && c.status !== 'baru').length : 0
+                return (
+                  <button key={m} type="button" role="tab" aria-selected={aktif} onClick={() => { setMode(m); setGalat('') }}
+                    className={`rounded-xl py-3 text-sm font-black border-2 ${aktif ? 'border-sky-400 bg-sky-500/15 text-sky-200' : 'border-slate-700 text-slate-400'}`}>
+                    {label}{m === 'catatan' && bahan.catatan.length > 0 ? <span className="ml-1.5 text-xs font-bold text-slate-400">({bahan.catatan.length}{baru ? `, ${baru} ditanggapi` : ''})</span> : null}
+                  </button>
+                )
+              })}
+            </div>
+
+            {mode === 'catatan' && (
+              <FormCatatan
+                key={bahan.cabor}   // pindah cabor lewat tautan lain: isian lama tidak boleh terbawa
+                nomor={bahan.nomor.map(n => ({ kunci: n.kunci, label: labelNomor(n), atlet_ids: n.atlet_ids }))}
+                atlet={bahan.atlet}
+                catatan={bahan.catatan}
+                muat={muat}
+                sesiHabis={pesan => { setTahap('masuk'); setGalat(pesan) }}
+              />
+            )}
+
+            {mode === 'hasil' && <>
             {terkirim && (
               <div role="status" className="mt-4 rounded-xl bg-emerald-500/15 border border-emerald-400/40 px-4 py-3 text-sm font-bold text-emerald-300">
                 Laporan terkirim. Menunggu disahkan KONI.
@@ -428,6 +441,7 @@ export default function HalamanLapor() {
                 })}
               </div>
             </section>
+            </>}
           </>
         )}
       </div>

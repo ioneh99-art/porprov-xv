@@ -1,5 +1,5 @@
 // src/app/api/lapor/data/route.ts
-// Bahan form PIC: atlet dan nomor pertandingan cabornya, plus laporan yang sudah ia kirim.
+// Bahan form PIC: atlet dan nomor pertandingan cabornya, plus laporan dan catatan yang sudah ia kirim.
 // Hanya nama dan jenis kelamin atlet yang keluar dari sini — tidak ada data pribadi.
 
 import { NextResponse } from 'next/server'
@@ -21,11 +21,14 @@ export async function GET() {
   const namaCabor = keluarga[0]?.nama ?? 'Cabor'
   const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id)
 
-  const [{ data: kontingen }, atlet, { data: laporan }] = await Promise.all([
+  const [{ data: kontingen }, atlet, { data: laporan }, { data: catatan }] = await Promise.all([
     db.from('kontingen').select('nama').eq('id', s.kontingen_id).maybeSingle(),
     atletCabor(s.kontingen_id, s.cabor_id, daftar),
     db.from('laporan_hasil')
       .select('id,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,keterangan,foto_path,tanggal,status,alasan_tolak,created_at')
+      .eq('akses_id', s.akses_id).order('created_at', { ascending: false }).limit(100),
+    db.from('catatan_lapangan')
+      .select('id,jenis,mendesak,tanggal,jam,nomor_teks,isi,foto_path,status,tanggapan,created_at')
       .eq('akses_id', s.akses_id).order('created_at', { ascending: false }).limit(100),
   ])
 
@@ -62,5 +65,6 @@ export async function GET() {
     nomor_resmi: resmi,
     nomor,
     laporan: (laporan ?? []).map(({ foto_path, ...l }: any) => ({ ...l, ada_foto: !!foto_path })),
+    catatan: (catatan ?? []).map(({ foto_path, ...c }: any) => ({ ...c, ada_foto: !!foto_path })),
   })
 }

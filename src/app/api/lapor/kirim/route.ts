@@ -2,18 +2,15 @@
 // PIC mengirim satu laporan hasil, boleh disertai satu foto bukti. Selalu masuk
 // sebagai 'menunggu' — tidak ada jalan dari sini untuk langsung mengubah rekap medali.
 
-import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { BATAS_FOTO_BYTE, adalahFinal, jenisGambar, kunciKembar, periksaLaporan, tanggalWIB } from '@/lib/lapor'
+import { adalahFinal, kunciKembar, periksaLaporan, tanggalWIB } from '@/lib/lapor'
 import { rapikan, tulisNomorResmi } from '@/lib/pendaftaran'
-import { ambilSesiLapor, atletCabor, dbLapor, keluargaCabor, pendaftaranCabor } from '@/lib/lapor-sesi'
+import { WADAH_BUKTI, ambilSesiLapor, atletCabor, bacaKiriman, dbLapor, keluargaCabor, pendaftaranCabor, simpanFotoBukti } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { writeAudit, reqMeta } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-const WADAH = 'bukti-hasil'
 
 export async function POST(req: NextRequest) {
   const s = await ambilSesiLapor()
@@ -21,18 +18,9 @@ export async function POST(req: NextRequest) {
   const terbatas = checkRateLimit(req, { limit: 30, windowMs: 60_000, key: 'lapor-kirim' })
   if (terbatas) return terbatas
 
-  // Dengan foto: multipart (isian 'isi' berupa JSON + berkas 'foto'). Tanpa foto: JSON biasa.
-  let mentah: any = {}
-  let foto: File | null = null
-  if ((req.headers.get('content-type') ?? '').includes('multipart/form-data')) {
-    const fd = await req.formData().catch(() => null)
-    if (!fd) return NextResponse.json({ error: 'Kiriman tidak terbaca. Coba lagi.' }, { status: 400 })
-    try { mentah = JSON.parse(String(fd.get('isi') ?? '{}')) } catch { mentah = {} }
-    const f = fd.get('foto')
-    if (f && typeof f !== 'string' && f.size > 0) foto = f
-  } else {
-    mentah = await req.json().catch(() => ({}))
-  }
+  const kiriman = await bacaKiriman(req)
+  if (!kiriman) return NextResponse.json({ error: 'Kiriman tidak terbaca. Coba lagi.' }, { status: 400 })
+  const { mentah, foto } = kiriman
 
   const hasil = periksaLaporan(mentah)
   if ('galat' in hasil) return NextResponse.json({ error: hasil.galat }, { status: 422 })
@@ -74,14 +62,9 @@ export async function POST(req: NextRequest) {
 
   let foto_path: string | null = null
   if (foto) {
-    if (foto.size > BATAS_FOTO_BYTE) return NextResponse.json({ error: 'Foto terlalu besar (maksimal 3 MB).' }, { status: 413 })
-    const isiFoto = new Uint8Array(await foto.arrayBuffer())
-    const jenis = jenisGambar(isiFoto)
-    if (!jenis) return NextResponse.json({ error: 'Berkas itu bukan foto (JPEG, PNG, atau WebP).' }, { status: 415 })
-    // Nama acak: alamat berkas tidak bisa ditebak dari nomor laporan.
-    foto_path = `${s.kontingen_id}/${tanggal}/${randomUUID()}.${jenis.ext}`
-    const { error: gagalUnggah } = await db.storage.from(WADAH).upload(foto_path, isiFoto, { contentType: jenis.mime, upsert: false })
-    if (gagalUnggah) return NextResponse.json({ error: 'Foto gagal diunggah. Coba lagi, atau kirim tanpa foto.' }, { status: 502 })
+    const unggah = await simpanFotoBukti(`${s.kontingen_id}/${tanggal}`, foto)
+    if ('error' in unggah) return NextResponse.json({ error: unggah.error }, { status: unggah.status })
+    foto_path = unggah.path
   }
 
   const { data: baru, error } = await db.from('laporan_hasil').insert({
@@ -90,7 +73,7 @@ export async function POST(req: NextRequest) {
     akses_id: s.akses_id, pelapor_nama: s.nama_pic, pelapor_wa: s.no_wa,
   }).select('id').single()
   if (error) {
-    if (foto_path) await db.storage.from(WADAH).remove([foto_path])   // jangan tinggalkan foto yatim
+    if (foto_path) await db.storage.from(WADAH_BUKTI).remove([foto_path])   // jangan tinggalkan foto yatim
     return NextResponse.json({ error: 'Gagal menyimpan. Coba lagi.' }, { status: 500 })
   }
 
