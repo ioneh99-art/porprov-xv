@@ -18,6 +18,13 @@ export const PREMIUM_REPORT_KABBANDUNG_TAMPIL = false
  */
 export const PETA_WARROOM_KABBANDUNG_TAMPIL = false
 
+/**
+ * Panel Strategic Actions di War Room Kab. Bandung disembunyikan sementara
+ * (16 Okt 2026, permintaan Bos) supaya pembahasan di KONI tidak melebar;
+ * disimpan untuk kasus berikutnya. Ubah ke true untuk menampilkannya lagi.
+ */
+export const STRATEGIC_ACTIONS_WARROOM_KABBANDUNG_TAMPIL = false
+
 /** Tujuan tombol kembali di Tes Biomotorik dan Heatmap Cabor Kab. Bandung. */
 export const KEMBALI_DARI_PREMIUM_KABBANDUNG = PREMIUM_REPORT_KABBANDUNG_TAMPIL
   ? '/konida/Premiumreport/kabbandung'

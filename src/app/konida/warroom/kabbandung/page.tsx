@@ -20,7 +20,7 @@ import {
 } from '@/components/konida/WarRoomHelpers'
 import LayarMedali from '@/components/konida/LayarMedali'
 import GrafikProyeksiEmas from '@/components/konida/GrafikProyeksiEmas'
-import { PETA_WARROOM_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
+import { PETA_WARROOM_KABBANDUNG_TAMPIL, STRATEGIC_ACTIONS_WARROOM_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
 import { timpaKlasemen } from '@/lib/lapor'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 
@@ -544,6 +544,8 @@ export default function PageWarRoom() {
         )}
 
         {/* ════ 5. STRATEGIC ACTIONS ════ */}
+        {/* Disembunyikan sementara atas permintaan Bos (16 Okt) supaya pembahasan di KONI tidak melebar; nyalakan lewat saklar-menu.ts. */}
+        {STRATEGIC_ACTIONS_WARROOM_KABBANDUNG_TAMPIL && (
         <div {...ani(70)}>
           <StrategicActionsCard
             primary={ACCENT}
@@ -556,6 +558,7 @@ export default function PageWarRoom() {
             })}
           />
         </div>
+        )}
 
       </main>
 
