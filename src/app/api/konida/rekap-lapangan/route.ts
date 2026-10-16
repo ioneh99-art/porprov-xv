@@ -84,6 +84,12 @@ export async function GET(req: NextRequest) {
   })
   const capaian = capaianTarget(targetEmas, laporan)
 
+  const medali = laporan.filter((l: any) => adalahMedali(l.hasil)).map((l: any) => ({
+    id: l.id, cabor: namaCabor.get(l.cabor_id) ?? '', nomor: l.nomor_teks, hasil: l.hasil, tulis: tulisHasil(l),
+    nilai: l.nilai_teks, tanggal: l.tanggal, waktu: l.diputus_at ?? l.created_at,
+    atlet: (l.atlet_ids as number[]).map(id => atlet[id]?.nama ?? `Atlet ${id}`),
+  }))
+
   const hariIni = tanggalWIB()
   const perHari = new Map<string, any[]>()
   for (const l of laporan) perHari.set(l.tanggal, [...(perHari.get(l.tanggal) ?? []), l])
@@ -98,11 +104,9 @@ export async function GET(req: NextRequest) {
       .map(([tanggal, ls]) => ({ tanggal, hari_ke: hariPorprov(tanggal), ...rekapMedali(ls) })),
     per_cabor: Array.from(perCabor.values())
       .sort((x, y) => y.emas - x.emas || y.perak - x.perak || y.perunggu - x.perunggu || y.target_koni - x.target_koni || x.cabor.localeCompare(y.cabor)),
-    medali_terbaru: laporan.filter((l: any) => adalahMedali(l.hasil)).slice(0, 12).map((l: any) => ({
-      id: l.id, cabor: namaCabor.get(l.cabor_id) ?? '', nomor: l.nomor_teks, hasil: l.hasil, tulis: tulisHasil(l),
-      nilai: l.nilai_teks, tanggal: l.tanggal, waktu: l.diputus_at ?? l.created_at,
-      atlet: (l.atlet_ids as number[]).map(id => atlet[id]?.nama ?? `Atlet ${id}`),
-    })),
+    medali_terbaru: medali.slice(0, 12),
+    // Semua medali yang disahkan — untuk daftar "medali per tanggal" di Mode Layar.
+    medali_semua: medali,
     target: {
       ada: !!akhir,
       emas_koni: targetKoni, emas_cabor: targetCaborTotal,

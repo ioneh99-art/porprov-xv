@@ -14,6 +14,8 @@ export interface RekapLapangan {
   per_hari: ({ tanggal: string; hari_ke: number | null } & Rekap)[]
   per_cabor: BarisCabor[]
   medali_terbaru: MedaliTerbaru[]
+  /** Semua medali yang disahkan, urut terbaru disahkan dulu. */
+  medali_semua: MedaliTerbaru[]
   target: {
     ada: boolean; emas_koni: number; emas_cabor: number; atlet_emas: number
     tercapai: number; belum_emas: number; belum_turun: number; tautan_meragukan: number; cabang_tanpa_peta: number

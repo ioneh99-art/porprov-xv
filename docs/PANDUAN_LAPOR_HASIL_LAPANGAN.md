@@ -323,3 +323,16 @@ Isi panelnya:
 "Hari berjalan" adalah hari terakhir yang punya realisasi, atau hari ini bila lebih akhir. Panel disegarkan sendiri setiap 20 detik.
 
 Mengganti proyeksi bila KONI memberi versi baru: hapus baris lama sesuai sumbernya, lalu muat yang baru dengan nama `sumber` berbeda. Membatalkan seluruhnya: `drop table if exists public.proyeksi_medali;` (panel otomatis tersembunyi bila tabel kosong).
+
+### Mode Layar (videotron) jadi empat halaman (16 Oktober 2026)
+
+Alamat tetap `…/konida/warroom/kabbandung?layar=1`. Isinya sekarang empat halaman yang berputar sendiri. Bisa juga digulir manual, atau dipindah lewat titik di kanan bawah, tombol panah, atau Page Up/Down:
+
+1. **Perolehan medali**, kini dengan peringkat sementara dan tanggal di tiap medali terbaru (±25 detik).
+2. **Grafik perolehan emas**: akumulasi proyeksi KONI vs emas yang diraih, emas per hari, dan hari dengan emas terbanyak (±25 detik).
+3. **Medali per tanggal**: semua medali yang disahkan, dikelompokkan per hari, tanggal terbaru di atas. Daftarnya bergulir pelan sendiri; halaman ini baru berganti setelah daftarnya habis (paling lama 3 menit).
+4. **Klasemen & jadwal**: 10 besar klasemen (angka Kab. Bandung dari laporan yang disahkan), hitung mundur ke pembukaan, dan cabor Kab. Bandung yang bertanding hari ini atau jadwal terdekat (±25 detik).
+
+Setiap sentuhan, guliran, atau tombol membuat putar otomatis berhenti 60 detik, supaya operator bisa membaca. Tombol "Putar otomatis" mematikannya sama sekali.
+
+Yang sengaja tidak ditampilkan di layar umum: catatan lapangan, antrean pengesahan, data PIC, dan target per atlet. Garis proyeksi KONI ikut tampil di grafik; bila KONI tidak ingin proyeksinya terlihat umum, garis itu bisa disembunyikan.
