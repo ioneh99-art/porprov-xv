@@ -6,6 +6,7 @@ import {
   ChevronRight, Zap, Shield, Target, BarChart3,
   TrendingUp, Activity, AlertCircle, MapPin
 } from 'lucide-react'
+import { pasangUbin } from '@/lib/peta-ubin'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Issue {
@@ -116,9 +117,7 @@ function PetaLeaflet({ perKontingen }: { perKontingen: KontingenStat[] }) {
       mapInstanceRef.current = map
 
       // Dark tile - CartoDB
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-      }).addTo(map)
+      pasangUbin(L, map, 'gelap')
 
       // Plot semua kontingen
       perKontingen.forEach(k => {

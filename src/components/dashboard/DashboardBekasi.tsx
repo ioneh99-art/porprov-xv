@@ -14,6 +14,7 @@ import {
   Target, TrendingDown, TrendingUp,
   Users, Wifi, X, Zap, ChevronRight,
 } from 'lucide-react'
+import { pasangUbin } from '@/lib/peta-ubin'
 
 // ─── Types ────────────────────────────────────────────────
 type PrediksiStatus = 'kuat' | 'sedang' | 'risiko'
@@ -129,7 +130,7 @@ function PetaKontingen({ venues, onSelect }: { venues:VenuePoint[]; onSelect:(id
       })
       mapInstanceRef.current = map
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map)
+      pasangUbin(L, map, 'terang')
 
       venues.forEach(v=>{
         const hex = VENUE_HEX[v.status]

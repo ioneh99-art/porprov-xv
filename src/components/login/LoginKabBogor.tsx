@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, ChevronRight, Activity } from 'lucide-react'
 import type { Map as LeafletMap } from 'leaflet'
+import { pasangUbin } from '@/lib/peta-ubin'
 
 // ── Venue data Kab. Bogor untuk peta login ──────────────
 const LOGIN_VENUES = [
@@ -71,10 +72,7 @@ function LoginMap() {
       mapInstanceRef.current = map
 
       // Dark forest tile
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        opacity: 0.85,
-      }).addTo(map)
+      pasangUbin(L, map, 'gelap')
 
       // Venue markers
       LOGIN_VENUES.forEach(v => {

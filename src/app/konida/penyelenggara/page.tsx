@@ -24,6 +24,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
+import { pasangUbin } from '@/lib/peta-ubin'
 
 type VenueStatus = 'aktif' | 'siap' | 'selesai' | 'masalah' | 'standby'
 type IncidentStatus = 'open' | 'handled' | 'closed'
@@ -202,10 +203,7 @@ function PetaCommandCenter({ venues, selectedVenueId, onVenueClick }: {
       mapInstanceRef.current = map
 
       // Light clean tile
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap © CARTO',
-      }).addTo(map)
+      pasangUbin(L, map, 'terang')
 
       markersRef.current = {}
 

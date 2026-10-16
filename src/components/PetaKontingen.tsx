@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { pasangUbin } from '@/lib/peta-ubin'
 
 interface KontingenStat {
   nama: string
@@ -90,10 +91,7 @@ export default function PetaKontingen({ perKontingen }: { perKontingen: Kontinge
       mapInstanceRef.current = map
 
       // Dark tile layer (CartoDB dark)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '©OpenStreetMap ©CARTO',
-        maxZoom: 19,
-      }).addTo(map)
+      pasangUbin(L, map, 'gelap')
 
       // Tambah attribution kecil di pojok
       L.control.attribution({ position: 'bottomleft', prefix: false })

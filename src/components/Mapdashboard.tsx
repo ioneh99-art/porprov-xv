@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { Map as LeafletMap } from 'leaflet'
+import { pasangUbin } from '@/lib/peta-ubin'
 
 // ── Koordinat Venue PORPROV XV (approximate) ─────────────
 // Klaster I = Bekasi, Klaster II = Bogor, Klaster III = Depok/Bandung
@@ -132,10 +133,7 @@ export default function MapDashboard({
       mapRef.current = map
 
       // Dark tile
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '© CartoDB',
-      }).addTo(map)
+      pasangUbin(L, map, 'gelap')
 
       // ── Venue pins ───────────────────────────────────
       if (mode === 'venue' || mode === 'both') {

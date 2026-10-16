@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Map as LeafletMap } from 'leaflet'
+import { pasangUbin } from '@/lib/peta-ubin'
 
 const ACCENT = '#00ffaa'
 
@@ -95,7 +96,7 @@ export default function PetaKompetitor({
       // Custom zoom control position
       L.control.zoom({ position: 'bottomleft' }).addTo(map)
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map)
+      pasangUbin(L, map, 'gelap')
 
       const maxEmas = Math.max(...klasemen.map(k => k.emas), 1)
 
