@@ -19,6 +19,7 @@ import {
   generateStrategicActions,
 } from '@/components/konida/WarRoomHelpers'
 import LayarMedali from '@/components/konida/LayarMedali'
+import GrafikProyeksiEmas from '@/components/konida/GrafikProyeksiEmas'
 import { timpaKlasemen } from '@/lib/lapor'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 
@@ -285,6 +286,11 @@ export default function PageWarRoom() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ════ 1b. SITUASI PEROLEHAN EMAS — proyeksi KONI vs realisasi ════ */}
+        <div {...ani(10)}>
+          <GrafikProyeksiEmas kontingenId={4} />
         </div>
 
         {/* ════ 2. LAGA AKTIF ════ */}
