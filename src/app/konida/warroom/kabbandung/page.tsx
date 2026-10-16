@@ -65,23 +65,56 @@ export default function PageWarRoom() {
   useEffect(() => { const i=setInterval(()=>setPulse(p=>!p),800); return()=>clearInterval(i) },[])
 
   useEffect(() => {
+    // Angka medali dimuat ulang sendiri: War Room dibiarkan terbuka sepanjang
+    // hari, dan hasil yang baru disahkan harus tampil tanpa memuat ulang halaman.
+    async function muatMedali() {
+      const lap = await ambilRekapLapangan(4)
+      if (lap.ok) setLapangan(lap.data)
+      // Begitu ada laporan lapangan yang disahkan, angka Kab. Bandung memakai hitungan itu.
+      const rekapLap = lap.ok && lap.data.rekap.laga > 0 ? lap.data.rekap : null
+
+      const [k, m] = await Promise.allSettled([
+        sb.from('klasemen_medali')
+          .select('emas,perak,perunggu,total,kontingen(nama)')
+          .order('emas',  { ascending:false })
+          .order('perak', { ascending:false })
+          .limit(27),
+        sb.from('klasemen_medali')
+          .select('emas,perak,perunggu,total')
+          .eq('kontingen_id', 4)
+          .maybeSingle(),
+      ])
+
+      if (k.status==='fulfilled' && k.value.data) {
+        const raw = k.value.data as any[]
+        const flat = raw.map(r => ({
+          nama:     (r.kontingen as any)?.nama ?? '-',
+          emas:     r.emas    ?? 0,
+          perak:    r.perak   ?? 0,
+          perunggu: r.perunggu ?? 0,
+          total:    r.total   ?? 0,
+        }))
+        setKlasemen(rekapLap ? timpaKlasemen(flat, rekapLap, 'KAB. BANDUNG') : flat)
+      }
+
+      if (rekapLap) {
+        setSummary(prev => ({ ...prev, emas: rekapLap.emas, perak: rekapLap.perak, perunggu: rekapLap.perunggu, total_medali: rekapLap.total }))
+      } else if (m.status==='fulfilled' && m.value.data) {
+        const d = m.value.data
+        setSummary(prev => ({
+          ...prev,
+          emas:         d.emas        ?? 0,
+          perak:        d.perak       ?? 0,
+          perunggu:     d.perunggu    ?? 0,
+          total_medali: d.total       ?? 0,
+        }))
+      }
+    }
+
     async function load() {
       try {
-        const lap = await ambilRekapLapangan(4)
-        if (lap.ok) setLapangan(lap.data)
-        // Begitu ada laporan lapangan yang disahkan, angka Kab. Bandung memakai hitungan itu.
-        const rekapLap = lap.ok && lap.data.rekap.laga > 0 ? lap.data.rekap : null
-
-        const [k, m, a, tf] = await Promise.allSettled([
-          sb.from('klasemen_medali')
-            .select('emas,perak,perunggu,total,kontingen(nama)')
-            .order('emas',  { ascending:false })
-            .order('perak', { ascending:false })
-            .limit(27),
-          sb.from('klasemen_medali')
-            .select('emas,perak,perunggu,total')
-            .eq('kontingen_id', 4)
-            .maybeSingle(),
+        const [, a, tf] = await Promise.allSettled([
+          muatMedali(),
           (async () => {
             let all: any[] = []
             for (let p = 0; ; p++) {
@@ -97,31 +130,6 @@ export default function PageWarRoom() {
             .select('kesimpulan_persen,status_tes,cabor_nama,atlet_id')
             .eq('kontingen_id', 4),
         ])
-
-        if (k.status==='fulfilled' && k.value.data) {
-          const raw = k.value.data as any[]
-          const flat = raw.map(r => ({
-            nama:     (r.kontingen as any)?.nama ?? '-',
-            emas:     r.emas    ?? 0,
-            perak:    r.perak   ?? 0,
-            perunggu: r.perunggu ?? 0,
-            total:    r.total   ?? 0,
-          }))
-          setKlasemen(rekapLap ? timpaKlasemen(flat, rekapLap, 'KAB. BANDUNG') : flat)
-        }
-
-        if (rekapLap) {
-          setSummary(prev => ({ ...prev, emas: rekapLap.emas, perak: rekapLap.perak, perunggu: rekapLap.perunggu, total_medali: rekapLap.total }))
-        } else if (m.status==='fulfilled' && m.value.data) {
-          const d = m.value.data
-          setSummary(prev => ({
-            ...prev,
-            emas:         d.emas        ?? 0,
-            perak:        d.perak       ?? 0,
-            perunggu:     d.perunggu    ?? 0,
-            total_medali: d.total       ?? 0,
-          }))
-        }
 
         if (a.status==='fulfilled' && a.value.data) {
           const atlets = a.value.data as any[]
@@ -163,6 +171,8 @@ export default function PageWarRoom() {
       }
     }
     void load()
+    const iv = setInterval(() => { if (document.visibilityState === 'visible') muatMedali().catch(() => {}) }, 20_000)
+    return () => clearInterval(iv)
   }, [])
 
   const myRank = klasemen.findIndex(k =>
