@@ -1,5 +1,5 @@
 // src/lib/saklar-menu.ts
-// Saklar tampil/sembunyi menu. Halaman di baliknya tidak dihapus dan tetap
+// Saklar tampil/sembunyi menu dan panel. Halaman di baliknya tidak dihapus dan tetap
 // bisa dibuka lewat alamatnya; yang diatur di sini hanya jalan masuknya.
 
 /**
@@ -11,6 +11,12 @@
  * punya jalan masuk: Radar Prestasi, Pencarian Bakat, dan Laporan Bupati.
  */
 export const PREMIUM_REPORT_KABBANDUNG_TAMPIL = false
+
+/**
+ * Peta Kekuatan Kompetitor di War Room Kab. Bandung disembunyikan sementara
+ * (16 Okt 2026, permintaan Bos). Ubah ke true untuk menampilkannya lagi.
+ */
+export const PETA_WARROOM_KABBANDUNG_TAMPIL = false
 
 /** Tujuan tombol kembali di Tes Biomotorik dan Heatmap Cabor Kab. Bandung. */
 export const KEMBALI_DARI_PREMIUM_KABBANDUNG = PREMIUM_REPORT_KABBANDUNG_TAMPIL

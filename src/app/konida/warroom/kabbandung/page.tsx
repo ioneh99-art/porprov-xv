@@ -20,6 +20,7 @@ import {
 } from '@/components/konida/WarRoomHelpers'
 import LayarMedali from '@/components/konida/LayarMedali'
 import GrafikProyeksiEmas from '@/components/konida/GrafikProyeksiEmas'
+import { PETA_WARROOM_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
 import { timpaKlasemen } from '@/lib/lapor'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 
@@ -288,44 +289,6 @@ export default function PageWarRoom() {
           ))}
         </div>
 
-        {/* ════ 1b. SITUASI PEROLEHAN EMAS — proyeksi KONI vs realisasi ════ */}
-        <div {...ani(10)}>
-          <GrafikProyeksiEmas kontingenId={4} />
-        </div>
-
-        {/* ════ 2. LAGA AKTIF ════ */}
-        {LAGA_LIVE.length > 0 && (
-          <div {...ani(15)} className="rounded-3xl p-5 relative overflow-hidden"
-            style={{ background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.25)' }}>
-            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-20"
-              style={{ background:'#ef4444' }}/>
-            <div className="relative flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full bg-red-400 ${pulse?'opacity-100':'opacity-20'} transition-opacity`}
-                  style={{ boxShadow:'0 0 8px rgba(239,68,68,0.8)' }}/>
-                <h2 className="text-sm font-black text-red-400 uppercase tracking-widest">
-                  🚨 {LAGA_LIVE.length} Laga Sedang Berlangsung
-                </h2>
-              </div>
-              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Real-time</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative">
-              {LAGA_LIVE.map((l, i) => (
-                <div key={i} className="rounded-xl p-3 transition-all hover:scale-[1.02]"
-                  style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.2)' }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-red-400">LIVE</span>
-                  </div>
-                  <div className="text-sm font-bold text-white mb-1">{l.cabor}</div>
-                  <div className="text-[11px] text-zinc-300">{l.laga}</div>
-                  <div className="text-[10px] text-zinc-500 mt-1 font-mono">📍 {l.venue}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* ════ 3. MISSION INTELLIGENCE — Gap · Target · Klasemen ════ */}
         <div {...ani(30)} className="rounded-3xl overflow-hidden relative"
           style={{ background:'rgba(2,10,20,0.65)', border:`1px solid ${ACCENT}18` }}>
@@ -460,7 +423,7 @@ export default function PageWarRoom() {
               </div>
               <div className="space-y-1.5">
                 {klasemen.slice(0, 5).map((k, i) => {
-                  const isUs = String(k.nama ?? '').toUpperCase().includes('BANDUNG')
+                  const isUs = String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG'   // bukan sekadar memuat "BANDUNG": Kota Bandung ikut tertandai
                   return (
                     <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-colors"
                       style={{
@@ -504,7 +467,47 @@ export default function PageWarRoom() {
           </div>
         </div>
 
+        {/* ════ 1b. SITUASI PEROLEHAN EMAS — proyeksi KONI vs realisasi ════ */}
+        <div {...ani(10)}>
+          <GrafikProyeksiEmas kontingenId={4} />
+        </div>
+
+        {/* ════ 2. LAGA AKTIF ════ */}
+        {LAGA_LIVE.length > 0 && (
+          <div {...ani(15)} className="rounded-3xl p-5 relative overflow-hidden"
+            style={{ background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.25)' }}>
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-20"
+              style={{ background:'#ef4444' }}/>
+            <div className="relative flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full bg-red-400 ${pulse?'opacity-100':'opacity-20'} transition-opacity`}
+                  style={{ boxShadow:'0 0 8px rgba(239,68,68,0.8)' }}/>
+                <h2 className="text-sm font-black text-red-400 uppercase tracking-widest">
+                  🚨 {LAGA_LIVE.length} Laga Sedang Berlangsung
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Real-time</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative">
+              {LAGA_LIVE.map((l, i) => (
+                <div key={i} className="rounded-xl p-3 transition-all hover:scale-[1.02]"
+                  style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.2)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-red-400">LIVE</span>
+                  </div>
+                  <div className="text-sm font-bold text-white mb-1">{l.cabor}</div>
+                  <div className="text-[11px] text-zinc-300">{l.laga}</div>
+                  <div className="text-[10px] text-zinc-500 mt-1 font-mono">📍 {l.venue}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ════ 4. PETA KOMPETITOR — full width ════ */}
+        {/* Disembunyikan sementara atas permintaan Bos (16 Okt); nyalakan lewat saklar-menu.ts. */}
+        {PETA_WARROOM_KABBANDUNG_TAMPIL && (
         <div {...ani(45)} className="rounded-3xl overflow-hidden relative shadow-xl"
           style={{ border:`1px solid ${ACCENT}25`, height:490 }}>
           <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none px-5 py-4 flex flex-wrap items-center justify-between gap-3"
@@ -538,6 +541,7 @@ export default function PageWarRoom() {
             zoom={8.5}
           />
         </div>
+        )}
 
         {/* ════ 5. STRATEGIC ACTIONS ════ */}
         <div {...ani(70)}>
