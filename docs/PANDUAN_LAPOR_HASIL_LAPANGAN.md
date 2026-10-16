@@ -302,3 +302,24 @@ Kode tab dan rutenya ada di commit fitur ini; `git revert` commit itu mengembali
 - `npm run uji:catatan` (30) dan `npm run uji:laporan-cabor` (52) untuk aturan dan penyusunan laporan, termasuk penetralan isian berbahaya.
 - Uji ujung-ke-ujung di server lokal dengan basis data produksi: 51 pemeriksaan untuk catatan, laporan cabor, kirim hasil berfoto, dan uji lama 97 + 26. Semuanya lulus, dan data uji sudah dihapus.
 - Belum dicoba: kamera HP sungguhan dan akun KONIDA asli di cloud.
+
+---
+
+## 13. Pembaruan 16 Oktober 2026: peta War Room dan grafik proyeksi vs realisasi emas
+
+### Peta kembali tampil
+
+Penyedia peta latar lama (CARTO, `basemaps.cartocdn.com`) kini mengembalikan ubin bertuliskan "API KEY REQUIRED" bila diminta tanpa kunci, sehingga semua peta tampil rusak. Semua peta Leaflet sekarang memakai `pasangUbin()` di `src/lib/peta-ubin.ts`: kanvas Esri gelap atau terang, tanpa kunci, dengan atribusi "Peta © Esri". Bila suatu saat Esri juga meminta kunci, cukup ganti alamat di berkas itu.
+
+### Grafik "Situasi Perolehan Emas" di War Room
+
+Patokannya proyeksi KONI dari berkas `PPT Grafik Raihan Emas.pdf`: 74 emas dari 3 sampai 19 November, disimpan di tabel `proyeksi_medali` (migrasi 058). Realisasi dihitung dari laporan lapangan berhasil **emas** yang sudah **disahkan**, dengan aturan satu nomor = satu emas.
+
+Isi panelnya:
+- angka realisasi, proyeksi sampai hari berjalan, selisih (▲ di depan / ● sesuai / ▼ di belakang), dan persen tercapai;
+- grafik akumulasi (proyeksi oranye putus-putus, realisasi biru) dan grafik emas per hari;
+- daftar per cabor, yang paling tertinggal di atas, plus tabel harian.
+
+"Hari berjalan" adalah hari terakhir yang punya realisasi, atau hari ini bila lebih akhir. Panel disegarkan sendiri setiap 20 detik.
+
+Mengganti proyeksi bila KONI memberi versi baru: hapus baris lama sesuai sumbernya, lalu muat yang baru dengan nama `sumber` berbeda. Membatalkan seluruhnya: `drop table if exists public.proyeksi_medali;` (panel otomatis tersembunyi bila tabel kosong).
