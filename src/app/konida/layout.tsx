@@ -1,12 +1,11 @@
 //app/konida/layout.tsx
 
 import KonidaLayoutShell from '@/components/KonidaLayoutShell'
-import { cookies } from 'next/headers'
+import { getServerSession } from '@/lib/guard'
 
-export default function KonidaLayout({ children }: { children: React.ReactNode }) {
-  const session = cookies().get('porprov_session')?.value
-  let user = null
-  try { user = session ? JSON.parse(session) : null } catch {}
+export default async function KonidaLayout({ children }: { children: React.ReactNode }) {
+  // Sesi terverifikasi HMAC (bukan JSON.parse cookie yg bisa dipalsukan).
+  const user = await getServerSession()
 
   return (
     <KonidaLayoutShell user={user}>

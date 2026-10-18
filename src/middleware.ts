@@ -54,7 +54,6 @@ const ROUTE_RULES: { pattern: RegExp; allowed: string[] }[] = [
 
   // KONI Jabar + Superadmin (executive view)
   { pattern: /^\/konida\/dashboard\/jabar/,              allowed: ['superadmin', 'koni_jabar'] },
-  // Tambahkan rule ini:
   { pattern: /^\/dashboard/,                             allowed: ['superadmin', 'koni_jabar'] },
 
   // Level 1 + Superadmin + KONI Jabar
@@ -173,7 +172,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*', '/api/superadmin/:path*', '/api/users/:path*',
+  // /operator & /dashboard wajib ada di sini — tanpanya gerbang halaman hanya bergantung pada layout.
+  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*', '/operator/:path*', '/dashboard/:path*', '/api/superadmin/:path*', '/api/users/:path*',
     '/api/ai-brief/:path*', '/api/chatbot/:path*', '/api/sipa/:path*', '/api/dayung/brief/:path*',
     '/api/jarvis/:path*', '/api/sport-intel/:path*', '/api/baseline/smart-brief/:path*', '/api/performance/:path*'],
 }

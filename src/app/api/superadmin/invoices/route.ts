@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServerSession } from '@/lib/guard'
 import { Resend } from 'resend'
 
 const sb = createClient(
@@ -10,15 +11,15 @@ const sb = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 )
 
-function requireSuperadmin(req: NextRequest): boolean {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return false
-  try { return JSON.parse(session).role === 'superadmin' } catch { return false }
+// Pertahanan berlapis: middleware sudah memeriksa, tapi rute tetap memverifikasi HMAC sendiri.
+async function requireSuperadmin(): Promise<boolean> {
+  const s = await getServerSession()
+  return s?.role === 'superadmin'
 }
 
 // ─── GET: list invoices ───────────────────────────────────
 export async function GET(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error:'Unauthorized' }, { status:401 })
 
   const { data, error } = await sb
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 
 // ─── POST: create invoice ─────────────────────────────────
 export async function POST(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error:'Unauthorized' }, { status:401 })
 
   const body = await req.json()
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
 
 // ─── PUT: update invoice ──────────────────────────────────
 export async function PUT(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error:'Unauthorized' }, { status:401 })
 
   const body = await req.json()
@@ -97,7 +98,7 @@ export async function PUT(req: NextRequest) {
 
 // ─── PATCH: send invoice (email + Midtrans) ───────────────
 export async function PATCH(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error:'Unauthorized' }, { status:401 })
 
   const { id, action } = await req.json()
@@ -320,7 +321,7 @@ export async function PATCH(req: NextRequest) {
 
 // ─── DELETE: hapus invoice draft ─────────────────────────
 export async function DELETE(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error:'Unauthorized' }, { status:401 })
 
   const { id } = await req.json()

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { getServerSession } from '@/lib/guard'
 
 // Login page per level (fallback kalau tidak ada tenant env var)
 const LOGIN_BY_ORIGIN: Record<string, string> = {
@@ -24,9 +25,9 @@ const DASHBOARD_BY_LEVEL: Record<string, string> = {
   level3:     '/konida/dashboard/basic',
 }
 
-export default function Home() {
+export default async function Home() {
   const jar        = cookies()
-  const session    = jar.get('porprov_session')?.value
+  const session    = await getServerSession()  // terverifikasi HMAC
   const origin     = jar.get('login_origin')?.value ?? ''
   const level      = jar.get('user_level')?.value ?? ''
   const tenantId   = jar.get('tenant_id')?.value ?? ''

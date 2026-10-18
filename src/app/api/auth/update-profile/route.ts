@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServerSession } from '@/lib/guard'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,10 +8,10 @@ const sb = () => createClient(
 )
 
 export async function PATCH(req: NextRequest) {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Sesi terverifikasi HMAC — id dari cookie mentah bisa dipalsukan untuk mengubah email user lain.
+  const user = await getServerSession()
+  if (!user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const user = JSON.parse(session)
   const { email } = await req.json()
 
   const { error } = await sb()

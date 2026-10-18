@@ -1,9 +1,10 @@
 // src/app/api/auth/me/route.ts
 // Fix: tambah plan_id dari enterprise hardcode + session fallback
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSubscription, F } from '@/lib/subscriptions'
+import { getServerSession } from '@/lib/guard'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,14 +47,14 @@ const ENTERPRISE_FEATURES = [
   'kesiapan_teknis', 'akomodasi', 'laporan_harian',
 ]
 
-export async function GET(req: NextRequest) {
-  const sessionCookie = req.cookies.get('porprov_session')?.value
-  if (!sessionCookie) {
+export async function GET() {
+  // Sesi terverifikasi HMAC — id dari cookie mentah bisa dipalsukan untuk membaca data user lain.
+  const session = await getServerSession()
+  if (!session?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    const session = JSON.parse(sessionCookie)
 
     const { data: user, error } = await sb
       .from('users')

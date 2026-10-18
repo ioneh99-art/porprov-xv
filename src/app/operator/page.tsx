@@ -1,10 +1,9 @@
-import { cookies } from 'next/headers'
+import { getServerSession } from '@/lib/guard'
 import { redirect } from 'next/navigation'
 
-export default function OperatorRootPage() {
-  const session = cookies().get('porprov_session')?.value
-  let user: any = null
-  try { user = session ? JSON.parse(session) : null } catch {}
+export default async function OperatorRootPage() {
+  // Sesi terverifikasi HMAC (bukan JSON.parse cookie yg bisa dipalsukan).
+  const user: any = await getServerSession()
 
   if (!user) redirect('/login')
 

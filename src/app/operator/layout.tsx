@@ -1,6 +1,7 @@
 import OperatorSidebar from '@/components/OperatorSidebar'
 import ChatbotWidget from '@/components/ChatbotWidget'
 import { cookies } from 'next/headers'
+import { getServerSession } from '@/lib/guard'
 import { redirect } from 'next/navigation'
 
 const OPERATOR_ROLES = ['operator_cabor', 'operator', 'admin', 'superadmin']
@@ -17,9 +18,8 @@ function resolveTier(user: any): TierBadge {
 }
 
 export default async function OperatorLayout({ children }: { children: React.ReactNode }) {
-  const session = cookies().get('porprov_session')?.value
-  let user: any = null
-  try { user = session ? JSON.parse(session) : null } catch {}
+  // Sesi terverifikasi HMAC (bukan JSON.parse cookie yg bisa dipalsukan).
+  const user: any = await getServerSession()
 
   if (!user) redirect('/login')
   if (!OPERATOR_ROLES.includes(user.role)) redirect('/')
@@ -30,6 +30,7 @@ export default async function OperatorLayout({ children }: { children: React.Rea
   async function logout() {
     'use server'
     cookies().delete('porprov_session')
+    cookies().delete('porprov_sig')
     cookies().delete('user_level')
     cookies().delete('tenant_id')
     redirect(loginTarget)

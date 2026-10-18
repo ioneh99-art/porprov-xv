@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServerSession } from '@/lib/guard'
 import bcrypt from 'bcryptjs'
 import { setUserHash } from '@/lib/user-credential'
 
@@ -11,18 +12,15 @@ const sb = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 )
 
-function requireSuperadmin(req: NextRequest): boolean {
-  const session = req.cookies.get('porprov_session')?.value
-  if (!session) return false
-  try {
-    const s = JSON.parse(session)
-    return s.role === 'superadmin'
-  } catch { return false }
+// Pertahanan berlapis: middleware sudah memeriksa, tapi rute tetap memverifikasi HMAC sendiri.
+async function requireSuperadmin(): Promise<boolean> {
+  const s = await getServerSession()
+  return s?.role === 'superadmin'
 }
 
 // GET — list all users
 export async function GET(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await sb
@@ -36,7 +34,7 @@ export async function GET(req: NextRequest) {
 
 // POST — create user
 export async function POST(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
@@ -70,7 +68,7 @@ export async function POST(req: NextRequest) {
 
 // PUT — update user
 export async function PUT(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
@@ -95,7 +93,7 @@ export async function PUT(req: NextRequest) {
 
 // PATCH — toggle active
 export async function PATCH(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id, is_active } = await req.json()
@@ -108,7 +106,7 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE — hapus user
 export async function DELETE(req: NextRequest) {
-  if (!requireSuperadmin(req))
+  if (!(await requireSuperadmin()))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await req.json()

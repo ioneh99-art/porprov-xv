@@ -3,7 +3,9 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { requireRole } from '@/lib/guard'
+
+const OPERATOR_ROLES = ['operator_cabor', 'operator', 'admin', 'superadmin']
 
 export const dynamic = 'force-dynamic'
 
@@ -14,16 +16,12 @@ const getSb = () => createClient(
   { auth: { persistSession: false } }
 )
 
-function getSession() {
-  try {
-    const val = cookies().get('porprov_session')?.value
-    return val ? JSON.parse(val) : null
-  } catch { return null }
-}
-
 export async function GET() {
+  // Sesi terverifikasi HMAC — cabor_id/kontingen_id dari cookie mentah bisa dipalsukan.
+  const sess = await requireRole(OPERATOR_ROLES)
+  if (sess instanceof NextResponse) return sess
+
   try {
-    const sess         = getSession()
     const caborId      = sess?.cabor_id  ? parseInt(String(sess.cabor_id))  : null
     const kontingenId  = sess?.kontingen_id ? parseInt(String(sess.kontingen_id)) : null
     const caborNama: string = sess?.cabor_nama || 'Pentathlon'

@@ -1,11 +1,10 @@
 import Sidebar from '@/components/Sidebar'
 import ChatbotWidget from '@/components/ChatbotWidget'
-import { cookies } from 'next/headers'
+import { getServerSession } from '@/lib/guard'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = cookies().get('porprov_session')?.value
-  let user = null
-  try { user = session ? JSON.parse(session) : null } catch {}
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Sesi terverifikasi HMAC (bukan JSON.parse cookie yg bisa dipalsukan).
+  const user = await getServerSession()
 
   return (
     <div className="flex min-h-screen bg-slate-950">
