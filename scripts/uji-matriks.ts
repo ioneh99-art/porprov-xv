@@ -58,6 +58,23 @@ cek('canoeing', pilih('Dayung', 'DAYUNG CANOEING', 'DAYUNG CANOEING · Canoeing 
 cek('canoe slalom bila disebut di nomor', pilih('Dayung', 'DAYUNG CANOEING', 'DAYUNG CANOEING · Canoeing - Slalom K1 (Pa)'), 'Canoeing - Slalom')
 cek('rowing', pilih('Dayung', 'DAYUNG ROWING', 'DAYUNG ROWING · Rowing M1X (Pa)', '2026-11-11'), 'Rowing')
 cek('dragon boat', pilih('Dayung', 'DAYUNG DBR', 'DAYUNG DBR · DBR - 22 pendayung - 200 m (Campuran)', '2026-11-16'), 'DBR')
+
+// ── nama Dayung sejak berkas KONI 21 Okt 2026 ──
+const JADWAL_21OKT: BarisJadwal[] = [
+  j('Canoeing Sprint & SUP', 'Dayung', '2026-11-06', '2026-11-10', 'KARAWANG'),
+  j('Canoeing Slalom', 'Dayung', '2026-11-10', '2026-11-13', 'KARAWANG'),
+  j('Rowing Classic', 'Dayung', '2026-11-11', '2026-11-14', 'KARAWANG'),
+  j('Rowing - Beach / Coastal', 'Dayung', '2026-11-15', '2026-11-18', 'KARAWANG'),
+  j('DBR', 'Dayung', '2026-11-15', '2026-11-18', 'KARAWANG'),
+]
+const pilih21 = (nomor_teks: string, disiplin: string, tanggal: string) =>
+  pilihKegiatan(JADWAL_21OKT, { cabor: 'Dayung', disiplin, nomor_teks, tanggal })?.cabor_disiplin ?? null
+cek('21 Okt: canoeing biasa → Sprint & SUP, bukan Slalom', pilih21('DAYUNG CANOEING · Canoeing - C - 1 200 M (Pi)', 'DAYUNG CANOEING', '2026-11-10'), 'Canoeing Sprint & SUP')
+cek('21 Okt: stand up paddle → Sprint & SUP', pilih21('DAYUNG CANOEING · Canoeing - Stand Up Paddle (MSUP) 200M (Pa)', 'DAYUNG CANOEING', '2026-11-08'), 'Canoeing Sprint & SUP')
+cek('21 Okt: slalom → Canoeing Slalom', pilih21('DAYUNG CANOEING · Canoeing - Slalom K - 1 (Pa)', 'DAYUNG CANOEING', '2026-11-10'), 'Canoeing Slalom')
+cek('21 Okt: rowing biasa → Rowing Classic', pilih21('DAYUNG ROWING · Rowing - Single Sculls (M1X) (Pa)', 'DAYUNG ROWING', '2026-11-15'), 'Rowing Classic')
+cek('21 Okt: rowing pantai → Beach / Coastal', pilih21('DAYUNG ROWING · Rowing - Beach Sprint (Pa)', 'DAYUNG ROWING', '2026-11-15'), 'Rowing - Beach / Coastal')
+cek('21 Okt: dragon boat tetap DBR', pilih21('DAYUNG DBR · DBR - 12 pendayung - 200 m (Pa)', 'DAYUNG DBR', '2026-11-16'), 'DBR')
 cek('hoki indoor', pilih('Hockey', 'HOCKEY INDOOR', 'HOCKEY INDOOR · Beregu Putra (Pa)'), 'Hoki Indoor')
 cek('hoki outdoor', pilih('Hockey', 'HOCKEY OUTDOOR', 'HOCKEY OUTDOOR · Beregu Putra (Pa)'), 'Hoki Outdoor - Field')
 cek('renang: dua baris seri → yang mulai lebih awal', pilih('Akuatik', 'RENANG', 'RENANG · 100 M Gaya Bebas (Pa)'), 'Aquatic - Renang')
