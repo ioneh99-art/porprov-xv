@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { loginUser } from '@/lib/auth'
 import { getSubscription } from '@/lib/subscriptions'
-import { signValue } from '@/lib/session'
+import { signValue, UMUR_SESI_DETIK } from '@/lib/session'
 
 const sbAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -259,11 +259,12 @@ export async function POST(req: NextRequest) {
     cabor_nama,
     level:        userLevel,
     plan_id:      planId,
+    exp:          Date.now() + UMUR_SESI_DETIK * 1000,
   })
 
   const secure   = process.env.NODE_ENV === 'production'
-  const httpOnly = { httpOnly: true, secure, sameSite: 'lax' as const, maxAge: 60*60*8,      path: '/' }
-  const client   = {               secure, sameSite: 'lax' as const, maxAge: 60*60*8,      path: '/' }
+  const httpOnly = { httpOnly: true, secure, sameSite: 'lax' as const, maxAge: UMUR_SESI_DETIK, path: '/' }
+  const client   = {               secure, sameSite: 'lax' as const, maxAge: UMUR_SESI_DETIK, path: '/' }
   const persist  = {               secure, sameSite: 'lax' as const, maxAge: 60*60*24*30,  path: '/' }
 
   const res = NextResponse.json({
