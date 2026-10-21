@@ -8,7 +8,7 @@ import type { Metadata } from 'next'
 import { Barlow_Condensed } from 'next/font/google'
 import { createClient } from '@supabase/supabase-js'
 import { tanggalWIB } from '@/lib/lapor'
-import type { AngkaKontingen, BarisPublik } from '@/lib/jadwal-publik'
+import type { AngkaKontingen, BarisPublik, PartaiPublik } from '@/lib/jadwal-publik'
 import { ambilSemua } from '@/lib/lapor-sesi'
 import JadwalPublik from './JadwalPublik'
 
@@ -47,6 +47,29 @@ async function ambilAngka(): Promise<AngkaKontingen | null> {
   } catch { return null }
 }
 
+/** Jadwal partai kontingen (kecuali yang batal), dengan nama cabor dan nama atlet. */
+async function ambilPartai(): Promise<PartaiPublik[]> {
+  try {
+    const db = sb()
+    const { data, error } = await db.from('jadwal_partai')
+      .select('id,cabor_id,tanggal,jam,nomor_teks,babak,atlet_ids,lawan,venue,status')
+      .eq('kontingen_id', 4).neq('status', 'batal').order('tanggal').limit(3000)
+    if (error || !data?.length) return []
+    const idAtlet = Array.from(new Set(data.flatMap((p: any) => p.atlet_ids as number[])))
+    const idCabor = Array.from(new Set(data.map((p: any) => p.cabor_id as number)))
+    const [{ data: atlet }, { data: cabor }] = await Promise.all([
+      idAtlet.length ? db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', 4).in('id', idAtlet) : Promise.resolve({ data: [] as any[] }),
+      db.from('cabang_olahraga').select('id,nama').in('id', idCabor),
+    ])
+    const nama = new Map((atlet ?? []).map((a: any) => [a.id, a.nama_lengkap as string]))
+    const namaCabor = new Map((cabor ?? []).map((c: any) => [c.id, c.nama as string]))
+    return data.map((p: any) => ({
+      id: p.id, cabor: namaCabor.get(p.cabor_id) ?? '', tanggal: p.tanggal, jam: p.jam, nomor: p.nomor_teks, babak: p.babak,
+      atlet: (p.atlet_ids as number[]).map(id => nama.get(id)).filter((x): x is string => !!x), lawan: p.lawan, venue: p.venue, status: p.status,
+    }))
+  } catch { return [] }
+}
+
 async function ambilJadwal(): Promise<{ jadwal: BarisPublik[]; diperbarui: string | null; galat: boolean }> {
   try {
     const db = sb()
@@ -66,10 +89,10 @@ async function ambilJadwal(): Promise<{ jadwal: BarisPublik[]; diperbarui: strin
 }
 
 export default async function HalamanPublikKabBandung() {
-  const [{ jadwal, diperbarui, galat }, angka] = await Promise.all([ambilJadwal(), ambilAngka()])
+  const [{ jadwal, diperbarui, galat }, angka, partai] = await Promise.all([ambilJadwal(), ambilAngka(), ambilPartai()])
   return (
     <div className={hurufTampil.variable}>
-      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} angka={angka} />
+      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} angka={angka} partai={partai} />
     </div>
   )
 }

@@ -18,6 +18,13 @@ export interface BarisPublik {
   selesai: string | null
 }
 
+/** Satu partai di halaman publik. Nama atlet ikut tampil (keputusan Bos 21 Okt 2026). */
+export interface PartaiPublik {
+  id: number; cabor: string; tanggal: string; jam: string | null; nomor: string; babak: string | null
+  atlet: string[]; lawan: string | null; venue: string | null
+  status: 'terjadwal' | 'berlangsung' | 'ditunda' | 'selesai' | 'batal'
+}
+
 /** Angka gabungan kontingen dari daftar pendaftaran resmi — tanpa data pribadi. */
 export interface AngkaKontingen { atlet: number; nomor: number; cabor: number }
 

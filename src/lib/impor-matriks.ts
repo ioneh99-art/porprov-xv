@@ -60,6 +60,25 @@ export interface RencanaMatriks {
   baris_harian: number; kegiatan: number; sama: number
   ubah: Ubahan[]; tambah: Tambahan[]
   tak_di_matriks: { id: number; nama: string; mulai: string | null; selesai: string | null }[]
+  /** Baris harian yang berisi Jam, Nomor, Nama Atlet, atau Lawan — bahan jadwal partai. */
+  partai: PartaiMatriks[]
+}
+
+export interface PartaiMatriks {
+  tanggal: string; kegiatan: string; jadwal_id: number | null
+  jam: string | null; nomor: string | null; atlet: string | null; lawan: string | null; venue: string | null
+}
+
+/** Sel jam: "09.00", "9:00", atau pecahan hari dari Excel (0,375 = 09:00). */
+export function jamSel(v: unknown): string | null {
+  if (v == null || v === '') return null
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    const menit = Math.round((v - Math.floor(v)) * 1440) % 1440
+    return `${String(Math.floor(menit / 60)).padStart(2, '0')}:${String(menit % 60).padStart(2, '0')}`
+  }
+  const m = /^(\d{1,2})[:.](\d{2})/.exec(String(v).trim())
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null
+  return `${m[1].padStart(2, '0')}:${m[2]}`
 }
 
 const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
@@ -95,6 +114,17 @@ export function rencanaMatriks(baris: any[][], lama: BarisAda[], caborDb: string
     if (!sasaran) { baru.push(k); return }
     tujuan.set(sasaran.id, [...(tujuan.get(sasaran.id) ?? []), k])
   })
+
+  const partai: PartaiMatriks[] = []
+  for (const r of baris.slice(iKepala + 1)) {
+    const nama = rapi(r?.[5]); const t = tanggalJadwal(r?.[1])
+    if (!nama || !t) continue
+    const isi = { jam: jamSel(r?.[2]), nomor: rapi(r?.[6]) || null, atlet: rapiVenue(r?.[7]).replace(/ \/ /g, ', ') || null, lawan: rapi(r?.[8]) || null }
+    if (!isi.jam && !isi.nomor && !isi.atlet && !isi.lawan) continue
+    const kunci = norm(nama)
+    const sasaran = perNama.get(kunci) ?? (PADANAN[kunci] ? perNama.get(norm(PADANAN[kunci])) : undefined)
+    partai.push({ tanggal: t, kegiatan: nama, jadwal_id: sasaran?.id ?? null, ...isi, venue: rapiVenue(r?.[10]) || null })
+  }
 
   const ubah: Ubahan[] = []
   let sama = 0
@@ -142,5 +172,52 @@ export function rencanaMatriks(baris: any[][], lama: BarisAda[], caborDb: string
   })
   const tak_di_matriks = lama.filter(l => !tujuan.has(l.id)).map(l => ({ id: l.id, nama: l.cabor_disiplin, mulai: l.mulai, selesai: l.selesai }))
 
-  return { baris_harian: terbaca, kegiatan: keg.size, sama, ubah, tambah, tak_di_matriks }
+  return { baris_harian: terbaca, kegiatan: keg.size, sama, ubah, tambah, tak_di_matriks, partai }
+}
+
+// ── Jadwal partai dari matriks ───────────────────────────────────────────────
+
+export interface PartaiAda { id: number; cabor_id: number; tanggal: string; nomor_teks: string; lawan: string | null; jam: string | null; venue: string | null; atlet_ids: number[] }
+export interface RencanaPartai {
+  tambah: { cabor_id: number; tanggal: string; jam: string | null; nomor_teks: string; lawan: string | null; venue: string | null; atlet_ids: number[]; keterangan: string | null }[]
+  lengkapi: { id: number; isi: Record<string, any>; ket: string }[]
+  tak_tertaut: { kegiatan: string; tanggal: string }[]
+}
+
+/**
+ * Partai dari matriks dibandingkan dengan yang sudah ada. Satu partai dikenali
+ * dari cabor + tanggal + nomor + lawan. Partai yang sudah ada hanya DILENGKAPI
+ * (jam, venue, atlet yang masih kosong) — isian PIC tidak pernah ditimpa berkas.
+ * Nama atlet dicocokkan per cabor; yang tidak ketemu ditulis di keterangan.
+ */
+export function rencanaPartai(dariMatriks: PartaiMatriks[], ada: PartaiAda[], caborJadwal: Map<number, number>, atletCabor: Map<number, { id: number; nama: string }[]>): RencanaPartai {
+  const hasil: RencanaPartai = { tambah: [], lengkapi: [], tak_tertaut: [] }
+  const kunci = (c: number, t: string, n: string, l: string | null) => `${c}|${t}|${norm(n)}|${norm(l ?? '')}`
+  const peta = new Map(ada.map(p => [kunci(p.cabor_id, p.tanggal, p.nomor_teks, p.lawan), p]))
+  const sudah = new Set<string>()
+  for (const m of dariMatriks) {
+    const cabor = m.jadwal_id != null ? caborJadwal.get(m.jadwal_id) : undefined
+    if (!cabor) { hasil.tak_tertaut.push({ kegiatan: m.kegiatan, tanggal: m.tanggal }); continue }
+    const nomor = m.nomor ? `${m.kegiatan} · ${m.nomor}` : m.kegiatan
+    const k = kunci(cabor, m.tanggal, nomor, m.lawan)
+    if (sudah.has(k)) continue
+    sudah.add(k)
+    const daftar = atletCabor.get(cabor) ?? []
+    const nama = (m.atlet ?? '').split(/\s*[,;]\s*/).map(x => x.trim()).filter(Boolean)
+    const cocok = nama.map(n => daftar.find(a => norm(a.nama) === norm(n))?.id ?? null)
+    const atlet_ids = cocok.filter((x): x is number => x != null)
+    const tak = nama.filter((_, i) => cocok[i] == null)
+    const lama = peta.get(k)
+    if (!lama) {
+      hasil.tambah.push({ cabor_id: cabor, tanggal: m.tanggal, jam: m.jam, nomor_teks: nomor, lawan: m.lawan, venue: m.venue, atlet_ids,
+        keterangan: tak.length ? `Atlet di berkas KONI: ${tak.join(', ')}` : null })
+      continue
+    }
+    const isi: Record<string, any> = {}
+    if (!lama.jam && m.jam) isi.jam = m.jam
+    if (!lama.venue && m.venue) isi.venue = m.venue
+    if (lama.atlet_ids.length === 0 && atlet_ids.length) isi.atlet_ids = atlet_ids
+    if (Object.keys(isi).length) hasil.lengkapi.push({ id: lama.id, isi, ket: `${nomor} ${m.tanggal}: dilengkapi ${Object.keys(isi).join(', ')}` })
+  }
+  return hasil
 }

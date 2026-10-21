@@ -9,8 +9,9 @@ import { tanggalWIB, hariPorprov, PORPROV_HARI, PORPROV_MULAI } from '@/lib/lapo
 import { hitungMundur } from '@/lib/layar'
 import {
   LABEL_STATUS, cocokCari, deretTanggal, hariKe, ikonCabor, kegiatanPada, namaHari, rentangSingkat, ringkasWilayah,
-  segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type AngkaKontingen, type BarisPublik, type StatusKegiatan,
+  segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type AngkaKontingen, type BarisPublik, type PartaiPublik, type StatusKegiatan,
 } from '@/lib/jadwal-publik'
+import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
 
 const WARNA: Record<StatusKegiatan, string> = { berlangsung: '#34d399', akan: '#38bdf8', selesai: '#64748b', tanpa_tanggal: '#64748b' }
 const WARNA_WILAYAH: Record<string, { utama: string; latar: string }> = {
@@ -104,6 +105,35 @@ function Kartu({ b, hariIni, tanggal }: { b: BarisPublik; hariIni: string; tangg
   )
 }
 
+/** Partai pada satu tanggal, urut jam (yang belum berjam di belakang). */
+const partaiPada = (partai: PartaiPublik[], tanggal: string) =>
+  partai.filter(p => p.tanggal === tanggal).sort((a, b) => (a.jam ?? '99:99').localeCompare(b.jam ?? '99:99') || a.cabor.localeCompare(b.cabor) || a.nomor.localeCompare(b.nomor))
+
+function BarisPartai({ p }: { p: PartaiPublik }) {
+  const w = WARNA_STATUS_PARTAI[p.status]
+  return (
+    <div className={`rounded-2xl border p-3 flex gap-3 ${p.status === 'berlangsung' ? 'border-emerald-400/50 bg-emerald-400/10' : 'border-white/[0.08] bg-white/[0.04]'}`}>
+      <div className="w-[58px] shrink-0 text-center">
+        <div className="text-white text-[22px] leading-none font-extrabold" style={TAMPIL}>{p.jam ?? '--:--'}</div>
+        <div className="text-[9px] font-bold uppercase mt-1 leading-tight" style={{ color: w }}>
+          {p.status === 'berlangsung' ? '● Live' : LABEL_STATUS_PARTAI[p.status]}
+        </div>
+      </div>
+      <div className="min-w-0 flex-1 border-l border-white/10 pl-3">
+        <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 uppercase tracking-wide">
+          <span className="text-base leading-none">{ikonCabor({ kegiatan: p.nomor, cabor: p.cabor })}</span>{p.cabor}
+        </div>
+        <div className="text-white font-bold text-[14px] leading-snug mt-0.5 break-words">{p.nomor}</div>
+        {(p.babak || p.lawan) && (
+          <div className="text-[13px] text-slate-300">{p.babak}{p.babak && p.lawan ? ' · ' : ''}{p.lawan && <>vs <b className="text-white">{p.lawan}</b></>}</div>
+        )}
+        {p.atlet.length > 0 && <div className="text-[12px] text-sky-200 mt-1 break-words">{p.atlet.join(', ')}</div>}
+        {p.venue && <div className="text-[12px] text-slate-400 mt-1 flex items-start gap-1"><MapPin size={11} className="shrink-0 mt-[3px]" />{p.venue}</div>}
+      </div>
+    </div>
+  )
+}
+
 function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: string; besar: string }) {
   return (
     <div className="mb-4">
@@ -113,8 +143,8 @@ function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: str
   )
 }
 
-export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, angka }: {
-  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; angka: AngkaKontingen | null
+export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, angka, partai = [] }: {
+  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; angka: AngkaKontingen | null; partai?: PartaiPublik[]
 }) {
   const [hariIni, setHariIni] = useState(hariIniServer)
   const [masuk, setMasuk] = useState(false)
@@ -164,6 +194,10 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
   const wilayah = useMemo(() => ringkasWilayah(jadwal), [jadwal])
   const segera = segeraMulai(jadwal, hariIni, 8)
   const padaTanggal = pilih ? kegiatanPada(jadwal, pilih) : []
+  const partaiTanggal = pilih ? partaiPada(partai, pilih) : []
+  // Sorotan partai: hari ini bila ada; bila tidak, tanggal terdekat sesudahnya.
+  const tglSorot = partai.some(p => p.tanggal === hariIni) ? hariIni : partai.map(p => p.tanggal).filter(t => t > hariIni).sort()[0]
+  const partaiSorot = tglSorot ? partaiPada(partai, tglSorot) : []
   const daftar = urutDaftar(jadwal, hariIni).filter(b => cocokCari(b, cari) && (saring === 'semua' || statusKegiatan(b, hariIni) === saring))
 
   const mundur = hitungMundur(hariIni)
@@ -317,6 +351,20 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
           <div className="rounded-2xl border border-white/10 px-4 py-6 text-center text-sm text-slate-400">Jadwal belum diumumkan.</div>
         ) : (
           <>
+            {/* ══ JADWAL PARTAI (hari ini / terdekat) ══ */}
+            {partaiSorot.length > 0 && tglSorot && (
+              <section className="pt-4">
+                <JudulBagian ikon={<Clock size={12} />} kecil={tglSorot === hariIni ? 'Jadwal tanding hari ini' : `Jadwal tanding · ${tglPanjang(tglSorot)}`}
+                  besar={`${partaiSorot.length} partai ${tglSorot === hariIni ? 'hari ini' : 'terdekat'}`} />
+                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {partaiSorot.slice(0, 6).map(p => <BarisPartai key={p.id} p={p} />)}
+                </div>
+                {partaiSorot.length > 6 && (
+                  <button onClick={() => keJadwal(tglSorot)} className="mt-3 text-sm font-bold text-sky-300">Lihat semua {partaiSorot.length} partai →</button>
+                )}
+              </section>
+            )}
+
             {/* ══ SEDANG BERLANGSUNG / SEGERA ══ */}
             {(berlangsungIni.length > 0 || segera.length > 0) && (
               <section className="pt-4">
@@ -410,6 +458,15 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
                         {hariPorprov(pilih) && <span className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-300/15 text-amber-200">HARI KE-{hariPorprov(pilih)}</span>}
                         <span className="text-slate-500 text-xs ml-auto">{padaTanggal.filter(b => b.jenis === 'pertandingan').length} kegiatan</span>
                       </div>
+                      {partaiTanggal.length > 0 && (
+                        <div className="mb-5">
+                          <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-sky-300 mb-2">Jadwal tanding · {partaiTanggal.length} partai</div>
+                          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">{partaiTanggal.map(p => <BarisPartai key={p.id} p={p} />)}</div>
+                        </div>
+                      )}
+                      {partaiTanggal.length > 0 && padaTanggal.length > 0 && (
+                        <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-slate-400 mb-2">Kegiatan cabor</div>
+                      )}
                       {padaTanggal.length === 0
                         ? <div className="rounded-2xl border border-white/10 px-4 py-8 text-center text-sm text-slate-500">Tidak ada pertandingan kontingen pada tanggal ini.</div>
                         : <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">{padaTanggal.map(b => <Kartu key={b.id} b={b} hariIni={hariIni} tanggal={pilih} />)}</div>}

@@ -8,6 +8,7 @@ import { rapikan, tulisNomorResmi } from '@/lib/pendaftaran'
 import { WADAH_BUKTI, ambilSesiLapor, atletCabor, bacaKiriman, dbLapor, keluargaCabor, pendaftaranCabor, simpanFotoBukti } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { writeAudit, reqMeta } from '@/lib/audit'
+import { segarkanPublik } from '@/lib/partai-server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -53,6 +54,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nomor pertandingan bukan dari cabor Anda.' }, { status: 403 })
   }
 
+  // Laporan dari partai terjadwal: partainya harus milik cabor ini.
+  let partai_id: number | null = null
+  if (mentah?.partai_id != null && mentah.partai_id !== '') {
+    const { data: p } = await db.from('jadwal_partai').select('id').eq('id', Number(mentah.partai_id))
+      .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).maybeSingle()
+    if (!p) return NextResponse.json({ error: 'Jadwal partai itu bukan dari cabor Anda.' }, { status: 403 })
+    partai_id = p.id
+  }
+
   const tanggal = tanggalWIB()
   const { data: sudahAda } = await db.from('laporan_hasil').select('nomor_teks,atlet_ids,tanggal,hasil')
     .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).eq('tanggal', tanggal).neq('status', 'ditolak')
@@ -69,7 +79,7 @@ export async function POST(req: NextRequest) {
 
   const { data: baru, error } = await db.from('laporan_hasil').insert({
     kontingen_id: s.kontingen_id, cabor_id: s.cabor_id,
-    ...isi, disiplin, tanggal, foto_path,
+    ...isi, disiplin, tanggal, foto_path, partai_id,
     akses_id: s.akses_id, pelapor_nama: s.nama_pic, pelapor_wa: s.no_wa,
   }).select('id').single()
   if (error) {
@@ -80,8 +90,13 @@ export async function POST(req: NextRequest) {
   await writeAudit({
     action: 'LAPOR_HASIL_KIRIM', resource: 'laporan_hasil', resource_id: baru.id,
     actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic, actor_role: 'pic_lapangan',
-    kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, hasil: isi.hasil, nomor: isi.nomor_teks, foto: !!foto_path },
+    kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, hasil: isi.hasil, nomor: isi.nomor_teks, foto: !!foto_path, partai_id },
     ...reqMeta(req),
   })
+  // Partainya sudah dimainkan: tandai selesai supaya halaman publik ikut berubah.
+  if (partai_id) {
+    await db.from('jadwal_partai').update({ status: 'selesai', diubah_oleh: s.nama_pic, updated_at: new Date().toISOString() }).eq('id', partai_id)
+    segarkanPublik()
+  }
   return NextResponse.json({ ok: true, id: baru.id })
 }

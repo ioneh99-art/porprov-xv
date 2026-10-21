@@ -8,7 +8,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Eye, EyeOff, ExternalLink, Pencil, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-react'
 import { rentangSingkat, statusKegiatan, LABEL_STATUS, type StatusKegiatan } from '@/lib/jadwal-publik'
 import { tanggalWIB } from '@/lib/lapor'
-import type { RencanaMatriks } from '@/lib/impor-matriks'
+import type { RencanaMatriks, RencanaPartai } from '@/lib/impor-matriks'
+import KelolaPartai from './KelolaPartai'
 
 interface Baris {
   id: number; jenis: 'pertandingan' | 'upacara'; wilayah: string | null; tuan_rumah: string | null
@@ -35,7 +36,8 @@ export default function KelolaJadwal() {
   const [ubah, setUbah] = useState<{ id: number | null; isi: Isian } | null>(null)
   const [sibuk, setSibuk] = useState(false)
   const [berkas, setBerkas] = useState<File | null>(null)
-  const [rencana, setRencana] = useState<RencanaMatriks | null>(null)
+  const [rencana, setRencana] = useState<(RencanaMatriks & { rencana_partai?: RencanaPartai }) | null>(null)
+  const [bagian, setBagian] = useState<'kegiatan' | 'partai'>('kegiatan')
   const inputBerkas = useRef<HTMLInputElement>(null)
   const hariIni = tanggalWIB()
 
@@ -100,14 +102,15 @@ export default function KelolaJadwal() {
       if (!r.ok) throw new Error(d.error || 'Berkas gagal diproses.')
       if (simpan) {
         setBerkas(null); setRencana(null)
-        kabar(`Matriks tersimpan: ${d.rencana.ubah.length} kegiatan diperbarui, ${d.rencana.tambah.length} ditambah.`)
+        kabar(`Matriks tersimpan: ${d.rencana.ubah.length} kegiatan diperbarui, ${d.rencana.tambah.length} ditambah, ${(d.partai?.tambah.length ?? 0) + (d.partai?.lengkapi.length ?? 0)} jadwal partai.`)
         muat()
-      } else { setBerkas(f); setRencana(d.rencana) }
+      } else { setBerkas(f); setRencana({ ...d.rencana, rencana_partai: d.partai }) }
     } catch (e: any) { setGalat(e.message) } finally {
       setSibuk(false); if (inputBerkas.current) inputBerkas.current.value = ''
     }
   }
 
+  const jumlahUbah = rencana ? rencana.ubah.length + rencana.tambah.length + (rencana.rencana_partai?.tambah.length ?? 0) + (rencana.rencana_partai?.lengkapi.length ?? 0) : 0
   const ganti = (k: keyof Isian, v: any) => setUbah(u => u ? { ...u, isi: { ...u.isi, [k]: v } } : u)
 
   return (
@@ -134,6 +137,14 @@ export default function KelolaJadwal() {
         </div>
       </div>
 
+      <div className="flex gap-1 rounded-xl bg-slate-900 border border-slate-800 p-1 mb-5 max-w-md">
+        {([['kegiatan', 'Kegiatan per cabor'], ['partai', 'Jadwal partai']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setBagian(k)}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold ${bagian === k ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'}`}>{l}</button>
+        ))}
+      </div>
+
+      {bagian === 'partai' ? <KelolaPartai /> : <>
       {galat && <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">{galat}</div>}
       {pesan && <div className="mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300">{pesan}</div>}
 
@@ -147,13 +158,13 @@ export default function KelolaJadwal() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => { setRencana(null); setBerkas(null) }} className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm">Batal</button>
-              <button onClick={() => prosesMatriks(berkas, true)} disabled={sibuk || (rencana.ubah.length + rencana.tambah.length === 0)}
+              <button onClick={() => prosesMatriks(berkas, true)} disabled={sibuk || (jumlahUbah === 0)}
                 className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40">
-                {sibuk ? 'Menyimpan…' : `Simpan ${rencana.ubah.length + rencana.tambah.length} perubahan`}
+                {sibuk ? 'Menyimpan…' : `Simpan ${jumlahUbah} perubahan`}
               </button>
             </div>
           </div>
-          {rencana.ubah.length + rencana.tambah.length === 0 && <div className="text-sm text-emerald-300">Jadwal sudah sama dengan berkas ini — tidak ada yang perlu diubah.</div>}
+          {jumlahUbah === 0 && <div className="text-sm text-emerald-300">Jadwal sudah sama dengan berkas ini — tidak ada yang perlu diubah.</div>}
           {rencana.ubah.length > 0 && (
             <div className="mb-3">
               <div className="text-xs font-bold text-amber-300 uppercase tracking-wider mb-1.5">Diperbarui ({rencana.ubah.length})</div>
@@ -170,6 +181,21 @@ export default function KelolaJadwal() {
               {rencana.tambah.map(t => (
                 <div key={t.cabor_disiplin} className="text-sm"><span className="text-white font-medium">{t.cabor_disiplin}</span> <span className="text-slate-400">— {rentangSingkat(t.mulai, t.selesai)} · {t.tuan_rumah ?? '-'} · {t.venue ?? '-'}{t.cabor_nama_raw ? '' : ' · (cabor belum tertaut)'}</span></div>
               ))}
+            </div>
+          )}
+          {rencana.rencana_partai && (rencana.rencana_partai.tambah.length + rencana.rencana_partai.lengkapi.length + rencana.rencana_partai.tak_tertaut.length) > 0 && (
+            <div className="mb-3">
+              <div className="text-xs font-bold text-sky-300 uppercase tracking-wider mb-1.5">
+                Jadwal partai: {rencana.rencana_partai.tambah.length} baru · {rencana.rencana_partai.lengkapi.length} dilengkapi
+              </div>
+              {rencana.rencana_partai.tambah.map((t, i) => (
+                <div key={i} className="text-sm"><span className="text-white font-medium">{t.nomor_teks}</span> <span className="text-slate-400">— {rentangSingkat(t.tanggal, t.tanggal)}{t.jam ? ` ${t.jam}` : ''}{t.lawan ? ` vs ${t.lawan}` : ''}</span></div>
+              ))}
+              {rencana.rencana_partai.lengkapi.map(l => <div key={l.id} className="text-sm text-slate-400">{l.ket}</div>)}
+              {rencana.rencana_partai.tak_tertaut.length > 0 && (
+                <div className="text-xs text-amber-300 mt-1">Tidak tertaut ke cabor (dilewati): {rencana.rencana_partai.tak_tertaut.map(t => t.kegiatan).join(', ')}</div>
+              )}
+              <div className="text-[11px] text-slate-500 mt-1">Partai yang sudah diisi PIC hanya dilengkapi bagian yang masih kosong — jam dari PIC tidak ditimpa.</div>
             </div>
           )}
           {rencana.tak_di_matriks.length > 0 && (
@@ -240,6 +266,8 @@ export default function KelolaJadwal() {
           </tbody>
         </table>
       </div>
+
+      </>}
 
       {/* ── Formulir ubah/tambah ── */}
       {ubah && (

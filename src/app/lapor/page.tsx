@@ -6,6 +6,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HASIL, LABEL_HASIL, tulisHasil, type Hasil } from '@/lib/lapor'
 import FormCatatan, { type CatatanSaya } from './FormCatatan'
+import FormJadwal, { type PartaiSaya } from './FormJadwal'
+import { partaiUntukLapor } from '@/lib/jadwal-partai'
+import { tanggalWIB } from '@/lib/lapor'
 import { kecilkanFoto } from './foto'
 
 interface Atlet { id: number; nama: string; gender: string | null }
@@ -23,7 +26,10 @@ interface Laporan {
   nilai_teks: string | null; keterangan: string | null; tanggal: string; status: string
   alasan_tolak: string | null; created_at: string; ada_foto?: boolean
 }
-interface Bahan { pic: { nama: string }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[] }
+interface Bahan {
+  pic: { nama: string }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[]
+  partai: PartaiSaya[]; kegiatan: { nama: string; mulai: string | null; selesai: string | null; venue: string | null }[]
+}
 
 const WARNA_HASIL: Record<Hasil, string> = {
   emas: '#facc15', perak: '#cbd5e1', perunggu: '#d08a4a', peringkat: '#38bdf8', lolos: '#34d399', gugur: '#94a3b8',
@@ -41,7 +47,7 @@ const judulIsian = 'block text-xs font-bold uppercase tracking-wider text-slate-
 
 export default function HalamanLapor() {
   const [tahap, setTahap] = useState<'memuat' | 'masuk' | 'form'>('memuat')
-  const [mode, setMode] = useState<'hasil' | 'catatan'>('hasil')
+  const [mode, setMode] = useState<'hasil' | 'jadwal' | 'catatan'>('hasil')
   const [bahan, setBahan] = useState<Bahan | null>(null)
   const [kode, setKode] = useState('')
   const [galat, setGalat] = useState('')
@@ -62,6 +68,7 @@ export default function HalamanLapor() {
   const [jam, setJam] = useState('')
   const [foto, setFoto] = useState<Blob | null>(null)
   const [pratinjau, setPratinjau] = useState('')
+  const [partaiId, setPartaiId] = useState<number | null>(null)
 
   const muat = useCallback(async () => {
     const r = await fetch('/api/lapor/data', { cache: 'no-store' })
@@ -136,11 +143,18 @@ export default function HalamanLapor() {
   }
 
   const namaAtlet = useMemo(() => new Map((bahan?.atlet ?? []).map(a => [a.id, a.nama])), [bahan])
+  const partaiLapor = useMemo(() => partaiUntukLapor(bahan?.partai ?? [], tanggalWIB()), [bahan])
+  /** Mengisi formulir dari partai terjadwal: nomor, atlet, lawan, jam, babak. */
+  const isiDariPartai = (p: PartaiSaya) => {
+    const n = p.disiplin ? bahan?.nomor.find(x => x.disiplin === p.disiplin && x.nama === p.nomor_resmi) : undefined
+    if (n) pilihNomor(n); else { setNomorPilih(null); setNomorTeks(p.nomor_teks) }
+    setPilihan(p.atlet_ids); setLawan(p.lawan ?? ''); setJam(p.jam ?? ''); setKeterangan(p.babak ?? ''); setPartaiId(p.id)
+  }
   const ubahPilihan = (id: number) => setPilihan(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
 
   const kosongkan = () => {
     setNomorTeks(''); setNomorPilih(null); setSemuaAtlet(false); setBukaDaftar(false); setCariAtlet(''); setPilihan([]); setHasil(null)
-    setPeringkat(''); setNilai(''); setKeterangan(''); setLawan(''); setJam(''); buangFoto()
+    setPeringkat(''); setNilai(''); setKeterangan(''); setLawan(''); setJam(''); setPartaiId(null); buangFoto()
   }
 
   const buangFoto = () => { setFoto(null); setPratinjau(lama => { if (lama) URL.revokeObjectURL(lama); return '' }) }
@@ -165,7 +179,7 @@ export default function HalamanLapor() {
         nomor_id: nomorPilih?.id ?? null, nomor_teks: nomorTeks, atlet_ids: pilihan, hasil,
         // Nomor dari daftar resmi dicocokkan ulang di server lewat dua isian ini.
         ...(nomorPilih?.disiplin ? { disiplin: nomorPilih.disiplin, nomor_resmi: nomorPilih.nama } : {}),
-        peringkat: hasil === 'peringkat' ? Number(peringkat) : null, nilai_teks: nilai, keterangan, lawan, jam,
+        peringkat: hasil === 'peringkat' ? Number(peringkat) : null, nilai_teks: nilai, keterangan, lawan, jam, partai_id: partaiId,
       })
       let r: Response
       if (foto) {
@@ -193,7 +207,7 @@ export default function HalamanLapor() {
       <div className="max-w-md mx-auto px-4 pb-16">
         <header className="pt-6 pb-4">
           <div className="text-[11px] font-bold uppercase tracking-[0.25em] text-sky-300">PORPROV XV Jawa Barat 2026</div>
-          <h1 className="text-2xl font-black text-white mt-1">{tahap === 'form' && mode === 'catatan' ? 'Catatan Lapangan' : 'Lapor Hasil Pertandingan'}</h1>
+          <h1 className="text-2xl font-black text-white mt-1">{tahap === 'form' && mode === 'catatan' ? 'Catatan Lapangan' : tahap === 'form' && mode === 'jadwal' ? 'Jadwal Pertandingan' : 'Lapor Hasil Pertandingan'}</h1>
         </header>
 
         {tahap === 'memuat' && <p className="text-slate-400 py-10 text-center">Memuat…</p>}
@@ -223,18 +237,31 @@ export default function HalamanLapor() {
               <button onClick={keluar} className="shrink-0 text-xs font-bold text-slate-400 border border-slate-700 rounded-lg px-3 py-2">Keluar</button>
             </div>
 
-            <div role="tablist" className="mt-4 grid grid-cols-2 gap-2">
-              {([['hasil', 'Lapor Hasil'], ['catatan', 'Catatan Lapangan']] as const).map(([m, label]) => {
+            <div role="tablist" className="mt-4 grid grid-cols-3 gap-2">
+              {([['hasil', 'Lapor Hasil'], ['jadwal', 'Jadwal'], ['catatan', 'Catatan']] as const).map(([m, label]) => {
                 const aktif = mode === m
                 const baru = m === 'catatan' ? bahan.catatan.filter(c => c.tanggapan && c.status !== 'baru').length : 0
                 return (
                   <button key={m} type="button" role="tab" aria-selected={aktif} onClick={() => { setMode(m); setGalat('') }}
                     className={`rounded-xl py-3 text-sm font-black border-2 ${aktif ? 'border-sky-400 bg-sky-500/15 text-sky-200' : 'border-slate-700 text-slate-400'}`}>
-                    {label}{m === 'catatan' && bahan.catatan.length > 0 ? <span className="ml-1.5 text-xs font-bold text-slate-400">({bahan.catatan.length}{baru ? `, ${baru} ditanggapi` : ''})</span> : null}
+                    {label}{m === 'catatan' && bahan.catatan.length > 0 ? <span className="ml-1 text-xs font-bold text-slate-400">({bahan.catatan.length}{baru ? `, ${baru} baru` : ''})</span> : null}
+                    {m === 'jadwal' && bahan.partai.length > 0 ? <span className="ml-1 text-xs font-bold text-slate-400">({bahan.partai.length})</span> : null}
                   </button>
                 )
               })}
             </div>
+
+            {mode === 'jadwal' && (
+              <FormJadwal
+                key={`j-${bahan.cabor}`}
+                nomor={bahan.nomor.map(n => ({ kunci: n.kunci, label: labelNomor(n), disiplin: n.disiplin, nama: n.nama, atlet_ids: n.atlet_ids }))}
+                atlet={bahan.atlet}
+                partai={bahan.partai}
+                kegiatan={bahan.kegiatan}
+                muat={muat}
+                sesiHabis={pesan => { setTahap('masuk'); setGalat(pesan) }}
+              />
+            )}
 
             {mode === 'catatan' && (
               <FormCatatan
@@ -251,6 +278,22 @@ export default function HalamanLapor() {
             {terkirim && (
               <div role="status" className="mt-4 rounded-xl bg-emerald-500/15 border border-emerald-400/40 px-4 py-3 text-sm font-bold text-emerald-300">
                 Laporan terkirim. Menunggu disahkan KONI.
+              </div>
+            )}
+
+            {partaiLapor.length > 0 && (
+              <div className="mt-5 rounded-2xl border border-sky-400/30 bg-sky-500/10 p-3">
+                <div className="text-xs font-bold uppercase tracking-wider text-sky-200 mb-2">Isi cepat dari jadwal</div>
+                <div className="space-y-2">
+                  {partaiLapor.map(p => (
+                    <button key={p.id} type="button" onClick={() => isiDariPartai(p)} aria-pressed={partaiId === p.id}
+                      className={`w-full text-left rounded-xl border px-3 py-2.5 ${partaiId === p.id ? 'border-sky-300 bg-sky-500/20' : 'border-slate-700 bg-slate-900/70'}`}>
+                      <div className="text-sm font-bold text-white">{p.jam ?? '--:--'} · {p.nomor_teks}</div>
+                      <div className="text-xs text-slate-400">{[p.babak, p.lawan ? `vs ${p.lawan}` : null, p.atlet_ids.map(id => namaAtlet.get(id)).filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</div>
+                    </button>
+                  ))}
+                </div>
+                {partaiId && <p className="text-xs text-sky-200 mt-2">Formulir diisi dari jadwal. Tinggal pilih hasilnya. Setelah terkirim, jadwal partai ini ditandai selesai.</p>}
               </div>
             )}
 

@@ -4,12 +4,12 @@
 // scripts/impor-matriks-jadwal.ts (src/lib/impor-matriks.ts).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
 import * as XLSX from 'xlsx'
 import { createClient } from '@supabase/supabase-js'
 import { writeAudit, reqMeta } from '@/lib/audit'
 import { KONTINGEN_JADWAL, ambilPengelolaJadwal } from '@/lib/jadwal-kelola'
-import { rencanaMatriks, type BarisAda } from '@/lib/impor-matriks'
+import { rencanaMatriks, rencanaPartai, type BarisAda, type PartaiAda } from '@/lib/impor-matriks'
+import { segarkanPublik } from '@/lib/partai-server'
 import { ambilSemua } from '@/lib/lapor-sesi'
 
 export const runtime = 'nodejs'
@@ -41,11 +41,12 @@ export async function POST(req: NextRequest) {
 
   const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: lama, error } = await db.from('jadwal_cabor').select('id,cabor_disiplin,mulai,selesai,venue,tuan_rumah,wilayah,akomodasi,catatan,sumber').order('id')
+  const { data: lama, error } = await db.from('jadwal_cabor').select('id,cabor_disiplin,cabor_nama_raw,mulai,selesai,venue,tuan_rumah,wilayah,akomodasi,catatan,sumber').order('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   let caborDb: string[] = []
+  let atlet: { id: number; nama_lengkap: string; cabor_id: number | null; cabor_nama_raw: string | null }[] = []
   try {
-    const atlet = await ambilSemua<{ cabor_nama_raw: string | null }>((d, s) => db.from('atlet').select('cabor_nama_raw').eq('kontingen_id', KONTINGEN_JADWAL).order('id').range(d, s))
+    atlet = await ambilSemua((d, s) => db.from('atlet').select('id,nama_lengkap,cabor_id,cabor_nama_raw').eq('kontingen_id', KONTINGEN_JADWAL).order('id').range(d, s))
     caborDb = Array.from(new Set(atlet.map(a => (a.cabor_nama_raw ?? '').trim()).filter(Boolean)))
   } catch { /* baris baru tetap ditambah, hanya tidak tertaut cabor */ }
 
@@ -55,7 +56,21 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 })
   }
-  if (!simpan) return NextResponse.json({ ok: true, rencana, tersimpan: false })
+  // Jadwal partai dari kolom Jam/Nomor/Nama Atlet/Lawan.
+  const normal = (x: string | null | undefined) => (x ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()
+  const { data: semuaCabor } = await db.from('cabang_olahraga').select('id,nama')
+  const idCabor = new Map((semuaCabor ?? []).map((c: any) => [normal(c.nama), c.id as number]))
+  const caborJadwal = new Map<number, number>()
+  for (const l of (lama ?? []) as any[]) { const c = idCabor.get(normal(l.cabor_nama_raw)); if (c) caborJadwal.set(l.id, c) }
+  const atletCabor = new Map<number, { id: number; nama: string }[]>()
+  for (const x of atlet) if (x.cabor_id != null) atletCabor.set(x.cabor_id, [...(atletCabor.get(x.cabor_id) ?? []), { id: x.id, nama: x.nama_lengkap }])
+  const tanggalPartai = Array.from(new Set(rencana.partai.map(p => p.tanggal)))
+  const { data: partaiAda } = tanggalPartai.length
+    ? await db.from('jadwal_partai').select('id,cabor_id,tanggal,nomor_teks,lawan,jam,venue,atlet_ids').eq('kontingen_id', KONTINGEN_JADWAL).in('tanggal', tanggalPartai)
+    : { data: [] as any[] }
+  const partai = rencanaPartai(rencana.partai, (partaiAda ?? []) as PartaiAda[], caborJadwal, atletCabor)
+
+  if (!simpan) return NextResponse.json({ ok: true, rencana, partai, tersimpan: false })
 
   const kini = new Date().toISOString()
   const sebelum: Record<number, any> = {}
@@ -71,12 +86,25 @@ export async function POST(req: NextRequest) {
     if (e) return NextResponse.json({ error: `Gagal menambah kegiatan baru: ${e.message}` }, { status: 500 })
     ditambah = baru ?? []
   }
+  let partaiDitambah: any[] = []
+  if (partai.tambah.length) {
+    const { data: baru, error: e } = await db.from('jadwal_partai')
+      .insert(partai.tambah.map(t => ({ ...t, kontingen_id: KONTINGEN_JADWAL, sumber: 'matriks', dibuat_oleh: p.nama, diubah_oleh: p.nama }))).select('id,nomor_teks,tanggal')
+    if (e) return NextResponse.json({ error: `Jadwal kegiatan tersimpan, tetapi jadwal partai gagal: ${e.message}` }, { status: 500 })
+    partaiDitambah = baru ?? []
+  }
+  for (const l of partai.lengkapi) {
+    await db.from('jadwal_partai').update({ ...l.isi, diubah_oleh: p.nama, updated_at: kini }).eq('id', l.id)
+  }
   await writeAudit({
     action: 'JADWAL_IMPOR_MATRIKS', resource: 'jadwal_cabor', resource_id: berkas.name,
     actor_id: p.sesi.id ?? null, actor_email: p.sesi.username ?? null, actor_role: p.sesi.role ?? null,
     kontingen_id: KONTINGEN_JADWAL, severity: 'info', ...reqMeta(req),
-    payload: { berkas: berkas.name, ubah: rencana.ubah.map(u => ({ id: u.id, nama: u.nama, sebelum: sebelum[u.id], sesudah: u.isi })), tambah: ditambah },
+    payload: {
+      berkas: berkas.name, ubah: rencana.ubah.map(u => ({ id: u.id, nama: u.nama, sebelum: sebelum[u.id], sesudah: u.isi })), tambah: ditambah,
+      partai_tambah: partaiDitambah, partai_lengkapi: partai.lengkapi,
+    },
   })
-  try { revalidatePath('/publik/kabbandung') } catch { /* cukup menunggu satu menit */ }
-  return NextResponse.json({ ok: true, rencana, tersimpan: true })
+  segarkanPublik()
+  return NextResponse.json({ ok: true, rencana, partai, tersimpan: true })
 }

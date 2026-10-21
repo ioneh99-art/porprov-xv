@@ -37,7 +37,25 @@ Hanya **KONIDA Kab. Bandung** dan **superadmin**. Akun KONI Jabar sengaja tidak 
 Aturan pembacaan berkas matriks sama dengan skrip `scripts/impor-matriks-jadwal.ts`
 (`src/lib/impor-matriks.ts`).
 
-## 4. Cara batal
+## 4. Jadwal partai (per pertandingan)
+
+Satu partai = tanggal, jam, nomor, babak, atlet, lawan, venue, status
+(terjadwal / sedang bertanding / ditunda / selesai / batal). Tabel `jadwal_partai` (migrasi 060).
+
+- **PIC cabor dari HP:** `/lapor` → tab **Jadwal** → *Tambah jadwal partai*. Nomor dipilih dari daftar
+  resmi pendaftaran, atlet dari atlet cabornya (server mencocokkan ulang keduanya).
+  Tombol cepat: *Sedang main*, *Ditunda*, *Selesai*.
+- **KONIDA:** menu **Jadwal Pertandingan** → tab **Jadwal partai** → ubah/tambah/hapus.
+  Atlet dipilih PIC; dari dashboard atlet tidak diubah.
+- **Matriks KONI:** baris yang berisi Jam / Nomor / Nama Atlet / Lawan menjadi partai saat
+  berkas diunggah. Partai yang sudah ada hanya **dilengkapi** (jam, venue, atlet yang kosong) —
+  isian PIC tidak pernah ditimpa berkas. Nama atlet yang tidak ketemu ditulis di keterangan.
+- **Langsung tampil** di halaman publik (bagian *Jadwal tanding* dan di tanggalnya), **termasuk
+  nama atlet** — keputusan Bos 21 Okt 2026. Partai berstatus *batal* tidak tampil.
+- **Lapor hasil lebih cepat:** di tab *Lapor Hasil* muncul *Isi cepat dari jadwal* (partai kemarin
+  dan hari ini yang belum selesai). Setelah laporan terkirim, partainya otomatis *Selesai*.
+
+## 5. Cara batal
 
 Setiap perubahan tercatat di `audit_logs`:
 
@@ -46,7 +64,9 @@ Setiap perubahan tercatat di `audit_logs`:
 | `JADWAL_UBAH` | `sebelum` dan `sesudah` per kolom |
 | `JADWAL_TAMBAH` | baris baru lengkap |
 | `JADWAL_HAPUS` | baris yang dihapus lengkap (bisa dimasukkan kembali) |
-| `JADWAL_IMPOR_MATRIKS` | daftar baris yang diubah beserta isi sebelumnya |
+| `JADWAL_IMPOR_MATRIKS` | daftar baris yang diubah beserta isi sebelumnya, partai yang ditambah/dilengkapi |
+| `LAPOR_JADWAL_TAMBAH/UBAH/HAPUS` | partai dari HP PIC (sebelum/sesudah, atau baris lengkap saat dihapus) |
+| `JADWAL_PARTAI_TAMBAH/UBAH/HAPUS` | partai dari dashboard KONIDA |
 
 Kolom `jadwal_cabor.tampil_publik` (migrasi 059) menentukan apa yang tampil di publik.
 Cadangan jadwal sebelum impor 21 Okt: `_backup_jadwal_cabor_2026-10-21.json` di folder repo.

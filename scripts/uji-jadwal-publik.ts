@@ -1,7 +1,7 @@
 // scripts/uji-jadwal-publik.ts — mengunci susunan halaman publik jadwal dan rencana impor matriks KONI.
 // Dijalankan: npm run uji:jadwal-publik
 import { ikonCabor, ringkasWilayah, segeraMulai, cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
-import { rencanaMatriks, type BarisAda } from '../src/lib/impor-matriks'
+import { jamSel, rencanaMatriks, rencanaPartai, type BarisAda } from '../src/lib/impor-matriks'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -120,6 +120,30 @@ cek('berkas salah → pesan jelas', pesan.startsWith('Baris kepala'), true)
 pesan = ''
 try { rencanaMatriks([KEPALA], LAMA, [], 'x') } catch (e: any) { pesan = e.message }
 cek('kepala tanpa isi → pesan jelas', pesan.startsWith('Tidak ada baris'), true)
+
+// ── partai dari matriks ──
+cek('jam: titik', jamSel('09.00'), '09:00')
+cek('jam: pecahan hari Excel', jamSel(0.375), '09:00')
+cek('jam: tanggal+jam Excel', jamSel(46323.5625), '13:30')
+cek('jam: kosong / ngawur', [jamSel(''), jamSel('pagi'), jamSel('25:00')], [null, null, null])
+const SHEET2 = [KEPALA,
+  m('2026-10-28', 'Kick Boxing', 'BEKASI', 'Aula Arafah'),
+  [2, seri('2026-10-28'), 0.375, 'WILAYAH II', 'BEKASI', 'Kick Boxing', 'Point Fight -51 Kg', 'Budi Santoso, Nama Tak Dikenal', 'Kota Bekasi', '', 'Aula Arafah', '', ''],
+  [3, seri('2026-10-30'), '', 'WILAYAH II', 'BEKASI', 'Cabor Asing', 'Final', '', 'Kota Bogor', '', 'X', '', ''],
+]
+const r2 = rencanaMatriks(SHEET2, LAMA, [], 'uji.xlsx')
+cek('hanya baris berisi yang jadi partai', r2.partai.length, 2)
+cek('partai tertaut ke baris jadwal', r2.partai[0].jadwal_id, 1)
+const caborJadwal = new Map([[1, 70]])
+const atletC = new Map([[70, [{ id: 501, nama: 'BUDI SANTOSO' }]]])
+const rp = rencanaPartai(r2.partai, [], caborJadwal, atletC)
+cek('partai baru: nomor, jam, lawan, atlet cocok nama', rp.tambah.map(t => [t.nomor_teks, t.jam, t.lawan, t.atlet_ids]), [['Kick Boxing · Point Fight -51 Kg', '09:00', 'Kota Bekasi', [501]]])
+cek('atlet tak dikenal ke keterangan', rp.tambah[0].keterangan, 'Atlet di berkas KONI: Nama Tak Dikenal')
+cek('kegiatan tak tertaut dilaporkan', rp.tak_tertaut, [{ kegiatan: 'Cabor Asing', tanggal: '2026-10-30' }])
+const adaPIC = [{ id: 9, cabor_id: 70, tanggal: '2026-10-28', nomor_teks: 'Kick Boxing · Point Fight -51 Kg', lawan: 'Kota Bekasi', jam: '10:15', venue: null, atlet_ids: [] }]
+const rp2 = rencanaPartai(r2.partai, adaPIC, caborJadwal, atletC)
+cek('partai PIC tidak ditambah ulang', rp2.tambah.length, 0)
+cek('jam PIC tidak ditimpa; venue & atlet kosong dilengkapi', rp2.lengkapi.map(l => [l.id, l.isi]), [[9, { venue: 'Aula Arafah', atlet_ids: [501] }]])
 
 console.log(`uji-jadwal-publik: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
