@@ -239,6 +239,9 @@ export default function LoginKabBandung() {
           </form>
 
           <div className="mt-8 text-center">
+            <a href="/publik/kabbandung" className="inline-block mb-4 text-sky-400 hover:text-sky-300 text-xs font-semibold">
+              ← Lihat jadwal pertandingan
+            </a>
             <div className="flex items-center gap-3 mb-3">
               <div className="flex-1 h-px bg-sky-400/20"/>
               <span className="text-white/30 text-[9px] font-bold tracking-widest">SECURED · PORPROV XV</span>

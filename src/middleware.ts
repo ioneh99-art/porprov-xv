@@ -22,6 +22,13 @@ const TENANT_MODULES = [
 function resolveTenantRewrite(req: NextRequest, tenant: string): NextResponse | null {
   const { pathname } = req.nextUrl
 
+  // Kab. Bandung: halaman awal = jadwal publik tanpa login (tombol "Masuk" di sana).
+  if (tenant === 'kabbandung' && pathname === '/') {
+    const url = req.nextUrl.clone()
+    url.pathname = '/publik/kabbandung'
+    return NextResponse.rewrite(url)
+  }
+
   // / atau /konida → ke login page tenant
   if (pathname === '/' || pathname === '/konida' || pathname === '/konida/') {
     return NextResponse.redirect(new URL(`/konida/login/${tenant}`, req.url))

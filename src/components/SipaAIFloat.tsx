@@ -49,8 +49,9 @@ export default function SipaAIFloat() {
   const pathname = usePathname()
 
   // ── HIDE di semua halaman /sipa/* ──────────────────────
-  // Form lapor PIC lapangan adalah halaman publik di HP — tombol ini menutupi isiannya.
-  if (pathname?.includes('/sipa') || pathname?.startsWith('/lapor')) return null
+  // Form lapor PIC lapangan dan halaman publik jadwal dibuka tanpa login di HP —
+  // tombol ini menutupi isiannya dan asistennya memang butuh login.
+  if (pathname?.includes('/sipa') || pathname?.startsWith('/lapor') || pathname === '/publik/kabbandung' || pathname === '/') return null
 
   return <SipaAIFloatInner/>
 }
