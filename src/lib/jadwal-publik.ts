@@ -18,6 +18,9 @@ export interface BarisPublik {
   selesai: string | null
 }
 
+/** Angka gabungan kontingen dari daftar pendaftaran resmi — tanpa data pribadi. */
+export interface AngkaKontingen { atlet: number; nomor: number; cabor: number }
+
 export type StatusKegiatan = 'berlangsung' | 'akan' | 'selesai' | 'tanpa_tanggal'
 
 export const LABEL_STATUS: Record<StatusKegiatan, string> = {
@@ -116,4 +119,51 @@ export function rentangSingkat(mulai: string | null, selesai: string | null): st
   if (mulai === s) return `${tm} ${bm}`
   if (mulai.slice(0, 7) === s.slice(0, 7)) return `${tm}–${ts} ${bs}`
   return `${tm} ${bm} – ${ts} ${bs}`
+}
+
+// ── Hiasan halaman publik ────────────────────────────────────────────────────
+
+/** Ikon cabor (emoji, tampil di semua HP tanpa unduhan). Urutan penting: yang lebih khusus dulu. */
+const IKON: [RegExp, string][] = [
+  [/UPACARA/, '🏟️'], [/FUTSAL|SEPAK ?BOLA/, '⚽'], [/TAKRAW/, '🏐'], [/BASKET/, '🏀'], [/VOLI/, '🏐'],
+  [/POLO AIR/, '🤽'], [/RENANG ARTISTIK|LONCAT INDAH/, '🤸'], [/RENANG|AKUATIK|AQUATIC|OWS/, '🏊'], [/SELAM/, '🤿'],
+  [/CANOE|ROWING|DAYUNG|DBR|SUP/, '🚣'], [/LAYAR/, '⛵'], [/ARUNG JERAM/, '🛶'], [/TRIATHLON/, '🏊'],
+  [/PENTATHLON/, '🤺'], [/ANGGAR/, '🤺'], [/PANAHAN/, '🏹'], [/MENEMBAK/, '🎯'], [/GOLF/, '⛳'],
+  [/BULUTANGKIS/, '🏸'], [/TENIS MEJA/, '🏓'], [/SQUASH|TENIS/, '🎾'], [/GATEBALL|PETANQUE|BOLING|BOWLING/, '🎳'],
+  [/BILIAR/, '🎱'], [/CATUR/, '♟️'], [/E ?SPORT/, '🎮'], [/MINI 4WD|BERMOTOR|MOTOR/, '🏍️'],
+  [/BMX|SEPEDA|MTB/, '🚴'], [/SEPATU RODA/, '🛼'], [/SAKTEBOARD|SKATEBOARD/, '🛹'], [/ATLETIK|MARATHON/, '🏃'],
+  [/BERKUDA|EQU|PACU/, '🏇'], [/PANJAT/, '🧗'], [/PARALAYANG|GANTOLE|TERJUN|PARAMOTOR|TERBANG/, '🪂'],
+  [/AEROMODEL/, '✈️'], [/GIMNASTIK|SENAM/, '🤸'], [/DANSA|DANCE/, '💃'], [/DRUMBAND/, '🥁'],
+  [/ANGKAT|BINARAGA/, '🏋️'], [/GULAT|SAMBO|KURASH|JUJITSU|JUDO/, '🤼'],
+  [/TINJU|KICK|MUAY|MMA|IBCA/, '🥊'], [/KARATE|TAEKWONDO|SILAT|WUSHU|KEMPO|HAPKIDO/, '🥋'],
+  [/HOKI|HOCKEY|FLOORBALL/, '🏑'], [/RUGBY/, '🏉'], [/SKATING/, '⛸️'],
+]
+export function ikonCabor(b: Pick<BarisPublik, 'kegiatan' | 'cabor'>): string {
+  const teks = norm(`${b.kegiatan} ${b.cabor ?? ''}`)
+  return IKON.find(([re]) => re.test(teks))?.[1] ?? '🏅'
+}
+
+/** Ringkasan per wilayah: kota tuan rumah beserta jumlah kegiatannya, terbanyak dulu. */
+export function ringkasWilayah(jadwal: BarisPublik[]): { wilayah: string; kegiatan: number; kota: { nama: string; kegiatan: number }[] }[] {
+  const peta = new Map<string, Map<string, number>>()
+  for (const b of jadwal) {
+    if (b.jenis !== 'pertandingan' || !b.wilayah) continue
+    const w = b.wilayah.trim().toUpperCase(), k = (b.kota ?? '-').trim().toUpperCase()
+    const kota = peta.get(w) ?? new Map<string, number>()
+    kota.set(k, (kota.get(k) ?? 0) + 1); peta.set(w, kota)
+  }
+  return Array.from(peta.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([wilayah, kota]) => ({
+    wilayah,
+    kegiatan: Array.from(kota.values()).reduce((n, x) => n + x, 0),
+    kota: Array.from(kota.entries()).map(([nama, kegiatan]) => ({ nama, kegiatan })).sort((a, b) => b.kegiatan - a.kegiatan || a.nama.localeCompare(b.nama)),
+  }))
+}
+
+/** Kegiatan yang segera dimulai (belum mulai), terdekat dulu. */
+export function segeraMulai(jadwal: BarisPublik[], hariIni: string, jumlah = 6): (BarisPublik & { hari_lagi: number })[] {
+  return jadwal
+    .filter(b => b.jenis === 'pertandingan' && !!b.mulai && b.mulai > hariIni)
+    .sort((a, b) => (a.mulai as string).localeCompare(b.mulai as string) || a.kegiatan.localeCompare(b.kegiatan))
+    .slice(0, jumlah)
+    .map(b => ({ ...b, hari_lagi: Math.round((ke(b.mulai as string) - ke(hariIni)) / HARI_MS) }))
 }

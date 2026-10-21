@@ -1,6 +1,6 @@
 // scripts/uji-jadwal-publik.ts — mengunci susunan halaman publik jadwal dan rencana impor matriks KONI.
 // Dijalankan: npm run uji:jadwal-publik
-import { cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
+import { ikonCabor, ringkasWilayah, segeraMulai, cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
 import { rencanaMatriks, type BarisAda } from '../src/lib/impor-matriks'
 
 let lulus = 0, gagal = 0
@@ -70,6 +70,23 @@ cek('sebulan', rentangSingkat('2026-11-06', '2026-11-10'), '6–10 Nov')
 cek('lintas bulan', rentangSingkat('2026-10-31', '2026-11-08'), '31 Okt – 8 Nov')
 cek('tanpa tanggal', rentangSingkat(null, null), 'Tanggal belum ada')
 cek('nama hari', tglPanjang('2026-11-07'), 'Sabtu, 7 November 2026')
+
+// ── hiasan ──
+cek('ikon futsal', ikonCabor({ kegiatan: 'Futsal Putra', cabor: 'Futsal' }), '⚽')
+cek('ikon sepak takraw bukan sepak bola', ikonCabor({ kegiatan: 'Sepak Takraw', cabor: 'Sepak Takraw' }), '🏐')
+cek('ikon dayung', ikonCabor({ kegiatan: 'Canoeing Sprint & SUP', cabor: 'Dayung' }), '🚣')
+cek('ikon polo air bukan renang', ikonCabor({ kegiatan: 'Akuatik - Polo Air', cabor: 'Akuatik' }), '🤽')
+cek('ikon kick boxing', ikonCabor({ kegiatan: 'Kick Boxing', cabor: 'Kickboxing' }), '🥊')
+cek('ikon pentathlon', ikonCabor({ kegiatan: 'Modern Pentathlon', cabor: 'Modern Pentathlon' }), '🤺')
+cek('ikon tak dikenal', ikonCabor({ kegiatan: 'Cabor Baru', cabor: null }), '🏅')
+const W = ringkasWilayah([
+  { ...J[0], wilayah: 'WILAYAH II', kota: 'BEKASI' }, { ...J[1], wilayah: 'WILAYAH II', kota: 'BEKASI' },
+  { ...J[2], wilayah: 'WILAYAH II', kota: 'KARAWANG' }, { ...J[4], wilayah: 'WILAYAH I', kota: 'KOTA DEPOK' }, J[3],
+])
+cek('wilayah urut, upacara tidak dihitung', W.map(w => [w.wilayah, w.kegiatan]), [['WILAYAH I', 1], ['WILAYAH II', 3]])
+cek('kota terbanyak dulu', W[1].kota, [{ nama: 'BEKASI', kegiatan: 2 }, { nama: 'KARAWANG', kegiatan: 1 }])
+cek('segera mulai: terdekat dulu, hari lagi', segeraMulai(J, '2026-11-05', 2).map(x => [x.kegiatan, x.hari_lagi]), [['Canoeing Sprint & SUP', 1], ['Kick Boxing', 2]])
+cek('segera mulai tidak memuat yang sudah jalan', segeraMulai(J, '2026-11-08').map(x => x.kegiatan), ['Golf'])
 
 // ── rencana impor matriks ──
 const KEPALA = ['No.', 'Tanggal', 'Jam', 'Klaster Wilayah', 'Wilayah Venue', 'Cabor / Kegiatan', 'Nomor Pertandingan', 'Nama Atlet', 'Lawan', 'Hasil Pertandingan', 'Venue', 'Status Target', 'PIC']
