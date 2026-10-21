@@ -347,7 +347,6 @@ export default function KonidaSidebar() {
             {/* ── 1. Kontingen ── */}
             <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
             <NavItem label="Dashboard"       href={dashboardHref}                     icon={LayoutDashboard}/>
-            <NavItem label="Jadwal Pertandingan" href="/konida/jadwal/kabbandung"     icon={CalendarDays}/>
             <NavItem label="Data Atlet"      href="/konida/atlet/kabbandung"           icon={Users}/>
             <NavItem label="Dokumen Atlet"   href="/konida/dokumen/kabbandung"         icon={FileCheck}/>
             {can('kualifikasi')
@@ -384,6 +383,7 @@ export default function KonidaSidebar() {
             {PREMIUM_REPORT_KABBANDUNG_TAMPIL && (
               <NavItemVIP label="Premium Report"    href="/konida/Premiumreport/kabbandung"    icon={Download} />
             )}
+            <NavItemVIP label="Jadwal Pertandingan" href="/konida/jadwal/kabbandung"         icon={CalendarDays} />
             <NavItemVIP label="Performance"         href="/konida/performance/kabbandung"     icon={BarChart3} />
             <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
             <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
