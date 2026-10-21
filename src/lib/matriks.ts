@@ -65,6 +65,13 @@ const SEPADAN: Record<string, string[]> = {
 function kata(s: string | null | undefined): string[] {
   return norm(s).split(' ').filter(Boolean).flatMap(k => SEPADAN[k] ?? [k])
 }
+/**
+ * Kata penanda varian "biasa" di nama jadwal ("Canoeing Sprint & SUP", "Rowing
+ * Classic"). Daftar nomor resmi tidak menulisnya, jadi kata ini diabaikan saat
+ * membandingkan — tanpa ini "Canoeing Slalom" (dua kata) menang atas
+ * "Canoeing Sprint & SUP" (tiga kata) untuk nomor Canoeing biasa.
+ */
+const IMBUHAN_VARIAN = new Set(['SPRINT', 'SUP', 'CLASSIC', 'KLASIK'])
 
 /**
  * Baris jadwal yang dimaksud sebuah laporan.
@@ -83,12 +90,15 @@ export function pilihKegiatan(jadwal: BarisJadwal[], l: { cabor: string; disipli
   const umum = new Set([...kata(l.cabor), 'BALAP', 'AEROSPORT'])
   const milikLaporan = new Set([...kata(l.disiplin), ...kata(l.nomor_teks)].filter(k => !umum.has(k)))
   const nilai = (j: BarisJadwal) => {
-    const k = Array.from(new Set(kata(j.cabor_disiplin).filter(x => !umum.has(x))))
+    const k = Array.from(new Set(kata(j.cabor_disiplin).filter(x => !umum.has(x) && !IMBUHAN_VARIAN.has(x))))
     // Baris bernama sama dengan cabornya ("Atletik") adalah baris umum: cocok
     // sedang-sedang saja, kalah dari baris khusus yang benar-benar disebut.
     if (k.length === 0) return 0.5
     const kena = k.filter(x => milikLaporan.has(x)).length
-    return kena / k.length + kena * 0.01
+    // Jumlah kata yang kena lebih menentukan daripada rasionya: "Rowing - Beach /
+    // Coastal" yang kena dua kata harus menang atas "Rowing Classic" yang kena satu.
+    // Rasio hanya pemecah seri ("Canoeing" atas "Canoeing - Slalom" untuk nomor biasa).
+    return kena === 0 ? 0 : kena + (kena / k.length) * 0.5
   }
   const dalamRentang = (j: BarisJadwal) => !!j.mulai && !!j.selesai && j.mulai <= l.tanggal && l.tanggal <= j.selesai
   return [...calon].sort((a, b) =>

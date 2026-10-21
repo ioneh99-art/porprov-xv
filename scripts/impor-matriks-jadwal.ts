@@ -46,6 +46,11 @@ const PADANAN: Record<string, string> = {
   'SEPEDA MTB':                   'Balap Sepeda MTB',
   'AEROMODELING':                 'Aerosport - Aeromodeling',
   'EQUESTRIAN DRESSAGE':          'Berkuda Dressage',
+  // Nama Dayung sejak berkas 21 Okt 2026. Barisnya dipertahankan (id, akomodasi);
+  // namanya diganti terpisah supaya sama dengan tulisan KONI.
+  'CANOEING SPRINT SUP':          'Canoeing',
+  'ROWING CLASSIC':               'Rowing',
+  'ROWING BEACH COASTAL':         'Rowing - Beach',
   'RENANG PERAIRAN TERBUKA OWS':  'Akuatik - Renang Perairan Terbuka',
   'RENANG ARTISTIK':              'Akuatik - Renang Artistik',
   'SKATEBOARD':                   'Sakteboard',
