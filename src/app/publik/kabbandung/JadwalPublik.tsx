@@ -123,6 +123,10 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
   const [cari, setCari] = useState('')
   const [saring, setSaring] = useState<'semua' | StatusKegiatan>('semua')
   const [tersalin, setTersalin] = useState(false)
+  // Halaman awal sengaja ringan: jadwal lengkap dan peta baru dibuka lewat tombol,
+  // atau langsung lewat tautan …/#jadwal (untuk dibagikan ke para PIC cabor).
+  const [buka, setBuka] = useState(false)
+  const [gulir, setGulir] = useState(0)
   const deretRef = useRef<HTMLDivElement>(null)
   const jadwalRef = useRef<HTMLDivElement>(null)
 
@@ -133,6 +137,16 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
     // Kuki user_level ada selama sesi admin masih terbuka; gerbang sebenarnya tetap di server.
     setMasuk(document.cookie.split('; ').some(c => c.startsWith('user_level=') && c.length > 'user_level='.length))
   }, [hariIniServer, jadwal])
+
+  useEffect(() => {
+    if (window.location.hash === '#jadwal') { setBuka(true); setGulir(g => g + 1) }
+  }, [])
+
+  useEffect(() => {
+    if (!gulir) return
+    const id = requestAnimationFrame(() => jadwalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    return () => cancelAnimationFrame(id)
+  }, [gulir])
 
   useEffect(() => {
     const el = deretRef.current?.querySelector<HTMLElement>('[data-pilih="1"]')
@@ -157,7 +171,13 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
   const keJadwal = (tanggal?: string, kataCari?: string) => {
     if (tanggal) { setTab('tanggal'); setPilih(tanggal) }
     if (kataCari !== undefined) { setTab('semua'); setCari(kataCari); setSaring('semua') }
-    jadwalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setBuka(true); setGulir(g => g + 1)
+    try { history.replaceState(null, '', '#jadwal') } catch { /* abaikan */ }
+  }
+  const tutupJadwal = () => {
+    setBuka(false)
+    try { history.replaceState(null, '', window.location.pathname) } catch { /* abaikan */ }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function bagikan() {
@@ -172,6 +192,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
 
   return (
     <div className="min-h-screen bg-[#050d1a] text-slate-200 overflow-x-hidden">
+      <style>{'@keyframes muncul{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}'}</style>
       {/* ══ HERO ══ */}
       <section className="relative isolate">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -314,6 +335,24 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
               </section>
             )}
 
+            {!buka ? (
+              /* ══ JADWAL (terlipat) ══ */
+              <section ref={jadwalRef} className="pt-8 scroll-mt-4">
+                <button onClick={() => keJadwal(tanggalAwal(jadwal, hariIni) ?? undefined)}
+                  className="w-full text-left relative overflow-hidden rounded-3xl border border-sky-400/30 bg-gradient-to-br from-sky-500/20 via-[#0a1a30] to-amber-400/10 p-5 active:scale-[0.99] transition-transform">
+                  <div className="absolute -right-8 -bottom-10 text-[120px] leading-none opacity-[0.10] select-none">🏟️</div>
+                  <div className="flex items-center gap-1.5 text-amber-300 text-[11px] font-bold tracking-[0.2em] uppercase"><CalendarDays size={12} /> Jadwal lengkap & peta perjuangan</div>
+                  <div className="text-white text-[24px] leading-tight font-extrabold uppercase mt-1" style={TAMPIL}>
+                    {pertandingan.length} kegiatan · {jumlahKota} kota
+                  </div>
+                  <div className="text-slate-300 text-[13px] mt-1">{deret.length ? `${rentangSingkat(deret[0].tanggal, akhir ?? null)} 2026 · ` : ''}per tanggal, per cabor, dan per wilayah</div>
+                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-4 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/25">
+                    Buka jadwal lengkap <ChevronRight size={15} />
+                  </div>
+                </button>
+              </section>
+            ) : (
+            <div className="animate-[muncul_.45s_ease-out]">
             {/* ══ JADWAL ══ */}
             <section ref={jadwalRef} className="pt-8 scroll-mt-4">
               <JudulBagian ikon={<CalendarDays size={12} />} kecil="Jadwal lengkap" besar="Jadwal Pertandingan" />
@@ -418,6 +457,14 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
                   })}
                 </div>
               </section>
+            )}
+
+            <div className="pt-6 text-center">
+              <button onClick={tutupJadwal} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white">
+                Tutup jadwal ↑
+              </button>
+            </div>
+            </div>
             )}
 
             {/* ══ AJAKAN ══ */}
