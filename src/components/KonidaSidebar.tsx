@@ -370,7 +370,6 @@ export default function KonidaSidebar() {
             <NavItemPremium label="Cetak ID Card"  href="/konida/atlet/kabbandung/idcard"                     icon={CreditCard} tc={tc}/>
             <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
             <NavItemPremium label="Heatmap Cabor"  href="/konida/Premiumreport/kabbandung/heatmap-cabor"      icon={BarChart2} tc={tc}/>
-            <NavItemPremium label="Performance"    href="/konida/performance/kabbandung"                      icon={BarChart3} tc={tc}/>
 
             <div className="h-px bg-slate-800 my-3"/>
 
@@ -384,6 +383,7 @@ export default function KonidaSidebar() {
             {PREMIUM_REPORT_KABBANDUNG_TAMPIL && (
               <NavItemVIP label="Premium Report"    href="/konida/Premiumreport/kabbandung"    icon={Download} />
             )}
+            <NavItemVIP label="Performance"         href="/konida/performance/kabbandung"     icon={BarChart3} />
             <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
             <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
           </>
