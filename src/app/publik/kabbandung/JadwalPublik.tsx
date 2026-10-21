@@ -139,7 +139,11 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
   }, [hariIniServer, jadwal])
 
   useEffect(() => {
-    if (window.location.hash === '#jadwal') { setBuka(true); setGulir(g => g + 1) }
+    const periksa = () => { if (window.location.hash === '#jadwal') { setBuka(true); setGulir(g => g + 1) } }
+    periksa()
+    // Tautan …/#jadwal yang diketuk saat halaman sudah terbuka tidak memuat ulang halaman.
+    window.addEventListener('hashchange', periksa)
+    return () => window.removeEventListener('hashchange', periksa)
   }, [])
 
   useEffect(() => {
@@ -204,7 +208,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
         <div className="absolute inset-0 -z-10 opacity-[0.07]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)', backgroundSize: '36px 36px' }} />
 
         {/* Kepala */}
-        <header className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+        <header className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 h-16 lg:h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logos/kab-bandung-256.png" alt="Lambang Kabupaten Bandung" className="w-9 h-9 object-contain shrink-0 drop-shadow-[0_0_12px_rgba(245,197,24,0.35)]" />
@@ -219,25 +223,29 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
           </a>
         </header>
 
-        <div className="max-w-3xl mx-auto px-4 pt-6 pb-8">
+        <div className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pt-6 pb-8 lg:pt-14 lg:pb-20 lg:grid lg:grid-cols-[1.3fr_1fr] lg:gap-x-14 lg:items-center">
+          <div className="lg:col-start-1 lg:row-start-1">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1 text-[11px] font-bold tracking-wider text-amber-200">
             <Sparkles size={12} /> 7 – 20 NOVEMBER 2026 · JAWA BARAT
           </div>
-          <h1 className="mt-4 uppercase leading-[0.9] font-extrabold text-white text-[44px] sm:text-6xl" style={TAMPIL}>
+          <h1 className="mt-4 uppercase leading-[0.9] font-extrabold text-white text-[44px] sm:text-6xl lg:text-[64px]" style={TAMPIL}>
             Kontingen<br />Kabupaten Bandung
-            <span className="block mt-1 bg-gradient-to-r from-amber-200 via-amber-400 to-orange-400 bg-clip-text text-transparent text-[64px] sm:text-[88px] drop-shadow-[0_4px_30px_rgba(245,197,24,0.35)]">BEDAS!</span>
+            <span className="block mt-1 bg-gradient-to-r from-amber-200 via-amber-400 to-orange-400 bg-clip-text text-transparent text-[64px] sm:text-[88px] lg:text-[124px] drop-shadow-[0_4px_30px_rgba(245,197,24,0.35)]">BEDAS!</span>
           </h1>
           <div className="mt-2 text-[10px] sm:text-[11px] font-bold tracking-[0.25em] text-sky-300/80">BANGKIT · EDUKATIF · DINAMIS · AGAMIS · SEJAHTERA</div>
-          <p className="mt-4 text-slate-300 text-[15px] leading-relaxed max-w-xl">
+          <p className="mt-4 text-slate-300 text-[15px] lg:text-[17px] leading-relaxed max-w-xl">
             Ikuti perjuangan atlet Kabupaten Bandung di PORPROV XV: jadwal, venue, dan kota tuan rumah seluruh cabor, diperbarui langsung oleh KONI Kabupaten Bandung.
           </p>
+          </div>
+
+          <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2">
 
           {/* Hitung mundur / hari ke */}
           {!galat && (mundur || hariKeBerapa) && (
-            <div className="mt-6 relative rounded-3xl p-[1px] bg-gradient-to-br from-amber-300/70 via-white/10 to-sky-400/60">
-              <div className="rounded-3xl bg-[#071426]/90 backdrop-blur px-5 py-4 flex items-center gap-5">
+            <div className="mt-6 lg:mt-0 relative rounded-3xl p-[1px] bg-gradient-to-br from-amber-300/70 via-white/10 to-sky-400/60">
+              <div className="rounded-3xl bg-[#071426]/90 backdrop-blur px-5 py-4 lg:px-7 lg:py-6 flex items-center gap-5 lg:gap-7">
                 <div className="text-center shrink-0">
-                  <div className="text-[64px] leading-none font-extrabold bg-gradient-to-b from-white to-amber-200 bg-clip-text text-transparent" style={TAMPIL}>
+                  <div className="text-[64px] lg:text-[88px] leading-none font-extrabold bg-gradient-to-b from-white to-amber-200 bg-clip-text text-transparent" style={TAMPIL}>
                     {mundur ?? hariKeBerapa}
                   </div>
                   <div className="text-[10px] font-bold tracking-[0.2em] text-amber-300 mt-1">{mundur ? 'HARI LAGI' : `HARI KE / ${PORPROV_HARI}`}</div>
@@ -272,34 +280,35 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
           )}
 
           {/* Angka kontingen */}
-          <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2.5 lg:gap-3">
             {[
               { ikon: <Users size={16} />, nilai: angka?.atlet, label: 'Atlet', warna: '#f5c518' },
               { ikon: <Flag size={16} />, nilai: angka?.cabor, label: 'Cabang olahraga', warna: '#38bdf8' },
               { ikon: <Medal size={16} />, nilai: angka?.nomor, label: 'Nomor pertandingan', warna: '#34d399' },
               { ikon: <MapPin size={16} />, nilai: jumlahKota || undefined, label: 'Kota tuan rumah', warna: '#f472b6' },
             ].filter(x => x.nilai).map(x => (
-              <div key={x.label} className="rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur px-3.5 py-3">
+              <div key={x.label} className="rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur px-3.5 py-3 lg:px-5 lg:py-4">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400" style={{ color: x.warna }}>{x.ikon}<span className="text-slate-400">{x.label}</span></div>
-                <div className="text-white text-[32px] leading-none font-extrabold mt-1.5" style={TAMPIL}><AngkaNaik nilai={x.nilai as number} /></div>
+                <div className="text-white text-[32px] lg:text-[44px] leading-none font-extrabold mt-1.5" style={TAMPIL}><AngkaNaik nilai={x.nilai as number} /></div>
               </div>
             ))}
           </div>
+          </div>
 
-          <div className="mt-5 flex gap-2.5">
+          <div className="mt-5 lg:mt-8 flex gap-2.5 lg:col-start-1 lg:row-start-2 lg:self-start">
             <button onClick={() => keJadwal(tanggalAwal(jadwal, hariIni) ?? undefined)}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 px-4 py-3 text-[14px] font-extrabold text-[#1a1200] shadow-[0_8px_30px_rgba(245,197,24,0.35)] active:scale-[0.98] transition-transform">
+              className="flex-1 lg:flex-none inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-300 to-amber-500 px-4 lg:px-8 py-3 lg:py-3.5 text-[14px] font-extrabold text-[#1a1200] shadow-[0_8px_30px_rgba(245,197,24,0.35)] active:scale-[0.98] transition-transform">
               <CalendarDays size={17} /> Lihat Jadwal
             </button>
             <button onClick={bagikan}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-[14px] font-bold text-white active:scale-[0.98] transition-transform">
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 lg:px-6 py-3 lg:py-3.5 text-[14px] font-bold text-white active:scale-[0.98] transition-transform">
               <Share2 size={17} /> {tersalin ? 'Tersalin' : 'Bagikan'}
             </button>
           </div>
         </div>
       </section>
 
-      <main className="max-w-3xl mx-auto px-4 pb-12">
+      <main className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pb-12">
         {galat ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-6 text-center text-sm text-red-300">
             Jadwal sedang tidak bisa dimuat. Silakan coba lagi beberapa saat lagi.
@@ -313,13 +322,13 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
               <section className="pt-4">
                 <JudulBagian ikon={<Clock size={12} />} kecil={berlangsungIni.length ? 'Hari ini' : 'Segera dimulai'}
                   besar={berlangsungIni.length ? `${berlangsungIni.length} kegiatan sedang berlangsung` : 'Pertandingan terdekat'} />
-                <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-2 snap-x" style={{ scrollbarWidth: 'none' }}>
+                <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-2 snap-x lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible" style={{ scrollbarWidth: 'none' }}>
                   {(berlangsungIni.length ? berlangsungIni : segera).map(b => {
                     const w = warnaWilayah(b.wilayah)
                     const lagi = (b as any).hari_lagi as number | undefined
                     return (
                       <button key={b.id} onClick={() => keJadwal(berlangsungIni.length ? hariIni : b.mulai as string)}
-                        className="snap-start shrink-0 w-[210px] text-left rounded-2xl border border-white/10 p-3.5 relative overflow-hidden"
+                        className="snap-start shrink-0 w-[210px] lg:w-auto text-left rounded-2xl border border-white/10 p-3.5 lg:p-4 relative overflow-hidden hover:border-white/25 transition-colors"
                         style={{ background: `linear-gradient(160deg, ${w}26, rgba(255,255,255,0.03) 60%)` }}>
                         <div className="text-3xl">{ikonCabor(b)}</div>
                         <div className="text-white font-bold text-[14px] leading-snug mt-2 line-clamp-2">{b.kegiatan}</div>
@@ -339,14 +348,16 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
               /* ══ JADWAL (terlipat) ══ */
               <section ref={jadwalRef} className="pt-8 scroll-mt-4">
                 <button onClick={() => keJadwal(tanggalAwal(jadwal, hariIni) ?? undefined)}
-                  className="w-full text-left relative overflow-hidden rounded-3xl border border-sky-400/30 bg-gradient-to-br from-sky-500/20 via-[#0a1a30] to-amber-400/10 p-5 active:scale-[0.99] transition-transform">
+                  className="w-full text-left relative overflow-hidden rounded-3xl border border-sky-400/30 bg-gradient-to-br from-sky-500/20 via-[#0a1a30] to-amber-400/10 p-5 lg:p-8 lg:flex lg:items-center lg:justify-between lg:gap-8 active:scale-[0.99] hover:border-sky-400/60 transition-all">
                   <div className="absolute -right-8 -bottom-10 text-[120px] leading-none opacity-[0.10] select-none">🏟️</div>
+                  <div className="relative">
                   <div className="flex items-center gap-1.5 text-amber-300 text-[11px] font-bold tracking-[0.2em] uppercase"><CalendarDays size={12} /> Jadwal lengkap & peta perjuangan</div>
-                  <div className="text-white text-[24px] leading-tight font-extrabold uppercase mt-1" style={TAMPIL}>
+                  <div className="text-white text-[24px] lg:text-[34px] leading-tight font-extrabold uppercase mt-1" style={TAMPIL}>
                     {pertandingan.length} kegiatan · {jumlahKota} kota
                   </div>
                   <div className="text-slate-300 text-[13px] mt-1">{deret.length ? `${rentangSingkat(deret[0].tanggal, akhir ?? null)} 2026 · ` : ''}per tanggal, per cabor, dan per wilayah</div>
-                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-4 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/25">
+                  </div>
+                  <div className="relative mt-4 lg:mt-0 shrink-0 inline-flex items-center gap-1.5 rounded-full bg-sky-500 px-4 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/25 lg:px-6 lg:py-3 lg:text-[15px]">
                     Buka jadwal lengkap <ChevronRight size={15} />
                   </div>
                 </button>
@@ -356,7 +367,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
             {/* ══ JADWAL ══ */}
             <section ref={jadwalRef} className="pt-8 scroll-mt-4">
               <JudulBagian ikon={<CalendarDays size={12} />} kecil="Jadwal lengkap" besar="Jadwal Pertandingan" />
-              <div className="flex gap-1 rounded-2xl bg-white/[0.04] border border-white/10 p-1 mb-4">
+              <div className="flex gap-1 rounded-2xl bg-white/[0.04] border border-white/10 p-1 mb-4 lg:max-w-md">
                 {([['tanggal', 'Per Tanggal'], ['semua', 'Semua Kegiatan']] as const).map(([k, label]) => (
                   <button key={k} onClick={() => setTab(k)}
                     className={`flex-1 rounded-xl py-2.5 text-[13px] font-bold transition-all ${tab === k ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white'}`}>
@@ -401,7 +412,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
                       </div>
                       {padaTanggal.length === 0
                         ? <div className="rounded-2xl border border-white/10 px-4 py-8 text-center text-sm text-slate-500">Tidak ada pertandingan kontingen pada tanggal ini.</div>
-                        : <div className="grid gap-2.5 sm:grid-cols-2">{padaTanggal.map(b => <Kartu key={b.id} b={b} hariIni={hariIni} tanggal={pilih} />)}</div>}
+                        : <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">{padaTanggal.map(b => <Kartu key={b.id} b={b} hariIni={hariIni} tanggal={pilih} />)}</div>}
                     </div>
                   )}
                 </>
@@ -426,7 +437,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
                   </div>
                   {daftar.length === 0
                     ? <div className="rounded-2xl border border-white/10 px-4 py-8 text-center text-sm text-slate-500">Tidak ada kegiatan yang cocok.</div>
-                    : <div className="grid gap-2.5 sm:grid-cols-2">{daftar.map(b => <Kartu key={b.id} b={b} hariIni={hariIni} tanggal={statusKegiatan(b, hariIni) === 'berlangsung' ? hariIni : undefined} />)}</div>}
+                    : <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">{daftar.map(b => <Kartu key={b.id} b={b} hariIni={hariIni} tanggal={statusKegiatan(b, hariIni) === 'berlangsung' ? hariIni : undefined} />)}</div>}
                 </>
               )}
             </section>
@@ -469,14 +480,16 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
 
             {/* ══ AJAKAN ══ */}
             <section className="pt-10">
-              <div className="relative overflow-hidden rounded-3xl border border-amber-300/30 bg-gradient-to-br from-amber-400/20 via-[#0a1a30] to-sky-500/20 p-6 text-center">
+              <div className="relative overflow-hidden rounded-3xl border border-amber-300/30 bg-gradient-to-br from-amber-400/20 via-[#0a1a30] to-sky-500/20 p-6 lg:px-10 lg:py-8 text-center lg:text-left lg:flex lg:items-center lg:gap-8">
                 <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-amber-400/20 blur-3xl" />
-                <div className="text-4xl">🏆</div>
-                <div className="text-white text-[28px] leading-tight font-extrabold uppercase mt-2" style={TAMPIL}>Dukung Atlet Kabupaten Bandung</div>
-                <p className="text-slate-300 text-sm mt-2 max-w-md mx-auto">
+                <div className="text-4xl lg:text-6xl relative">🏆</div>
+                <div className="relative lg:flex-1">
+                <div className="text-white text-[28px] lg:text-[36px] leading-tight font-extrabold uppercase mt-2 lg:mt-0" style={TAMPIL}>Dukung Atlet Kabupaten Bandung</div>
+                <p className="text-slate-300 text-sm mt-2 max-w-md mx-auto lg:mx-0 lg:max-w-xl">
                   {akhir ? `Dari ${rentangSingkat(deret[0].tanggal, null)} sampai ${rentangSingkat(akhir, null)}, ` : ''}bagikan jadwal ini ke keluarga, sekolah, dan klub agar semua bisa ikut mendukung.
                 </p>
-                <button onClick={bagikan} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-sm font-extrabold text-[#062b14] active:scale-[0.98] transition-transform">
+                </div>
+                <button onClick={bagikan} className="relative mt-4 lg:mt-0 shrink-0 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-sm font-extrabold text-[#062b14] active:scale-[0.98] transition-transform">
                   <Share2 size={16} /> Bagikan lewat WhatsApp
                 </button>
               </div>
