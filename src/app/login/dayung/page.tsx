@@ -189,14 +189,6 @@ export default function LoginDayung() {
               </div>
             </div>
 
-            <div className="mt-2 rounded-xl p-3 bg-[#02080f]/60 border border-sky-400/20 hover:border-sky-400/40 transition-colors">
-              <div className="text-white/60 text-[9px] font-bold tracking-[0.15em] uppercase mb-2 flex items-center gap-1.5"><div className="w-1 h-1 bg-sky-500 rounded-full" /> Demo Access</div>
-              <button type="button" onClick={() => { setUsername('op.dayung'); setPassword('dayung123') }} className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-sky-400/10 transition-colors">
-                <span className="text-white/70 text-xs font-medium">Operator Dayung</span>
-                <div className="flex items-center gap-1.5"><span className="text-sky-400 text-[11px] font-mono font-semibold">op.dayung</span><ChevronRight size={12} className="text-sky-400" /></div>
-              </button>
-            </div>
-
             <button type="submit" disabled={loading || !isFormValid}
               className={`w-full mt-4 py-3.5 rounded-xl text-[13px] font-bold uppercase tracking-[0.06em] flex items-center justify-center gap-2.5 transition-all duration-300 ${loading || !isFormValid ? 'bg-slate-800 text-white/50 border border-slate-700 cursor-not-allowed' : 'bg-gradient-to-r from-sky-700 to-sky-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.3)] hover:shadow-[0_0_25px_rgba(56,189,248,0.5)] hover:-translate-y-0.5 border border-sky-400/50'}`}>
               {loading ? <><Loader2 size={16} className="animate-spin text-sky-400" /> Memverifikasi...</> : <><Activity size={16} className={isFormValid ? 'text-sky-100' : 'text-white/50'} /> Masuk ke Operator Dayung</>}

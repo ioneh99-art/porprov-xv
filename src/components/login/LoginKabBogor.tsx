@@ -461,31 +461,6 @@ export default function LoginKabBogor() {
               </div>
             </div>
 
-            {/* Demo autofill */}
-            <div className="rounded-xl p-3" style={{
-              background: 'rgba(6,15,8,0.6)',
-              border: '1px solid rgba(52,211,153,0.1)',
-            }}>
-              <div style={{
-                color: 'rgba(255,255,255,0.25)', fontSize: 9, fontWeight: 700,
-                letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 8,
-              }}>
-                ◆ Demo Access
-              </div>
-              <button type="button"
-                onClick={() => { setUsername('kab.bogor'); setPassword('admin123') }}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all"
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(52,211,153,0.08)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Admin Kab. Bogor</span>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ color: '#34d399', fontSize: 10, fontFamily: "'DM Mono', monospace" }}>kab.bogor</span>
-                  <ChevronRight size={10} style={{ color: '#34d399' }}/>
-                </div>
-              </button>
-            </div>
-
             {/* Submit */}
             <button
               type="submit"

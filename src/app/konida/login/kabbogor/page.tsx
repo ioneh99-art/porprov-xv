@@ -310,20 +310,6 @@ export default function LoginKabBogor() {
               </div>
             </div>
 
-            <div className="mt-2 rounded-xl p-3 bg-[#030a05]/60 border border-emerald-400/20 group hover:border-emerald-400/40 transition-colors">
-              <div className="text-white/60 text-[9px] font-bold tracking-[0.15em] uppercase mb-2 flex items-center gap-1.5">
-                <div className="w-1 h-1 bg-emerald-500 rounded-full"/> Demo Access
-              </div>
-              <button type="button" onClick={()=>{setUsername('kab.bogor');setPassword('admin123')}}
-                className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-emerald-400/10 transition-colors">
-                <span className="text-white/70 text-xs font-medium">Admin Kab. Bogor</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-400 text-[11px] font-mono font-semibold">kab.bogor</span>
-                  <ChevronRight size={12} className="text-emerald-400"/>
-                </div>
-              </button>
-            </div>
-
             <button type="submit" disabled={loading||!isFormValid}
               className={`w-full mt-4 py-3.5 rounded-xl text-[13px] font-bold uppercase tracking-[0.06em] flex items-center justify-center gap-2.5 transition-all duration-300 ${
                 loading||!isFormValid

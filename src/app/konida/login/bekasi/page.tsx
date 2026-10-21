@@ -256,32 +256,6 @@ export default function LoginPage() {
             </form>
           </div>
 
-          {/* Demo accounts — HANYA tampil di KONI Jabar */}
-          {isJabar && (
-            <div className="mt-5 bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <p className="text-slate-600 text-[10px] font-medium mb-2">
-                Akun demo — klik untuk autofill:
-              </p>
-              <div className="space-y-1">
-                {[
-                  { role:'Admin', user:'admin', pass:'admin123' },
-                  { role:'KONIDA Kab. Bogor', user:'kab.bogor', pass:'admin123' },
-                  { role:'KONIDA Kota Bandung', user:'kota.bandung', pass:'admin123' },
-                  { role:'Operator Atletik', user:'op.atletik', pass:'admin123' },
-                  { role:'Operator Renang', user:'op.akuatikrn', pass:'admin123' },
-                ].map(a => (
-                  <button key={a.role} type="button"
-                    onClick={() => { setUsername(a.user); setPassword(a.pass) }}
-                    className="w-full flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-slate-800 transition-colors text-xs">
-                    <span className="text-slate-500">{a.role}</span>
-                    <span className="text-slate-400 font-mono text-[10px]">{a.user}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-slate-700 text-[10px] mt-1.5">* Klik untuk autofill · password: admin123</p>
-            </div>
-          )}
-
           {/* Link atlet — HANYA di Jabar */}
           {isJabar && (
             <div className="mt-3 text-center">

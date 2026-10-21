@@ -324,34 +324,6 @@ export default function LoginPage() {
               </form>
             </div>
 
-            {/* Demo accounts — hanya Jabar */}
-            {isJabar && (
-              <div className="mt-4 border p-4" style={{ borderColor:'rgba(0,243,255,0.08)', background:'rgba(0,0,0,0.3)' }}>
-                <p className="text-[9px] font-mono uppercase tracking-widest mb-2.5" style={{ color: '#334155' }}>
-                  AKUN DEMO — KLIK AUTOFILL
-                </p>
-                <div className="space-y-1">
-                  {[
-                    { role:'Admin PORPROV',    user:'admin',        pass:'admin123'      },
-                    { role:'KONIDA Kab. Bandung', user:'kab.bandung', pass:'admin123'   },
-                    { role:'KONIDA Kab. Bogor',  user:'kab.bogor',   pass:'admin123'   },
-                    { role:'Op. Pentathlon',   user:'op.pentathlon',pass:'pentathlon2024'},
-                    { role:'Op. Dayung',       user:'op.dayung',    pass:'dayung2024'   },
-                  ].map(a => (
-                    <button key={a.role} type="button"
-                      onClick={() => { setUsername(a.user); setPassword(a.pass) }}
-                      className="w-full flex justify-between items-center px-2 py-1.5 text-xs transition-colors group"
-                      style={{ background:'transparent' }}
-                      onMouseEnter={e=>(e.currentTarget.style.background='rgba(0,243,255,0.04)')}
-                      onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                      <span style={{ color: '#475569' }}>{a.role}</span>
-                      <span className="font-mono text-[10px] group-hover:text-white transition-colors" style={{ color: '#334155' }}>{a.user}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Link atlet */}
             {isJabar && (
               <div className="mt-3 text-center">
