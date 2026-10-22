@@ -1,17 +1,17 @@
 # Halaman Publik Jadwal & Kelola Jadwal — panduan
 
-**Tanggal:** 2026-10-21 · **Tayang di:** https://kab-bandung.vercel.app
+**Tanggal:** 2026-10-21 · **Tayang di:** https://www.konikab-bdg.com
 
 ## 1. Alamat
 
 | Untuk | Alamat |
 |---|---|
-| Masyarakat umum (tanpa login) | https://kab-bandung.vercel.app |
-| Grup PIC cabor — jadwal lengkap langsung terbuka | https://kab-bandung.vercel.app/#jadwal |
+| Masyarakat umum (tanpa login) | https://www.konikab-bdg.com |
+| Grup PIC cabor — jadwal lengkap langsung terbuka | https://www.konikab-bdg.com/#jadwal |
 | Login admin | tombol **Masuk** di pojok kanan atas, atau `/konida/login/kabbandung` |
 | Mengubah jadwal | setelah login → menu **Jadwal Pertandingan** (di bawah Dashboard) |
 
-Di alamat lain (porprov-xv, dayung-jabar) halaman ini tetap bisa dibuka lewat `/publik/kabbandung`, tetapi halaman awalnya tidak berubah.
+Domain resmi sejak 22 Okt 2026: **www.konikab-bdg.com** (tanpa www dialihkan ke www). `kab-bandung.vercel.app` tetap jalan sebagai cadangan; tautan Bagikan dan pesan WhatsApp kode PIC selalu memakai domain resmi. Di alamat lain (porprov-xv, dayung-jabar) halaman ini tetap bisa dibuka lewat `/publik/kabbandung`, tetapi halaman awalnya tidak berubah.
 
 ## 2. Isi halaman publik
 

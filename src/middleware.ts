@@ -1,12 +1,14 @@
 // src/middleware.ts — FINAL
 // Handle: superadmin, koni_jabar, level1, level2, level3, operator_cabor
-// + hostname-based tenant routing (kab-bandung.vercel.app → /konida/.../kabbandung)
+// + hostname-based tenant routing (www.konikab-bdg.com / kab-bandung.vercel.app → /konida/.../kabbandung)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionCookie } from '@/lib/session'
 
 // ── Hostname → tenant slug ────────────────────────────────────────────────────
 const HOSTNAME_TENANT: Record<string, string> = {
+  'www.konikab-bdg.com':    'kabbandung',   // domain resmi sejak 22 Okt 2026
+  'konikab-bdg.com':        'kabbandung',
   'kab-bandung.vercel.app': 'kabbandung',
   'kab-bogor.vercel.app':   'kabbogor',
   // tambah kontingen lain di sini

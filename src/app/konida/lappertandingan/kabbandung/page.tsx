@@ -11,6 +11,7 @@ import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCat
 import { HASIL, LABEL_HASIL, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
 import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
 import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
+import { ALAMAT_RESMI_KABBANDUNG, DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
@@ -196,7 +197,7 @@ export default function PageLapPertandingan() {
   }
 
   const pesanWA = kodeBaru
-    ? `Yth. ${kodeBaru.nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${kodeBaru.cabor}.\n\nTautan: ${typeof window !== 'undefined' ? window.location.origin : ''}/lapor#${kodeBaru.kode}\nKode: ${kodeBaru.kode}\n\nLaporkan setiap nomor segera setelah selesai. Kejadian penting (tidak sesuai aturan, masalah teknis, akomodasi/transportasi) laporkan di tab "Catatan Lapangan". Mohon kode ini tidak dibagikan ke orang lain.`
+    ? `Yth. ${kodeBaru.nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${kodeBaru.cabor}.\n\nTautan: ${ALAMAT_RESMI_KABBANDUNG}/lapor#${kodeBaru.kode}\nKode: ${kodeBaru.kode}\n\nIsi jadwal tanding (jam, lawan, lapangan) di tab "Jadwal" — langsung tampil di ${DOMAIN_RESMI_KABBANDUNG}. Laporkan setiap nomor segera setelah selesai. Kejadian penting (tidak sesuai aturan, masalah teknis, akomodasi/transportasi) laporkan di tab "Catatan Lapangan". Mohon kode ini tidak dibagikan ke orang lain.`
     : ''
 
   // ── Jurnal dalam format "Matrix Jadwal Harian" KONI ──

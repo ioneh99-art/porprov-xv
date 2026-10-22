@@ -1,5 +1,5 @@
 // src/app/publik/kabbandung/page.tsx
-// Halaman awal kab-bandung.vercel.app (lihat middleware): jadwal pertandingan
+// Halaman awal www.konikab-bdg.com dan kab-bandung.vercel.app (lihat middleware): jadwal pertandingan
 // kontingen Kab. Bandung, terbuka tanpa login. Datanya jadwal_cabor yang
 // tampil_publik — dikelola admin di Kelola Jadwal. Kolom internal
 // (akomodasi, kontak panitia, catatan) sengaja tidak dibaca.
@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import { tanggalWIB } from '@/lib/lapor'
 import type { AngkaKontingen, BarisPublik, PartaiPublik } from '@/lib/jadwal-publik'
 import { ambilSemua } from '@/lib/lapor-sesi'
+import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
 import JadwalPublik from './JadwalPublik'
 
 // Huruf judul dan angka besar bergaya papan skor.
@@ -21,7 +22,7 @@ export const revalidate = 60
 const JUDUL = 'Jadwal Pertandingan Kontingen Kabupaten Bandung · PORPROV XV Jawa Barat 2026'
 const URAIAN = 'Jadwal, venue, dan kota tuan rumah seluruh cabor kontingen Kabupaten Bandung di PORPROV XV Jawa Barat 2026. Kabupaten Bandung BEDAS!'
 export const metadata: Metadata = {
-  metadataBase: new URL('https://kab-bandung.vercel.app'),
+  metadataBase: new URL(ALAMAT_RESMI_KABBANDUNG),
   title: JUDUL,
   description: URAIAN,
   // Pratinjau saat tautan dibagikan di WhatsApp/Facebook.

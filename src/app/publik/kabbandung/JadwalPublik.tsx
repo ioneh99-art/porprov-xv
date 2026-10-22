@@ -12,6 +12,7 @@ import {
   segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type AngkaKontingen, type BarisPublik, type PartaiPublik, type StatusKegiatan,
 } from '@/lib/jadwal-publik'
 import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
+import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
 
 const WARNA: Record<StatusKegiatan, string> = { berlangsung: '#34d399', akan: '#38bdf8', selesai: '#64748b', tanpa_tanggal: '#64748b' }
 const WARNA_WILAYAH: Record<string, { utama: string; latar: string }> = {
@@ -219,7 +220,8 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
   }
 
   async function bagikan() {
-    const url = typeof window !== 'undefined' ? window.location.origin + '/' : 'https://kab-bandung.vercel.app/'
+    // Selalu alamat resmi, walau halaman dibuka lewat alamat cadangan kab-bandung.vercel.app.
+    const url = ALAMAT_RESMI_KABBANDUNG + '/'
     const teks = `Jadwal pertandingan kontingen Kabupaten Bandung di PORPROV XV Jawa Barat 2026. Dukung atlet kita! Kabupaten Bandung BEDAS!`
     try {
       if (navigator.share) { await navigator.share({ title: 'Jadwal Kontingen Kab. Bandung', text: teks, url }); return }

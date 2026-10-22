@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react'
 import { LABEL_STATUS_PARTAI, SARAN_BABAK, STATUS_PARTAI, WARNA_STATUS_PARTAI, type StatusPartai } from '@/lib/jadwal-partai'
 import { tanggalWIB } from '@/lib/lapor'
+import { DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
 
 export interface PartaiSaya {
   id: number; tanggal: string; jam: string | null; nomor_teks: string; disiplin: string | null; nomor_resmi: string | null
@@ -120,7 +121,7 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
     <div className="mt-5">
       <div className="rounded-xl bg-sky-500/10 border border-sky-400/30 px-4 py-3 text-sm text-sky-100">
         Isi jadwal dari technical meeting atau undian panitia. Jadwal <b>langsung tampil</b> di halaman publik
-        kab-bandung.vercel.app, termasuk nama atlet. Kalau jam berubah, cukup ubah di sini.
+        {DOMAIN_RESMI_KABBANDUNG}, termasuk nama atlet. Kalau jam berubah, cukup ubah di sini.
       </div>
       {kegiatan.length > 0 && (
         <p className="mt-2 text-xs text-slate-400">Jadwal KONI cabor ini: {kegiatan.map(k => `${k.nama}${k.mulai ? ` (${tglTampil(k.mulai)}${k.selesai && k.selesai !== k.mulai ? ` – ${tglTampil(k.selesai)}` : ''})` : ''}`).join(' · ')}</p>

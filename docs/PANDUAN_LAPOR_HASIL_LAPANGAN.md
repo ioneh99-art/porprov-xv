@@ -8,9 +8,9 @@ Fitur tambahan untuk KONI Kab. Bandung: PIC cabor melapor hasil pertandingan dar
 
 ## 1. Alamat untuk mencoba
 
-- KONIDA: `https://kab-bandung.vercel.app` (atau `https://porprov-xv.vercel.app`) → login seperti biasa → menu **Report Pertandingan**.
-- PIC di HP: `https://kab-bandung.vercel.app/lapor`.
-- Layar videotron: `https://kab-bandung.vercel.app/konida/warroom/kabbandung?layar=1`.
+- KONIDA: `https://www.konikab-bdg.com` (cadangan: `https://kab-bandung.vercel.app`) → login seperti biasa → menu **Report Pertandingan**.
+- PIC di HP: `https://www.konikab-bdg.com/lapor`.
+- Layar videotron: `https://www.konikab-bdg.com/konida/warroom/kabbandung?layar=1`.
 
 Tautan di pesan WhatsApp untuk PIC mengikuti alamat yang sedang dibuka saat kode dibuat. Buat kode dari alamat yang memang akan dipakai PIC.
 

@@ -1,6 +1,6 @@
 'use client'
 // src/app/konida/jadwal/kabbandung/page.tsx
-// Kelola Jadwal: sumber halaman publik jadwal (kab-bandung.vercel.app tanpa
+// Kelola Jadwal: sumber halaman publik jadwal (www.konikab-bdg.com tanpa
 // login), War Room, Mode Layar, dan jurnal matriks. Ubah satu kegiatan, atau
 // unggah berkas Matriks Jadwal Harian KONI → pratinjau → simpan.
 
