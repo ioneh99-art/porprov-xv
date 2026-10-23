@@ -20,6 +20,7 @@ import {
   type AtletComplianceStatus,
   computeComplianceScore, checkExpiry, formatRelativeTime,
   classifyAtletCompliance, countByAtletStatus, getDocCellState,
+  hitungStatsDokumen,
 } from '@/lib/dokumen-helpers'
 import { CriticalAlertsCard, type CriticalAlert } from '@/components/konida/DashboardHelpers'
 import { AtletDokumenRowV2, type AtletRowData } from '@/components/konida/AtletDokumenRowV2'
@@ -137,18 +138,29 @@ export default function PageDokumenAtlet() {
         // terbawa dari tabel, sebab kunci anon sudah tidak boleh membacanya.
         allAtlets = await lengkapiPii(allAtlets)
 
-        const [jenisRes, dokRes, statsRes, perlengkapanRes] = await Promise.all([
+        // Dokumen & perlengkapan diambil HANYA milik atlet Dayung. Dulu diambil
+        // semua cabor, sehingga hitungan per jenis & dokumen kedaluwarsa ikut cabor lain.
+        const idDayung = allAtlets.map((a: any) => a.id as number)
+        const ambilPerAtlet = async (tabel: string) => {
+          let hasil: any[] = []
+          for (let i = 0; i < idDayung.length; i += 200) {
+            const { data } = await sb.from(tabel).select('*').in('atlet_id', idDayung.slice(i, i + 200))
+            if (data) hasil = hasil.concat(data)
+          }
+          return hasil
+        }
+        const [jenisRes, dokDayung, perlDayung] = await Promise.all([
           sb.from('dokumen_jenis').select('*').order('urutan'),
-          sb.from('atlet_dokumen').select('*'),
-          sb.from('v_dokumen_stats').select('*'),
-          sb.from('atlet_perlengkapan').select('*'),
+          ambilPerAtlet('atlet_dokumen'),
+          ambilPerAtlet('atlet_perlengkapan'),
         ])
 
-        if (jenisRes.data) setJenisList(jenisRes.data as JenisDokumen[])
-        if (dokRes.data) setDokumens(dokRes.data as AtletDokumen[])
+        const jenis = (jenisRes.data ?? []) as JenisDokumen[]
+        setJenisList(jenis)
+        setDokumens(dokDayung as AtletDokumen[])
         setAtlets(allAtlets as AtletInfo[])
-        if (statsRes.data) setDokumenStats(statsRes.data as DokumenStats[])
-        if (perlengkapanRes.data) setPerlengkapanList(perlengkapanRes.data as Perlengkapan[])
+        setDokumenStats(hitungStatsDokumen(jenis, dokDayung as AtletDokumen[], allAtlets.length))
+        setPerlengkapanList(perlDayung as Perlengkapan[])
       } catch (e) {
         console.error('[Dokumen] Load error:', e)
       } finally {

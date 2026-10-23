@@ -276,3 +276,28 @@ export function getDocCellState(
   }
   return 'empty'
 }
+
+// Hitung ringkasan per jenis dokumen dari daftar dokumen yang SUDAH disaring
+// (mis. hanya atlet Dayung). Bentuknya sama dengan view v_dokumen_stats, yang
+// selalu menghitung seluruh atlet semua cabor sehingga tak cocok utk halaman satu cabor.
+export function hitungStatsDokumen(
+  jenisList: JenisDokumen[],
+  dokumens: AtletDokumen[],
+  totalAtlet: number,
+): DokumenStats[] {
+  return [...jenisList]
+    .sort((a, b) => a.urutan - b.urutan)
+    .map(j => {
+      const milik = dokumens.filter(d => d.jenis_id === j.id)
+      const n = (s: DokumenStatus) => milik.filter(d => d.status === s).length
+      return {
+        jenis_id: j.id, kode: j.kode, nama: j.nama,
+        is_mandatory: j.is_mandatory, has_expiry: j.has_expiry,
+        icon: j.icon, urutan: j.urutan,
+        total_atlet: totalAtlet,
+        verified: n('verified'), uploaded: n('uploaded'),
+        rejected: n('rejected'), expired: n('expired'),
+        submitted_total: n('verified') + n('uploaded'),
+      }
+    })
+}

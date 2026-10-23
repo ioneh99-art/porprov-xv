@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { CriticalAlertsCard, type CriticalAlert } from '@/components/konida/DashboardHelpers'
 import { lengkapiPii } from '@/lib/atlet-pii-klien'
+import { hitungStatsDokumen, type AtletDokumen, type JenisDokumen } from '@/lib/dokumen-helpers'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -227,7 +228,7 @@ export default function PageLaporan() {
   useEffect(()=>{
     async function load() {
       try {
-        const [atletRes, tesRes, perlRes, riwayatRes, dokRes] = await Promise.all([
+        const [atletRes, tesRes, perlRes, riwayatRes, jenisRes] = await Promise.all([
           (async () => {
             let all: any[] = []
             for (let p = 0; ; p++) {
@@ -253,13 +254,25 @@ export default function PageLaporan() {
             .eq('kontingen_id', KONTINGEN_ID),
           sb.from('atlet_perlengkapan').select('*'),
           sb.from('riwayat_prestasi').select('atlet_id,hasil'),
-          sb.from('v_dokumen_stats').select('*'),
+          sb.from('dokumen_jenis').select('*').order('urutan'),
         ])
-        if (atletRes.data)        setAtlets(atletRes.data as AtletDB[])
-        if (tesRes.data)          setTesFisikData(tesRes.data as TesFisik[])
-        if (perlRes.data)         setPerlengkapanData(perlRes.data as Perlengkapan[])
-        if (riwayatRes.data)      setRiwayatData(riwayatRes.data as Riwayat[])
-        if (dokRes.data)          setDokumenStats(dokRes.data as any[])
+        // Tes fisik, perlengkapan, prestasi & dokumen disaring ke atlet Dayung saja.
+        // Dulu ikut semua cabor (mis. 249 tes fisik & 9 emas, padahal Dayung 22 & 0).
+        const atletDayung = (atletRes.data ?? []) as AtletDB[]
+        const idDayung = new Set(atletDayung.map(a => a.id))
+        const milikDayung = <T extends { atlet_id: number }>(rows: T[] | null) =>
+          (rows ?? []).filter(r => idDayung.has(r.atlet_id))
+        const idList = Array.from(idDayung)
+        let dokDayung: AtletDokumen[] = []
+        for (let i = 0; i < idList.length; i += 200) {
+          const { data } = await sb.from('atlet_dokumen').select('atlet_id,jenis_id,status').in('atlet_id', idList.slice(i, i + 200))
+          if (data) dokDayung = dokDayung.concat(data as AtletDokumen[])
+        }
+        if (atletRes.data)        setAtlets(atletDayung)
+        setTesFisikData(milikDayung(tesRes.data as TesFisik[] | null))
+        setPerlengkapanData(milikDayung(perlRes.data as Perlengkapan[] | null))
+        setRiwayatData(milikDayung(riwayatRes.data as Riwayat[] | null))
+        setDokumenStats(hitungStatsDokumen((jenisRes.data ?? []) as JenisDokumen[], dokDayung, atletDayung.length))
       } catch (e) {
         console.error('[Laporan] Load error:', e)
       } finally {
