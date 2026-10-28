@@ -10,6 +10,7 @@ import { hitungMundur } from '@/lib/layar'
 import {
   LABEL_STATUS, cocokCari, deretTanggal, hariKe, ikonCabor, kegiatanPada, namaHari, rentangSingkat, ringkasWilayah,
   segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type AngkaKontingen, type BarisPublik, type PartaiPublik, type StatusKegiatan,
+  medaliPerCabor, rekapPublik, urutMedali, type JenisMedali, type MedaliPublik,
 } from '@/lib/jadwal-publik'
 import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -39,7 +40,9 @@ function AngkaNaik({ nilai }: { nilai: number }) {
       if (p < 1) id = requestAnimationFrame(langkah)
     }
     setN(0); id = requestAnimationFrame(langkah)
-    return () => cancelAnimationFrame(id)
+    // Peramban yang menahan animasi (tab di latar, HP hemat daya) tetap menampilkan angka akhirnya.
+    const cadangan = setTimeout(() => setN(nilai), 1400)
+    return () => { cancelAnimationFrame(id); clearTimeout(cadangan) }
   }, [nilai])
   return <>{angkaID(n)}</>
 }
@@ -135,6 +138,81 @@ function BarisPartai({ p }: { p: PartaiPublik }) {
   )
 }
 
+const GAYA_MEDALI: Record<JenisMedali, { label: string; warna: string; latar: string }> = {
+  emas: { label: 'Emas', warna: '#facc15', latar: 'from-yellow-300/25 to-amber-600/10' },
+  perak: { label: 'Perak', warna: '#e2e8f0', latar: 'from-slate-200/20 to-slate-500/10' },
+  perunggu: { label: 'Perunggu', warna: '#e0a060', latar: 'from-orange-400/25 to-amber-800/10' },
+}
+
+/** Perolehan medali kontingen: papan angka + peraih terbaru + per cabor. Hanya yang disahkan KONIDA. */
+function PerolehanMedali({ medali }: { medali: MedaliPublik[] }) {
+  const [semua, setSemua] = useState(false)
+  const rekap = useMemo(() => rekapPublik(medali), [medali])
+  const urut = useMemo(() => urutMedali(medali), [medali])
+  const perCabor = useMemo(() => medaliPerCabor(medali), [medali])
+  const tampil = semua ? urut : urut.slice(0, 6)
+  return (
+    <section className="pt-6">
+      <JudulBagian ikon={<Medal size={12} />} kecil="Perolehan medali" besar="Medali Kabupaten Bandung" />
+      <div className="grid grid-cols-4 gap-2 lg:gap-3 lg:max-w-3xl">
+        {(['emas', 'perak', 'perunggu'] as const).map(j => (
+          <div key={j} className={`rounded-2xl border border-white/10 bg-gradient-to-br ${GAYA_MEDALI[j].latar} px-2 py-3 lg:py-4 text-center`}>
+            <div className="text-[34px] lg:text-[44px] leading-none font-extrabold tabular-nums" style={{ ...TAMPIL, color: GAYA_MEDALI[j].warna }}><AngkaNaik nilai={rekap[j]} /></div>
+            <div className="text-[11px] font-bold uppercase tracking-wider mt-1" style={{ color: GAYA_MEDALI[j].warna }}>{GAYA_MEDALI[j].label}</div>
+          </div>
+        ))}
+        <div className="rounded-2xl border border-white/15 bg-white/[0.06] px-2 py-3 lg:py-4 text-center">
+          <div className="text-[34px] lg:text-[44px] leading-none font-extrabold text-white tabular-nums" style={TAMPIL}><AngkaNaik nilai={rekap.total} /></div>
+          <div className="text-[11px] font-bold uppercase tracking-wider mt-1 text-slate-300">Total</div>
+        </div>
+      </div>
+
+      {medali.length === 0 ? (
+        <p className="mt-3 text-[13px] text-slate-400">Medali tampil di sini begitu hasil pertandingan disahkan KONI Kabupaten Bandung.</p>
+      ) : (
+        <div className="mt-4 lg:grid lg:grid-cols-3 lg:gap-6">
+          <div className="lg:col-span-2">
+            <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-sky-300 mb-2">Peraih medali terbaru</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {tampil.map(m => (
+                <div key={m.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3 flex gap-3">
+                  <div className="w-10 h-10 shrink-0 rounded-full grid place-items-center text-[18px] font-extrabold text-[#1a1200]" style={{ background: GAYA_MEDALI[m.medali].warna }} aria-label={GAYA_MEDALI[m.medali].label}>
+                    {m.medali === 'emas' ? '🥇' : m.medali === 'perak' ? '🥈' : '🥉'}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-amber-300">{m.cabor} · {tglPanjang(m.tanggal)}</div>
+                    <div className="text-white font-bold text-[14px] leading-snug break-words">{m.nomor}</div>
+                    {m.atlet.length > 0 && <div className="text-[12px] text-sky-200 mt-0.5 break-words">{m.atlet.join(', ')}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {urut.length > 6 && (
+              <button onClick={() => setSemua(s => !s)} className="mt-3 text-sm font-bold text-sky-300">{semua ? 'Tampilkan lebih sedikit' : `Lihat semua ${urut.length} medali →`}</button>
+            )}
+          </div>
+          <div className="mt-5 lg:mt-0">
+            <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-sky-300 mb-2">Per cabor</div>
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] divide-y divide-white/[0.06]">
+              <div className="flex items-center gap-2 px-3 py-1.5 text-[12px]" aria-hidden>
+                <span className="flex-1" /><span className="w-7 text-right">🥇</span><span className="w-7 text-right">🥈</span><span className="w-7 text-right">🥉</span>
+              </div>
+              {perCabor.map(c => (
+                <div key={c.cabor} className="flex items-center gap-2 px-3 py-2 text-[13px]">
+                  <span className="flex-1 min-w-0 truncate text-white font-semibold">{c.cabor}</span>
+                  <span className="w-7 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.emas.warna }}>{c.emas}</span>
+                  <span className="w-7 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.perak.warna }}>{c.perak}</span>
+                  <span className="w-7 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.perunggu.warna }}>{c.perunggu}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: string; besar: string }) {
   return (
     <div className="mb-4">
@@ -144,8 +222,8 @@ function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: str
   )
 }
 
-export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, angka, partai = [] }: {
-  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; angka: AngkaKontingen | null; partai?: PartaiPublik[]
+export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, angka, partai = [], medali = [] }: {
+  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; angka: AngkaKontingen | null; partai?: PartaiPublik[]; medali?: MedaliPublik[]
 }) {
   const [hariIni, setHariIni] = useState(hariIniServer)
   const [masuk, setMasuk] = useState(false)
@@ -345,6 +423,9 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
       </section>
 
       <main className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pb-12">
+        {/* ══ PEROLEHAN MEDALI ══ */}
+        <PerolehanMedali medali={medali} />
+
         {galat ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-6 text-center text-sm text-red-300">
             Jadwal sedang tidak bisa dimuat. Silakan coba lagi beberapa saat lagi.

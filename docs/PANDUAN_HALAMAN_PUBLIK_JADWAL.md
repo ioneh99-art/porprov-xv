@@ -20,8 +20,11 @@ Domain resmi sejak 22 Okt 2026: **www.konikab-bdg.com** (tanpa www dialihkan ke 
   pertandingan terdekat / sedang berlangsung, ajakan dukung + tombol **Bagikan lewat WhatsApp**.
 - Terlipat sampai tombol **Lihat Jadwal / Buka jadwal lengkap** ditekan: jadwal per tanggal,
   semua kegiatan (cari + saring status), dan peta perjuangan per wilayah.
+- **Perolehan medali** (sejak 28 Okt 2026, setelah data simulasi dihapus): papan Emas/Perak/Perunggu/Total,
+  peraih medali terbaru (cabor, nomor, nama atlet), dan rekap per cabor. Hanya dari laporan lapangan yang
+  **sudah disahkan** KONIDA — yang menunggu/ditolak tidak ikut. Halaman ikut segar saat laporan disahkan atau dikembalikan.
 - Yang **sengaja tidak tampil**: akomodasi, kontak panitia, catatan internal, target per atlet,
-  dan perolehan medali (data medali di sistem masih berisi data simulasi).
+  dan target/proyeksi 74 emas KONI (itu bahan internal; tetap di grafik War Room).
 
 ## 3. Mengubah jadwal (admin)
 

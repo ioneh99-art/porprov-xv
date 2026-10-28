@@ -174,3 +174,36 @@ export function segeraMulai(jadwal: BarisPublik[], hariIni: string, jumlah = 6):
     .slice(0, jumlah)
     .map(b => ({ ...b, hari_lagi: Math.round((ke(b.mulai as string) - ke(hariIni)) / HARI_MS) }))
 }
+
+// ── Perolehan medali (halaman publik) ────────────────────────────────────────
+// Hanya laporan lapangan yang sudah DISAHKAN KONIDA. Satu baris = satu medali
+// nomor (beregu tetap satu medali). Nama atlet ikut tampil — keputusan Bos 21 Okt.
+export type JenisMedali = 'emas' | 'perak' | 'perunggu'
+export interface MedaliPublik { id: number; tanggal: string; cabor: string; nomor: string; medali: JenisMedali; atlet: string[] }
+export interface RekapPublik { emas: number; perak: number; perunggu: number; total: number }
+
+const BOBOT_MEDALI: Record<JenisMedali, number> = { emas: 0, perak: 1, perunggu: 2 }
+export const adalahMedali = (h: unknown): h is JenisMedali => h === 'emas' || h === 'perak' || h === 'perunggu'
+
+export function rekapPublik(medali: MedaliPublik[]): RekapPublik {
+  const r = { emas: 0, perak: 0, perunggu: 0, total: 0 }
+  for (const m of medali) { r[m.medali]++; r.total++ }
+  return r
+}
+
+/** Terbaru dulu; pada tanggal yang sama emas → perak → perunggu, lalu cabor dan nomor. */
+export function urutMedali(medali: MedaliPublik[]): MedaliPublik[] {
+  return [...medali].sort((a, b) => b.tanggal.localeCompare(a.tanggal) || BOBOT_MEDALI[a.medali] - BOBOT_MEDALI[b.medali]
+    || a.cabor.localeCompare(b.cabor, 'id') || a.nomor.localeCompare(b.nomor, 'id') || a.id - b.id)
+}
+
+/** Medali per cabor, urut emas → perak → perunggu terbanyak (gaya klasemen). */
+export function medaliPerCabor(medali: MedaliPublik[]): ({ cabor: string } & RekapPublik)[] {
+  const peta = new Map<string, RekapPublik>()
+  for (const m of medali) {
+    const r = peta.get(m.cabor) ?? { emas: 0, perak: 0, perunggu: 0, total: 0 }
+    r[m.medali]++; r.total++; peta.set(m.cabor, r)
+  }
+  return Array.from(peta, ([cabor, r]) => ({ cabor, ...r }))
+    .sort((a, b) => b.emas - a.emas || b.perak - a.perak || b.perunggu - a.perunggu || a.cabor.localeCompare(b.cabor, 'id'))
+}

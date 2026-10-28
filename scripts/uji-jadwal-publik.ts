@@ -1,5 +1,6 @@
 // scripts/uji-jadwal-publik.ts — mengunci susunan halaman publik jadwal dan rencana impor matriks KONI.
 // Dijalankan: npm run uji:jadwal-publik
+import { adalahMedali, medaliPerCabor, rekapPublik, urutMedali, type MedaliPublik } from '../src/lib/jadwal-publik'
 import { ikonCabor, ringkasWilayah, segeraMulai, cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
 import { jamSel, rencanaMatriks, rencanaPartai, type BarisAda } from '../src/lib/impor-matriks'
 
@@ -144,6 +145,20 @@ const adaPIC = [{ id: 9, cabor_id: 70, tanggal: '2026-10-28', nomor_teks: 'Kick 
 const rp2 = rencanaPartai(r2.partai, adaPIC, caborJadwal, atletC)
 cek('partai PIC tidak ditambah ulang', rp2.tambah.length, 0)
 cek('jam PIC tidak ditimpa; venue & atlet kosong dilengkapi', rp2.lengkapi.map(l => [l.id, l.isi]), [[9, { venue: 'Aula Arafah', atlet_ids: [501] }]])
+
+
+// ── perolehan medali publik ──
+const MD: MedaliPublik[] = [
+  { id: 1, tanggal: '2026-10-28', cabor: 'Futsal', nomor: 'Beregu (Pa)', medali: 'perunggu', atlet: ['A'] },
+  { id: 2, tanggal: '2026-11-03', cabor: 'Gulat', nomor: 'Grego 67 kg', medali: 'emas', atlet: ['B'] },
+  { id: 3, tanggal: '2026-11-03', cabor: 'Gulat', nomor: 'Grego 60 kg', medali: 'perak', atlet: ['C'] },
+  { id: 4, tanggal: '2026-11-03', cabor: 'Atletik', nomor: '5.000 M', medali: 'emas', atlet: ['D'] },
+]
+cek('rekap medali', rekapPublik(MD), { emas: 2, perak: 1, perunggu: 1, total: 4 })
+cek('rekap kosong', rekapPublik([]), { emas: 0, perak: 0, perunggu: 0, total: 0 })
+cek('urut: terbaru dulu, emas sebelum perak', urutMedali(MD).map(m => m.id), [4, 2, 3, 1])
+cek('per cabor gaya klasemen', medaliPerCabor(MD).map(c => `${c.cabor}:${c.emas}${c.perak}${c.perunggu}`), ['Gulat:110', 'Atletik:100', 'Futsal:001'])
+cek('lolos/gugur/peringkat bukan medali', ['lolos', 'gugur', 'peringkat', 'emas'].map(adalahMedali), [false, false, false, true])
 
 console.log(`uji-jadwal-publik: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

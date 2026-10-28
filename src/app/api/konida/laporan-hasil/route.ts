@@ -7,6 +7,7 @@ import { HASIL, periksaJam, tanggalSah } from '@/lib/lapor'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { writeAudit, reqMeta } from '@/lib/audit'
+import { segarkanPublik } from '@/lib/partai-server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -115,5 +116,7 @@ export async function POST(req: NextRequest) {
     actor_role: a.sesi.role ?? a.sesi.level ?? null, kontingen_id: a.kontingen_id,
     payload: { sebelum: lama, sesudah: ubah }, ...reqMeta(req),
   })
+  // Perolehan medali di halaman publik dihitung dari laporan yang disahkan.
+  if (lama.status === 'disahkan' || ubah.status === 'disahkan') segarkanPublik()
   return NextResponse.json({ ok: true })
 }
