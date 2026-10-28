@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: akses }, atlet] = await Promise.all([
     db.from('lapor_akses').select('id,cabor_id,kode_ujung,nama_pic,no_wa,aktif,created_at,terakhir_dipakai')
-      .eq('kontingen_id', a.kontingen_id).order('created_at', { ascending: false }),
+      .eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').order('created_at', { ascending: false }),
     ambilSemua<{ cabor_id: number }>((dari, sampai) =>
       db.from('atlet').select('cabor_id').eq('kontingen_id', a.kontingen_id).not('cabor_id', 'is', null).order('id').range(dari, sampai)),
   ])
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     const id = Number(b?.id)
     if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: 'Kode tidak dikenali.' }, { status: 400 })
     const { data, error } = await db.from('lapor_akses').update({ aktif: aksi === 'aktifkan' })
-      .eq('id', id).eq('kontingen_id', a.kontingen_id).select('id')
+      .eq('id', id).eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').select('id')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!data?.length) return NextResponse.json({ error: 'Kode tidak ditemukan.' }, { status: 404 })
     await writeAudit({
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     const no_wa = typeof b?.no_wa === 'string' ? b.no_wa.replace(/[^0-9+]/g, '').slice(0, 20) : ''
     if (!nama_pic) return NextResponse.json({ error: 'Nama PIC tidak boleh kosong.' }, { status: 422 })
 
-    const { data: lama } = await db.from('lapor_akses').select('id,nama_pic,no_wa,cabor_id').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
+    const { data: lama } = await db.from('lapor_akses').select('id,nama_pic,no_wa,cabor_id').eq('id', id).eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').maybeSingle()
     if (!lama) return NextResponse.json({ error: 'Kode tidak ditemukan.' }, { status: 404 })
 
     const ubah: Record<string, any> = { nama_pic, no_wa: no_wa || null }

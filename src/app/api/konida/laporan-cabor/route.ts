@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const [{ data: jadwal }, { data: kontingen }, { data: akses }] = await Promise.all([
     db.from('jadwal_cabor').select('cabor_disiplin,cabor_nama_raw,jenis,wilayah,tuan_rumah,mulai,selesai,venue'),
     db.from('kontingen').select('nama').eq('id', a.kontingen_id).maybeSingle(),
-    db.from('lapor_akses').select('nama_pic').eq('kontingen_id', a.kontingen_id).in('cabor_id', idKeluarga).eq('aktif', true).order('created_at'),
+    db.from('lapor_akses').select('nama_pic').eq('kontingen_id', a.kontingen_id).in('cabor_id', idKeluarga).eq('aktif', true).eq('jalur', 'pic').order('created_at'),
   ])
 
   const idAtlet = Array.from(new Set([...hasil, ...catatan].flatMap(x => x.atlet_ids as number[])))

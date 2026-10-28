@@ -336,3 +336,31 @@ Alamat tetap `…/konida/warroom/kabbandung?layar=1`. Isinya sekarang empat hala
 Setiap sentuhan, guliran, atau tombol membuat putar otomatis berhenti 60 detik, supaya operator bisa membaca. Tombol "Putar otomatis" mematikannya sama sekali.
 
 Yang sengaja tidak ditampilkan di layar umum: catatan lapangan, antrean pengesahan, data PIC, dan target per atlet. Garis proyeksi KONI ikut tampil di grafik; bila KONI tidak ingin proyeksinya terlihat umum, garis itu bisa disembunyikan.
+
+## 14. Pembaruan 28 Oktober 2026: dua jalur mengisi hasil (PIC + Input Langsung KONIDA)
+
+**Sebab:** sosialisasi kode PIC ke semua cabor belum berjalan, padahal pertandingan sudah mulai.
+**Akibat:** banyak cabor belum punya PIC yang aktif, jadi hasilnya tidak masuk sistem.
+**Solusi:** sekarang ada dua jalur yang berjalan berdampingan.
+
+| Jalur | Siapa | Cara masuk |
+|---|---|---|
+| 1. Kode PIC (sudah ada) | PIC cabor | Tautan `…/lapor#KODE` dari WhatsApp |
+| 2. Input Langsung (baru) | Tim KONIDA yang login di dashboard | **Report Pertandingan → tab Input Langsung → Isi hasil** di cabor yang dipilih |
+
+- Jalur 2 membuka **formulir yang sama** dengan PIC (Lapor Hasil, Jadwal, Catatan) untuk cabor itu, dengan
+  pita kuning "Mode Tim KONIDA". Tombol **Ganti cabor** kembali ke daftar.
+- Daftar cabor diurutkan menurut yang paling butuh diisi: **Belum ada PIC** → **PIC belum aktif**
+  (kode dibuat, belum pernah dipakai) → **PIC aktif**. Kolom *Laporan masuk* menghitung berapa yang dari KONIDA.
+- Isian tercatat atas nama akun yang login (`KONIDA · nama`). Hasil **tetap masuk Antrean** dan baru dihitung
+  setelah disahkan. Jadwal partai dari jalur ini langsung tampil publik, sama seperti dari PIC (sumber `konida`).
+- Pintu jalur 2 tidak memakai kode: satu baris `lapor_akses` berjalur `konida` per cabor dengan sidik acak
+  yang tidak pernah diberikan ke siapa pun, dan `/api/lapor/masuk` menolak baris itu. Pintu ini hanya berlaku
+  selama sesi dashboard masih berlaku (diperiksa ulang tiap kiriman; logout = tertutup; paling lama 12 jam).
+  Baris ini tidak muncul di tab Kode PIC.
+- Audit: `LAPOR_LANGSUNG_BUKA` saat formulir dibuka; kiriman berikutnya tercatat seperti biasa dengan
+  `actor_role = konida_langsung`.
+- Migrasi: `061_lapor_jalur_konida.sql` (kolom `lapor_akses.jalur`, bawaan `pic`). **Wajib dipasang sebelum kode
+  ini tayang** — rute masuk PIC membaca kolom itu.
+- Cara batal: matikan tab dengan mengembalikan commit; baris jalur `konida` bisa dimatikan (`aktif=false`) tanpa
+  menyentuh kode PIC. Laporan yang sudah masuk lewat jalur ini tetap bisa ditolak di Antrean seperti biasa.

@@ -26,7 +26,7 @@ async function siapkan(req: NextRequest) {
 const jejak = (req: NextRequest, s: Sesi, action: string, id: number, payload: any, severity: 'info' | 'warning' = 'info') =>
   writeAudit({
     action, resource: 'jadwal_partai', resource_id: id, actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic,
-    actor_role: 'pic_lapangan', kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, ...payload }, severity, ...reqMeta(req),
+    actor_role: s.jalur === 'konida' ? 'konida_langsung' : 'pic_lapangan', kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, ...payload }, severity, ...reqMeta(req),
   })
 
 /** Baris partai milik cabor sesi ini, atau null. */
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   if (salah) return NextResponse.json({ error: salah }, { status: 403 })
 
   const { data, error } = await dbLapor().from('jadwal_partai').insert({
-    ...isi, kontingen_id: s!.kontingen_id, cabor_id: s!.cabor_id, sumber: 'pic', akses_id: s!.akses_id,
+    ...isi, kontingen_id: s!.kontingen_id, cabor_id: s!.cabor_id, sumber: s!.jalur === 'konida' ? 'konida' : 'pic', akses_id: s!.akses_id,
     dibuat_oleh: s!.nama_pic, diubah_oleh: s!.nama_pic,
   }).select(KOLOM_PARTAI).single()
   if (error) return NextResponse.json({ error: 'Gagal menyimpan. Coba lagi.' }, { status: 500 })

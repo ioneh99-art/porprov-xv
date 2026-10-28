@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   await writeAudit({
     action: 'LAPOR_CATATAN_KIRIM', resource: 'catatan_lapangan', resource_id: baru.id,
-    actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic, actor_role: 'pic_lapangan',
+    actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic, actor_role: s.jalur === 'konida' ? 'konida_langsung' : 'pic_lapangan',
     kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, jenis: isi.jenis, mendesak: isi.mendesak, foto: !!foto_path },
     ...reqMeta(req),
   })

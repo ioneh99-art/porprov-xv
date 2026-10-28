@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
 
   const db = dbLapor()
   const { data: akses } = await db.from('lapor_akses')
-    .select('id,kontingen_id,cabor_id,nama_pic,aktif').eq('kode_hash', await sidikKode(kode)).maybeSingle()
-  if (!akses || !akses.aktif) {
+    .select('id,kontingen_id,cabor_id,nama_pic,aktif,jalur').eq('kode_hash', await sidikKode(kode)).maybeSingle()
+  // Pintu tim KONIDA tidak punya kode yang bisa dipakai; tetap ditolak di sini untuk berjaga-jaga.
+  if (!akses || !akses.aktif || akses.jalur !== 'pic') {
     await writeAudit({ action: 'LAPOR_MASUK_GAGAL', resource: 'lapor_akses', severity: 'warning', ...reqMeta(req) })
     return SALAH
   }

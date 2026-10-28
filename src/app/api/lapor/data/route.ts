@@ -67,7 +67,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    pic: { nama: s.nama_pic },
+    pic: { nama: s.nama_pic, jalur: s.jalur },
     kontingen: kontingen?.nama ?? '',
     cabor: namaCabor,
     atlet: atlet.map(a => ({ id: a.id, nama: a.nama_lengkap, gender: a.gender })),

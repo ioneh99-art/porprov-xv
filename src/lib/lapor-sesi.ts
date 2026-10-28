@@ -11,6 +11,8 @@ import type { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { BATAS_FOTO_BYTE, jenisGambar } from './lapor'
 import { signValue } from './session'
+import { getServerSession } from './guard'
+import { adminUntukKontingen, namaPelaporKonida, type Jalur } from './jalur-lapor'
 
 const AWALAN_SESI = 'lapor-sesi:'
 const AWALAN_KODE = 'lapor-kode:'
@@ -44,8 +46,12 @@ function samaPersis(a: string, b: string): boolean {
 /**
  * Sesi PIC yang sah DAN kodenya masih aktif. Baris akses dibaca ulang tiap
  * permintaan supaya kode yang dimatikan KONIDA langsung tidak berlaku.
+ *
+ * Jalur 'konida' (tim KONIDA tanpa kode) juga mewajibkan sesi dashboard yang
+ * masih berlaku untuk kontingen itu: logout dari dashboard = pintu ini ikut
+ * tertutup. Nama pelapornya diambil dari sesi dashboard tersebut.
  */
-export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string; no_wa: string | null }) | null> {
+export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string; no_wa: string | null; jalur: Jalur }) | null> {
   const c = cookies()
   const nilai = c.get(COOKIE_SESI)?.value
   const sig = c.get(COOKIE_SIG)?.value
@@ -55,10 +61,16 @@ export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string;
     const s = JSON.parse(nilai) as SesiLapor
     if (!s || typeof s.exp !== 'number' || s.exp < Date.now()) return null
     const { data } = await dbLapor().from('lapor_akses')
-      .select('id,kontingen_id,cabor_id,nama_pic,no_wa,aktif').eq('id', s.akses_id).maybeSingle()
+      .select('id,kontingen_id,cabor_id,nama_pic,no_wa,aktif,jalur').eq('id', s.akses_id).maybeSingle()
     if (!data || !data.aktif) return null
     // Kontingen dan cabor diambil dari baris akses, bukan dari cookie.
-    return { akses_id: data.id, kontingen_id: data.kontingen_id, cabor_id: data.cabor_id, exp: s.exp, nama_pic: data.nama_pic, no_wa: data.no_wa }
+    const dasar = { akses_id: data.id, kontingen_id: data.kontingen_id, cabor_id: data.cabor_id, exp: s.exp }
+    if (data.jalur === 'konida') {
+      const admin = await getServerSession()
+      if (!adminUntukKontingen(admin, data.kontingen_id)) return null
+      return { ...dasar, nama_pic: namaPelaporKonida(admin), no_wa: null, jalur: 'konida' }
+    }
+    return { ...dasar, nama_pic: data.nama_pic, no_wa: data.no_wa, jalur: 'pic' }
   } catch {
     return null
   }

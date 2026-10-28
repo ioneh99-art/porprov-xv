@@ -2,16 +2,18 @@
 // src/app/konida/lappertandingan/kabbandung/page.tsx
 // Report Pertandingan: antrean pengesahan laporan PIC lapangan, catatan lapangan
 // yang perlu ditindaklanjuti, jurnal harian dari laporan yang sudah disahkan,
-// laporan monitoring per cabor, dan pengelolaan kode lapor PIC.
+// laporan monitoring per cabor, pengelolaan kode lapor PIC, dan Input Langsung
+// (tim KONIDA mengisi hasil cabor yang PIC-nya belum ada/aktif, tanpa kode).
 // Semua data lewat rute server — tidak ada yang disimpan di peramban.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle, ClipboardList, Copy, Download, FileText, KeyRound, Pencil, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ClipboardList, Copy, Download, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
 import { HASIL, LABEL_HASIL, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
 import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
 import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
 import { ALAMAT_RESMI_KABBANDUNG, DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
+import { urutCaborLangsung, type KeadaanPic } from '@/lib/jalur-lapor'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
@@ -45,7 +47,9 @@ const kotak = 'w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 
 const kartu = 'rounded-xl border border-slate-800 bg-slate-900/60'
 
 export default function PageLapPertandingan() {
-  const [tab, setTab] = useState<'antrean' | 'catatan' | 'jurnal' | 'cabor' | 'kode'>('antrean')
+  const [tab, setTab] = useState<'antrean' | 'catatan' | 'jurnal' | 'cabor' | 'kode' | 'langsung'>('antrean')
+  const [cariLangsung, setCariLangsung] = useState('')
+  const [membuka, setMembuka] = useState<number | null>(null)
   const [laporan, setLaporan] = useState<Laporan[]>([])
   const [catatan, setCatatan] = useState<Catatan[]>([])
   const [filterCatatan, setFilterCatatan] = useState<FilterCatatan>('aktif')
@@ -87,6 +91,9 @@ export default function PageLapPertandingan() {
     const j = await r.json().catch(() => ({}))
     if (r.ok) setCatatan(j.catatan ?? [])
   }, [])
+
+  // Kembali dari formulir lapor (tombol "Ganti cabor") langsung ke tab Input Langsung.
+  useEffect(() => { if (window.location.hash === '#langsung') setTab('langsung') }, [])
 
   useEffect(() => {
     Promise.all([muatLaporan(), muatAkses(), muatCatatan()]).finally(() => setMemuat(false))
@@ -183,6 +190,17 @@ export default function PageLapPertandingan() {
     setFormKode({ cabor_id: '', nama_pic: '', no_wa: '' }); setTersalin(false)
     await muatAkses()
   }
+  /** Jalur kedua: buka formulir lapor cabor ini tanpa kode PIC, atas nama admin yang login. */
+  async function bukaLangsung(cabor_id: number) {
+    setGalat(''); setMembuka(cabor_id)
+    try {
+      const r = await fetch(`/api/konida/lapor-langsung${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cabor_id }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setGalat(j.error ?? 'Gagal membuka formulir.'); setMembuka(null); return }
+      window.location.href = '/lapor'
+    } catch { setGalat('Tidak ada sambungan. Coba lagi.'); setMembuka(null) }
+  }
+
   async function ubahAkses(id: number, aksi: 'aktifkan' | 'matikan') {
     await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi, id }) })
     await muatAkses()
@@ -453,6 +471,7 @@ export default function PageLapPertandingan() {
           <TombolTab id="jurnal" label="Jurnal Harian" Ikon={Trophy} />
           <TombolTab id="cabor" label="Laporan Cabor" Ikon={FileText} />
           <TombolTab id="kode" label="Kode PIC" Ikon={KeyRound} />
+          <TombolTab id="langsung" label="Input Langsung" Ikon={PenLine} />
         </div>
 
         {galat && <p role="alert" className="mt-4 rounded-lg bg-red-500/15 border border-red-400/40 px-4 py-3 text-sm font-bold text-red-300">{galat}</p>}
@@ -562,6 +581,60 @@ export default function PageLapPertandingan() {
             </div>
           </div>
         )}
+
+        {!memuat && tab === 'langsung' && (() => {
+          const q = cariLangsung.trim().toLowerCase()
+          const daftar = urutCaborLangsung(cabor, akses).filter(c => !q || c.nama.toLowerCase().includes(q))
+          const lap = (id: number) => laporan.filter(l => l.cabor_id === id && l.status !== 'ditolak')
+          const LENCANA: Record<KeadaanPic, { teks: string; warna: string }> = {
+            tidak_ada: { teks: 'Belum ada PIC', warna: '#f87171' },
+            belum_dipakai: { teks: 'PIC belum aktif', warna: '#fbbf24' },
+            aktif: { teks: 'PIC aktif', warna: '#34d399' },
+          }
+          return (
+            <div className="mt-5 space-y-4">
+              <div className={`${kartu} p-5`}>
+                <h2 className="text-sm font-black text-white">Isi hasil tanpa kode PIC</h2>
+                <p className="text-sm text-slate-400 mt-1">
+                  Untuk cabor yang PIC-nya belum ada atau belum aktif. Tekan <b className="text-slate-200">Isi hasil</b> → terbuka formulir yang sama
+                  dengan PIC (Lapor Hasil, Jadwal, Catatan) untuk cabor itu. Isian tercatat atas nama akun Anda, dan hasilnya tetap masuk
+                  <b className="text-slate-200"> Antrean</b> untuk disahkan. Kode PIC yang sudah dibagikan tetap berlaku seperti biasa.
+                </p>
+                <input value={cariLangsung} onChange={e => setCariLangsung(e.target.value)} placeholder="Cari cabor…" aria-label="Cari cabor" className={`${kotak} mt-3 max-w-sm`} />
+              </div>
+              <div className={`${kartu} overflow-x-auto`}>
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-slate-400 border-b border-slate-800">
+                    <th className="px-4 py-3">Cabor</th><th className="px-4 py-3">PIC</th><th className="px-4 py-3">Laporan masuk</th><th className="px-4 py-3"></th>
+                  </tr></thead>
+                  <tbody>
+                    {daftar.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Tidak ada cabor yang cocok.</td></tr>}
+                    {daftar.map(c => {
+                      const l = lap(c.id), dariKonida = l.filter(x => x.pelapor_nama.startsWith('KONIDA · ')).length
+                      const lc = LENCANA[c.pic.keadaan]
+                      return (
+                        <tr key={c.id} className="border-b border-slate-800/60">
+                          <td className="px-4 py-3"><div className="font-bold text-white">{c.nama}</div><div className="text-xs text-slate-500">{c.atlet} atlet</div></td>
+                          <td className="px-4 py-3">
+                            <span className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ color: lc.warna, background: lc.warna + '1f', border: `1px solid ${lc.warna}55` }}>{lc.teks}</span>
+                            {c.pic.nama.length > 0 && <div className="text-xs text-slate-400 mt-1">{c.pic.nama.join(', ')}</div>}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-400 tabular-nums">{l.length === 0 ? '—' : `${l.length}${dariKonida ? ` · ${dariKonida} dari KONIDA` : ''}`}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => bukaLangsung(c.id)} disabled={membuka != null}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-black text-slate-950 disabled:opacity-40">
+                              <PenLine size={13} /> {membuka === c.id ? 'Membuka…' : 'Isi hasil'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
 
         {!memuat && tab === 'kode' && (
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-5 gap-5">

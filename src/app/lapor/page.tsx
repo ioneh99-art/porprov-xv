@@ -27,7 +27,7 @@ interface Laporan {
   alasan_tolak: string | null; created_at: string; ada_foto?: boolean
 }
 interface Bahan {
-  pic: { nama: string }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[]
+  pic: { nama: string; jalur?: 'pic' | 'konida' }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[]
   partai: PartaiSaya[]; kegiatan: { nama: string; mulai: string | null; selesai: string | null; venue: string | null }[]
 }
 
@@ -41,6 +41,9 @@ const STATUS_TAMPIL: Record<string, { teks: string; warna: string }> = {
 }
 const labelGender = (g: string | null) => g === 'L' ? 'Putra' : g === 'P' ? 'Putri' : g === 'MIX' ? 'Campuran' : g === 'OPEN' ? 'Open' : ''
 const labelNomor = (n: Nomor) => [n.sub, n.nama].filter(Boolean).join(' · ')
+
+/** Daftar cabor untuk tim KONIDA yang mengisi tanpa kode PIC. */
+const KEMBALI_KONIDA = '/konida/lappertandingan/kabbandung#langsung'
 
 const kotak = 'w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3.5 text-base text-white placeholder-slate-500 focus:outline-none focus:border-sky-400'
 const judulIsian = 'block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'
@@ -197,8 +200,11 @@ export default function HalamanLapor() {
     } catch { setGalat('Tidak ada sambungan. Laporan BELUM terkirim, coba lagi.') } finally { setSibuk(false) }
   }
 
+  // Tim KONIDA (jalur tanpa kode) kembali ke dashboard untuk memilih cabor lain.
+  const jalurKonida = bahan?.pic.jalur === 'konida'
   const keluar = async () => {
     await fetch('/api/lapor/keluar', { method: 'POST' })
+    if (jalurKonida) { window.location.href = KEMBALI_KONIDA; return }
     kosongkan(); setBahan(null); setTahap('masuk')
   }
 
@@ -219,6 +225,7 @@ export default function HalamanLapor() {
               autoCorrect="off" spellCheck={false} placeholder="XXXX-XXXX" maxLength={12}
               className={`${kotak} text-center text-2xl font-mono tracking-[0.2em]`} />
             <p className="text-sm text-slate-400 mt-3">Kode dikirim KONI lewat WhatsApp. Satu kode berlaku untuk satu cabang olahraga.</p>
+            <p className="text-xs text-slate-500 mt-2">Tim KONIDA tanpa kode: buka dari dashboard, <a href={KEMBALI_KONIDA} className="underline underline-offset-2 text-slate-400">Report Pertandingan → Input Langsung</a>.</p>
             {galat && <p role="alert" className="mt-3 text-sm font-semibold text-red-300">{galat}</p>}
             <button type="submit" disabled={sibuk || !kode.trim()}
               className="mt-5 w-full rounded-xl bg-sky-500 py-4 text-base font-black text-slate-950 disabled:opacity-40">
@@ -234,8 +241,15 @@ export default function HalamanLapor() {
                 <div className="text-lg font-black text-white truncate">{bahan.cabor}</div>
                 <div className="text-xs text-slate-400 truncate">{bahan.kontingen} · {bahan.pic.nama}</div>
               </div>
-              <button onClick={keluar} className="shrink-0 text-xs font-bold text-slate-400 border border-slate-700 rounded-lg px-3 py-2">Keluar</button>
+              <button onClick={keluar} className="shrink-0 text-xs font-bold text-slate-400 border border-slate-700 rounded-lg px-3 py-2">{jalurKonida ? 'Ganti cabor' : 'Keluar'}</button>
             </div>
+
+            {jalurKonida && (
+              <div role="note" className="mt-3 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                <b>Mode Tim KONIDA</b> — mengisi tanpa kode PIC. Semua isian tercatat atas nama <b>{bahan.pic.nama.replace(/^KONIDA · /, '')}</b>;
+                hasil tetap masuk Antrean dan baru dihitung setelah disahkan.
+              </div>
+            )}
 
             <div role="tablist" className="mt-4 grid grid-cols-3 gap-2">
               {([['hasil', 'Lapor Hasil'], ['jadwal', 'Jadwal'], ['catatan', 'Catatan']] as const).map(([m, label]) => {
