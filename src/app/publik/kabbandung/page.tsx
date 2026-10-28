@@ -9,7 +9,7 @@ import type { Metadata } from 'next'
 import { Barlow_Condensed } from 'next/font/google'
 import { createClient } from '@supabase/supabase-js'
 import { tanggalWIB } from '@/lib/lapor'
-import { adalahMedali, type AngkaKontingen, type BarisPublik, type MedaliPublik, type PartaiPublik } from '@/lib/jadwal-publik'
+import { adalahMedali, type BarisPublik, type MedaliPublik, type PartaiPublik } from '@/lib/jadwal-publik'
 import { ambilSemua } from '@/lib/lapor-sesi'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
 import JadwalPublik from './JadwalPublik'
@@ -34,20 +34,6 @@ export const metadata: Metadata = {
 
 const sb = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } })
-
-/** Angka gabungan dari daftar pendaftaran resmi KONI — tanpa nama atau data pribadi atlet. */
-async function ambilAngka(): Promise<AngkaKontingen | null> {
-  try {
-    const baris = await ambilSemua<{ atlet_id: number | null; nama_berkas: string | null; cabor_id: number; nomor: string }>((d, s) =>
-      sb().from('pendaftaran_nomor').select('atlet_id,nama_berkas,cabor_id,nomor').eq('kontingen_id', 4).order('id').range(d, s))
-    if (!baris.length) return null
-    return {
-      atlet: new Set(baris.map(b => b.atlet_id != null ? `a${b.atlet_id}` : `n${(b.nama_berkas ?? '').trim().toUpperCase()}`)).size,
-      nomor: new Set(baris.map(b => `${b.cabor_id}|${b.nomor}`)).size,
-      cabor: new Set(baris.map(b => b.cabor_id)).size,
-    }
-  } catch { return null }
-}
 
 /** Jadwal partai kontingen (kecuali yang batal), dengan nama cabor dan nama atlet. */
 async function ambilPartai(): Promise<PartaiPublik[]> {
@@ -115,10 +101,10 @@ async function ambilJadwal(): Promise<{ jadwal: BarisPublik[]; diperbarui: strin
 }
 
 export default async function HalamanPublikKabBandung() {
-  const [{ jadwal, diperbarui, galat }, angka, partai, medali] = await Promise.all([ambilJadwal(), ambilAngka(), ambilPartai(), ambilMedali()])
+  const [{ jadwal, diperbarui, galat }, partai, medali] = await Promise.all([ambilJadwal(), ambilPartai(), ambilMedali()])
   return (
     <div className={hurufTampil.variable}>
-      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} angka={angka} partai={partai} medali={medali} />
+      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} partai={partai} medali={medali} />
     </div>
   )
 }

@@ -4,12 +4,12 @@
 // WIB, supaya tetap benar walau halaman tersimpan di cache server.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, ChevronRight, Clock, LayoutDashboard, LogIn, MapPin, Search, Share2, Sparkles, Users, Medal, Map as IkonPeta, Flag } from 'lucide-react'
+import { CalendarDays, ChevronRight, Clock, LayoutDashboard, LogIn, MapPin, Search, Share2, Sparkles, Medal, Map as IkonPeta, Flag } from 'lucide-react'
 import { tanggalWIB, hariPorprov, PORPROV_HARI, PORPROV_MULAI } from '@/lib/lapor'
 import { hitungMundur } from '@/lib/layar'
 import {
   LABEL_STATUS, cocokCari, deretTanggal, hariKe, ikonCabor, kegiatanPada, namaHari, rentangSingkat, ringkasWilayah,
-  segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type AngkaKontingen, type BarisPublik, type PartaiPublik, type StatusKegiatan,
+  segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik, type PartaiPublik, type StatusKegiatan,
   medaliPerCabor, rekapPublik, urutMedali, type JenisMedali, type MedaliPublik,
 } from '@/lib/jadwal-publik'
 import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
@@ -152,7 +152,7 @@ function PerolehanMedali({ medali }: { medali: MedaliPublik[] }) {
   const perCabor = useMemo(() => medaliPerCabor(medali), [medali])
   const tampil = semua ? urut : urut.slice(0, 6)
   return (
-    <section className="pt-6">
+    <section id="perolehan-medali" className="pt-6 scroll-mt-4">
       <JudulBagian ikon={<Medal size={12} />} kecil="Perolehan medali" besar="Medali Kabupaten Bandung" />
       <div className="grid grid-cols-4 gap-2 lg:gap-3 lg:max-w-3xl">
         {(['emas', 'perak', 'perunggu'] as const).map(j => (
@@ -222,8 +222,8 @@ function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: str
   )
 }
 
-export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, angka, partai = [], medali = [] }: {
-  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; angka: AngkaKontingen | null; partai?: PartaiPublik[]; medali?: MedaliPublik[]
+export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, partai = [], medali = [] }: {
+  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; partai?: PartaiPublik[]; medali?: MedaliPublik[]
 }) {
   const [hariIni, setHariIni] = useState(hariIniServer)
   const [masuk, setMasuk] = useState(false)
@@ -278,6 +278,24 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
   const tglSorot = partai.some(p => p.tanggal === hariIni) ? hariIni : partai.map(p => p.tanggal).filter(t => t > hariIni).sort()[0]
   const partaiSorot = tglSorot ? partaiPada(partai, tglSorot) : []
   const daftar = urutDaftar(jadwal, hariIni).filter(b => cocokCari(b, cari) && (saring === 'semua' || statusKegiatan(b, hariIni) === saring))
+
+  // Kotak "hari ini" di bagian atas: semua tentang yang sedang terjadi.
+  const partaiHariIni = partaiPada(partai, hariIni)
+  const sedangMain = partaiHariIni.filter(p => p.status === 'berlangsung').length
+  const partaiSelesai = partaiHariIni.filter(p => p.status === 'selesai').length
+  const medaliHariIni = medali.filter(m => m.tanggal === hariIni)
+  const emasHariIni = medaliHariIni.filter(m => m.medali === 'emas').length
+  const keMedali = () => document.getElementById('perolehan-medali')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const kotakHariIni = [
+    { ikon: <CalendarDays size={16} />, label: 'Partai hari ini', nilai: partaiHariIni.length, warna: '#f5c518', live: false,
+      sub: partaiHariIni.length ? `${partaiSelesai} selesai · ${partaiHariIni.length - partaiSelesai - sedangMain} menunggu` : 'Belum ada partai terjadwal', aksi: () => keJadwal(hariIni) },
+    { ikon: <Flag size={16} />, label: 'Sedang main', nilai: sedangMain, warna: '#ef4444', live: sedangMain > 0,
+      sub: sedangMain ? 'Dukung sekarang!' : 'Tidak ada yang sedang main', aksi: () => keJadwal(hariIni) },
+    { ikon: <Clock size={16} />, label: 'Kegiatan berlangsung', nilai: berlangsungIni.length, warna: '#34d399', live: berlangsungIni.length > 0,
+      sub: berlangsungIni.length ? `di ${new Set(berlangsungIni.map(b => norm(b.kota)).filter(Boolean)).size} kota` : 'Belum ada hari ini', aksi: () => keJadwal(hariIni) },
+    { ikon: <Medal size={16} />, label: 'Medali hari ini', nilai: medaliHariIni.length, warna: '#38bdf8', live: false,
+      sub: medaliHariIni.length ? `${emasHariIni} emas` : 'Belum ada yang disahkan', aksi: keMedali },
+  ]
 
   const mundur = hitungMundur(hariIni)
   const hariKeBerapa = hariPorprov(hariIni)
@@ -393,18 +411,23 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
             </button>
           )}
 
-          {/* Angka kontingen */}
+          {/* Hari ini — fokus publik ke yang sedang terjadi (ganti angka atlet/cabor, 28 Okt 2026) */}
           <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2.5 lg:gap-3">
-            {[
-              { ikon: <Users size={16} />, nilai: angka?.atlet, label: 'Atlet', warna: '#f5c518' },
-              { ikon: <Flag size={16} />, nilai: angka?.cabor, label: 'Cabang olahraga', warna: '#38bdf8' },
-              { ikon: <Medal size={16} />, nilai: angka?.nomor, label: 'Nomor pertandingan', warna: '#34d399' },
-              { ikon: <MapPin size={16} />, nilai: jumlahKota || undefined, label: 'Kota tuan rumah', warna: '#f472b6' },
-            ].filter(x => x.nilai).map(x => (
-              <div key={x.label} className="rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur px-3.5 py-3 lg:px-5 lg:py-4">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400" style={{ color: x.warna }}>{x.ikon}<span className="text-slate-400">{x.label}</span></div>
-                <div className="text-white text-[32px] lg:text-[44px] leading-none font-extrabold mt-1.5" style={TAMPIL}><AngkaNaik nilai={x.nilai as number} /></div>
-              </div>
+            {kotakHariIni.map(x => (
+              <button key={x.label} onClick={x.aksi}
+                className="text-left rounded-2xl border backdrop-blur px-3.5 py-3 lg:px-5 lg:py-4 transition-colors hover:bg-white/[0.08] active:scale-[0.98]"
+                style={x.live ? { borderColor: `${x.warna}80`, background: `${x.warna}1a`, boxShadow: `0 0 24px ${x.warna}33` } : { borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)' }}>
+                <div className="flex items-start justify-between gap-1.5">
+                  <span className="flex items-start gap-1.5 text-[11px] font-semibold min-w-0 leading-tight" style={{ color: x.warna }}><span className="shrink-0">{x.ikon}</span><span className="text-slate-300 pt-px">{x.label}</span></span>
+                  {x.live && (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black tracking-wider text-white" style={{ background: x.warna }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
+                    </span>
+                  )}
+                </div>
+                <div className="text-white text-[32px] lg:text-[44px] leading-none font-extrabold mt-1.5" style={TAMPIL}><AngkaNaik nilai={x.nilai} /></div>
+                <div className="text-[11px] text-slate-400 mt-1 leading-snug line-clamp-2">{x.sub}</div>
+              </button>
             ))}
           </div>
           </div>

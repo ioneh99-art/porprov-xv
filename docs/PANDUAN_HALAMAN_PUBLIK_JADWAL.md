@@ -15,9 +15,11 @@ Domain resmi sejak 22 Okt 2026: **www.konikab-bdg.com** (tanpa www dialihkan ke 
 
 ## 2. Isi halaman publik
 
-- Bagian atas (selalu tampil): Menara Soreang, hitung mundur ke Upacara Pembukaan, angka kontingen
-  (atlet, cabor, nomor dari daftar pendaftaran resmi KONI — angka gabungan, tanpa data pribadi),
-  pertandingan terdekat / sedang berlangsung, ajakan dukung + tombol **Bagikan lewat WhatsApp**.
+- Bagian atas (selalu tampil): Menara Soreang, hitung mundur ke Upacara Pembukaan, **empat kotak "hari ini"**
+  (sejak 28 Okt 2026, menggantikan angka atlet/cabor/nomor/kota): *Partai hari ini*, *Sedang main* (lencana
+  ● LIVE merah bila ada partai berstatus "Sedang main"), *Kegiatan berlangsung* (lencana LIVE), *Medali hari ini*.
+  Kotak diketuk → jadwal hari ini (medali → bagian perolehan medali). Lalu pertandingan terdekat / sedang
+  berlangsung, ajakan dukung + tombol **Bagikan lewat WhatsApp**.
 - Terlipat sampai tombol **Lihat Jadwal / Buka jadwal lengkap** ditekan: jadwal per tanggal,
   semua kegiatan (cari + saring status), dan peta perjuangan per wilayah.
 - **Perolehan medali** (sejak 28 Okt 2026, setelah data simulasi dihapus): papan Emas/Perak/Perunggu/Total,
