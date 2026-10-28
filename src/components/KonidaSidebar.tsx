@@ -6,7 +6,7 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
-  CreditCard, CalendarDays,
+  CreditCard, CalendarDays, CalendarClock,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { PREMIUM_REPORT_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
@@ -370,6 +370,7 @@ export default function KonidaSidebar() {
             <NavItemPremium label="Cetak ID Card"  href="/konida/atlet/kabbandung/idcard"                     icon={CreditCard} tc={tc}/>
             <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
             <NavItemPremium label="Heatmap Cabor"  href="/konida/Premiumreport/kabbandung/heatmap-cabor"      icon={BarChart2} tc={tc}/>
+            <NavItemVIP     label="Performance"    href="/konida/performance/kabbandung"                      icon={BarChart3} />
 
             <div className="h-px bg-slate-800 my-3"/>
 
@@ -384,7 +385,7 @@ export default function KonidaSidebar() {
               <NavItemVIP label="Premium Report"    href="/konida/Premiumreport/kabbandung"    icon={Download} />
             )}
             <NavItemVIP label="Jadwal Pertandingan" href="/konida/jadwal/kabbandung"         icon={CalendarDays} />
-            <NavItemVIP label="Performance"         href="/konida/performance/kabbandung"     icon={BarChart3} />
+            <NavItemVIP label="Jadwal Keberangkatan" href="/konida/keberangkatan/kabbandung"  icon={CalendarClock} />
             <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
             <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
           </>

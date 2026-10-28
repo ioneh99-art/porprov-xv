@@ -8,7 +8,7 @@ import {
   BarChart3, Search, RefreshCw, Users, Activity, Award,
   AlertCircle, Info, X, Zap, TrendingUp, Clock,
   AlertTriangle, Trophy, Upload, ChevronRight,
-  Sparkles, Loader2, ChevronDown, CalendarClock
+  Sparkles, Loader2, ChevronDown
 } from 'lucide-react'
 import Link from 'next/link'
 import PrestasiAlert from '@/components/konida/PrestasiAlert'
@@ -16,8 +16,6 @@ import IntelPanel from '@/components/konida/performance/IntelPanel'
 import { PerformanceCaborCard, type PerformanceCaborData } from '@/components/konida/performance/PerformanceCaborCard'
 import { hasBaselineData, caborToSlug } from '@/lib/performance/cabor-accent-map'
 import PanelKlasifikasi from '@/components/konida/performance/PanelKlasifikasi'
-import PanelJadwal from '@/components/konida/PanelJadwal'
-import PapanKeberangkatan from '@/components/konida/PapanKeberangkatan'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -705,24 +703,8 @@ export default function PerformancePage() {
             cakupan halaman ini dari 50 atlet ber-baseline ke 658 atlet. */}
           <PanelKlasifikasi accent={ACCENT} />
 
-        {/* ════ JADWAL & KEBERANGKATAN CABOR ════
-            Dipindahkan dari dasbor utama. Keduanya bicara tentang cabor —
-            kapan turun dan berangkat bersama siapa — jadi tempatnya di sini,
-            bukan menumpuk di halaman depan yang seharusnya menjawab satu
-            pertanyaan saja: apa yang perlu dikerjakan hari ini. */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2.5">
-            <CalendarClock size={16} style={{ color: ACCENT }} />
-            <div>
-              <h2 className="text-base font-black text-white">Jadwal &amp; Keberangkatan</h2>
-              <p className="text-[11px] text-zinc-500">
-                Kapan tiap cabor turun, dan rombongan mana berangkat bersama.
-              </p>
-            </div>
-          </div>
-          <PanelJadwal accent={ACCENT} />
-          <PapanKeberangkatan accent={ACCENT} />
-        </div>
+        {/* Jadwal & Keberangkatan (hitung mundur per cabor + papan keberangkatan)
+            dipindah ke menu Command Center → Jadwal Keberangkatan, 28 Okt 2026. */}
 
         {/* ════ PERFORMANCE CENTER — Cabor Cards ════ */}
         <div {...ani(20)} className="rounded-3xl overflow-hidden"
