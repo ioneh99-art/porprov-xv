@@ -120,8 +120,8 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
   return (
     <div className="mt-5">
       <div className="rounded-xl bg-sky-500/10 border border-sky-400/30 px-4 py-3 text-sm text-sky-100">
-        Isi jadwal dari technical meeting atau undian panitia. Jadwal <b>langsung tampil</b> di halaman publik
-        {DOMAIN_RESMI_KABBANDUNG}, termasuk nama atlet. Kalau jam berubah, cukup ubah di sini.
+        Isi jadwal dari technical meeting atau undian panitia. Jadwal <b>langsung tampil</b> di halaman publik{' '}
+        <b>{DOMAIN_RESMI_KABBANDUNG}</b>, termasuk nama atlet. Kalau jam berubah, cukup ubah di sini.
       </div>
       {kegiatan.length > 0 && (
         <p className="mt-2 text-xs text-slate-400">Jadwal KONI cabor ini: {kegiatan.map(k => `${k.nama}${k.mulai ? ` (${tglTampil(k.mulai)}${k.selesai && k.selesai !== k.mulai ? ` – ${tglTampil(k.selesai)}` : ''})` : ''}`).join(' · ')}</p>
