@@ -6,6 +6,8 @@
 //  3. Target Realisasi + Medal Prediction (combined)
 //  4. Strategic Actions (catch-up plan)
 //  5. Jadwal Berikutnya
+// Tanpa data contoh (28 Okt 2026): peringkat dari klasemen (kosong sampai ada medali),
+// target emas dari proyeksi KONI, laga live dari jadwal partai berstatus "Sedang main".
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -23,6 +25,8 @@ import GrafikProyeksiEmas from '@/components/konida/GrafikProyeksiEmas'
 import { PETA_WARROOM_KABBANDUNG_TAMPIL, STRATEGIC_ACTIONS_WARROOM_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
 import { timpaKlasemen } from '@/lib/lapor'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
+import { tanggalWIB } from '@/lib/lapor'
+import { klasemenDimulai, lagaLive, peringkatKontingen, type PartaiWR } from '@/lib/warroom'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,8 +39,8 @@ const ACCENT = '#38bdf8'
 // Kab. Bandung meraih peringkat #2 dari 27 kontingen
 const POPDA_REF = { rank:2, emas:23, perak:10, perunggu:14, total:47 }
 
-// TODO: isi data laga aktif dari DB saat PORPROV mulai (7 Nov 2026)
-const LAGA_LIVE: {cabor:string;laga:string;venue:string;status:string}[] = []
+// Hanya admin pusat yang perlu menyebut kontingen; KONIDA diambil dari sesinya.
+const Q = '?kontingen_id=4'
 
 function LiveClock() {
   const [t, setT] = useState('')
@@ -59,6 +63,11 @@ export default function PageWarRoom() {
   const [tesFisikSum, setTesFisikSum] = useState({topAtlet:0, lowAtlet:0, weakCabors:0})
   const [lapangan, setLapangan] = useState<RekapLapangan | null>(null)
   const [layar,    setLayar]    = useState(false)
+  // Laga yang sedang dimainkan: partai yang ditandai "Sedang main" oleh PIC/KONIDA.
+  const [partai,   setPartai]   = useState<PartaiWR[]>([])
+  const [namaCabor, setNamaCabor] = useState<Record<number, string>>({})
+  // Target emas = proyeksi KONI (berkas PPT Grafik Raihan Emas), sama dengan grafik di bawah.
+  const [targetEmas, setTargetEmas] = useState<number | null>(null)
 
   // Alamat ...?layar=1 langsung membuka mode layar — untuk komputer videotron.
   useEffect(() => { if (new URLSearchParams(window.location.search).get('layar') === '1') setLayar(true) }, [])
@@ -69,7 +78,21 @@ export default function PageWarRoom() {
   useEffect(() => {
     // Angka medali dimuat ulang sendiri: War Room dibiarkan terbuka sepanjang
     // hari, dan hasil yang baru disahkan harus tampil tanpa memuat ulang halaman.
+    async function muatPartai() {
+      const r = await fetch(`/api/konida/jadwal-partai${Q}`, { cache: 'no-store' })
+      if (!r.ok) return
+      const j = await r.json().catch(() => null)
+      if (!j) return
+      setPartai(j.partai ?? [])
+      setNamaCabor(Object.fromEntries((j.cabor ?? []).map((c: any) => [c.id, c.nama])))
+    }
+    async function muatTarget() {
+      const r = await fetch(`/api/konida/proyeksi-emas${Q}`, { cache: 'no-store' })
+      const j = r.ok ? await r.json().catch(() => null) : null
+      setTargetEmas(j?.ada && j.total_proyeksi > 0 ? j.total_proyeksi : null)
+    }
     async function muatMedali() {
+      muatPartai().catch(() => {})
       const lap = await ambilRekapLapangan(4)
       if (lap.ok) setLapangan(lap.data)
       // Begitu ada laporan lapangan yang disahkan, angka Kab. Bandung memakai hitungan itu.
@@ -115,8 +138,9 @@ export default function PageWarRoom() {
 
     async function load() {
       try {
-        const [, a, tf] = await Promise.allSettled([
+        const [, , a, tf] = await Promise.allSettled([
           muatMedali(),
+          muatTarget(),
           (async () => {
             let all: any[] = []
             for (let p = 0; ; p++) {
@@ -177,12 +201,14 @@ export default function PageWarRoom() {
     return () => clearInterval(iv)
   }, [])
 
-  const myRank = klasemen.findIndex(k =>
-    String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG'
-  ) + 1
-
-  // Placeholder target — update setelah SK Bupati terbit
-  const TARGET = { emas: 45, perak: 38, perunggu: 32 }
+  // Klasemen yang masih nol semua tidak punya peringkat — tanpa ini Kab. Bandung tampil "#1".
+  const mulai  = klasemenDimulai(klasemen)
+  const rankWR = peringkatKontingen(klasemen, 'KAB. BANDUNG')
+  const myRank = mulai ? klasemen.findIndex(k => String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG') + 1 : 0
+  const LAGA_LIVE = lagaLive(partai, tanggalWIB()).map(p => ({
+    cabor: namaCabor[p.cabor_id] ?? 'Cabor', laga: [p.nomor_teks, p.babak, p.lawan ? `vs ${p.lawan}` : null].filter(Boolean).join(' · '),
+    venue: p.venue ?? '', jam: p.jam,
+  }))
 
   const ani = (d=0) => ({
     style:     { transitionDelay:`${d}ms`, transition:'all 0.8s cubic-bezier(0.16,1,0.3,1)' },
@@ -264,8 +290,8 @@ export default function PageWarRoom() {
         {/* ════ 1. KPI STRIP — 5 panel ════ */}
         <div {...ani(0)} className="grid grid-cols-5 gap-2">
           {([
-            { l:'Ranking',      v:`#${POPDA_REF.rank}`, c:'#ffd700', sub:'POPDA XIV',  icon:'👑' },
-            { l:'Medali Emas',  v:summary.emas,               c:'#ffd700', sub:`/ ${TARGET.emas}`,  icon:'🥇' },
+            { l:'Peringkat',    v: rankWR ? `#${rankWR}` : '—', c:'#ffd700', sub: rankWR ? `dari ${klasemen.length || 27} kontingen` : 'klasemen belum mulai', icon:'👑' },
+            { l:'Medali Emas',  v:summary.emas,               c:'#ffd700', sub: targetEmas ? `/ ${targetEmas} proyeksi KONI` : 'emas',  icon:'🥇' },
             { l:'Total Medali', v:summary.total_medali,       c:'#3b82f6', sub:'semua jenis',       icon:'🏅' },
             { l:'Laga Live',    v:LAGA_LIVE.length,           c:'#ef4444', sub:'berlangsung',       icon:null  },
             { l:'Total Atlet',  v:summary.total,              c:ACCENT,    sub:`${summary.verified} ok`, icon:'⚡' },
@@ -296,7 +322,7 @@ export default function PageWarRoom() {
             style={{ background:'rgba(0,0,0,0.25)', borderColor:`${ACCENT}12` }}>
             <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:ACCENT }}>Mission Intelligence</span>
             <span className="h-3 w-px bg-white/10"/>
-            <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Gap ke Puncak · Target Bupati · Top Klasemen</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Gap ke Puncak · Referensi Historis · Top Klasemen</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/[0.05]">
 
@@ -340,11 +366,19 @@ export default function PageWarRoom() {
                   </div>
                 </div>
               )
-            })() : (
+            })() : mulai ? (
               <div className="p-5 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-4xl font-black leading-none mb-2" style={{ color:ACCENT, textShadow:`0 0 24px ${ACCENT}60` }}>🏆 #1</div>
                   <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Posisi Puncak</div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-3xl font-black leading-none mb-2 text-zinc-500">—</div>
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Belum ada medali</div>
+                  <div className="text-[10px] text-zinc-600 mt-1">Gap dihitung begitu hasil pertama disahkan</div>
                 </div>
               </div>
             )}
@@ -418,11 +452,17 @@ export default function PageWarRoom() {
                   <span className="text-[9px] font-black uppercase tracking-widest text-yellow-400">Top Klasemen</span>
                 </div>
                 <span className="text-[8px] font-mono font-bold border border-yellow-500/20 text-yellow-500/70 px-2 py-0.5 rounded-full">
-                  #{POPDA_REF.rank} / {klasemen.length||27}
+                  {rankWR ? `#${rankWR}` : '—'} / {klasemen.length||27}
                 </span>
               </div>
               <div className="space-y-1.5">
-                {klasemen.slice(0, 5).map((k, i) => {
+                {!mulai && (
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-6 text-center">
+                    <div className="text-[11px] font-bold text-zinc-400">Klasemen belum dimulai</div>
+                    <div className="text-[10px] text-zinc-600 mt-1">Semua kontingen masih 0 medali</div>
+                  </div>
+                )}
+                {mulai && klasemen.slice(0, 5).map((k, i) => {
                   const isUs = String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG'   // bukan sekadar memuat "BANDUNG": Kota Bandung ikut tertandai
                   return (
                     <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-colors"
@@ -498,7 +538,7 @@ export default function PageWarRoom() {
                   </div>
                   <div className="text-sm font-bold text-white mb-1">{l.cabor}</div>
                   <div className="text-[11px] text-zinc-300">{l.laga}</div>
-                  <div className="text-[10px] text-zinc-500 mt-1 font-mono">📍 {l.venue}</div>
+                  {(l.jam || l.venue) && <div className="text-[10px] text-zinc-500 mt-1 font-mono">{l.jam ? `🕘 ${l.jam}` : ''}{l.jam && l.venue ? ' · ' : ''}{l.venue ? `📍 ${l.venue}` : ''}</div>}
                 </div>
               ))}
             </div>

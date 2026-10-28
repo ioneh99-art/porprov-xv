@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 import { timpaKlasemen } from '@/lib/lapor'
+import { klasemenDimulai } from '@/lib/warroom'
 import { kelompokPerTanggal, namaAtletLayar, type MedaliLayar } from '@/lib/layar'
 import type { BarisJadwal } from '@/lib/matriks'
 import { labelTanggal, type RingkasProyeksi } from '@/lib/proyeksi'
@@ -168,7 +169,9 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
     return r && data ? timpaKlasemen(info.klasemen, r, data.kontingen) : info.klasemen
   }, [info, r, data])
   const namaKita = (data?.kontingen || info?.kontingen || '').trim().toUpperCase()
-  const peringkat = klasemen.findIndex(k => k.nama.trim().toUpperCase() === namaKita) + 1
+  // Deretan nol tidak punya peringkat — tanpa ini layar menampilkan "#1" sebelum ada medali.
+  const klasemenMulai = klasemenDimulai(klasemen)
+  const peringkat = klasemenMulai ? klasemen.findIndex(k => k.nama.trim().toUpperCase() === namaKita) + 1 : 0
   const grafik = useMemo(() => {
     if (proyeksi && proyeksi.ada) return { ada_proyeksi: true, hari: proyeksi.hari.map(h => ({ ...h, label: labelTanggal(h.tanggal) })), total_proyeksi: proyeksi.total_proyeksi }
     let kum = 0
@@ -419,7 +422,8 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
             </div>
             <div className="flex-1 min-h-0 overflow-hidden mt-[0.6vw]">
               {klasemen.length === 0 && <div className="h-full flex items-center justify-center text-slate-400" style={{ fontSize: '1.6vw' }}>Klasemen belum tersedia.</div>}
-              {(() => {
+              {klasemen.length > 0 && !klasemenMulai && <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center" style={{ fontSize: '1.6vw' }}>Klasemen belum dimulai<span className="text-slate-500" style={{ fontSize: '1vw' }}>Semua kontingen masih 0 medali</span></div>}
+              {klasemenMulai && (() => {
                 const atas = klasemen.slice(0, 10)
                 const kitaDiBawah = peringkat > 10 ? klasemen[peringkat - 1] : null
                 const baris = (k: typeof klasemen[number], no: number) => {
