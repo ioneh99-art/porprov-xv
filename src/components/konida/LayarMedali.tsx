@@ -13,6 +13,8 @@ import { Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, ResponsiveCon
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 import { timpaKlasemen } from '@/lib/lapor'
 import { klasemenDimulai } from '@/lib/warroom'
+import { useWarRoom, tglPanjangWR } from '@/lib/warroom-klien'
+import { GAYA_MISI } from './warroom/MisiEmas'
 import { kelompokPerTanggal, namaAtletLayar, type MedaliLayar } from '@/lib/layar'
 import type { BarisJadwal } from '@/lib/matriks'
 import { labelTanggal, type RingkasProyeksi } from '@/lib/proyeksi'
@@ -23,9 +25,9 @@ const PROY = '#d95926'      // proyeksi KONI
 const JEDA_SEGAR_MS = 15_000
 const JEDA_INFO_MS = 60_000
 const JEDA_SENTUH_MS = 60_000      // sesudah layar disentuh/digulir, putar otomatis menunggu dulu
-const LAMA_BAGIAN_DTK = [25, 25, 20, 25]   // halaman 3 paling sebentar 20 dtk, lalu menunggu daftarnya habis bergulir
+const LAMA_BAGIAN_DTK = [25, 25, 20, 25, 25]   // halaman 3 paling sebentar 20 dtk, lalu menunggu daftarnya habis bergulir
 const LAMA_DAFTAR_MAKS_MS = 180_000
-const NAMA_BAGIAN = ['Perolehan medali', 'Grafik emas', 'Medali per tanggal', 'Klasemen & jadwal']
+const NAMA_BAGIAN = ['Perolehan medali', 'Grafik emas', 'Medali per tanggal', 'Klasemen & jadwal', 'Misi emas hari ini']
 
 interface LayarInfo {
   kontingen: string; hari_ini: string; hitung_mundur: number | null
@@ -72,6 +74,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
   const daftar = useRef<HTMLDivElement>(null)
   const daftarSampaiBawah = useRef(false)
   const vw = useVw()
+  const { data: wr } = useWarRoom(kontingenId, 30_000)
 
   // ── Data ──
   const muat = useCallback(async () => {
@@ -468,6 +471,58 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
                 ))}
                 {(info?.jadwal?.kegiatan.length ?? 0) > 9 && <div className="text-slate-400 mt-[0.4vw]" style={{ fontSize: '1vw' }}>dan {(info?.jadwal?.kegiatan.length ?? 0) - 9} kegiatan lain</div>}
               </div>
+            </div>
+          </div>
+        </div>
+      </>)}
+
+      {/* ═══ 5. Misi emas hari ini + arena ═══ */}
+      {halamanKe(4, <>
+        {kepala(wr?.misi.hari_ini === false && wr?.misi.tanggal ? `Misi emas · ${tglPanjangWR(wr.misi.tanggal)}` : 'Misi emas hari ini')}
+        <div className="flex-1 min-h-0 grid gap-[1.6vw] mt-[1.4vw]" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
+          <div className={`${kotak} flex flex-col min-h-0`} style={{ padding: '1.2vw 1.6vw' }}>
+            {(() => {
+              const d = wr?.misi.daftar ?? []
+              const emas = d.filter(x => x.status === 'emas').length
+              return <>
+                <div className="flex items-baseline justify-between">
+                  <div className={judulKecil} style={{ fontSize: '1vw' }}>{d.length} emas dipertaruhkan · proyeksi KONI</div>
+                  {d.length > 0 && <div className="font-black tabular-nums text-yellow-300" style={{ fontSize: '3vw' }}>{emas}<span className="text-slate-500" style={{ fontSize: '2vw' }}>/{d.length}</span></div>}
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden mt-[0.6vw]">
+                  {!d.length && <div className="h-full flex items-center justify-center text-slate-400" style={{ fontSize: '1.6vw' }}>{wr ? 'Tidak ada emas yang diproyeksikan.' : 'Memuat…'}</div>}
+                  {d.slice(0, 9).map(x => {
+                    const g = GAYA_MISI[x.status]
+                    return (
+                      <div key={x.urutan} className="flex items-center gap-[1vw] border-b border-white/5" style={{ padding: '0.55vw 0' }}>
+                        <span className="shrink-0 rounded-full grid place-items-center font-black" style={{ width: '2.4vw', height: '2.4vw', fontSize: '1.2vw', color: x.status === 'emas' ? '#1a1200' : g.warna, background: x.status === 'emas' ? g.warna : `${g.warna}22`, border: `0.12vw solid ${g.warna}88` }}>{g.ikon}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-black truncate" style={{ fontSize: '1.45vw' }}>{x.cabor} <span className="text-slate-400 font-bold">· {x.nomor ?? ''}</span></div>
+                          {x.atlet && <div className="text-sky-200 truncate" style={{ fontSize: '1.05vw' }}>{x.atlet}</div>}
+                        </div>
+                        <span className="shrink-0 font-black uppercase" style={{ fontSize: '1vw', color: g.warna }}>{x.status === 'medali_lain' && x.hasil ? x.hasil : g.label}</span>
+                      </div>
+                    )
+                  })}
+                  {d.length > 9 && <div className="text-slate-400 mt-[0.4vw]" style={{ fontSize: '1vw' }}>dan {d.length - 9} nomor lain</div>}
+                </div>
+              </>
+            })()}
+          </div>
+          <div className={`${kotak} flex flex-col min-h-0`} style={{ padding: '1.2vw 1.6vw' }}>
+            <div className={judulKecil} style={{ fontSize: '1vw' }}>{(wr?.arena.live.length ?? 0) > 0 ? `${wr!.arena.live.length} partai sedang main` : 'Partai berikutnya'}</div>
+            <div className="flex-1 min-h-0 overflow-hidden mt-[0.6vw] space-y-[0.6vw]">
+              {[...(wr?.arena.live ?? []).map(p => ({ p, live: true })), ...(wr?.arena.berikut ?? []).map(p => ({ p, live: false }))].slice(0, 5).map(({ p, live }) => (
+                <div key={p.id} className="rounded-[0.8vw]" style={{ padding: '0.7vw 1vw', background: live ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)', border: `0.12vw solid ${live ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)'}` }}>
+                  <div className="flex items-baseline justify-between gap-[0.6vw]">
+                    <span className="font-black" style={{ fontSize: '1.1vw', color: live ? '#f87171' : '#38bdf8' }}>{live ? '● LIVE' : (p.jam ?? '--:--')}</span>
+                    {p.lawan && <span className="text-slate-300 truncate" style={{ fontSize: '1vw' }}>vs {p.lawan}</span>}
+                  </div>
+                  <div className="font-black truncate" style={{ fontSize: '1.4vw' }}>{p.cabor}</div>
+                  <div className="text-slate-400 truncate" style={{ fontSize: '0.95vw' }}>{[p.nomor, p.babak, p.venue].filter(Boolean).join(' · ')}</div>
+                </div>
+              ))}
+              {wr && !wr.arena.live.length && !wr.arena.berikut.length && <div className="h-full flex items-center justify-center text-slate-400 text-center" style={{ fontSize: '1.4vw' }}>Belum ada jadwal partai.</div>}
             </div>
           </div>
         </div>

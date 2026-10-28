@@ -1,13 +1,13 @@
 'use client'
-// src/app/konida/warroom/kabbandung/page.tsx — v3 STRATEGIC INTELLIGENCE
-// Layer:
-//  1. Header + KPI Strip + Alert Laga Aktif
-//  2. Peta Kompetitor + Top 5 Klasemen (side-by-side, dari Dashboard)
-//  3. Target Realisasi + Medal Prediction (combined)
-//  4. Strategic Actions (catch-up plan)
-//  5. Jadwal Berikutnya
-// Tanpa data contoh (28 Okt 2026): peringkat dari klasemen (kosong sampai ada medali),
-// target emas dari proyeksi KONI, laga live dari jadwal partai berstatus "Sedang main".
+// src/app/konida/warroom/kabbandung/page.tsx — v4 (28 Okt 2026)
+// Khusus PORPROV XV, tanpa data contoh / POPDA. Urutan:
+//  1. Header + KPI (peringkat dari klasemen, target = proyeksi KONI, laga live)
+//  2. Misi Emas Hari Ini  |  Arena (sedang main & berikutnya)
+//  3. Gap ke Puncak | Pertarungan Peringkat | Top Klasemen (+ input klasemen resmi)
+//  4. Pacuan proyeksi vs realisasi (grafik)
+//  5. Kalender Panas
+//  6. Peta Perjuangan  |  Kesehatan Operasi
+//  + Detik Emas: layar penuh tiap medali baru disahkan
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -25,8 +25,16 @@ import GrafikProyeksiEmas from '@/components/konida/GrafikProyeksiEmas'
 import { PETA_WARROOM_KABBANDUNG_TAMPIL, STRATEGIC_ACTIONS_WARROOM_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
 import { timpaKlasemen } from '@/lib/lapor'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
-import { tanggalWIB } from '@/lib/lapor'
-import { klasemenDimulai, lagaLive, peringkatKontingen, type PartaiWR } from '@/lib/warroom'
+import { klasemenDimulai, peringkatKontingen } from '@/lib/warroom'
+import { useWarRoom } from '@/lib/warroom-klien'
+import DetikEmas from '@/components/konida/warroom/DetikEmas'
+import MisiEmas from '@/components/konida/warroom/MisiEmas'
+import ArenaLive from '@/components/konida/warroom/ArenaLive'
+import PertarunganPeringkat from '@/components/konida/warroom/PertarunganPeringkat'
+import InputKlasemenResmi from '@/components/konida/warroom/InputKlasemenResmi'
+import KalenderPanas from '@/components/konida/warroom/KalenderPanas'
+import PetaPerjuangan from '@/components/konida/warroom/PetaPerjuangan'
+import KesehatanOperasi from '@/components/konida/warroom/KesehatanOperasi'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,10 +42,6 @@ const sb = createClient(
 )
 
 const ACCENT = '#38bdf8'
-
-// Referensi historis POPDA XIV Jawa Barat 2025 (simaung.jabarprov.go.id · 24 Sep 2025)
-// Kab. Bandung meraih peringkat #2 dari 27 kontingen
-const POPDA_REF = { rank:2, emas:23, perak:10, perunggu:14, total:47 }
 
 // Hanya admin pusat yang perlu menyebut kontingen; KONIDA diambil dari sesinya.
 const Q = '?kontingen_id=4'
@@ -63,9 +67,10 @@ export default function PageWarRoom() {
   const [tesFisikSum, setTesFisikSum] = useState({topAtlet:0, lowAtlet:0, weakCabors:0})
   const [lapangan, setLapangan] = useState<RekapLapangan | null>(null)
   const [layar,    setLayar]    = useState(false)
-  // Laga yang sedang dimainkan: partai yang ditandai "Sedang main" oleh PIC/KONIDA.
-  const [partai,   setPartai]   = useState<PartaiWR[]>([])
-  const [namaCabor, setNamaCabor] = useState<Record<number, string>>({})
+  // Misi emas, arena, kalender, peta, operasi — satu muatan, segar tiap 20 dtk.
+  const { data: wr, muat: muatWR } = useWarRoom(4)
+  const [inputKlasemen, setInputKlasemen] = useState(false)
+  const [versi, setVersi] = useState(0)   // naik setelah klasemen resmi disimpan → muat ulang klasemen
   // Target emas = proyeksi KONI (berkas PPT Grafik Raihan Emas), sama dengan grafik di bawah.
   const [targetEmas, setTargetEmas] = useState<number | null>(null)
 
@@ -78,21 +83,12 @@ export default function PageWarRoom() {
   useEffect(() => {
     // Angka medali dimuat ulang sendiri: War Room dibiarkan terbuka sepanjang
     // hari, dan hasil yang baru disahkan harus tampil tanpa memuat ulang halaman.
-    async function muatPartai() {
-      const r = await fetch(`/api/konida/jadwal-partai${Q}`, { cache: 'no-store' })
-      if (!r.ok) return
-      const j = await r.json().catch(() => null)
-      if (!j) return
-      setPartai(j.partai ?? [])
-      setNamaCabor(Object.fromEntries((j.cabor ?? []).map((c: any) => [c.id, c.nama])))
-    }
     async function muatTarget() {
       const r = await fetch(`/api/konida/proyeksi-emas${Q}`, { cache: 'no-store' })
       const j = r.ok ? await r.json().catch(() => null) : null
       setTargetEmas(j?.ada && j.total_proyeksi > 0 ? j.total_proyeksi : null)
     }
     async function muatMedali() {
-      muatPartai().catch(() => {})
       const lap = await ambilRekapLapangan(4)
       if (lap.ok) setLapangan(lap.data)
       // Begitu ada laporan lapangan yang disahkan, angka Kab. Bandung memakai hitungan itu.
@@ -199,16 +195,13 @@ export default function PageWarRoom() {
     void load()
     const iv = setInterval(() => { if (document.visibilityState === 'visible') muatMedali().catch(() => {}) }, 20_000)
     return () => clearInterval(iv)
-  }, [])
+  }, [versi])
 
   // Klasemen yang masih nol semua tidak punya peringkat — tanpa ini Kab. Bandung tampil "#1".
   const mulai  = klasemenDimulai(klasemen)
   const rankWR = peringkatKontingen(klasemen, 'KAB. BANDUNG')
   const myRank = mulai ? klasemen.findIndex(k => String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG') + 1 : 0
-  const LAGA_LIVE = lagaLive(partai, tanggalWIB()).map(p => ({
-    cabor: namaCabor[p.cabor_id] ?? 'Cabor', laga: [p.nomor_teks, p.babak, p.lawan ? `vs ${p.lawan}` : null].filter(Boolean).join(' · '),
-    venue: p.venue ?? '', jam: p.jam,
-  }))
+  const LAGA_LIVE = wr?.arena.live ?? []
 
   const ani = (d=0) => ({
     style:     { transitionDelay:`${d}ms`, transition:'all 0.8s cubic-bezier(0.16,1,0.3,1)' },
@@ -272,6 +265,9 @@ export default function PageWarRoom() {
       </header>
 
       {layar && <LayarMedali kontingenId={4} onTutup={() => setLayar(false)} />}
+      {/* Detik Emas berada di atas Mode Layar juga (z lebih tinggi) */}
+      <DetikEmas medali={lapangan?.medali_semua} />
+      {inputKlasemen && <InputKlasemenResmi onTutup={() => setInputKlasemen(false)} onTersimpan={() => { setVersi(v => v + 1); muatWR() }} />}
 
       <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative z-10 space-y-6">
 
@@ -315,6 +311,12 @@ export default function PageWarRoom() {
           ))}
         </div>
 
+        {/* ════ 2. MISI EMAS HARI INI + ARENA ════ */}
+        <div {...ani(10)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2"><MisiEmas data={wr} accent={ACCENT} /></div>
+          <ArenaLive data={wr} />
+        </div>
+
         {/* ════ 3. MISSION INTELLIGENCE — Gap · Target · Klasemen ════ */}
         <div {...ani(30)} className="rounded-3xl overflow-hidden relative"
           style={{ background:'rgba(2,10,20,0.65)', border:`1px solid ${ACCENT}18` }}>
@@ -322,7 +324,7 @@ export default function PageWarRoom() {
             style={{ background:'rgba(0,0,0,0.25)', borderColor:`${ACCENT}12` }}>
             <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:ACCENT }}>Mission Intelligence</span>
             <span className="h-3 w-px bg-white/10"/>
-            <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Gap ke Puncak · Referensi Historis · Top Klasemen</span>
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Gap ke Puncak · Pertarungan Peringkat · Top Klasemen</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/[0.05]">
 
@@ -383,66 +385,8 @@ export default function PageWarRoom() {
               </div>
             )}
 
-            {/* ── Col 2: Referensi POPDA XIV 2025 ── */}
-            <div className="p-5" style={{ background:'rgba(99,102,241,0.04)' }}>
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
-                <Target size={11} className="text-indigo-400"/>
-                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Referensi Historis</span>
-                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest"
-                  style={{ background:'rgba(99,102,241,0.18)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.35)' }}>
-                  📊 POPDA XIV 2025
-                </span>
-              </div>
-
-              {/* Peringkat POPDA */}
-              <div className="mb-4 p-3 rounded-xl" style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)' }}>
-                <div className="text-[9px] text-indigo-300/60 uppercase tracking-widest mb-1">Peringkat POPDA XIV Jabar</div>
-                <div className="flex items-end gap-2">
-                  <span className="text-5xl font-black leading-none text-indigo-300"
-                    style={{ textShadow:'0 0 24px rgba(99,102,241,0.5)' }}>#{POPDA_REF.rank}</span>
-                  <div className="mb-1">
-                    <div className="text-[10px] text-zinc-400 font-semibold">dari 27 kontingen</div>
-                    <div className="text-[9px] text-zinc-600">24 Sep 2025</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Medali POPDA vs PORPROV XV saat ini */}
-              <div className="space-y-2.5">
-                {([
-                  { l:'Emas',     popda:POPDA_REF.emas,     now:summary.emas,     c:'#ffd700' as const, icon:'🥇' },
-                  { l:'Perak',    popda:POPDA_REF.perak,    now:summary.perak,    c:'#c0c0c0' as const, icon:'🥈' },
-                  { l:'Perunggu', popda:POPDA_REF.perunggu, now:summary.perunggu, c:'#cd7f32' as const, icon:'🥉' },
-                ]).map(m => (
-                  <div key={m.l}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm leading-none">{m.icon}</span>
-                        <span className="text-[11px] font-bold text-zinc-300">{m.l}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-[10px]">
-                        <span className="text-zinc-500">PORPROV: <span className="text-zinc-300 font-bold">{m.now}</span></span>
-                        <span className="font-black" style={{ color:m.c }}>POPDA: {m.popda}</span>
-                      </div>
-                    </div>
-                    {/* Bar: progress PORPROV vs POPDA reference */}
-                    <div className="h-1 rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.05)' }}>
-                      <div className="h-full rounded-full" style={{
-                        width:`${Math.min(m.popda > 0 ? (m.now/m.popda)*100 : 0, 100)}%`,
-                        background:m.c, opacity:0.6
-                      }}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 pt-2.5 border-t border-indigo-500/10">
-                <div className="text-[9px] text-zinc-600 leading-relaxed">
-                  Sumber: simaung.jabarprov.go.id<br/>
-                  <span className="text-indigo-400/50">* POPDA = Pekan Olahraga Pelajar Daerah · beda kategori/cabor dengan PORPROV</span>
-                </div>
-              </div>
-            </div>
+            {/* ── Col 2: Pertarungan Peringkat (pengganti referensi POPDA — khusus PORPROV) ── */}
+            <PertarunganPeringkat klasemen={klasemen} diperbarui={wr?.klasemen_diperbarui ?? null} onInput={() => setInputKlasemen(true)} />
 
             {/* ── Col 3: Top 5 Klasemen ── */}
             <div className="p-5">
@@ -512,38 +456,14 @@ export default function PageWarRoom() {
           <GrafikProyeksiEmas kontingenId={4} />
         </div>
 
-        {/* ════ 2. LAGA AKTIF ════ */}
-        {LAGA_LIVE.length > 0 && (
-          <div {...ani(15)} className="rounded-3xl p-5 relative overflow-hidden"
-            style={{ background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.25)' }}>
-            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-20"
-              style={{ background:'#ef4444' }}/>
-            <div className="relative flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full bg-red-400 ${pulse?'opacity-100':'opacity-20'} transition-opacity`}
-                  style={{ boxShadow:'0 0 8px rgba(239,68,68,0.8)' }}/>
-                <h2 className="text-sm font-black text-red-400 uppercase tracking-widest">
-                  🚨 {LAGA_LIVE.length} Laga Sedang Berlangsung
-                </h2>
-              </div>
-              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Real-time</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative">
-              {LAGA_LIVE.map((l, i) => (
-                <div key={i} className="rounded-xl p-3 transition-all hover:scale-[1.02]"
-                  style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.2)' }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-red-400">LIVE</span>
-                  </div>
-                  <div className="text-sm font-bold text-white mb-1">{l.cabor}</div>
-                  <div className="text-[11px] text-zinc-300">{l.laga}</div>
-                  {(l.jam || l.venue) && <div className="text-[10px] text-zinc-500 mt-1 font-mono">{l.jam ? `🕘 ${l.jam}` : ''}{l.jam && l.venue ? ' · ' : ''}{l.venue ? `📍 ${l.venue}` : ''}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* ════ 5. KALENDER PANAS ════ */}
+        <div {...ani(15)}><KalenderPanas data={wr} /></div>
+
+        {/* ════ 6. PETA PERJUANGAN + KESEHATAN OPERASI ════ */}
+        <div {...ani(20)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2"><PetaPerjuangan data={wr} accent={ACCENT} /></div>
+          <KesehatanOperasi data={wr} />
+        </div>
 
         {/* ════ 4. PETA KOMPETITOR — full width ════ */}
         {/* Disembunyikan sementara atas permintaan Bos (16 Okt); nyalakan lewat saklar-menu.ts. */}

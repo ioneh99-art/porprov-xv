@@ -23,6 +23,7 @@ import {
 import { lengkapiPii } from '@/lib/atlet-pii-klien'
 import { timpaKlasemen } from '@/lib/lapor'
 import { ambilRekapLapangan } from '@/lib/lapor-klien'
+import { peringkatKontingen } from '@/lib/warroom'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,9 +35,6 @@ const KODE_LOKAL   = '3204'
 const ACCENT       = '#38bdf8'
 const PRIMARY      = '#075985'
 
-// Referensi historis POPDA XIV Jawa Barat 2025 (simaung.jabarprov.go.id · 24 Sep 2025)
-// Kab. Bandung meraih peringkat #2 dari 27 kontingen
-const POPDA_REF = { rank:2, emas:23, perak:10, perunggu:14, total:47 }
 
 const CABOR_KATEGORI: Record<string, string> = {
   'Sepak Bola':'Permainan','Bola Basket':'Permainan','Bola Voli':'Permainan',
@@ -212,26 +210,12 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
           if (x.gender==='L') cmap[c].putra++; else cmap[c].putri++
           if (x.status_registrasi==='Verified') cmap[c].verified++
         })
-        // Target medali per cabor — referensi POPDA 2024 + historis PORPROV XIV
-        const MEDALI: Record<string,{e:number;p:number;pg:number}> = {
-          'Pencak Silat':  { e:6, p:4, pg:4 },
-          'Karate':        { e:5, p:3, pg:4 },
-          'Taekwondo':     { e:4, p:3, pg:3 },
-          'Atletik':       { e:3, p:4, pg:4 },
-          'Renang':        { e:3, p:3, pg:3 },
-          'Bulutangkis':   { e:3, p:2, pg:2 },
-          'Angkat Besi':   { e:3, p:2, pg:3 },
-          'Panahan':       { e:2, p:2, pg:2 },
-          'Judo':          { e:2, p:2, pg:2 },
-          'Gulat':         { e:2, p:2, pg:2 },
-          'Panjat Tebing': { e:2, p:2, pg:2 },
-          'Senam':         { e:2, p:2, pg:1 },
-          'Tinju':         { e:2, p:1, pg:2 },
-          'Sepak Takraw':  { e:1, p:2, pg:1 },
-          'Dayung':        { e:1, p:1, pg:2 },
-        }
+        // Medali per cabor dari laporan lapangan yang DISAHKAN — dulu angka karangan.
+        const normC = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()
+        const MEDALI: Record<string,{e:number;p:number;pg:number}> = {}
+        if (lap.ok) for (const c of lap.data.per_cabor) MEDALI[normC(c.cabor)] = { e:c.emas, p:c.perak, pg:c.perunggu }
         const clist: CaborStat[] = Object.entries(cmap).map(([nama,s]) => {
-          const med = MEDALI[nama] ?? { e:0, p:0, pg:0 }
+          const med = MEDALI[normC(nama)] ?? { e:0, p:0, pg:0 }
           const tm  = med.e+med.p+med.pg
           return {
             nama, total:s.total, putra:s.putra, putri:s.putri, verified:s.verified,
@@ -292,6 +276,8 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       myRank,
     }
   }, [atlets, klasemen])
+  // Peringkat PORPROV: kosong selama semua kontingen 0 medali (bukan "#1" dari deretan nol).
+  const rankWR = useMemo(() => peringkatKontingen(klasemen, 'KAB. BANDUNG'), [klasemen])
 
   // ── Strategic Intelligence (computed dari atlets — no extra fetch) ──
   const intelligence = useMemo(() => {
@@ -477,7 +463,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       if (a.status_registrasi === 'Ditolak Admin') m[c].ditolak++
       if (a.kode_asal_daerah && !a.kode_asal_daerah.startsWith(KODE_LOKAL)) m[c].nonLokal++
     })
-    // Add medali from cabors array (yang udah ada hardcoded mapping)
+    // Medali per cabor (dari laporan lapangan yang disahkan, lihat load)
     cabors.forEach(c => {
       if (m[c.nama]) {
         m[c.nama].emas = c.emas
@@ -491,7 +477,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
       ...s,
       fisikHadir: caborFitness[nama]?.hadir ?? 0,
       fisikAvg:   caborFitness[nama]?.avg   ?? 0,
-      medaliIsDemo: true,  // semua medali masih hardcode untuk demo
+      medaliIsDemo: false,  // medali dari laporan lapangan yang disahkan
     }))
   }, [atlets, cabors, caborFitness])
 
@@ -554,7 +540,7 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
             {[
               { l:'Total Atlet', v:kpi.total,         c:ACCENT    },
               { l:'Verifikasi',  v:`${kpi.vpct}%`,    c:'#22d3ee' },
-              { l:'Ranking',     v:`#${POPDA_REF.rank}`, c:'#ffd700' },
+              { l:'Peringkat',   v: rankWR ? `#${rankWR}` : '—', c:'#ffd700' },
               { l:'Medali Emas', v:myMedali.emas,     c:'#ffd700' },
             ].map(s => (
               <div key={s.l} className="px-4 py-2 rounded-xl text-center backdrop-blur-md transition-colors hover:bg-white/5"
@@ -671,15 +657,15 @@ const [selCabor,  setSelCabor]  = useState<CaborStat|null>(null)
               </div>
             </div>
 
-            {/* Ref POPDA */}
+            {/* Peringkat PORPROV (dari klasemen; kosong sampai ada medali) */}
             <div className="px-4 py-3 flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-yellow-500/10">
                 <Trophy size={14} className="text-yellow-400"/>
               </div>
               <div className="min-w-0">
-                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Ref. POPDA XIV</div>
+                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Peringkat PORPROV</div>
                 <div className="flex items-baseline gap-1.5 leading-none mt-0.5">
-                  <span className="text-lg font-black text-yellow-400">#{POPDA_REF.rank}</span>
+                  <span className="text-lg font-black text-yellow-400">{rankWR ? `#${rankWR}` : '—'}</span>
                   <span className="text-[9px] text-zinc-600">dari {klasemen.length||27}</span>
                 </div>
                 <div className="text-[9px] mt-0.5 text-zinc-500">🥇{myMedali.emas} 🥈{myMedali.perak} 🥉{myMedali.perunggu}</div>
