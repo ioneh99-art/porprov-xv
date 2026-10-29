@@ -10,7 +10,7 @@ import { hitungMundur } from '@/lib/layar'
 import {
   LABEL_STATUS, cocokCari, deretTanggal, hariKe, ikonCabor, kegiatanPada, namaHari, rentangSingkat, ringkasWilayah,
   segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik, type PartaiPublik, type StatusKegiatan,
-  medaliPerCabor, rekapPublik, urutMedali, type JenisMedali, type MedaliPublik, type HasilPartai,
+  medaliPerCabor, rekapPublik, urutMedali, kabarLolosAktif, type JenisMedali, type MedaliPublik, type HasilPartai, type KabarLolos,
 } from '@/lib/jadwal-publik'
 import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -155,6 +155,41 @@ function SkorPartai({ h }: { h: HasilPartai }) {
   )
 }
 
+const tglRingkas = (iso: string) => `${namaHari(iso)}, ${Number(iso.slice(8))} ${BULAN3[Number(iso.slice(5, 7)) - 1]}`
+
+/** Pengumuman besar "LOLOS!" di atas halaman — hanya dari laporan yang disahkan KONIDA. */
+function KabarLolosKartu({ k, keJadwal }: { k: KabarLolos & { berikut: PartaiPublik | null }; keJadwal: (t?: string) => void }) {
+  const lawan = k.lawan ? `vs ${k.lawan}` : ''
+  return (
+    <div role="status" className="relative overflow-hidden rounded-3xl p-[1.5px] bg-gradient-to-r from-emerald-300 via-amber-300 to-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.35)]"
+      style={{ animation: 'muncul .6s ease-out both' }}>
+      <div className="relative rounded-[22px] bg-[#04180f]/95 backdrop-blur px-4 py-3.5 lg:px-6 lg:py-4 flex items-center gap-3.5 lg:gap-5">
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.10)_45%,transparent_60%)] bg-[length:250%_100%]" style={{ animation: 'kilau 3.5s linear infinite' }} />
+        <div className="relative shrink-0 grid place-items-center w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-400 text-[#032012] shadow-[0_0_24px_rgba(52,211,153,0.6)]" style={{ animation: 'denyut 1.8s ease-in-out infinite' }}>
+          <span className="text-[30px] lg:text-[34px] leading-none">{ikonCabor({ kegiatan: k.nomor, cabor: k.cabor })}</span>
+        </div>
+        <div className="relative min-w-0 flex-1">
+          <div className="text-[10px] font-black tracking-[0.2em] text-emerald-300">KABAR GEMBIRA<span className="hidden sm:inline"> · RESMI KONI KAB. BANDUNG</span></div>
+          <div className="uppercase font-extrabold text-white leading-[0.95] text-[28px] lg:text-[34px] mt-0.5" style={TAMPIL}>
+            {k.cabor} <span className="bg-gradient-to-r from-emerald-300 to-amber-300 bg-clip-text text-transparent">Lolos!</span>
+          </div>
+          <div className="text-[13px] text-slate-200 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {k.skor && <span className="font-extrabold text-white text-[17px] tabular-nums leading-none" style={TAMPIL}>{k.skor}</span>}
+            {lawan && <span>{lawan}</span>}
+            <span className="text-slate-400">· {[k.babak, k.nomor].filter(Boolean).join(' · ')}</span>
+          </div>
+          {k.berikut && (
+            <button onClick={() => keJadwal(k.berikut!.tanggal)} className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-300/15 border border-amber-300/40 px-2.5 py-1 text-[12px] font-bold text-amber-200 hover:bg-amber-300/25">
+              Laga berikutnya: {tglRingkas(k.berikut.tanggal)}{k.berikut.jam ? ` · ${k.berikut.jam.slice(0, 5)}` : ''}{k.berikut.lawan ? ` vs ${k.berikut.lawan}` : ''} <ChevronRight size={13} />
+            </button>
+          )}
+          {!k.berikut && <div className="mt-1.5 text-[12px] font-semibold text-amber-200">Terus dukung perjuangan berikutnya — BEDAS!</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const GAYA_MEDALI: Record<JenisMedali, { label: string; warna: string; latar: string }> = {
   emas: { label: 'Emas', warna: '#facc15', latar: 'from-yellow-300/25 to-amber-600/10' },
   perak: { label: 'Perak', warna: '#e2e8f0', latar: 'from-slate-200/20 to-slate-500/10' },
@@ -239,8 +274,8 @@ function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: str
   )
 }
 
-export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, partai = [], medali = [] }: {
-  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; partai?: PartaiPublik[]; medali?: MedaliPublik[]
+export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, partai = [], medali = [], kabar = [] }: {
+  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; partai?: PartaiPublik[]; medali?: MedaliPublik[]; kabar?: KabarLolos[]
 }) {
   const [hariIni, setHariIni] = useState(hariIniServer)
   const [masuk, setMasuk] = useState(false)
@@ -301,6 +336,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
   const sedangMain = partaiHariIni.filter(p => p.status === 'berlangsung').length
   const partaiSelesai = partaiHariIni.filter(p => p.status === 'selesai').length
   const medaliHariIni = medali.filter(m => m.tanggal === hariIni)
+  const kabarAktif = useMemo(() => kabarLolosAktif(kabar, jadwal, partai, hariIni), [kabar, jadwal, partai, hariIni])
   const emasHariIni = medaliHariIni.filter(m => m.medali === 'emas').length
   const keMedali = () => document.getElementById('perolehan-medali')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const kotakHariIni = [
@@ -345,7 +381,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
 
   return (
     <div className="min-h-screen bg-[#050d1a] text-slate-200 overflow-x-hidden">
-      <style>{'@keyframes muncul{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}'}</style>
+      <style>{'@keyframes muncul{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}@keyframes kilau{from{background-position:150% 0}to{background-position:-100% 0}}@keyframes denyut{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}@media (prefers-reduced-motion: reduce){[role=status],[role=status] *{animation:none!important}}'}</style>
       {/* ══ HERO ══ */}
       <section className="relative isolate">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -371,6 +407,13 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
             {masuk ? <><LayoutDashboard size={14} /> Dashboard</> : <><LogIn size={14} /> Masuk</>}
           </a>
         </header>
+
+        {/* Kabar LOLOS — tayang selama cabornya masih bertanding */}
+        {kabarAktif.length > 0 && (
+          <div className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pt-3 grid gap-2.5 lg:grid-cols-2">
+            {kabarAktif.slice(0, 4).map(k => <KabarLolosKartu key={k.id} k={k} keJadwal={keJadwal} />)}
+          </div>
+        )}
 
         <div className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pt-6 pb-8 lg:pt-14 lg:pb-20 lg:grid lg:grid-cols-[1.3fr_1fr] lg:gap-x-14 lg:items-center">
           <div className="lg:col-start-1 lg:row-start-1">

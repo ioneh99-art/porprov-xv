@@ -9,7 +9,7 @@ import type { Metadata } from 'next'
 import { Barlow_Condensed } from 'next/font/google'
 import { createClient } from '@supabase/supabase-js'
 import { tanggalWIB } from '@/lib/lapor'
-import { adalahMedali, pasangHasil, type LaporanSah, type BarisPublik, type MedaliPublik, type PartaiPublik } from '@/lib/jadwal-publik'
+import { adalahMedali, pasangHasil, pilihKabarLolos, type KabarLolos, type LaporanSah, type BarisPublik, type MedaliPublik, type PartaiPublik } from '@/lib/jadwal-publik'
 import { ambilSemua } from '@/lib/lapor-sesi'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
 import JadwalPublik from './JadwalPublik'
@@ -37,31 +37,34 @@ const sb = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 /** Jadwal partai kontingen (kecuali yang batal), dengan nama cabor, nama atlet,
  *  dan skor dari laporan yang SUDAH DISAHKAN KONIDA (yang menunggu tidak tampil). */
-async function ambilPartai(): Promise<PartaiPublik[]> {
+async function ambilPartai(): Promise<{ partai: PartaiPublik[]; kabar: KabarLolos[] }> {
   try {
     const db = sb()
-    const { data, error } = await db.from('jadwal_partai')
-      .select('id,cabor_id,tanggal,jam,nomor_teks,babak,atlet_ids,lawan,venue,status')
-      .eq('kontingen_id', 4).neq('status', 'batal').order('tanggal').limit(3000)
-    if (error || !data?.length) return []
-    const idAtlet = Array.from(new Set(data.flatMap((p: any) => p.atlet_ids as number[])))
-    const idCabor = Array.from(new Set(data.map((p: any) => p.cabor_id as number)))
-    const [{ data: atlet }, { data: cabor }, sah] = await Promise.all([
-      idAtlet.length ? db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', 4).in('id', idAtlet) : Promise.resolve({ data: [] as any[] }),
-      db.from('cabang_olahraga').select('id,nama').in('id', idCabor),
-      ambilSemua<LaporanSah>((d, s) => db.from('laporan_hasil')
-        .select('id,partai_id,cabor_id,tanggal,lawan,hasil,peringkat,nilai_teks').eq('kontingen_id', 4).eq('status', 'disahkan')
-        .order('id').range(d, s)).catch(() => [] as LaporanSah[]),
+    const [{ data, error }, sah] = await Promise.all([
+      db.from('jadwal_partai')
+        .select('id,cabor_id,tanggal,jam,nomor_teks,babak,atlet_ids,lawan,venue,status')
+        .eq('kontingen_id', 4).neq('status', 'batal').order('tanggal').limit(3000),
+      ambilSemua<LaporanSah & { nomor_teks: string | null }>((d, s) => db.from('laporan_hasil')
+        .select('id,partai_id,cabor_id,tanggal,lawan,hasil,peringkat,nilai_teks,nomor_teks').eq('kontingen_id', 4).eq('status', 'disahkan')
+        .order('id').range(d, s)).catch(() => [] as (LaporanSah & { nomor_teks: string | null })[]),
     ])
-    const hasil = pasangHasil(data as any[], sah)
+    const baris = error ? [] : (data ?? [])
+    const idAtlet = Array.from(new Set(baris.flatMap((p: any) => p.atlet_ids as number[])))
+    const idCabor = Array.from(new Set([...baris.map((p: any) => p.cabor_id as number), ...sah.map(l => l.cabor_id)]))
+    const [{ data: atlet }, { data: cabor }] = await Promise.all([
+      idAtlet.length ? db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', 4).in('id', idAtlet) : Promise.resolve({ data: [] as any[] }),
+      idCabor.length ? db.from('cabang_olahraga').select('id,nama').in('id', idCabor) : Promise.resolve({ data: [] as any[] }),
+    ])
+    const hasil = pasangHasil(baris as any[], sah)
     const nama = new Map((atlet ?? []).map((a: any) => [a.id, a.nama_lengkap as string]))
-    const namaCabor = new Map((cabor ?? []).map((c: any) => [c.id, c.nama as string]))
-    return data.map((p: any) => ({
+    const namaCabor = new Map((cabor ?? []).map((c: any) => [c.id as number, c.nama as string]))
+    const partai = baris.map((p: any) => ({
       id: p.id, cabor: namaCabor.get(p.cabor_id) ?? '', tanggal: p.tanggal, jam: p.jam, nomor: p.nomor_teks, babak: p.babak,
       atlet: (p.atlet_ids as number[]).map(id => nama.get(id)).filter((x): x is string => !!x), lawan: p.lawan, venue: p.venue, status: p.status,
       hasil: hasil.get(p.id) ?? null,
     }))
-  } catch { return [] }
+    return { partai, kabar: pilihKabarLolos(sah, namaCabor, baris as any[]) }
+  } catch { return { partai: [], kabar: [] } }
 }
 
 /** Medali dari laporan lapangan yang SUDAH DISAHKAN KONIDA — yang menunggu atau ditolak tidak ikut. */
@@ -107,10 +110,10 @@ async function ambilJadwal(): Promise<{ jadwal: BarisPublik[]; diperbarui: strin
 }
 
 export default async function HalamanPublikKabBandung() {
-  const [{ jadwal, diperbarui, galat }, partai, medali] = await Promise.all([ambilJadwal(), ambilPartai(), ambilMedali()])
+  const [{ jadwal, diperbarui, galat }, { partai, kabar }, medali] = await Promise.all([ambilJadwal(), ambilPartai(), ambilMedali()])
   return (
     <div className={hurufTampil.variable}>
-      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} partai={partai} medali={medali} />
+      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} partai={partai} medali={medali} kabar={kabar} />
     </div>
   )
 }

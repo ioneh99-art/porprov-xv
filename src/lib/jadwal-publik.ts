@@ -251,3 +251,64 @@ export function medaliPerCabor(medali: MedaliPublik[]): ({ cabor: string } & Rek
   return Array.from(peta, ([cabor, r]) => ({ cabor, ...r }))
     .sort((a, b) => b.emas - a.emas || b.perak - a.perak || b.perunggu - a.perunggu || a.cabor.localeCompare(b.cabor, 'id'))
 }
+
+// ── Kabar LOLOS di halaman depan ─────────────────────────────────────────────
+// Bos 30 Okt 2026: begitu KONIDA mengesahkan laporan "lolos", publik melihat
+// pengumumannya di bagian paling atas selama cabor itu masih berjalan.
+
+/** Laporan "lolos" terbaru satu nomor, siap tampil di publik (tanpa keterangan bebas PIC). */
+export interface KabarLolos { id: number; cabor: string; nomor: string; tanggal: string; lawan: string | null; skor: string | null; babak: string | null }
+
+const bakuNomor = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/**
+ * Per cabor + nomor, ambil laporan disahkan TERBARU (tanggal, lalu id). Hanya
+ * yang terbarunya "lolos" yang jadi kabar: kalau sesudahnya gugur atau sudah
+ * medali, perjalanan nomor itu selesai dan kabar lolosnya turun. Babak diambil
+ * dari partai yang bertaut (partai_id, atau cabor + tanggal + lawan sama).
+ */
+export function pilihKabarLolos(
+  laporan: (LaporanSah & { nomor_teks: string | null })[],
+  namaCabor: Map<number, string>,
+  partai: { id: number; cabor_id: number; tanggal: string; lawan: string | null; babak: string | null }[],
+): KabarLolos[] {
+  const terbaru = new Map<string, LaporanSah & { nomor_teks: string | null }>()
+  for (const l of laporan) {
+    const k = `${l.cabor_id}|${bakuNomor(l.nomor_teks)}`
+    const ada = terbaru.get(k)
+    if (!ada || l.tanggal > ada.tanggal || (l.tanggal === ada.tanggal && l.id > ada.id)) terbaru.set(k, l)
+  }
+  const kabar: KabarLolos[] = []
+  for (const l of Array.from(terbaru.values())) {
+    if (l.hasil !== 'lolos') continue
+    const p = partai.find(x => x.id === l.partai_id)
+      ?? (l.partai_id == null ? partai.find(x => x.cabor_id === l.cabor_id && x.tanggal === l.tanggal && !!bakuLawan(x.lawan) && bakuLawan(x.lawan) === bakuLawan(l.lawan)) : undefined)
+    kabar.push({
+      id: l.id, cabor: namaCabor.get(l.cabor_id) ?? '', nomor: (l.nomor_teks ?? '').trim(), tanggal: l.tanggal,
+      lawan: p?.lawan ?? (l.lawan?.trim() || null), skor: hasilPublik(l)?.skor ?? null, babak: p?.babak ?? null,
+    })
+  }
+  return kabar.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || b.id - a.id)
+}
+
+const bakuCabor = (s: string | null | undefined) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()
+const tambahHari = (iso: string, n: number) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86_400_000).toISOString().slice(0, 10)
+
+/**
+ * Kabar lolos yang masih tayang pada `hariIni`: sejak tanggal laporan sampai
+ * kegiatan cabornya selesai (jadwal_cabor, nama cabor sama). Kalau cabornya
+ * tidak ada di jadwal, tayang 3 hari. Ikut disertakan laga berikutnya nomor itu.
+ */
+export function kabarLolosAktif(kabar: KabarLolos[], jadwal: BarisPublik[], partai: PartaiPublik[], hariIni: string):
+  (KabarLolos & { sampai: string; berikut: PartaiPublik | null })[] {
+  return kabar.flatMap(k => {
+    const selesai = jadwal.filter(b => b.jenis === 'pertandingan' && bakuCabor(b.cabor) === bakuCabor(k.cabor))
+      .map(b => b.selesai ?? b.mulai).filter((x): x is string => !!x).sort().reverse()[0]
+    const sampai = selesai && selesai >= k.tanggal ? selesai : tambahHari(k.tanggal, 3)
+    if (hariIni < k.tanggal || hariIni > sampai) return []
+    const berikut = partai.filter(p => bakuCabor(p.cabor) === bakuCabor(k.cabor) && bakuNomor(p.nomor) === bakuNomor(k.nomor)
+      && p.tanggal >= hariIni && p.tanggal > k.tanggal && (p.status === 'terjadwal' || p.status === 'berlangsung' || p.status === 'ditunda'))
+      .sort((a, b) => a.tanggal.localeCompare(b.tanggal) || (a.jam ?? '99').localeCompare(b.jam ?? '99'))[0] ?? null
+    return [{ ...k, sampai, berikut }]
+  })
+}

@@ -1,6 +1,6 @@
 // scripts/uji-jadwal-publik.ts — mengunci susunan halaman publik jadwal dan rencana impor matriks KONI.
 // Dijalankan: npm run uji:jadwal-publik
-import { hasilPublik, pasangHasil, type LaporanSah } from '../src/lib/jadwal-publik'
+import { hasilPublik, pasangHasil, pilihKabarLolos, kabarLolosAktif, type LaporanSah, type PartaiPublik } from '../src/lib/jadwal-publik'
 import { adalahMedali, medaliPerCabor, rekapPublik, urutMedali, type MedaliPublik } from '../src/lib/jadwal-publik'
 import { ikonCabor, ringkasWilayah, segeraMulai, cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
 import { jamSel, rencanaMatriks, rencanaPartai, type BarisAda } from '../src/lib/impor-matriks'
@@ -176,6 +176,25 @@ cek('partai tanpa lawan tidak dicocokkan tebakan', ph([LS({ cabor_id: 50, tangga
 cek('laporan terbaru menang', ph([LS({ id: 1, nilai_teks: '4-2' }), LS({ id: 5, nilai_teks: '5-2' })]), { 2: 'Lolos|5-2' })
 cek('label gugur/peringkat/emas', [LS({ hasil: 'gugur' }), LS({ hasil: 'peringkat', peringkat: 4 }), LS({ hasil: 'emas', nilai_teks: '  ' })].map(l => { const h = hasilPublik(l)!; return `${h.label}|${h.skor}` }), ['Gugur|5 - 2', 'Peringkat 4|5 - 2', 'Emas|null'])
 cek('hasil asing diabaikan', hasilPublik(LS({ hasil: 'aneh' })), null)
+
+// Kabar LOLOS di halaman depan
+const NC = new Map([[165, 'Futsal']])
+const PTB = PT.map(p => ({ ...p, babak: p.id === 2 ? 'Grup A' : null }))
+const LN = (o: Partial<LaporanSah & { nomor_teks: string | null }>) => ({ ...LS({}), nomor_teks: 'Beregu (Pa)', ...o })
+const kb = pilihKabarLolos([LN({})], NC, PTB)
+cek('kabar lolos: skor, lawan & babak dari partai', kb.map(k => `${k.cabor}|${k.skor}|${k.lawan}|${k.babak}`), ['Futsal|5 - 2|Kota Cirebon|Grup A'])
+cek('kabar turun kalau sesudahnya gugur', pilihKabarLolos([LN({}), LN({ id: 2, tanggal: '2026-10-30', hasil: 'gugur', lawan: 'Kota Depok' })], NC, PTB).length, 0)
+cek('kabar turun kalau sudah medali', pilihKabarLolos([LN({}), LN({ id: 2, tanggal: '2026-11-08', hasil: 'emas' })], NC, PTB).length, 0)
+cek('nomor lain tidak saling menurunkan', pilihKabarLolos([LN({}), LN({ id: 2, hasil: 'gugur', nomor_teks: 'Beregu (Pi)' })], NC, PTB).length, 1)
+cek('lolos lagi → kabar terbaru', pilihKabarLolos([LN({}), LN({ id: 2, tanggal: '2026-10-30', lawan: 'Kota Depok', nilai_teks: '3 - 1' })], NC, PTB).map(k => k.skor), ['3 - 1'])
+const JF = [b('Futsal Putra', '2026-10-28', '2026-11-08')].map(x => ({ ...x, cabor: 'Futsal' }))
+const PP = (o: Partial<PartaiPublik>): PartaiPublik => ({ id: 3, cabor: 'Futsal', tanggal: '2026-10-30', jam: '13:30:00', nomor: 'Beregu (Pa)', babak: 'Grup A', atlet: [], lawan: 'Kota Depok', venue: null, status: 'terjadwal', ...o })
+const ak = (h: string, p: PartaiPublik[] = [PP({})]) => kabarLolosAktif(kb, JF, p, h).map(k => `${k.sampai}|${k.berikut?.lawan ?? '-'}`)
+cek('kabar tayang + laga berikutnya', ak('2026-10-30'), ['2026-11-08|Kota Depok'])
+cek('kabar tayang sampai cabor selesai', ak('2026-11-08', []), ['2026-11-08|-'])
+cek('kabar turun sesudah cabor selesai', ak('2026-11-09'), [])
+cek('laga yang sudah selesai bukan "berikutnya"', ak('2026-10-30', [PP({ status: 'selesai' })]), ['2026-11-08|-'])
+cek('cabor tanpa jadwal → 3 hari', kabarLolosAktif(kb, [], [], '2026-10-31').map(k => k.sampai), ['2026-10-31'])
 
 console.log(`uji-jadwal-publik: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
