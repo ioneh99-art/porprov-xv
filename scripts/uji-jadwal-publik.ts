@@ -1,5 +1,6 @@
 // scripts/uji-jadwal-publik.ts — mengunci susunan halaman publik jadwal dan rencana impor matriks KONI.
 // Dijalankan: npm run uji:jadwal-publik
+import { hasilPublik, pasangHasil, type LaporanSah } from '../src/lib/jadwal-publik'
 import { adalahMedali, medaliPerCabor, rekapPublik, urutMedali, type MedaliPublik } from '../src/lib/jadwal-publik'
 import { ikonCabor, ringkasWilayah, segeraMulai, cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
 import { jamSel, rencanaMatriks, rencanaPartai, type BarisAda } from '../src/lib/impor-matriks'
@@ -159,6 +160,22 @@ cek('rekap kosong', rekapPublik([]), { emas: 0, perak: 0, perunggu: 0, total: 0 
 cek('urut: terbaru dulu, emas sebelum perak', urutMedali(MD).map(m => m.id), [4, 2, 3, 1])
 cek('per cabor gaya klasemen', medaliPerCabor(MD).map(c => `${c.cabor}:${c.emas}${c.perak}${c.perunggu}`), ['Gulat:110', 'Atletik:100', 'Futsal:001'])
 cek('lolos/gugur/peringkat bukan medali', ['lolos', 'gugur', 'peringkat', 'emas'].map(adalahMedali), [false, false, false, true])
+
+// ── skor partai dari laporan disahkan ──
+const PT = [
+  { id: 2, cabor_id: 165, tanggal: '2026-10-28', lawan: 'Kota Cirebon' },
+  { id: 3, cabor_id: 165, tanggal: '2026-10-30', lawan: 'Kota Depok' },
+  { id: 9, cabor_id: 50, tanggal: '2026-11-04', lawan: null },
+]
+const LS = (o: Partial<LaporanSah>): LaporanSah => ({ id: 1, partai_id: null, cabor_id: 165, tanggal: '2026-10-28', lawan: 'Kota cirebon', hasil: 'lolos', peringkat: null, nilai_teks: '5 - 2', ...o })
+const ph = (l: LaporanSah[]) => Object.fromEntries(Array.from(pasangHasil(PT, l)).map(([k, v]) => [k, `${v.label}|${v.skor}`]))
+cek('cocok lewat cabor+tanggal+lawan (huruf diabaikan)', ph([LS({})]), { 2: 'Lolos|5 - 2' })
+cek('tautan partai_id diutamakan', ph([LS({ id: 7, partai_id: 3, tanggal: '2026-10-30', lawan: 'x', nilai_teks: '3-1' })]), { 3: 'Lolos|3-1' })
+cek('lawan beda → tidak dipasang', ph([LS({ lawan: 'Kota Bogor' })]), {})
+cek('partai tanpa lawan tidak dicocokkan tebakan', ph([LS({ cabor_id: 50, tanggal: '2026-11-04', lawan: null })]), {})
+cek('laporan terbaru menang', ph([LS({ id: 1, nilai_teks: '4-2' }), LS({ id: 5, nilai_teks: '5-2' })]), { 2: 'Lolos|5-2' })
+cek('label gugur/peringkat/emas', [LS({ hasil: 'gugur' }), LS({ hasil: 'peringkat', peringkat: 4 }), LS({ hasil: 'emas', nilai_teks: '  ' })].map(l => { const h = hasilPublik(l)!; return `${h.label}|${h.skor}` }), ['Gugur|5 - 2', 'Peringkat 4|5 - 2', 'Emas|null'])
+cek('hasil asing diabaikan', hasilPublik(LS({ hasil: 'aneh' })), null)
 
 console.log(`uji-jadwal-publik: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

@@ -9,7 +9,7 @@ import type { Metadata } from 'next'
 import { Barlow_Condensed } from 'next/font/google'
 import { createClient } from '@supabase/supabase-js'
 import { tanggalWIB } from '@/lib/lapor'
-import { adalahMedali, type BarisPublik, type MedaliPublik, type PartaiPublik } from '@/lib/jadwal-publik'
+import { adalahMedali, pasangHasil, type LaporanSah, type BarisPublik, type MedaliPublik, type PartaiPublik } from '@/lib/jadwal-publik'
 import { ambilSemua } from '@/lib/lapor-sesi'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
 import JadwalPublik from './JadwalPublik'
@@ -35,7 +35,8 @@ export const metadata: Metadata = {
 const sb = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } })
 
-/** Jadwal partai kontingen (kecuali yang batal), dengan nama cabor dan nama atlet. */
+/** Jadwal partai kontingen (kecuali yang batal), dengan nama cabor, nama atlet,
+ *  dan skor dari laporan yang SUDAH DISAHKAN KONIDA (yang menunggu tidak tampil). */
 async function ambilPartai(): Promise<PartaiPublik[]> {
   try {
     const db = sb()
@@ -45,15 +46,20 @@ async function ambilPartai(): Promise<PartaiPublik[]> {
     if (error || !data?.length) return []
     const idAtlet = Array.from(new Set(data.flatMap((p: any) => p.atlet_ids as number[])))
     const idCabor = Array.from(new Set(data.map((p: any) => p.cabor_id as number)))
-    const [{ data: atlet }, { data: cabor }] = await Promise.all([
+    const [{ data: atlet }, { data: cabor }, sah] = await Promise.all([
       idAtlet.length ? db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', 4).in('id', idAtlet) : Promise.resolve({ data: [] as any[] }),
       db.from('cabang_olahraga').select('id,nama').in('id', idCabor),
+      ambilSemua<LaporanSah>((d, s) => db.from('laporan_hasil')
+        .select('id,partai_id,cabor_id,tanggal,lawan,hasil,peringkat,nilai_teks').eq('kontingen_id', 4).eq('status', 'disahkan')
+        .order('id').range(d, s)).catch(() => [] as LaporanSah[]),
     ])
+    const hasil = pasangHasil(data as any[], sah)
     const nama = new Map((atlet ?? []).map((a: any) => [a.id, a.nama_lengkap as string]))
     const namaCabor = new Map((cabor ?? []).map((c: any) => [c.id, c.nama as string]))
     return data.map((p: any) => ({
       id: p.id, cabor: namaCabor.get(p.cabor_id) ?? '', tanggal: p.tanggal, jam: p.jam, nomor: p.nomor_teks, babak: p.babak,
       atlet: (p.atlet_ids as number[]).map(id => nama.get(id)).filter((x): x is string => !!x), lawan: p.lawan, venue: p.venue, status: p.status,
+      hasil: hasil.get(p.id) ?? null,
     }))
   } catch { return [] }
 }

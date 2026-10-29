@@ -10,7 +10,7 @@ import { hitungMundur } from '@/lib/layar'
 import {
   LABEL_STATUS, cocokCari, deretTanggal, hariKe, ikonCabor, kegiatanPada, namaHari, rentangSingkat, ringkasWilayah,
   segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik, type PartaiPublik, type StatusKegiatan,
-  medaliPerCabor, rekapPublik, urutMedali, type JenisMedali, type MedaliPublik,
+  medaliPerCabor, rekapPublik, urutMedali, type JenisMedali, type MedaliPublik, type HasilPartai,
 } from '@/lib/jadwal-publik'
 import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -131,9 +131,26 @@ function BarisPartai({ p }: { p: PartaiPublik }) {
         {(p.babak || p.lawan) && (
           <div className="text-[13px] text-slate-300">{p.babak}{p.babak && p.lawan ? ' · ' : ''}{p.lawan && <>vs <b className="text-white">{p.lawan}</b></>}</div>
         )}
+        {p.hasil && <SkorPartai h={p.hasil} />}
         {p.atlet.length > 0 && <div className="text-[12px] text-sky-200 mt-1 break-words">{p.atlet.join(', ')}</div>}
         {p.venue && <div className="text-[12px] text-slate-400 mt-1 flex items-start gap-1"><MapPin size={11} className="shrink-0 mt-[3px]" />{p.venue}</div>}
       </div>
+    </div>
+  )
+}
+
+const GAYA_HASIL: Record<HasilPartai['jenis'], { warna: string; ikon: string }> = {
+  emas: { warna: '#facc15', ikon: '🥇' }, perak: { warna: '#e2e8f0', ikon: '🥈' }, perunggu: { warna: '#e0a060', ikon: '🥉' },
+  lolos: { warna: '#34d399', ikon: '✓' }, gugur: { warna: '#94a3b8', ikon: '' }, peringkat: { warna: '#38bdf8', ikon: '' },
+}
+
+/** Skor + hasil resmi (sudah disahkan KONIDA) di bawah nama lawan. */
+function SkorPartai({ h }: { h: HasilPartai }) {
+  const g = GAYA_HASIL[h.jenis]
+  return (
+    <div className="mt-1.5 inline-flex flex-wrap items-center gap-2 rounded-lg px-2 py-1" style={{ background: `${g.warna}14`, border: `1px solid ${g.warna}40` }}>
+      {h.skor && <span className="text-white text-[18px] leading-none font-extrabold tabular-nums" style={TAMPIL}>{h.skor}</span>}
+      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: g.warna }}>{g.ikon ? `${g.ikon} ` : ''}{h.label}</span>
     </div>
   )
 }

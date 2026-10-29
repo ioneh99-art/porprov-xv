@@ -23,6 +23,50 @@ export interface PartaiPublik {
   id: number; cabor: string; tanggal: string; jam: string | null; nomor: string; babak: string | null
   atlet: string[]; lawan: string | null; venue: string | null
   status: 'terjadwal' | 'berlangsung' | 'ditunda' | 'selesai' | 'batal'
+  /** Hasil dari laporan lapangan yang SUDAH DISAHKAN KONIDA; null kalau belum ada. */
+  hasil?: HasilPartai | null
+}
+
+/** Hasil satu partai untuk publik — hanya skor dan jenis hasil, tanpa keterangan bebas. */
+export interface HasilPartai { jenis: 'emas' | 'perak' | 'perunggu' | 'peringkat' | 'lolos' | 'gugur'; label: string; skor: string | null }
+
+/** Laporan disahkan seperlunya untuk mencocokkan ke partai. */
+export interface LaporanSah { id: number; partai_id: number | null; cabor_id: number; tanggal: string; lawan: string | null; hasil: string; peringkat: number | null; nilai_teks: string | null }
+
+const LABEL_HASIL_PUBLIK: Record<string, string> = {
+  emas: 'Emas', perak: 'Perak', perunggu: 'Perunggu', lolos: 'Lolos', gugur: 'Gugur',
+}
+const bakuLawan = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+/** Hasil publik dari satu laporan; null kalau jenis hasilnya tidak dikenali. */
+export function hasilPublik(l: Pick<LaporanSah, 'hasil' | 'peringkat' | 'nilai_teks'>): HasilPartai | null {
+  const jenis = l.hasil as HasilPartai['jenis']
+  const label = jenis === 'peringkat' ? `Peringkat ${l.peringkat ?? '?'}` : LABEL_HASIL_PUBLIK[jenis]
+  if (!label) return null
+  const skor = (l.nilai_teks ?? '').replace(/\s+/g, ' ').trim().slice(0, 40) || null
+  return { jenis, label, skor }
+}
+
+/**
+ * Pasangkan laporan disahkan ke partai. Utamakan tautan partai_id; kalau laporan
+ * tidak bertaut, cocokkan cabor + tanggal + lawan yang sama (huruf besar/kecil
+ * diabaikan). Satu laporan hanya dipakai satu partai; yang terbaru menang.
+ */
+export function pasangHasil(partai: { id: number; cabor_id: number; tanggal: string; lawan: string | null }[], laporan: LaporanSah[]): Map<number, HasilPartai> {
+  const hasil = new Map<number, HasilPartai>()
+  const terpakai = new Set<number>()
+  const terbaruDulu = [...laporan].sort((a, b) => b.id - a.id)
+  for (const p of partai) {
+    const l = terbaruDulu.find(x => !terpakai.has(x.id) && x.partai_id === p.id)
+      ?? terbaruDulu.find(x => !terpakai.has(x.id) && x.partai_id == null && x.cabor_id === p.cabor_id && x.tanggal === p.tanggal
+        && !!bakuLawan(p.lawan) && bakuLawan(x.lawan) === bakuLawan(p.lawan))
+    if (!l) continue
+    const h = hasilPublik(l)
+    if (!h) continue
+    terpakai.add(l.id)
+    hasil.set(p.id, h)
+  }
+  return hasil
 }
 
 /** Angka gabungan kontingen dari daftar pendaftaran resmi — tanpa data pribadi. */
