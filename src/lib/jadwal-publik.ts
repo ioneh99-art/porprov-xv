@@ -312,3 +312,18 @@ export function kabarLolosAktif(kabar: KabarLolos[], jadwal: BarisPublik[], part
     return [{ ...k, sampai, berikut }]
   })
 }
+
+/** "SITI NAJIRA ADABINA" → "Siti Najira Adabina" (nama dari berkas pendaftaran KONI yang huruf besar semua). */
+export const namaRapi = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase().replace(/(^|[\s-])([a-z])/g, (_, a, b) => a + b.toUpperCase())
+
+/**
+ * Nama atlet satu partai: atlet yang tersambung ke data atlet, ditambah atlet
+ * yang ada di daftar pendaftaran resmi (disiplin + nomor sama) tapi belum punya
+ * data atlet (belum ada NIK). Tambahan hanya kalau partai memang punya daftar
+ * atlet — partai tanpa atlet (mis. Futsal) tetap kosong, bukan setengah tim.
+ */
+export function namaAtletPartai(tersambung: string[], belumTersambung: string[]): string[] {
+  if (!tersambung.length) return tersambung
+  const ada = new Set(tersambung.map(n => n.toLowerCase()))
+  return [...tersambung, ...belumTersambung.map(namaRapi).filter(n => !ada.has(n.toLowerCase()))]
+}

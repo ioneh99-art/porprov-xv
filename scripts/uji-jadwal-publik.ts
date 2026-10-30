@@ -1,6 +1,6 @@
 // scripts/uji-jadwal-publik.ts — mengunci susunan halaman publik jadwal dan rencana impor matriks KONI.
 // Dijalankan: npm run uji:jadwal-publik
-import { hasilPublik, pasangHasil, pilihKabarLolos, kabarLolosAktif, type LaporanSah, type PartaiPublik } from '../src/lib/jadwal-publik'
+import { hasilPublik, namaAtletPartai, namaRapi, pasangHasil, pilihKabarLolos, kabarLolosAktif, type LaporanSah, type PartaiPublik } from '../src/lib/jadwal-publik'
 import { adalahMedali, medaliPerCabor, rekapPublik, urutMedali, type MedaliPublik } from '../src/lib/jadwal-publik'
 import { ikonCabor, ringkasWilayah, segeraMulai, cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
 import { jamSel, rencanaMatriks, rencanaPartai, type BarisAda } from '../src/lib/impor-matriks'
@@ -195,6 +195,11 @@ cek('kabar tayang sampai cabor selesai', ak('2026-11-08', []), ['2026-11-08|-'])
 cek('kabar turun sesudah cabor selesai', ak('2026-11-09'), [])
 cek('laga yang sudah selesai bukan "berikutnya"', ak('2026-10-30', [PP({ status: 'selesai' })]), ['2026-11-08|-'])
 cek('cabor tanpa jadwal → 3 hari', kabarLolosAktif(kb, [], [], '2026-10-31').map(k => k.sampai), ['2026-10-31'])
+
+// Nama dari daftar resmi untuk atlet yang belum punya data
+cek('namaRapi', [namaRapi('  SITI NAJIRA  ADABINA GYSANI'), namaRapi("EVANDRA SATRIA NUR SYA'BAN"), namaRapi('NUURIL HUDAA AL-FURQAAN')], ['Siti Najira Adabina Gysani', "Evandra Satria Nur Sya'ban", 'Nuuril Hudaa Al-Furqaan'])
+cek('tim dilengkapi dari daftar resmi', namaAtletPartai(['Khania Julianti'], ['SRI SALSABILA', 'KHANIA JULIANTI']), ['Khania Julianti', 'Sri Salsabila'])
+cek('partai tanpa atlet tetap kosong', namaAtletPartai([], ['SRI SALSABILA']), [])
 
 console.log(`uji-jadwal-publik: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
