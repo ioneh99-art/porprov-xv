@@ -161,8 +161,7 @@ const tglRingkas = (iso: string) => `${namaHari(iso)}, ${Number(iso.slice(8))} $
 function KabarLolosKartu({ k, keJadwal }: { k: KabarLolos & { berikut: PartaiPublik | null }; keJadwal: (t?: string) => void }) {
   const lawan = k.lawan ? `vs ${k.lawan}` : ''
   return (
-    <div role="status" className="relative overflow-hidden rounded-3xl p-[1.5px] bg-gradient-to-r from-emerald-300 via-amber-300 to-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.35)]"
-      style={{ animation: 'muncul .6s ease-out both' }}>
+    <div role="status" className="relative overflow-hidden rounded-3xl p-[1.5px] bg-gradient-to-r from-emerald-300 via-amber-300 to-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.35)]">
       <div className="relative rounded-[22px] bg-[#04180f]/95 backdrop-blur px-4 py-3.5 lg:px-6 lg:py-4 flex items-center gap-3.5 lg:gap-5">
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.10)_45%,transparent_60%)] bg-[length:250%_100%]" style={{ animation: 'kilau 3.5s linear infinite' }} />
         <div className="relative shrink-0 grid place-items-center w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-400 text-[#032012] shadow-[0_0_24px_rgba(52,211,153,0.6)]" style={{ animation: 'denyut 1.8s ease-in-out infinite' }}>
