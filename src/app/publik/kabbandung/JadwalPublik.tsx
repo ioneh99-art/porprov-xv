@@ -148,10 +148,14 @@ const GAYA_HASIL: Record<HasilPartai['jenis'], { warna: string; ikon: string }> 
 /** Skor + hasil resmi (sudah disahkan KONIDA) di bawah nama lawan. */
 function SkorPartai({ h }: { h: HasilPartai }) {
   const g = GAYA_HASIL[h.jenis]
+  // "1-2 (17-21, 21-18, 13-15)" → skor besar "1-2", rincian set kecil di bawahnya.
+  const m = h.skor?.match(/^([^()]+?)\s*\((.+)\)\s*$/)
+  const skor = m ? m[1] : h.skor, rincian = m ? m[2] : null
   return (
-    <div className="mt-1.5 inline-flex flex-wrap items-center gap-2 rounded-lg px-2 py-1" style={{ background: `${g.warna}14`, border: `1px solid ${g.warna}40` }}>
-      {h.skor && <span className="text-white text-[18px] leading-none font-extrabold tabular-nums" style={TAMPIL}>{h.skor}</span>}
+    <div className="mt-1.5 inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1" style={{ background: `${g.warna}14`, border: `1px solid ${g.warna}40` }}>
+      {skor && <span className="text-white text-[18px] leading-none font-extrabold tabular-nums" style={TAMPIL}>{skor}</span>}
       <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: g.warna }}>{g.ikon ? `${g.ikon} ` : ''}{h.label}</span>
+      {rincian && <span className="basis-full text-[11px] text-slate-400 tabular-nums">{rincian}</span>}
     </div>
   )
 }
