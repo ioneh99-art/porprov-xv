@@ -70,7 +70,7 @@ async function ambilPartai(): Promise<{ partai: PartaiPublik[]; kabar: KabarLolo
     const partai = baris.map((p: any) => ({
       id: p.id, cabor: namaCabor.get(p.cabor_id) ?? '', tanggal: p.tanggal, jam: p.jam, nomor: p.nomor_teks, babak: p.babak,
       atlet: namaAtletPartai((p.atlet_ids as number[]).map(id => nama.get(id)).filter((x): x is string => !!x), belum.get(kunciDaftar(p.cabor_id, p.disiplin, p.nomor_teks)) ?? []),
-      lawan: p.lawan, venue: p.venue, status: p.status,
+      lawan: p.lawan, venue: p.venue, disiplin: p.disiplin, status: p.status,
       hasil: hasil.get(p.id) ?? null,
     }))
     return { partai, kabar: pilihKabarLolos(sah, namaCabor, baris as any[]) }

@@ -22,6 +22,8 @@ export interface BarisPublik {
 export interface PartaiPublik {
   id: number; cabor: string; tanggal: string; jam: string | null; nomor: string; babak: string | null
   atlet: string[]; lawan: string | null; venue: string | null
+  /** Disiplin (mis. "BOLA VOLI PASIR") — laporan kadang menulis nomor sebagai "DISIPLIN · nomor". */
+  disiplin?: string | null
   status: 'terjadwal' | 'berlangsung' | 'ditunda' | 'selesai' | 'batal'
   /** Hasil dari laporan lapangan yang SUDAH DISAHKAN KONIDA; null kalau belum ada. */
   hasil?: HasilPartai | null
@@ -306,7 +308,7 @@ export function kabarLolosAktif(kabar: KabarLolos[], jadwal: BarisPublik[], part
       .map(b => b.selesai ?? b.mulai).filter((x): x is string => !!x).sort().reverse()[0]
     const sampai = selesai && selesai >= k.tanggal ? selesai : tambahHari(k.tanggal, 3)
     if (hariIni < k.tanggal || hariIni > sampai) return []
-    const berikut = partai.filter(p => bakuCabor(p.cabor) === bakuCabor(k.cabor) && bakuNomor(p.nomor) === bakuNomor(k.nomor)
+    const berikut = partai.filter(p => bakuCabor(p.cabor) === bakuCabor(k.cabor) && (bakuNomor(p.nomor) === bakuNomor(k.nomor) || (!!p.disiplin && bakuNomor(`${p.disiplin} ${p.nomor}`) === bakuNomor(k.nomor)))
       && p.tanggal >= hariIni && p.tanggal > k.tanggal && (p.status === 'terjadwal' || p.status === 'berlangsung' || p.status === 'ditunda'))
       .sort((a, b) => a.tanggal.localeCompare(b.tanggal) || (a.jam ?? '99').localeCompare(b.jam ?? '99'))[0] ?? null
     return [{ ...k, sampai, berikut }]
@@ -324,6 +326,8 @@ export const namaRapi = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase
  */
 export function namaAtletPartai(tersambung: string[], belumTersambung: string[]): string[] {
   if (!tersambung.length) return tersambung
+  // Nama yang tersimpan HURUF BESAR SEMUA dirapikan; yang sudah campuran dibiarkan.
+  tersambung = tersambung.map(n => /[A-Z]/.test(n) && n === n.toUpperCase() ? namaRapi(n) : n)
   const ada = new Set(tersambung.map(n => n.toLowerCase()))
   return [...tersambung, ...belumTersambung.map(namaRapi).filter(n => !ada.has(n.toLowerCase()))]
 }
