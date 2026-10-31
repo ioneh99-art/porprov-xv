@@ -32,7 +32,7 @@ interface Bahan {
 }
 
 const WARNA_HASIL: Record<Hasil, string> = {
-  emas: '#facc15', perak: '#cbd5e1', perunggu: '#d08a4a', peringkat: '#38bdf8', lolos: '#34d399', gugur: '#94a3b8',
+  emas: '#facc15', perak: '#cbd5e1', perunggu: '#d08a4a', peringkat: '#38bdf8', lolos: '#34d399', gugur: '#94a3b8', menang: '#22d3ee', kalah: '#fb923c',
 }
 const STATUS_TAMPIL: Record<string, { teks: string; warna: string }> = {
   menunggu: { teks: 'Menunggu disahkan', warna: '#fbbf24' },
@@ -413,12 +413,14 @@ export default function HalamanLapor() {
                       <button key={h} type="button" onClick={() => setHasil(h)} aria-pressed={aktif}
                         className="rounded-xl border-2 px-2 py-4 text-sm font-black leading-tight"
                         style={{ borderColor: aktif ? WARNA_HASIL[h] : '#334155', background: aktif ? `${WARNA_HASIL[h]}22` : 'rgba(15,23,42,0.7)', color: aktif ? WARNA_HASIL[h] : '#cbd5e1' }}>
-                        {h === 'lolos' ? 'Lolos' : LABEL_HASIL[h]}
+                        {h === 'lolos' ? 'Lolos' : h === 'menang' ? 'Menang (pool)' : h === 'kalah' ? 'Kalah, masih main' : LABEL_HASIL[h]}
                       </button>
                     )
                   })}
                 </div>
                 {hasil === 'lolos' && <p className="text-xs text-slate-400 mt-2">Lolos ke babak berikutnya (belum final).</p>}
+                {hasil === 'menang' && <p className="text-xs text-slate-400 mt-2">Menang satu laga di babak pool/penyisihan — tim masih lanjut bertanding.</p>}
+                {hasil === 'kalah' && <p className="text-xs text-slate-400 mt-2">Kalah satu laga di babak pool/penyisihan, tapi tim BELUM tersingkir dan masih bertanding. Kalau sudah tersingkir, pilih Gugur.</p>}
                 {hasil === 'peringkat' && (
                   <input value={peringkat} onChange={e => setPeringkat(e.target.value.replace(/\D/g, ''))} inputMode="numeric" aria-label="Peringkat ke berapa"
                     placeholder="Peringkat ke berapa? (4 ke atas)" className={`${kotak} mt-2`} />

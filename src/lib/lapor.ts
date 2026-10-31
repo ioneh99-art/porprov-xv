@@ -2,7 +2,7 @@
 // Aturan laporan hasil lapangan — murni hitungan, tanpa database, supaya bisa diuji
 // (npm run uji:lapor) dan dipakai sama persis oleh form HP maupun rute server.
 
-export const HASIL = ['emas', 'perak', 'perunggu', 'peringkat', 'lolos', 'gugur'] as const
+export const HASIL = ['emas', 'perak', 'perunggu', 'peringkat', 'menang', 'kalah', 'lolos', 'gugur'] as const
 export type Hasil = typeof HASIL[number]
 export const STATUS = ['menunggu', 'disahkan', 'ditolak'] as const
 export type Status = typeof STATUS[number]
@@ -10,11 +10,16 @@ export type Status = typeof STATUS[number]
 export const LABEL_HASIL: Record<Hasil, string> = {
   emas: 'Emas', perak: 'Perak', perunggu: 'Perunggu',
   peringkat: 'Peringkat', lolos: 'Lolos babak berikutnya', gugur: 'Gugur',
+  menang: 'Menang (pool)', kalah: 'Kalah – masih bertanding',
 }
 
 export const adalahMedali = (h: string) => h === 'emas' || h === 'perak' || h === 'perunggu'
-/** 'lolos' berarti nomornya belum selesai — masih ada babak berikutnya. */
-export const adalahFinal = (h: string) => h !== 'lolos'
+/**
+ * Hasil yang belum menutup nomornya: 'lolos' (ke babak berikutnya), serta 'menang'/'kalah'
+ * di babak pool/penyisihan setengah kompetisi — kalah pun tim masih bertanding.
+ */
+export const BELUM_FINAL = ['lolos', 'menang', 'kalah']
+export const adalahFinal = (h: string) => !BELUM_FINAL.includes(h)
 
 // ── Kode lapor ───────────────────────────────────────────────────────────────
 // Tanpa I, O, 0, 1 — huruf yang paling sering tertukar saat diketik ulang di HP.
@@ -182,7 +187,7 @@ export interface LaporanSah { atlet_ids: number[]; hasil: string; peringkat: num
 export type StatusTarget = 'tercapai' | 'belum_emas' | 'belum_turun'
 export interface CapaianTarget extends TargetAtlet { status: StatusTarget; terbaik: string | null; nomor: string | null }
 
-const URUTAN_HASIL: Record<string, number> = { emas: 0, perak: 1, perunggu: 2, peringkat: 3, lolos: 4, gugur: 5 }
+const URUTAN_HASIL: Record<string, number> = { emas: 0, perak: 1, perunggu: 2, peringkat: 3, lolos: 4, menang: 5, kalah: 6, gugur: 7 }
 
 /**
  * Tiap atlet bertarget emas dicocokkan dengan laporan yang sudah disahkan.

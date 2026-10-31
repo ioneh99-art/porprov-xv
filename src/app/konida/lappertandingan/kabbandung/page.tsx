@@ -32,7 +32,7 @@ interface Catatan {
   status: StatusCatatan; tanggapan: string | null; ditangani_oleh: string | null; ditangani_at: string | null; created_at: string; ada_foto?: boolean
 }
 
-const WARNA: Record<Hasil, string> = { emas: '#ffd700', perak: '#c0c0c0', perunggu: '#cd7f32', peringkat: ACCENT, lolos: '#34d399', gugur: '#6b7280' }
+const WARNA: Record<Hasil, string> = { emas: '#ffd700', perak: '#c0c0c0', perunggu: '#cd7f32', peringkat: ACCENT, lolos: '#34d399', gugur: '#6b7280', menang: '#22d3ee', kalah: '#fb923c' }
 const WARNA_JENIS: Record<JenisCatatan, string> = { aturan: '#fbbf24', teknis: '#38bdf8', nonteknis: '#a78bfa' }
 const WARNA_STATUS: Record<StatusCatatan, string> = { baru: '#fbbf24', ditangani: '#38bdf8', selesai: '#34d399', diabaikan: '#64748b' }
 type FilterCatatan = 'aktif' | 'selesai' | 'diabaikan' | 'semua'

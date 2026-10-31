@@ -111,6 +111,7 @@ cek('target emas, dapat perak', statusTarget('emas', 'perak'), 'Target emas: bel
 cek('target perunggu, dapat perak (melampaui)', statusTarget('perunggu', 'perak'), 'Target perunggu: tercapai')
 cek('target perak, gugur', statusTarget('perak', 'gugur'), 'Target perak: belum tercapai')
 cek('target emas, baru lolos', statusTarget('emas', 'lolos'), 'Target emas: masih berjalan')
+cek('target emas, kalah/menang di pool', [statusTarget('emas', 'kalah'), statusTarget('emas', 'menang')], ['Target emas: masih berjalan', 'Target emas: masih berjalan'])
 cek('tanpa target', statusTarget(null, 'emas'), '')
 
 // ── penulisan atlet ──

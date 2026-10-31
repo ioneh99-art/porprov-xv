@@ -98,7 +98,7 @@ export function statusMisi(proyeksi: ProyeksiBaris[], laporan: HasilBaris[], cab
   return urut.map(p => {
     const h = hasilRow.get(p.urutan)
     let status: StatusMisi = 'belum'
-    if (h) status = h.hasil === 'emas' ? 'emas' : h.hasil === 'perak' || h.hasil === 'perunggu' ? 'medali_lain' : h.hasil === 'lolos' ? 'berjalan' : 'meleset'
+    if (h) status = h.hasil === 'emas' ? 'emas' : h.hasil === 'perak' || h.hasil === 'perunggu' ? 'medali_lain' : h.hasil === 'lolos' || h.hasil === 'menang' || h.hasil === 'kalah' ? 'berjalan' : 'meleset'
     if (status === 'belum' && p.cabor_id != null && caborLive.has(p.cabor_id)) status = 'berjalan'
     return { ...p, status, hasil: h?.hasil ?? null }
   })

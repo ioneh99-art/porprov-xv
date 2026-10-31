@@ -142,6 +142,7 @@ function BarisPartai({ p }: { p: PartaiPublik }) {
 const GAYA_HASIL: Record<HasilPartai['jenis'], { warna: string; ikon: string }> = {
   emas: { warna: '#facc15', ikon: '🥇' }, perak: { warna: '#e2e8f0', ikon: '🥈' }, perunggu: { warna: '#e0a060', ikon: '🥉' },
   lolos: { warna: '#34d399', ikon: '✓' }, gugur: { warna: '#94a3b8', ikon: '' }, peringkat: { warna: '#38bdf8', ikon: '' },
+  menang: { warna: '#34d399', ikon: '✓' }, kalah: { warna: '#94a3b8', ikon: '' },
 }
 
 /** Skor + hasil resmi (sudah disahkan KONIDA) di bawah nama lawan. */
@@ -157,7 +158,7 @@ function SkorPartai({ h }: { h: HasilPartai }) {
 
 const tglRingkas = (iso: string) => `${namaHari(iso)}, ${Number(iso.slice(8))} ${BULAN3[Number(iso.slice(5, 7)) - 1]}`
 
-/** Pengumuman besar "LOLOS!" di atas halaman — hanya dari laporan yang disahkan KONIDA. */
+/** Pengumuman besar "LOLOS!" / "MENANG!" di atas halaman — hanya dari laporan yang disahkan KONIDA. */
 function KabarLolosKartu({ k, keJadwal }: { k: KabarLolos & { berikut: PartaiPublik | null }; keJadwal: (t?: string) => void }) {
   const lawan = k.lawan ? `vs ${k.lawan}` : ''
   return (
@@ -170,7 +171,7 @@ function KabarLolosKartu({ k, keJadwal }: { k: KabarLolos & { berikut: PartaiPub
         <div className="relative min-w-0 flex-1">
           <div className="text-[10px] font-black tracking-[0.2em] text-emerald-300">KABAR GEMBIRA<span className="hidden sm:inline"> · RESMI KONI KAB. BANDUNG</span></div>
           <div className="uppercase font-extrabold text-white leading-[0.95] text-[28px] lg:text-[34px] mt-0.5" style={TAMPIL}>
-            {k.cabor} <span className="bg-gradient-to-r from-emerald-300 to-amber-300 bg-clip-text text-transparent">Lolos!</span>
+            {k.cabor} <span className="bg-gradient-to-r from-emerald-300 to-amber-300 bg-clip-text text-transparent">{k.jenis === 'menang' ? 'Menang!' : 'Lolos!'}</span>
           </div>
           <div className="text-[13px] text-slate-200 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {k.skor && <span className="font-extrabold text-white text-[17px] tabular-nums leading-none" style={TAMPIL}>{k.skor}</span>}

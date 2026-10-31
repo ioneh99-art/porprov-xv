@@ -30,13 +30,14 @@ export interface PartaiPublik {
 }
 
 /** Hasil satu partai untuk publik — hanya skor dan jenis hasil, tanpa keterangan bebas. */
-export interface HasilPartai { jenis: 'emas' | 'perak' | 'perunggu' | 'peringkat' | 'lolos' | 'gugur'; label: string; skor: string | null }
+export interface HasilPartai { jenis: 'emas' | 'perak' | 'perunggu' | 'peringkat' | 'lolos' | 'gugur' | 'menang' | 'kalah'; label: string; skor: string | null }
 
 /** Laporan disahkan seperlunya untuk mencocokkan ke partai. */
 export interface LaporanSah { id: number; partai_id: number | null; cabor_id: number; tanggal: string; lawan: string | null; hasil: string; peringkat: number | null; nilai_teks: string | null }
 
 const LABEL_HASIL_PUBLIK: Record<string, string> = {
   emas: 'Emas', perak: 'Perak', perunggu: 'Perunggu', lolos: 'Lolos', gugur: 'Gugur',
+  menang: 'Menang', kalah: 'Kalah · masih bertanding',
 }
 const bakuLawan = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
 
@@ -259,13 +260,14 @@ export function medaliPerCabor(medali: MedaliPublik[]): ({ cabor: string } & Rek
 // pengumumannya di bagian paling atas selama cabor itu masih berjalan.
 
 /** Laporan "lolos" terbaru satu nomor, siap tampil di publik (tanpa keterangan bebas PIC). */
-export interface KabarLolos { id: number; cabor: string; nomor: string; tanggal: string; lawan: string | null; skor: string | null; babak: string | null }
+export interface KabarLolos { id: number; jenis: 'lolos' | 'menang'; cabor: string; nomor: string; tanggal: string; lawan: string | null; skor: string | null; babak: string | null }
 
 const bakuNomor = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 /**
  * Per cabor + nomor, ambil laporan disahkan TERBARU (tanggal, lalu id). Hanya
- * yang terbarunya "lolos" yang jadi kabar: kalau sesudahnya gugur atau sudah
+ * yang terbarunya "lolos" atau "menang" (laga pool) yang jadi kabar; kalah di pool
+ * menurunkan kabar tanpa menyatakan tersingkir: kalau sesudahnya gugur atau sudah
  * medali, perjalanan nomor itu selesai dan kabar lolosnya turun. Babak diambil
  * dari partai yang bertaut (partai_id, atau cabor + tanggal + lawan sama).
  */
@@ -282,11 +284,11 @@ export function pilihKabarLolos(
   }
   const kabar: KabarLolos[] = []
   for (const l of Array.from(terbaru.values())) {
-    if (l.hasil !== 'lolos') continue
+    if (l.hasil !== 'lolos' && l.hasil !== 'menang') continue
     const p = partai.find(x => x.id === l.partai_id)
       ?? (l.partai_id == null ? partai.find(x => x.cabor_id === l.cabor_id && x.tanggal === l.tanggal && !!bakuLawan(x.lawan) && bakuLawan(x.lawan) === bakuLawan(l.lawan)) : undefined)
     kabar.push({
-      id: l.id, cabor: namaCabor.get(l.cabor_id) ?? '', nomor: (l.nomor_teks ?? '').trim(), tanggal: l.tanggal,
+      id: l.id, jenis: l.hasil as KabarLolos['jenis'], cabor: namaCabor.get(l.cabor_id) ?? '', nomor: (l.nomor_teks ?? '').trim(), tanggal: l.tanggal,
       lawan: p?.lawan ?? (l.lawan?.trim() || null), skor: hasilPublik(l)?.skor ?? null, babak: p?.babak ?? null,
     })
   }

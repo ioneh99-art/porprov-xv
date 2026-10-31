@@ -112,7 +112,7 @@ const URUTAN: Record<string, number> = { emas: 1, perak: 2, perunggu: 3 }
 /** Capaian terhadap target medali si atlet. Kosong bila ia tidak punya target. */
 export function statusTarget(target: string | null, hasil: string): string {
   if (!target || !URUTAN[target]) return ''
-  if (hasil === 'lolos') return `Target ${target}: masih berjalan`
+  if (hasil === 'lolos' || hasil === 'menang' || hasil === 'kalah') return `Target ${target}: masih berjalan`
   return (URUTAN[hasil] ?? 9) <= URUTAN[target] ? `Target ${target}: tercapai` : `Target ${target}: belum tercapai`
 }
 
