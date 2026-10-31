@@ -6,7 +6,7 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
-  CreditCard, CalendarDays, CalendarClock,
+  CreditCard, CalendarDays, CalendarClock, X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { PREMIUM_REPORT_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
@@ -150,7 +150,8 @@ function LockedNavItem({ label, icon: Icon, plan }: { label: string; icon: any; 
   )
 }
 
-export default function KonidaSidebar() {
+/** Di HP (< md) menu tersembunyi dan digeser masuk lewat tombol ☰ di KonidaLayoutShell; di layar lebar selalu tampil. */
+export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: boolean; tutup?: () => void } = {}) {
   const pathname = usePathname()
   const router   = useRouter()
   const [user,      setUser]      = useState<any>(null)
@@ -267,14 +268,20 @@ export default function KonidaSidebar() {
   }
 
   if (!mounted) return (
-    <aside className="fixed left-0 top-0 h-screen w-56 bg-slate-900 border-r border-slate-800 z-20"/>
+    <aside className="hidden md:block fixed left-0 top-0 h-screen w-56 bg-slate-900 border-r border-slate-800 z-20"/>
   )
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-56 bg-slate-900 border-r border-slate-800 flex flex-col z-20">
+    <aside aria-label="Menu dashboard"
+      className={`fixed left-0 top-0 h-screen w-64 md:w-56 bg-slate-900 border-r border-slate-800 flex flex-col z-50 md:z-20 transition-transform duration-200 md:translate-x-0 ${terbuka ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
 
       {/* Header */}
-      <div className="px-5 py-4 border-b border-slate-800">
+      <div className="relative px-5 py-4 border-b border-slate-800">
+        {tutup && (
+          <button onClick={tutup} aria-label="Tutup menu" className="md:hidden absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
+            <X size={18} />
+          </button>
+        )}
         <div className="flex items-center gap-2.5 mb-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
             style={{ background: `linear-gradient(135deg,${tc.primary},${tc.dark})` }}>

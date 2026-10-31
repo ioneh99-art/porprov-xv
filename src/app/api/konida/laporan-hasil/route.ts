@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   let laporan: any[]
   try {
     laporan = await ambilSemua((dari, sampai) => db.from('laporan_hasil')
-      .select('id,cabor_id,nomor_id,nomor_teks,disiplin,atlet_ids,hasil,peringkat,nilai_teks,keterangan,lawan,jam,foto_path,tanggal,pelapor_nama,pelapor_wa,status,diputus_oleh,diputus_at,alasan_tolak,created_at')
+      .select('id,cabor_id,nomor_id,partai_id,nomor_teks,disiplin,atlet_ids,hasil,peringkat,nilai_teks,keterangan,lawan,jam,foto_path,tanggal,pelapor_nama,pelapor_wa,status,diputus_oleh,diputus_at,alasan_tolak,created_at')
       .eq('kontingen_id', a.kontingen_id).order('created_at', { ascending: false }).order('id', { ascending: false }).range(dari, sampai))
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
