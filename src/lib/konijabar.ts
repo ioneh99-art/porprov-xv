@@ -326,3 +326,21 @@ export function cariAlarm(hasil: HasilLuarBanding[], laporan: LaporanBanding[], 
   }
   return keluar.sort((a, b) => Number(a.dicek) - Number(b.dicek) || (b.tanggal ?? '').localeCompare(a.tanggal ?? ''))
 }
+
+/* ---------- Klasemen medali resmi (/data/tally.json, sama dengan tabel di halaman depan) ---------- */
+
+export interface BarisKlasemenLuar { nama: string; emas: number; perak: number; perunggu: number }
+
+/** Baris klasemen dari HTML tabel klasemen situs panitia (isi `rows_html` di /data/tally.json). */
+export function bacaKlasemen(rowsHtml: string): BarisKlasemenLuar[] {
+  const h = rata(rowsHtml)
+  const keluar: BarisKlasemenLuar[] = []
+  for (const m of Array.from(h.matchAll(/<tr class="tally-row"[^>]*>(.*?)<\/tr>/g))) {
+    const nama = m[1].match(/<span class="name">(.*?)<\/span>/)?.[1]
+    const sel = (k: string) => Number(teks(m[1].match(new RegExp(`<td class="col-num col-${k}[^"]*">(.*?)</td>`))?.[1] ?? 'x'))
+    const e = sel('emas'), p = sel('perak'), g = sel('perunggu')
+    if (!nama || ![e, p, g].every(n => Number.isInteger(n) && n >= 0 && n < 1000)) continue
+    keluar.push({ nama: teks(nama), emas: e, perak: p, perunggu: g })
+  }
+  return keluar
+}

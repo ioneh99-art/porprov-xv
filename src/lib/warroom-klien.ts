@@ -21,6 +21,10 @@ export interface DataWarRoom {
     cabor_hari_ini: { cabor_id: number; cabor: string; pic: KeadaanPic; laporan_hari_ini: number; live: boolean }[]
   }
   klasemen_diperbarui: string | null
+  /** Target emas resmi = jumlah proyeksi emas KONI (74). */
+  target_emas: number
+  hasil_terbaru: { id: number; cabor: string; nomor: string; hasil: string; label: string; nilai: string | null; lawan: string | null; tanggal: string }[]
+  sorotan: { id: number; cabor: string; nomor: string; hasil: 'emas' | 'perak' | 'perunggu'; tanggal: string; atlet: string[]; foto: string | null }[]
 }
 
 export function useWarRoom(kontingenId: number, jedaMs = 20_000) {

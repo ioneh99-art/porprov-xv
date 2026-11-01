@@ -5,7 +5,7 @@
 // disahkan, jadwal partai, jadwal kegiatan cabor, kode PIC, catatan lapangan.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { hariPorprov, tanggalWIB } from '@/lib/lapor'
+import { hariPorprov, tanggalWIB, tulisHasil } from '@/lib/lapor'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { KOLOM_PARTAI } from '@/lib/partai-server'
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     ;[proyeksiMentah, laporan, daftar] = await Promise.all([
       ambilSemua((d, s) => db.from('proyeksi_medali').select('urutan,tanggal,cabor_id,cabor_teks,nomor_teks,atlet_teks,kota')
         .eq('kontingen_id', k).eq('medali', 'emas').order('urutan').range(d, s)),
-      ambilSemua((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,hasil,nomor_teks,status')
+      ambilSemua((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,hasil,peringkat,nomor_teks,nilai_teks,lawan,atlet_ids,status,diputus_at,created_at')
         .eq('kontingen_id', k).neq('status', 'ditolak').order('id').range(d, s)),
       ambilSemua<{ cabor_id: number }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id').eq('kontingen_id', k).order('id').range(d, s)),
     ])
@@ -121,7 +121,30 @@ export async function GET(req: NextRequest) {
     })).sort((x, y) => x.laporan_hari_ini - y.laporan_hari_ini || x.cabor.localeCompare(y.cabor, 'id')),
   }
 
+  // ── Hasil terbaru (teks berjalan) & peraih medali terbaru (wajah atlet) — hanya yang disahkan ──
+  const sahUrut = [...sah].sort((x, y) => String(y.diputus_at ?? y.created_at).localeCompare(String(x.diputus_at ?? x.created_at)) || y.id - x.id)
+  const hasilTerbaru = sahUrut.slice(0, 12).map(l => ({
+    id: l.id, cabor: namaCabor.get(l.cabor_id) ?? 'Cabor', nomor: l.nomor_teks, hasil: l.hasil, label: tulisHasil(l),
+    nilai: l.nilai_teks, lawan: l.lawan, tanggal: l.tanggal,
+  }))
+  const medaliTerbaru = sahUrut.filter(l => ['emas', 'perak', 'perunggu'].includes(l.hasil)).slice(0, 6)
+  const idSorot = Array.from(new Set(medaliTerbaru.flatMap(l => (l.atlet_ids ?? []) as number[])))
+  const { data: atletSorot } = idSorot.length
+    ? await db.from('atlet').select('id,nama_lengkap,foto_url').eq('kontingen_id', k).in('id', idSorot)
+    : { data: [] as any[] }
+  const petaSorot = new Map((atletSorot ?? []).map((a: any) => [a.id, a]))
+  const sorotan = medaliTerbaru.map(l => {
+    const at = ((l.atlet_ids ?? []) as number[]).map(id => petaSorot.get(id)).filter(Boolean) as any[]
+    return {
+      id: l.id, cabor: namaCabor.get(l.cabor_id) ?? 'Cabor', nomor: l.nomor_teks, hasil: l.hasil, tanggal: l.tanggal,
+      atlet: at.map(a => a.nama_lengkap), foto: at.find(a => a.foto_url)?.foto_url ?? null,
+    }
+  })
+
   return NextResponse.json({
+    target_emas: proyeksi.length,
+    hasil_terbaru: hasilTerbaru,
+    sorotan,
     hari_ini: hariIni, jam_kini: jamKini, hari_ke: hariPorprov(hariIni), diperbarui: new Date().toISOString(),
     misi: { tanggal: tglMisi, hari_ini: tglMisi === hariIni, daftar: misi, besok: proyeksi.filter(p => p.tanggal === besok).length },
     arena: { live: live.map(isiPartai), berikut: partaiBerikut(partai as PartaiWR[], hariIni, jamKini).map(isiPartai) },

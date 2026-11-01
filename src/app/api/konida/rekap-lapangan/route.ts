@@ -24,9 +24,11 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
-  const [{ count: menunggu }, { data: kontingen }] = await Promise.all([
+  const [{ count: menunggu }, { data: kontingen }, { count: proyeksiEmas }] = await Promise.all([
     db.from('laporan_hasil').select('id', { count: 'exact', head: true }).eq('kontingen_id', k).eq('status', 'menunggu'),
     db.from('kontingen').select('nama').eq('id', k).maybeSingle(),
+    // Target emas resmi = proyeksi emas KONI (keputusan Bos 1 Nov 2026: 74), sama dengan KPI & grafik War Room.
+    db.from('proyeksi_medali').select('urutan', { count: 'exact', head: true }).eq('kontingen_id', k).eq('medali', 'emas'),
   ])
   const laporan = sah.map((l: any) => ({ ...l, status: 'disahkan' }))
 
@@ -108,8 +110,9 @@ export async function GET(req: NextRequest) {
     // Semua medali yang disahkan — untuk daftar "medali per tanggal" di Mode Layar.
     medali_semua: medali,
     target: {
-      ada: !!akhir,
-      emas_koni: targetKoni, emas_cabor: targetCaborTotal,
+      ada: !!akhir || (proyeksiEmas ?? 0) > 0,
+      // Proyeksi KONI dulu; angka berkas analisis (94) hanya cadangan bila proyeksi belum diimpor.
+      emas_koni: (proyeksiEmas ?? 0) > 0 ? proyeksiEmas! : targetKoni, emas_cabor: targetCaborTotal,
       atlet_emas: capaian.length,
       tercapai: capaian.filter(c => c.status === 'tercapai').length,
       belum_emas: capaian.filter(c => c.status === 'belum_emas').length,

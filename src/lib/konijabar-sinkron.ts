@@ -11,7 +11,7 @@
 import { ambilSemua, dbLapor } from './lapor-sesi'
 import { writeAudit } from './audit'
 import {
-  MULAI_LAGA, NAMA_KONTINGEN_SITUS, PELAPOR_KONIJABAR, SITUS_KONIJABAR, baku, bacaJadwalHarian, bacaLaga,
+  MULAI_LAGA, NAMA_KONTINGEN_SITUS, PELAPOR_KONIJABAR, SITUS_KONIJABAR, baku, bacaJadwalHarian, bacaKlasemen, bacaLaga,
   cariAlarm, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, pilihNomorResmi, skorTeks, tebakHasil, urlLaga,
   type AlarmBeda, type HasilLuarBanding, type LaporanBanding,
 } from './konijabar'
@@ -27,12 +27,46 @@ export interface RingkasSinkron {
   hari: number; laga_kita: number; dibaca: number; laporan_baru: number; sudah_dilaporkan: number; tak_terbaca: number
   /** Skor di situs berubah dibanding pembacaan sebelumnya. */
   berubah?: number
+  /** Klasemen resmi: jumlah kontingen yang angkanya diperbarui + jam pembaruan menurut situs. */
+  klasemen?: { diubah: number; kontingen: number; situs: string | null }
   galat: string[]
 }
 
 const hariIniWIB = () => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10)
 const geserHari = (iso: string, n: number) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86_400_000).toISOString().slice(0, 10)
 const tidur = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+/**
+ * Klasemen medali resmi (terverifikasi panitia) → klasemen_medali untuk 26 kontingen LAIN.
+ * Angka Kab. Bandung tidak ditimpa: War Room/layar menghitungnya dari laporan yang disahkan KONIDA.
+ * Menggantikan pengetikan manual "Perbarui klasemen" (tombol itu tetap ada sebagai cadangan).
+ */
+async function sinkronKlasemen(kontingenId: number, oleh: string): Promise<RingkasSinkron['klasemen']> {
+  const j = JSON.parse(await ambilHalaman(`${SITUS_KONIJABAR}/data/tally.json`))
+  const baris = bacaKlasemen(String(j?.rows_html ?? ''))
+  if (baris.length < 20) throw new Error(`klasemen situs hanya ${baris.length} baris — tidak dipakai`)
+  const db = dbLapor()
+  const [{ data: kontingen }, { data: lama }] = await Promise.all([
+    db.from('kontingen').select('id,nama'),
+    db.from('klasemen_medali').select('kontingen_id,emas,perak,perunggu'),
+  ])
+  const idNama = new Map((kontingen ?? []).map((k: any) => [baku(k.nama), k.id as number]))
+  const petaLama = new Map((lama ?? []).map((r: any) => [r.kontingen_id, r]))
+  const kini = new Date().toISOString()
+  const diubah: any[] = []
+  for (const b of baris) {
+    const id = idNama.get(baku(b.nama))
+    if (id == null || id === kontingenId) continue
+    const l: any = petaLama.get(id)
+    if (!l || (l.emas === b.emas && l.perak === b.perak && l.perunggu === b.perunggu)) continue
+    const { error } = await db.from('klasemen_medali')
+      .update({ emas: b.emas, perak: b.perak, perunggu: b.perunggu, total: b.emas + b.perak + b.perunggu, updated_at: kini }).eq('kontingen_id', id)
+    if (error) throw new Error(error.message)
+    diubah.push({ kontingen_id: id, sebelum: { emas: l.emas, perak: l.perak, perunggu: l.perunggu }, sesudah: { emas: b.emas, perak: b.perak, perunggu: b.perunggu } })
+  }
+  if (diubah.length) await writeAudit({ action: 'KLASEMEN_RESMI_OTOMATIS', resource: 'klasemen_medali', kontingen_id: kontingenId, actor_email: oleh, payload: { sumber: 'porprov.konijabar.or.id', diubah } })
+  return { diubah: diubah.length, kontingen: baris.length, situs: typeof j?.updated === 'string' ? j.updated : null }
+}
 
 async function ambilHalaman(url: string): Promise<string> {
   const ac = new AbortController()
@@ -99,6 +133,9 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
   const tanggal: string[] = []
   for (let t = awal; t <= hariIni; t = geserHari(t, 1)) tanggal.push(t)
   r.hari = tanggal.length
+
+  // 0) Klasemen resmi panitia.
+  try { r.klasemen = await sinkronKlasemen(kontingenId, opsi.oleh ?? 'otomatis') } catch (e: any) { r.galat.push(`Klasemen: ${e?.message ?? e}`) }
 
   // 1) Jadwal harian → laga kita yang sudah selesai.
   const target: { ref: string; tgl: string }[] = []

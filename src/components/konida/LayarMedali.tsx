@@ -257,7 +257,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
             {t?.ada && t.emas_koni > 0 && (
               <div className={kotak} style={{ padding: '1vw 1.6vw' }}>
                 <div className="flex items-baseline justify-between">
-                  <div className={judulKecil} style={{ fontSize: '1vw' }}>Target emas KONI</div>
+                  <div className={judulKecil} style={{ fontSize: '1vw' }}>Target emas</div>
                   <div className="font-black tabular-nums" style={{ fontSize: '2vw' }}>
                     <span style={{ color: WARNA.emas }}>{r?.emas ?? 0}</span><span className="text-slate-400"> / {t.emas_koni}</span>
                   </div>
@@ -265,7 +265,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
                 <div className="rounded-full overflow-hidden bg-white/10 mt-[0.6vw]" style={{ height: '1.1vw' }}>
                   <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${persenKoni}%`, background: `linear-gradient(90deg, #b8860b, ${WARNA.emas})` }} />
                 </div>
-                <div className="text-slate-400 mt-[0.5vw]" style={{ fontSize: '0.95vw' }}>{persenKoni}% tercapai · target cabor {t.emas_cabor} emas</div>
+                <div className="text-slate-400 mt-[0.5vw]" style={{ fontSize: '0.95vw' }}>{persenKoni}% tercapai</div>
               </div>
             )}
 

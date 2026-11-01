@@ -3,7 +3,7 @@
 import {
   bacaJadwalHarian, bacaLaga, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, nomorSama,
   pilihNomorResmi, skorTeks, tebakHasil, type PartaiCocok,
-  arahHasil, bandingkan, cariAlarm, kunciBanding, skorUtama, type HasilLuarBanding, type LaporanBanding,
+  arahHasil, bacaKlasemen, bandingkan, cariAlarm, kunciBanding, skorUtama, type HasilLuarBanding, type LaporanBanding,
 } from '../src/lib/konijabar'
 
 let lulus = 0, gagal = 0
@@ -139,6 +139,16 @@ const k = kunciBanding(H(), LB({ nilai_teks: '3-4' }))
 cek('alarm: sudah dicek → dicek=true', cariAlarm([H({ dicek_kunci: k })], [LB({ nilai_teks: '3-4' })], lp)[0].dicek, true)
 cek('alarm: sudah dicek tapi skor situs berubah lagi → aktif lagi', cariAlarm([H({ dicek_kunci: k, skor_kita: 2 })], [LB({ nilai_teks: '3-4' })], lp)[0].dicek, false)
 cek('alarm: belum dicek di depan', cariAlarm([H({ ref: '1', dicek_kunci: kunciBanding(H({ ref: '1' }), LB({ nilai_teks: '3-4' })) }), H({ ref: '2' })], [LB({ nilai_teks: '3-4' })], lp).map(a => a.ref), ['2', '1'])
+
+
+// --- klasemen resmi ---
+const baris = (nama: string, e: number, p: number, g: number, nol = false) => `<tr class="tally-row" data-cid="1" data-sig="x">
+  <td class="col-rank"><span class="muted">-</span></td> <th class="col-name" scope="row"> <a href="/kontingen/x"> <img src="/l.webp"> <span class="name">${nama}</span> </a> </th>
+  <td class="col-bar" aria-hidden="true"> </td> <td class="col-num col-emas${nol ? ' is-zero' : ''}">${e}</td> <td class="col-num col-perak">${p}</td> <td class="col-num col-perunggu">${g}</td> <td class="col-num col-total">${e + p + g}</td> </tr>`
+cek('klasemen: baca baris', bacaKlasemen(baris('Kota Bandung', 30, 21, 18) + '\n' + baris('Kab. Bandung', 0, 0, 0, true)), [
+  { nama: 'Kota Bandung', emas: 30, perak: 21, perunggu: 18 }, { nama: 'Kab. Bandung', emas: 0, perak: 0, perunggu: 0 }])
+cek('klasemen: baris rusak dilewati', bacaKlasemen(baris('Kota Bogor', 1, 2, 3).replace('>1<', '>?<')), [])
+cek('klasemen: kosong', bacaKlasemen(''), [])
 
 console.log(`uji-konijabar: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

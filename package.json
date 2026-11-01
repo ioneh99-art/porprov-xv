@@ -25,7 +25,8 @@
     "uji:jalur-lapor": "npx tsx scripts/uji-jalur-lapor.ts",
     "uji:warroom": "npx tsx scripts/uji-warroom.ts",
     "uji:konijabar": "npx tsx scripts/uji-konijabar.ts",
-    "uji": "npm run uji:perubahan && npm run uji:gateway && npm run uji:pencocokan && npm run uji:jadwal && npm run uji:papan && npm run uji:lapor && npm run uji:pendaftaran && npm run uji:matriks && npm run uji:catatan && npm run uji:laporan-cabor && npm run uji:proyeksi && npm run uji:layar && npm run uji:sesi && npm run uji:jadwal-publik && npm run uji:jadwal-partai && npm run uji:jejak-partai && npm run uji:jalur-lapor && npm run uji:warroom && npm run uji:konijabar"
+    "uji:command-center": "npx tsx scripts/uji-command-center.ts",
+    "uji": "npm run uji:perubahan && npm run uji:gateway && npm run uji:pencocokan && npm run uji:jadwal && npm run uji:papan && npm run uji:lapor && npm run uji:pendaftaran && npm run uji:matriks && npm run uji:catatan && npm run uji:laporan-cabor && npm run uji:proyeksi && npm run uji:layar && npm run uji:sesi && npm run uji:jadwal-publik && npm run uji:jadwal-partai && npm run uji:jejak-partai && npm run uji:jalur-lapor && npm run uji:warroom && npm run uji:konijabar && npm run uji:command-center"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",

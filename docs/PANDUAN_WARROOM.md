@@ -16,7 +16,29 @@ tampil kosong dengan jujur ("—", "Klasemen belum dimulai").
 | **Detik Emas** | Layar penuh setiap medali BARU disahkan (emas 12 dtk, perak/perunggu 8 dtk), juga di atas Mode Layar | rekap lapangan (cek tiap 20 dtk) |
 | Mode Layar (videotron) | 5 halaman berputar; halaman 5 = Misi emas + partai berikutnya | sama |
 
-## Klasemen resmi (wajib diisi tim KONIDA)
+## Command Center — 3 monitor (1 Nov 2026)
+
+Tiga alamat, satu per monitor landscape (login KONIDA di komputer monitor, buka alamat, tekan F11):
+
+| Layar | Alamat | Isi |
+|---|---|---|
+| 1 · Posisi kita | `/konida/warroom/kabbandung/layar/1` | Peringkat besar, emas/perak/perunggu, garis menuju **target 74**, kalimat ringkas 30 detik, 8 besar klasemen + selisih ke atas/bawah |
+| 2 · Hari ini, sekarang | `/konida/warroom/kabbandung/layar/2` | Arena (sedang main & berikutnya), Misi Emas, pita "hasil terbaru" (hanya yang disahkan) |
+| 3 · Sebaran dan wajah | `/konida/warroom/kabbandung/layar/3` | Peta kota hari ini, peraih medali terbaru + foto, medali per cabor, (di luar Mode Kunjungan) baris operasi |
+
+- **Detik Emas** tampil di ketiga layar. Data segar tiap 20 dtk; layar tidak tidur; kursor hilang saat diam; muat ulang sendiri tiap 4 jam.
+- **Mode Kunjungan** (War Room → tombol **Command Center**, bisa dari HP): ucapan selamat datang di Layar 2, huruf lebih besar,
+  data internal disembunyikan. Disimpan di tabel `command_center` (migrasi 065), audit `COMMAND_CENTER_UBAH`.
+- Papan ketik: tombol 1/2/3 berpindah layar. Aturan & uji: `src/lib/command-center.ts`, `npm run uji:command-center`.
+
+## Klasemen resmi — otomatis dari situs KONI Jabar (sejak 1 Nov 2026)
+
+Angka 26 kontingen lain dibaca dari `porprov.konijabar.or.id/data/tally.json` (klasemen terverifikasi panitia) setiap kali
+situs dibaca (Report Pertandingan dibuka / Layar 1 menyala, paling sering 15 menit sekali; cron 21.00 WIB). Perubahan
+tercatat `KLASEMEN_RESMI_OTOMATIS`. Angka Kab. Bandung tetap dari laporan yang disahkan KONIDA. Input manual di bawah
+tetap ada sebagai cadangan bila situs panitia bermasalah.
+
+## Klasemen resmi (input manual — cadangan)
 
 Angka 26 kontingen lain **tidak masuk otomatis**. Tim KONIDA mengetiknya dari klasemen resmi panitia:
 War Room → kolom Pertarungan Peringkat → **Perbarui klasemen** → isi 🥇🥈🥉 → Simpan.
@@ -25,8 +47,8 @@ Angka Kab. Bandung otomatis memakai laporan lapangan yang disahkan. Akses: KONID
 Rute: `GET/POST /api/konida/klasemen-resmi`. Bahan War Room: `GET /api/konida/warroom`.
 
 ## Catatan terbuka
-- Target emas berbeda di dua tempat: KPI & grafik = **74** (proyeksi PPT KONI 16 Okt); Mode Layar halaman 1 = **94**
-  ("target KONI" berkas analisis). Perlu satu angka resmi dari Bos.
+- Target emas resmi = **74** (keputusan Bos 1 Nov 2026) = jumlah proyeksi emas KONI di `proyeksi_medali`; dipakai KPI,
+  grafik, Mode Layar, dan Command Center. Angka 94 (berkas analisis) hanya cadangan bila proyeksi kosong.
 - Tabel lama `hasil_pertandingan` (60 baris uji 9 Jun 2026, kontingen 4) dipakai modul operator Dayung/Pentathlon dan
   punya pemicu yang menulis `klasemen_medali`. Tidak disentuh; bila ada baris baru untuk kontingen 4, klasemen Kab. Bandung
   bisa tertimpa angka uji itu.

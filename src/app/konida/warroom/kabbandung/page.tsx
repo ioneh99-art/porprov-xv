@@ -35,6 +35,7 @@ import InputKlasemenResmi from '@/components/konida/warroom/InputKlasemenResmi'
 import KalenderPanas from '@/components/konida/warroom/KalenderPanas'
 import PetaPerjuangan from '@/components/konida/warroom/PetaPerjuangan'
 import KesehatanOperasi from '@/components/konida/warroom/KesehatanOperasi'
+import PanelCommandCenter from '@/components/konida/warroom/PanelCommandCenter'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,6 +71,7 @@ export default function PageWarRoom() {
   // Misi emas, arena, kalender, peta, operasi — satu muatan, segar tiap 20 dtk.
   const { data: wr, muat: muatWR } = useWarRoom(4)
   const [inputKlasemen, setInputKlasemen] = useState(false)
+  const [panelCC, setPanelCC] = useState(false)
   const [versi, setVersi] = useState(0)   // naik setelah klasemen resmi disimpan → muat ulang klasemen
   // Target emas = proyeksi KONI (berkas PPT Grafik Raihan Emas), sama dengan grafik di bawah.
   const [targetEmas, setTargetEmas] = useState<number | null>(null)
@@ -247,10 +249,15 @@ export default function PageWarRoom() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/30 border border-white/5">
               <Clock size={14} style={{ color:ACCENT }}/><LiveClock/>
             </div>
+            <button onClick={() => setPanelCC(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border"
+              style={{ background:'rgba(250,204,21,0.12)', borderColor:'rgba(250,204,21,0.45)', color:'#fde047' }}>
+              <Monitor size={11}/> Command Center
+            </button>
             <button onClick={() => setLayar(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border"
               style={{ background:`${ACCENT}18`, borderColor:`${ACCENT}50`, color:ACCENT }}>
@@ -265,6 +272,7 @@ export default function PageWarRoom() {
       </header>
 
       {layar && <LayarMedali kontingenId={4} onTutup={() => setLayar(false)} />}
+      {panelCC && <PanelCommandCenter onTutup={() => setPanelCC(false)} />}
       {/* Detik Emas berada di atas Mode Layar juga (z lebih tinggi) */}
       <DetikEmas medali={lapangan?.medali_semua} />
       {inputKlasemen && <InputKlasemenResmi onTutup={() => setInputKlasemen(false)} onTersimpan={() => { setVersi(v => v + 1); muatWR() }} />}
