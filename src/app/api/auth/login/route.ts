@@ -148,6 +148,9 @@ function getRedirect(
   }
   if (role === 'operator') return '/operator/dashboard'
 
+  // KONIDA Kab. Bandung: beranda = War Room (keputusan Bos 2 Nov 2026).
+  if (tenantId === 'kabbandung' && role === 'konida') return '/konida/warroom/kabbandung'
+
   // Penyelenggara (level1 = kotabekasi)
   if (level === 'level1') {
     return role === 'penyelenggara'

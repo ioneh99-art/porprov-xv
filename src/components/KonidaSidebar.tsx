@@ -6,7 +6,7 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
-  CreditCard, CalendarDays, CalendarClock, X, ShieldCheck,
+  CreditCard, CalendarDays, CalendarClock, X, ShieldCheck, ChevronDown,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { PREMIUM_REPORT_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
@@ -117,6 +117,36 @@ function NavItemVIP({ label, href, icon: Icon, badge = 'VIP' }: { label: string;
   )
 }
 
+// ── Kelompok menu yang bisa dilipat (Kab. Bandung) ──────────────────────────
+// Pilihan buka/lipat diingat per peramban. Kelompok yang berisi halaman yang
+// sedang dibuka selalu terbuka, supaya menu aktif tidak tersembunyi.
+type KunciKelompok = 'kontingen' | 'premium' | 'cc'
+const KUNCI_SIMPAN = 'konida-sidebar-kelompok-v1'
+const AWAL_KELOMPOK: Record<KunciKelompok, boolean> = { kontingen: false, premium: false, cc: true }
+
+function bacaKelompok(): Record<KunciKelompok, boolean> {
+  try { return { ...AWAL_KELOMPOK, ...JSON.parse(localStorage.getItem(KUNCI_SIMPAN) ?? '{}') } } catch { return AWAL_KELOMPOK }
+}
+
+function Kelompok({ judul, warna, buka, onToggle, aktif, jumlah, children }: {
+  judul: string; warna: string; buka: boolean; onToggle: () => void; aktif: boolean; jumlah: number; children: React.ReactNode
+}) {
+  const terbuka = buka || aktif
+  return (
+    <div className="mt-2 first:mt-0">
+      <button type="button" onClick={onToggle} aria-expanded={terbuka} disabled={aktif}
+        title={aktif ? 'Berisi halaman yang sedang dibuka' : terbuka ? 'Lipat' : 'Buka'}
+        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800/60 transition-colors group">
+        <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: warna }}>{judul}</span>
+        <span className="flex-1 h-px bg-slate-800" />
+        {!terbuka && <span className="text-[9px] font-bold text-slate-500 tabular-nums">{jumlah}</span>}
+        <ChevronDown size={13} className="text-slate-500 group-hover:text-slate-300 transition-transform" style={{ transform: terbuka ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
+      </button>
+      {terbuka && <div className="mt-1">{children}</div>}
+    </div>
+  )
+}
+
 function NavItemPremium({ label, href, icon: Icon, tc }: { label: string; href: string; icon: any; tc: { primary: string } }) {
   const pathname = usePathname()
   const active   = pathname === href || pathname.startsWith(href + '/')
@@ -163,6 +193,13 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
   const [userLevel, setUserLevel] = useState<string>('level3')
   const [tenantId,  setTenantId]  = useState<string>('jabar')
   const [mounted,   setMounted]   = useState(false)
+  const [kelompok,  setKelompok]  = useState<Record<KunciKelompok, boolean>>(AWAL_KELOMPOK)
+  useEffect(() => { setKelompok(bacaKelompok()) }, [])
+  const ubahKelompok = (k: KunciKelompok) => setKelompok(v => {
+    const baru = { ...v, [k]: !v[k] }
+    try { localStorage.setItem(KUNCI_SIMPAN, JSON.stringify(baru)) } catch { /* mode privat */ }
+    return baru
+  })
   const kontingenIdRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -246,6 +283,12 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
     : userLevel === 'koni_jabar'    ? '/dashboard'
     : userLevel === 'superadmin'    ? '/superadmin'
     : '/konida/dashboard/basic'
+
+  /** Halaman yang sedang dibuka termasuk salah satu alamat ini (dan bukan alamat pengecualian)? */
+  const dalam = (alamat: string[], kecuali: string[] = []) => {
+    const cocok = (h: string) => pathname === h || pathname.startsWith(h + '/')
+    return alamat.some(cocok) && !kecuali.some(cocok)
+  }
 
   const NavItem = ({ label, href, icon: Icon, notif }: {
     label: string; href: string; icon: any; notif?: number
@@ -356,50 +399,47 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
         {(tenantId === 'kabbandung' || tenantId === 'jabar' || userLevel === 'koni_jabar') ? (
           <>
             {/* ── 1. Kontingen ── */}
-            <div className="text-slate-600 text-[10px] uppercase tracking-widest px-2 mb-2">Kontingen</div>
-            <NavItem label="Dashboard"       href={dashboardHref}                     icon={LayoutDashboard}/>
-            <NavItem label="Data Atlet"      href="/konida/atlet/kabbandung"           icon={Users}/>
-            <NavItem label="Dokumen Atlet"   href="/konida/dokumen/kabbandung"         icon={FileCheck}/>
-            <NavItem label="Kartu BPJS"      href="/konida/atlet/kabbandung/bpjs"      icon={ShieldCheck}/>
-            {can('kualifikasi')
-              ? <NavItem label="Kualifikasi" href="/konida/kualifikasi/kabbandung"     icon={ClipboardCheck}/>
-              : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
-            }
-            <NavItem label="Kejuaraan Atlet" href="/konida/kejuaraan/kabbandung"       icon={Trophy} notif={counts.kejuaraan ?? 0}/>
-            {can('laporan')
-              ? <NavItem label="Laporan"     href="/konida/laporan/kabbandung"         icon={BarChart2}/>
-              : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
-            }
+            <Kelompok judul="Kontingen" warna="#64748b" buka={kelompok.kontingen} onToggle={() => ubahKelompok('kontingen')}
+              aktif={dalam(['/konida/dashboard/kabbandung', '/konida/atlet/kabbandung', '/konida/dokumen/kabbandung', '/konida/kualifikasi/kabbandung', '/konida/kejuaraan/kabbandung', '/konida/laporan/kabbandung'], ['/konida/atlet/kabbandung/bpjs', '/konida/atlet/kabbandung/idcard'])}
+              jumlah={6}>
+              <NavItem label="Dashboard"       href={dashboardHref}                     icon={LayoutDashboard}/>
+              <NavItem label="Data Atlet"      href="/konida/atlet/kabbandung"           icon={Users}/>
+              <NavItem label="Dokumen Atlet"   href="/konida/dokumen/kabbandung"         icon={FileCheck}/>
+              {can('kualifikasi')
+                ? <NavItem label="Kualifikasi" href="/konida/kualifikasi/kabbandung"     icon={ClipboardCheck}/>
+                : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
+              }
+              <NavItem label="Kejuaraan Atlet" href="/konida/kejuaraan/kabbandung"       icon={Trophy} notif={counts.kejuaraan ?? 0}/>
+              {can('laporan')
+                ? <NavItem label="Laporan"     href="/konida/laporan/kabbandung"         icon={BarChart2}/>
+                : <LockedNavItem label="Laporan" icon={BarChart2} plan="Standard"/>
+              }
+            </Kelompok>
 
             {/* ── 2. Premium ── */}
-            <div className="flex items-center gap-2 px-2 mt-3 mb-2">
-              <div className="flex-1 h-px bg-slate-800"/>
-              <span className="text-[9px] font-black uppercase tracking-widest"
-                style={{ color: '#F5C518', opacity: 0.6 }}>Premium</span>
-              <div className="flex-1 h-px bg-slate-800"/>
-            </div>
-            <NavItemPremium label="Data Gateway"   href="/konida/export/kabbandung"                          icon={Database}  tc={tc}/>
-            <NavItemPremium label="Cetak ID Card"  href="/konida/atlet/kabbandung/idcard"                     icon={CreditCard} tc={tc}/>
-            <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
-            <NavItemPremium label="Heatmap Cabor"  href="/konida/Premiumreport/kabbandung/heatmap-cabor"      icon={BarChart2} tc={tc}/>
-            <NavItemVIP     label="Performance"    href="/konida/performance/kabbandung"                      icon={BarChart3} />
-
-            <div className="h-px bg-slate-800 my-3"/>
+            <Kelompok judul="Premium" warna="rgba(245,197,24,0.75)" buka={kelompok.premium} onToggle={() => ubahKelompok('premium')}
+              aktif={dalam(['/konida/export/kabbandung', '/konida/atlet/kabbandung/idcard', '/konida/Premiumreport/kabbandung/tes-fisik', '/konida/Premiumreport/kabbandung/heatmap-cabor', '/konida/atlet/kabbandung/bpjs', '/konida/performance/kabbandung'])}
+              jumlah={6}>
+              <NavItemPremium label="Data Gateway"   href="/konida/export/kabbandung"                          icon={Database}  tc={tc}/>
+              <NavItemPremium label="Cetak ID Card"  href="/konida/atlet/kabbandung/idcard"                     icon={CreditCard} tc={tc}/>
+              <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
+              <NavItemPremium label="Heatmap Cabor"  href="/konida/Premiumreport/kabbandung/heatmap-cabor"      icon={BarChart2} tc={tc}/>
+              <NavItemVIP     label="Kartu BPJS"     href="/konida/atlet/kabbandung/bpjs"                       icon={ShieldCheck} />
+              <NavItemVIP     label="Performance"    href="/konida/performance/kabbandung"                      icon={BarChart3} />
+            </Kelompok>
 
             {/* ── 3. Command Center ── */}
-            <div className="flex items-center gap-2 px-2 mt-1 mb-2">
-              <div className="flex-1 h-px bg-slate-800"/>
-              <span className="text-[9px] font-black uppercase tracking-widest"
-                style={{ color: '#a78bfa', opacity: 0.7 }}>Command Center</span>
-              <div className="flex-1 h-px bg-slate-800"/>
-            </div>
-            {PREMIUM_REPORT_KABBANDUNG_TAMPIL && (
-              <NavItemVIP label="Premium Report"    href="/konida/Premiumreport/kabbandung"    icon={Download} />
-            )}
-            <NavItemVIP label="Jadwal Pertandingan" href="/konida/jadwal/kabbandung"         icon={CalendarDays} />
-            <NavItemVIP label="Jadwal Keberangkatan" href="/konida/keberangkatan/kabbandung"  icon={CalendarClock} />
-            <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
-            <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
+            <Kelompok judul="Command Center" warna="rgba(167,139,250,0.85)" buka={kelompok.cc} onToggle={() => ubahKelompok('cc')}
+              aktif={dalam(['/konida/Premiumreport/kabbandung', '/konida/jadwal/kabbandung', '/konida/keberangkatan/kabbandung', '/konida/lappertandingan/kabbandung', '/konida/warroom/kabbandung'], ['/konida/Premiumreport/kabbandung/tes-fisik', '/konida/Premiumreport/kabbandung/heatmap-cabor'])}
+              jumlah={PREMIUM_REPORT_KABBANDUNG_TAMPIL ? 5 : 4}>
+              {PREMIUM_REPORT_KABBANDUNG_TAMPIL && (
+                <NavItemVIP label="Premium Report"    href="/konida/Premiumreport/kabbandung"    icon={Download} />
+              )}
+              <NavItemVIP label="Jadwal Pertandingan" href="/konida/jadwal/kabbandung"         icon={CalendarDays} />
+              <NavItemVIP label="Jadwal Keberangkatan" href="/konida/keberangkatan/kabbandung"  icon={CalendarClock} />
+              <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
+              <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
+            </Kelompok>
           </>
         ) : (
           <>

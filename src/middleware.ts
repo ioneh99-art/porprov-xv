@@ -21,11 +21,18 @@ const TENANT_MODULES = [
   'Premiumreport','warroom','sipa',
 ]
 
-function resolveTenantRewrite(req: NextRequest, tenant: string): NextResponse | null {
+/** Beranda KONIDA Kab. Bandung setelah login (keputusan Bos 2 Nov 2026). */
+export const BERANDA_KONIDA_KABBANDUNG = '/konida/warroom/kabbandung'
+
+async function resolveTenantRewrite(req: NextRequest, tenant: string): Promise<NextResponse | null> {
   const { pathname } = req.nextUrl
 
-  // Kab. Bandung: halaman awal = jadwal publik tanpa login (tombol "Masuk" di sana).
+  // Kab. Bandung: halaman awal pintar — KONIDA yang sudah login langsung ke War Room;
+  // pengunjung lain tetap melihat jadwal publik tanpa login (tombol "Masuk" di sana).
   if (tenant === 'kabbandung' && pathname === '/') {
+    const sesi = await verifySessionCookie(req.cookies.get('porprov_session')?.value, req.cookies.get('porprov_sig')?.value)
+    if (sesi?.role === 'konida' && Number(sesi.kontingen_id) === 4)
+      return NextResponse.redirect(new URL(BERANDA_KONIDA_KABBANDUNG, req.url))
     const url = req.nextUrl.clone()
     url.pathname = '/publik/kabbandung'
     return NextResponse.rewrite(url)
@@ -116,7 +123,7 @@ export async function middleware(req: NextRequest) {
   const hostTenant = HOSTNAME_TENANT[hostname] ?? ''
   const tenant     = envTenant || hostTenant
   if (tenant) {
-    const tenantRes = resolveTenantRewrite(req, tenant)
+    const tenantRes = await resolveTenantRewrite(req, tenant)
     if (tenantRes) return tenantRes
   }
 
