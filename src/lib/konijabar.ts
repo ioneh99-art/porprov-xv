@@ -228,3 +228,101 @@ export function keteranganLaporan(lk: LagaKita, catatan: string | null): string 
     l.venue, catatan, urlLaga(l.ref),
   ].filter(Boolean).join(' · ').slice(0, 480)
 }
+
+/* ---------- Alarm beda data: laporan kita vs situs panitia ---------- */
+
+export interface HasilLuarBanding {
+  ref: string; tanggal: string | null; cabor_id: number | null; partai_id: number | null; laporan_id: number | null
+  lawan: string | null; skor_kita: number | null; skor_lawan: number | null; akhir: 'menang' | 'kalah' | 'seri' | null
+  babak?: string | null; skor_sebelum?: string | null; berubah_at?: string | null; dicek_kunci?: string | null
+}
+export interface LaporanBanding {
+  id: number; cabor_id: number; partai_id?: number | null; tanggal: string; lawan: string | null
+  hasil: Hasil; nilai_teks: string | null; status: 'menunggu' | 'disahkan' | 'ditolak'; pelapor_nama: string; ref_luar?: string | null
+}
+export interface AlarmBeda {
+  kunci: string; ref: string; url: string; tanggal: string | null; cabor_id: number | null; partai_id: number | null
+  laporan_id: number; laporan_status: LaporanBanding['status']; pelapor: string
+  kita: string; situs: string; alasan: string; berubah: string | null; dicek: boolean
+}
+
+/** Arah hasil laporan kita: menang/kalah, atau null bila tidak bisa dibandingkan per laga (mis. perunggu, peringkat). */
+export function arahHasil(h: Hasil): 'menang' | 'kalah' | null {
+  if (h === 'menang' || h === 'lolos' || h === 'emas') return 'menang'
+  if (h === 'kalah' || h === 'gugur' || h === 'perak') return 'kalah'
+  return null
+}
+
+/** Skor utama dari catatan angka ("5 - 2", "1-2 (17-21, ...)", "3:1") → [a, b]. Rincian dalam kurung diabaikan. */
+export function skorUtama(nilai: string | null | undefined): [number, number] | null {
+  const m = (nilai ?? '').replace(/\(.*?\)/g, ' ').match(/(\d+)\s*[-–—:]\s*(\d+)/)
+  return m ? [Number(m[1]), Number(m[2])] : null
+}
+
+const tulisSkor = (a: number | null, b: number | null) => a != null && b != null ? `${a}–${b}` : '–'
+
+/**
+ * Bandingkan satu laporan kita dengan hasil situs untuk laga yang sama.
+ * 'sama' bila arah (menang/kalah) dan skor utama cocok — skor yang ditulis terbalik
+ * ("kalah 5-3" untuk kita 3, lawan 5) masih dianggap sama; 'beda' + alasan bila tidak;
+ * 'tak_bisa' bila tidak ada yang bisa dibandingkan.
+ */
+export function bandingkan(l: Pick<LaporanBanding, 'hasil' | 'nilai_teks'>, h: Pick<HasilLuarBanding, 'skor_kita' | 'skor_lawan' | 'akhir'>):
+  { status: 'sama' | 'beda' | 'tak_bisa'; alasan: string | null } {
+  const alasan: string[] = []
+  let dibanding = false
+  const arah = arahHasil(l.hasil)
+  if (arah && (h.akhir === 'menang' || h.akhir === 'kalah')) {
+    dibanding = true
+    if (arah !== h.akhir) alasan.push(`laporan kita ${arah}, situs ${h.akhir}`)
+  }
+  if (arah && h.akhir === 'seri') { dibanding = true; alasan.push(`laporan kita ${arah}, situs seri`) }
+  const s = skorUtama(l.nilai_teks)
+  if (s && h.skor_kita != null && h.skor_lawan != null) {
+    dibanding = true
+    const lurus = s[0] === h.skor_kita && s[1] === h.skor_lawan
+    const balik = s[0] === h.skor_lawan && s[1] === h.skor_kita
+    if (!lurus && !balik) alasan.push(`skor kita ${s[0]}–${s[1]}, situs ${h.skor_kita}–${h.skor_lawan}`)
+  }
+  if (!dibanding) return { status: 'tak_bisa', alasan: null }
+  return alasan.length ? { status: 'beda', alasan: alasan.join('; ') } : { status: 'sama', alasan: null }
+}
+
+/** Kunci satu perbandingan — berubah bila salah satu sisi berubah, sehingga tanda "sudah dicek" gugur sendiri. */
+export const kunciBanding = (h: HasilLuarBanding, l: LaporanBanding) =>
+  `${h.ref}:${h.skor_kita}-${h.skor_lawan}-${h.akhir}|${l.id}:${l.hasil}:${(l.nilai_teks ?? '').replace(/\s+/g, '')}`
+
+/**
+ * Semua laporan kita (selain yang ditolak) yang membahas laga situs yang sama, lalu dibandingkan.
+ * Laga yang sama = laporan buatan dari laga itu, atau partai jadwal yang sama dengan lawan yang sama,
+ * atau (tanpa partai) cabor + tanggal + lawan yang sama. Laporan tanpa lawan pada partai tanpa lawan
+ * (mis. Gulat: banyak babak per kelas) tidak dibandingkan per laga.
+ */
+export function cariAlarm(hasil: HasilLuarBanding[], laporan: LaporanBanding[], lawanPartai: Map<number, string | null>): AlarmBeda[] {
+  const keluar: AlarmBeda[] = []
+  for (const h of hasil) {
+    if (!h.akhir) continue
+    const terkait = laporan.filter(l => {
+      if (l.status === 'ditolak') return false
+      if (l.ref_luar) return l.ref_luar === h.ref
+      const lawanL = l.lawan ?? (l.partai_id != null ? lawanPartai.get(l.partai_id) ?? null : null)
+      if (!h.lawan || !lawanSama(h.lawan, lawanL)) return false
+      if (h.partai_id != null && l.partai_id != null) return h.partai_id === l.partai_id
+      return l.cabor_id === h.cabor_id && l.tanggal === h.tanggal
+    })
+    const dicek = new Set((h.dicek_kunci ?? '').split('\n').filter(Boolean))
+    for (const l of terkait) {
+      const b = bandingkan(l, h)
+      if (b.status !== 'beda') continue
+      const kunci = kunciBanding(h, l)
+      keluar.push({
+        kunci, ref: h.ref, url: urlLaga(h.ref), tanggal: h.tanggal, cabor_id: h.cabor_id, partai_id: h.partai_id,
+        laporan_id: l.id, laporan_status: l.status, pelapor: l.pelapor_nama,
+        kita: `${l.nilai_teks ?? '–'} (${l.hasil})`, situs: `${tulisSkor(h.skor_kita, h.skor_lawan)} ${h.akhir}`,
+        alasan: b.alasan!, berubah: h.skor_sebelum ? `${h.skor_sebelum.replace('-', '–')} → ${tulisSkor(h.skor_kita, h.skor_lawan)}` : null,
+        dicek: dicek.has(kunci),
+      })
+    }
+  }
+  return keluar.sort((a, b) => Number(a.dicek) - Number(b.dicek) || (b.tanggal ?? '').localeCompare(a.tanggal ?? ''))
+}

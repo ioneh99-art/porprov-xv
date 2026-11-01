@@ -3,6 +3,7 @@
 import {
   bacaJadwalHarian, bacaLaga, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, nomorSama,
   pilihNomorResmi, skorTeks, tebakHasil, type PartaiCocok,
+  arahHasil, bandingkan, cariAlarm, kunciBanding, skorUtama, type HasilLuarBanding, type LaporanBanding,
 } from '../src/lib/konijabar'
 
 let lulus = 0, gagal = 0
@@ -105,6 +106,39 @@ cek('jadwal harian: nomor laga, tim, status', bacaJadwalHarian(jadwal), [
 ])
 
 cek('keterangan menyebut sumber dan tautan', keteranganLaporan(K1, null), 'Situs KONI Jabar: Penyisihan · PA-06 · GOR Bang Yan Bulu Tangkis, Kota Bekasi · https://porprov.konijabar.or.id/laga/95')
+
+
+// --- alarm beda data ---
+cek('skor utama: "5 - 2"', skorUtama('5 - 2'), [5, 2])
+cek('skor utama: rincian set diabaikan', skorUtama('1-2 (17-21, 21-18, 13-15)'), [1, 2])
+cek('skor utama: titik dua', skorUtama('3:1'), [3, 1])
+cek('skor utama: tanpa angka', skorUtama('Juara grup'), null)
+cek('arah: lolos = menang, perak = kalah, perunggu = tak dibandingkan', [arahHasil('lolos'), arahHasil('perak'), arahHasil('perunggu')], ['menang', 'kalah', null])
+const H = (o: Partial<HasilLuarBanding> = {}): HasilLuarBanding => ({ ref: '95', tanggal: '2026-10-30', cabor_id: 165, partai_id: 3, laporan_id: null, lawan: 'Kota Depok', skor_kita: 3, skor_lawan: 5, akhir: 'kalah', ...o })
+const LB = (o: Partial<LaporanBanding> = {}): LaporanBanding => ({ id: 200, cabor_id: 165, partai_id: 3, tanggal: '2026-10-30', lawan: 'Kota Depok', hasil: 'kalah', nilai_teks: '3-5', status: 'menunggu', pelapor_nama: 'PIC Futsal', ...o })
+cek('banding: sama persis', bandingkan(LB(), H()).status, 'sama')
+cek('banding: spasi & strip berbeda tetap sama', bandingkan(LB({ nilai_teks: '3 – 5' }), H()).status, 'sama')
+cek('banding: skor ditulis terbalik tetap sama', bandingkan(LB({ nilai_teks: '5-3' }), H()).status, 'sama')
+cek('banding: skor beda', bandingkan(LB({ nilai_teks: '3-4' }), H()), { status: 'beda', alasan: 'skor kita 3–4, situs 3–5' })
+cek('banding: arah beda', bandingkan(LB({ hasil: 'menang', nilai_teks: null }), H()), { status: 'beda', alasan: 'laporan kita menang, situs kalah' })
+cek('banding: situs seri, kita menang', bandingkan(LB({ hasil: 'menang', nilai_teks: '2-2' }), H({ skor_kita: 2, skor_lawan: 2, akhir: 'seri' })).status, 'beda')
+cek('banding: perunggu tanpa skor = tak bisa', bandingkan(LB({ hasil: 'perunggu', nilai_teks: null }), H()).status, 'tak_bisa')
+cek('banding: voli set beda', bandingkan(LB({ nilai_teks: '1-2 (17-21, 21-18, 13-15)' }), H({ skor_kita: 0, skor_lawan: 2 })).status, 'beda')
+
+const lp = new Map<number, string | null>([[3, 'Kota Depok'], [26, null]])
+cek('alarm: laporan PIC beda skor → alarm', cariAlarm([H()], [LB({ nilai_teks: '3-4' })], lp).map(a => [a.laporan_id, a.situs, a.dicek]), [[200, '3–5 kalah', false]])
+cek('alarm: sama → tidak ada alarm', cariAlarm([H()], [LB()], lp), [])
+cek('alarm: laporan ditolak diabaikan', cariAlarm([H()], [LB({ nilai_teks: '9-9', status: 'ditolak' })], lp), [])
+cek('alarm: lawan kosong di laporan → diambil dari partai', cariAlarm([H()], [LB({ lawan: null, nilai_teks: '4-5' })], lp).length, 1)
+cek('alarm: partai lain (lawan lain) tidak dibandingkan', cariAlarm([H()], [LB({ partai_id: 9, lawan: 'Kota Bogor', nilai_teks: '1-0', hasil: 'menang' })], lp), [])
+cek('alarm: tanpa partai, cocok cabor+tanggal+lawan', cariAlarm([H({ partai_id: null })], [LB({ partai_id: null, nilai_teks: '3-4' })], lp).length, 1)
+cek('alarm: gulat (partai tanpa lawan, laporan tanpa lawan) tidak dibandingkan per laga', cariAlarm([H({ partai_id: 26, lawan: 'Kota Bekasi', cabor_id: 25 })], [LB({ partai_id: 26, cabor_id: 25, lawan: null, hasil: 'emas', nilai_teks: null })], lp), [])
+cek('alarm: laporan dari situs itu sendiri, situs lalu diubah → alarm + "berubah"', cariAlarm(
+  [H({ skor_kita: 4, skor_lawan: 5, skor_sebelum: '3-5' })], [LB({ ref_luar: '95', status: 'disahkan', pelapor_nama: 'Situs KONI Jabar (otomatis)' })], lp).map(a => [a.berubah, a.laporan_status]), [['3–5 → 4–5', 'disahkan']])
+const k = kunciBanding(H(), LB({ nilai_teks: '3-4' }))
+cek('alarm: sudah dicek → dicek=true', cariAlarm([H({ dicek_kunci: k })], [LB({ nilai_teks: '3-4' })], lp)[0].dicek, true)
+cek('alarm: sudah dicek tapi skor situs berubah lagi → aktif lagi', cariAlarm([H({ dicek_kunci: k, skor_kita: 2 })], [LB({ nilai_teks: '3-4' })], lp)[0].dicek, false)
+cek('alarm: belum dicek di depan', cariAlarm([H({ ref: '1', dicek_kunci: kunciBanding(H({ ref: '1' }), LB({ nilai_teks: '3-4' })) }), H({ ref: '2' })], [LB({ nilai_teks: '3-4' })], lp).map(a => a.ref), ['2', '1'])
 
 console.log(`uji-konijabar: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
