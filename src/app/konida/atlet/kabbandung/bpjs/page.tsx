@@ -6,13 +6,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, CheckCircle2, Copy, Download, Eye, FileSpreadsheet, Link2, Link2Off,
+  AlertTriangle, CheckCircle2, ChevronDown, Maximize2, Minimize2, Copy, Download, Eye, FileSpreadsheet, Link2, Link2Off,
   Loader2, RefreshCw, Search, ShieldCheck, UserX, Users, X,
 } from 'lucide-react'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
 import { namaKartuCocok, samarkanNik } from '@/lib/kartu-bpjs'
 
 const ACCENT = '#34d399'
+const PER_HALAMAN = 30
 type Tab = 'tertaut' | 'periksa' | 'official' | 'tanpa'
 
 interface Baris {
@@ -59,6 +60,9 @@ export default function MenuKartuBpjs() {
   const [kartuGalat, setKartuGalat] = useState('')
   const [proses, setProses] = useState<number | null>(null)
   const [pesan, setPesan] = useState('')
+  // Daftar tampil ringkas dulu (30 baris) supaya halaman tidak panjang.
+  const [batas, setBatas] = useState(PER_HALAMAN)
+  useEffect(() => { setBatas(PER_HALAMAN) }, [tab, q, cabor])
 
   const muat = useCallback(async () => {
     setGalat('')
@@ -249,7 +253,7 @@ export default function MenuKartuBpjs() {
               {tab === 'tanpa' ? (
                 barisTanpa.length === 0 ? <Kosong /> : (
                   <div className="divide-y divide-white/5">
-                    {barisTanpa.slice(0, 600).map((t, i) => (
+                    {barisTanpa.slice(0, batas).map((t, i) => (
                       <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                         <span className="w-8 text-[11px] text-zinc-600 tabular-nums">{i + 1}</span>
                         <div className="min-w-0 flex-1">
@@ -263,7 +267,7 @@ export default function MenuKartuBpjs() {
                 )
               ) : barisKartu.length === 0 ? <Kosong /> : (
                 <div className="divide-y divide-white/5">
-                  {barisKartu.map((r, i) => (
+                  {barisKartu.slice(0, batas).map((r, i) => (
                     <div key={r.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
                       <div className="flex items-start gap-3 min-w-0 flex-1">
                         <span className="w-8 shrink-0 text-[11px] text-zinc-600 tabular-nums pt-0.5">{i + 1}</span>
@@ -324,7 +328,7 @@ export default function MenuKartuBpjs() {
                 </div>
               )}
             </div>
-            {tab === 'tanpa' && barisTanpa.length > 600 && <p className="text-[11px] text-zinc-500">Menampilkan 600 pertama — pakai pencarian/cabor, atau Unduh Excel untuk daftar lengkap.</p>}
+            <AturPanjang total={tab === 'tanpa' ? barisTanpa.length : barisKartu.length} batas={batas} setBatas={setBatas} />
             <p className="text-[11px] text-zinc-600">
               Atlet & official mengunduh kartunya sendiri di <span className="text-zinc-400">{ALAMAT_RESMI_KABBANDUNG.replace('https://', '')}/bpjs</span> dengan NIK yang tercetak di kartu.
               Kartu baru dari BPJS bisa ditambahkan dengan skrip impor (minta ke tim IT).
@@ -363,6 +367,37 @@ export default function MenuKartuBpjs() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Tampilkan 30 lagi / semua / ringkas lagi. */
+function AturPanjang({ total, batas, setBatas }: { total: number; batas: number; setBatas: (n: number) => void }) {
+  if (total <= PER_HALAMAN) return null
+  const tampil = Math.min(batas, total)
+  const tombol = 'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold'
+  return (
+    <div className="flex items-center justify-between flex-wrap gap-2">
+      <span className="text-[11px] text-zinc-500">Menampilkan {tampil.toLocaleString('id-ID')} dari {total.toLocaleString('id-ID')}</span>
+      <div className="flex gap-2 flex-wrap">
+        {tampil < total && (
+          <>
+            <button onClick={() => setBatas(batas + PER_HALAMAN)} className={`${tombol} text-emerald-300`}
+              style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>
+              <ChevronDown size={13} /> Tampilkan {Math.min(PER_HALAMAN, total - tampil)} lagi
+            </button>
+            <button onClick={() => setBatas(total)} className={`${tombol} text-zinc-300`} style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
+              <Maximize2 size={12} /> Tampilkan semua
+            </button>
+          </>
+        )}
+        {tampil > PER_HALAMAN && (
+          <button onClick={() => { setBatas(PER_HALAMAN); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className={`${tombol} text-zinc-300`}
+            style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
+            <Minimize2 size={12} /> Ringkas lagi
+          </button>
+        )}
+      </div>
     </div>
   )
 }
