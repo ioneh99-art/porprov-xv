@@ -15,6 +15,7 @@ import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
 import { ALAMAT_RESMI_KABBANDUNG, DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
 import { urutCaborLangsung, type KeadaanPic } from '@/lib/jalur-lapor'
 import { ringkasJejak, susunJejak, type PartaiJejak, type TahapJejak } from '@/lib/jejak-partai'
+import { NAMA_SUMBER_KONIJABAR, urlLaga } from '@/lib/konijabar'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
@@ -24,8 +25,17 @@ interface Laporan {
   id: number; cabor: string; cabor_id: number; nomor_teks: string; atlet: string[]; hasil: Hasil; peringkat: number | null
   nilai_teks: string | null; keterangan: string | null; lawan: string | null; jam: string | null; tanggal: string; pelapor_nama: string; pelapor_wa: string | null
   status: 'menunggu' | 'disahkan' | 'ditolak'; diputus_oleh: string | null; alasan_tolak: string | null; created_at: string; ada_foto?: boolean
-  partai_id?: number | null; diputus_at?: string | null
+  partai_id?: number | null; diputus_at?: string | null; sumber_luar?: string | null; ref_luar?: string | null
 }
+/** Laga yang dibaca dari situs panitia (porprov.konijabar.or.id). */
+interface HasilLuar {
+  id: number; ref: string; cabor_id: number | null; cabor_teks: string | null; nomor_teks: string | null; babak: string | null; kode: string | null
+  tanggal: string | null; jam: string | null; lawan: string | null; skor_kita: number | null; skor_lawan: number | null
+  akhir: 'menang' | 'kalah' | 'seri' | null; url: string | null; partai_id: number | null; laporan_id: number | null; catatan: string | null
+}
+interface RingkasLuar { terakhir: string; dilewati?: boolean; laga_kita: number; dibaca: number; laporan_baru: number; sudah_dilaporkan: number; tak_terbaca: number; galat: string[] }
+const WARNA_LUAR = '#c084fc'
+const AKHIR_TAMPIL: Record<string, string> = { menang: 'menang', kalah: 'kalah', seri: 'seri' }
 interface Akses { id: number; cabor: string; cabor_id: number; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null; jumlah_laporan: number }
 interface Cabor { id: number; nama: string; atlet: number }
 interface Catatan {
@@ -58,6 +68,15 @@ const GAYA_TAHAP: Record<TahapJejak | 'perlu', { teks: string; warna: string }> 
 }
 const LABEL_STATUS_PARTAI: Record<string, string> = { terjadwal: 'Terjadwal', berlangsung: 'Berlangsung', ditunda: 'Ditunda', selesai: 'Selesai', batal: 'Batal' }
 
+function TandaLuar({ ref_luar, kecil }: { ref_luar?: string | null; kecil?: boolean }) {
+  const isi = <>{NAMA_SUMBER_KONIJABAR}{ref_luar ? ' ↗' : ''}</>
+  const gaya = { color: WARNA_LUAR, background: `${WARNA_LUAR}1f`, border: `1px solid ${WARNA_LUAR}55` }
+  const kelas = `inline-block rounded font-black tracking-wide ${kecil ? 'px-1.5 py-0 text-[10px]' : 'px-2 py-0.5 text-[11px] mb-1'}`
+  return ref_luar
+    ? <a href={urlLaga(ref_luar)} target="_blank" rel="noopener" title="Buka halaman laga di situs KONI Jabar" className={kelas} style={gaya}>{isi}</a>
+    : <span className={kelas} style={gaya}>{isi}</span>
+}
+
 export default function PageLapPertandingan() {
   const [tab, setTab] = useState<'antrean' | 'jejak' | 'catatan' | 'jurnal' | 'cabor' | 'kode' | 'langsung'>('antrean')
   const [partaiJadwal, setPartaiJadwal] = useState<PartaiJejak[]>([])
@@ -88,6 +107,9 @@ export default function PageLapPertandingan() {
   const [kodeBaru, setKodeBaru] = useState<{ kode: string; cabor: string; nama: string; wa: string } | null>(null)
   const [tersalin, setTersalin] = useState(false)
   const [mengubahPic, setMengubahPic] = useState<number | null>(null)
+  const [luar, setLuar] = useState<{ terakhir: string | null; ringkas: RingkasLuar | null; hasil: HasilLuar[] }>({ terakhir: null, ringkas: null, hasil: [] })
+  const [sibukLuar, setSibukLuar] = useState(false)
+  const [pesanLuar, setPesanLuar] = useState('')
   const [formPic, setFormPic] = useState({ nama_pic: '', no_wa: '', cabor_id: '' })
 
   const muatLaporan = useCallback(async () => {
@@ -106,6 +128,20 @@ export default function PageLapPertandingan() {
     const j = await r.json().catch(() => ({}))
     if (r.ok) { setPartaiJadwal(j.partai ?? []); setCaborPartai(j.cabor ?? []) }
   }, [])
+  // Baca situs KONI Jabar: saat halaman dibuka (server menahan bila belum lewat 15 menit)
+  // atau dipaksa lewat tombol "Tarik sekarang". Hasilnya masuk Antrean sebagai laporan menunggu.
+  const tarikLuar = useCallback(async (paksa: boolean) => {
+    setSibukLuar(true); if (paksa) setPesanLuar('')
+    try {
+      const r = await fetch(`/api/konida/konijabar${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ paksa }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { if (paksa) setPesanLuar(j.error ?? 'Gagal membaca situs KONI Jabar.'); return }
+      setLuar({ terakhir: j.terakhir ?? null, ringkas: j.ringkas ?? null, hasil: j.hasil ?? [] })
+      const rk = j.ringkas as RingkasLuar | undefined
+      if (paksa && rk) setPesanLuar(rk.galat?.length ? `Sebagian gagal dibaca: ${rk.galat[0]}` : rk.laporan_baru ? `${rk.laporan_baru} hasil baru masuk Antrean.` : 'Tidak ada hasil baru.')
+      if (rk && rk.laporan_baru > 0) { await muatLaporan() }
+    } finally { setSibukLuar(false) }
+  }, [muatLaporan])
   const muatCatatan = useCallback(async () => {
     const r = await fetch(`/api/konida/catatan-lapangan${Q}`, { cache: 'no-store' })
     const j = await r.json().catch(() => ({}))
@@ -117,10 +153,11 @@ export default function PageLapPertandingan() {
 
   useEffect(() => {
     Promise.all([muatLaporan(), muatAkses(), muatCatatan(), muatPartai()]).finally(() => setMemuat(false))
+    tarikLuar(false)
     // Antrean dan catatan disegarkan sendiri supaya yang baru muncul tanpa menekan apa pun.
     const iv = setInterval(() => { if (document.visibilityState === 'visible') { muatLaporan(); muatCatatan(); muatPartai() } }, 20_000)
     return () => clearInterval(iv)
-  }, [muatLaporan, muatAkses, muatCatatan, muatPartai])
+  }, [muatLaporan, muatAkses, muatCatatan, muatPartai, tarikLuar])
 
   const menunggu = useMemo(() => laporan.filter(l => l.status === 'menunggu'), [laporan])
   const ditolak = useMemo(() => laporan.filter(l => l.status === 'ditolak'), [laporan])
@@ -318,6 +355,7 @@ export default function PageLapPertandingan() {
     <div key={l.id} className={`${kartu} p-4`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
+          {l.sumber_luar === 'konijabar' && <TandaLuar ref_luar={l.ref_luar} />}
           <div className="text-xs font-bold uppercase tracking-wider" style={{ color: ACCENT }}>{l.cabor}</div>
           <div className="text-base font-bold text-white mt-0.5">{l.nomor_teks}</div>
           <div className="text-sm text-slate-300 mt-1">{l.atlet.join(', ')}</div>
@@ -345,6 +383,11 @@ export default function PageLapPertandingan() {
         {l.status !== 'menunggu' && l.diputus_oleh ? ` · ${l.status} oleh ${l.diputus_oleh}` : ''}
       </div>
       {l.status === 'ditolak' && l.alasan_tolak && <p className="text-xs text-red-300 mt-1">Alasan ditolak: {l.alasan_tolak}</p>}
+      {l.sumber_luar === 'konijabar' && l.status === 'menunggu' && (
+        <p className="text-xs mt-2 rounded-lg px-3 py-2" style={{ color: '#e9d5ff', background: `${WARNA_LUAR}14`, border: `1px solid ${WARNA_LUAR}40` }}>
+          Dibaca otomatis dari situs panitia, bukan dari PIC. Cocokkan dulu (hasil, atlet, nomor), perbaiki bila perlu, lalu sahkan, atau tolak bila tidak sesuai.
+        </p>
+      )}
 
       {menolak === l.id && (
         <div className="mt-3 flex gap-2 flex-wrap">
@@ -501,6 +544,17 @@ export default function PageLapPertandingan() {
           ))}
         </div>
 
+        <div className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap" style={{ background: `${WARNA_LUAR}10`, border: `1px solid ${WARNA_LUAR}40` }}>
+          <span className="rounded px-2 py-0.5 text-[11px] font-black tracking-wider" style={{ color: WARNA_LUAR, background: `${WARNA_LUAR}1f`, border: `1px solid ${WARNA_LUAR}55` }}>{NAMA_SUMBER_KONIJABAR.toUpperCase()}</span>
+          <span className="flex-1 min-w-[220px] text-sm text-slate-300">
+            Hasil laga Kab. Bandung dibaca dari <a href="https://porprov.konijabar.or.id" target="_blank" rel="noopener" className="underline underline-offset-2">porprov.konijabar.or.id</a> dan masuk Antrean untuk dipilah. {luar.terakhir ? <>Terakhir dibaca <b className="text-white">{waktuTampil(luar.terakhir)}</b>{luar.hasil.length ? ` · ${luar.hasil.length} laga terbaca` : ''}.</> : 'Belum pernah dibaca.'}
+            {pesanLuar && <span className="block text-xs mt-0.5" style={{ color: '#e9d5ff' }}>{pesanLuar}</span>}
+          </span>
+          <button onClick={() => tarikLuar(true)} disabled={sibukLuar} className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-950 disabled:opacity-50" style={{ background: WARNA_LUAR }}>
+            <RefreshCw size={14} className={sibukLuar ? 'animate-spin' : ''} /> {sibukLuar ? 'Membaca…' : 'Tarik sekarang'}
+          </button>
+        </div>
+
         <div className="flex gap-2 mt-6 flex-wrap">
           <TombolTab id="antrean" label="Antrean" jumlah={menunggu.length} Ikon={ClipboardList} />
           <TombolTab id="jejak" label="Jejak Partai" jumlah={perluLaporan} Ikon={ListChecks} />
@@ -581,9 +635,14 @@ export default function PageLapPertandingan() {
                         </div>
                       )}
                       {b.laporan.length === 0 && b.perluLaporan && <div className="text-xs text-orange-300 mt-1.5">Belum ada laporan hasil dari PIC maupun Input Langsung.</div>}
+                      {p && luar.hasil.filter(h => h.partai_id === p.id && !(b.laporan as Laporan[]).some(l => l.ref_luar === h.ref)).map(h => (
+                        <div key={h.ref} className="mt-2 rounded-lg px-3 py-2 text-xs" style={{ background: `${WARNA_LUAR}10`, border: `1px solid ${WARNA_LUAR}33` }}>
+                          <TandaLuar ref_luar={h.ref} kecil /> <span className="text-slate-200">Pembanding: {h.skor_kita ?? '–'}–{h.skor_lawan ?? '–'} {h.akhir ? AKHIR_TAMPIL[h.akhir] : ''}{h.lawan ? ` vs ${h.lawan}` : ''}{h.babak ? ` · ${h.babak}` : ''}</span>
+                        </div>
+                      ))}
                       {(b.laporan as Laporan[]).map(l => (
                         <div key={l.id} className="mt-2 rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-xs">
-                          <div><b style={{ color: WARNA[l.hasil] }}>{tulisHasil(l)}</b>{l.nilai_teks ? <span className="text-white font-bold"> · {l.nilai_teks}</span> : null}</div>
+                          <div><b style={{ color: WARNA[l.hasil] }}>{tulisHasil(l)}</b>{l.nilai_teks ? <span className="text-white font-bold"> · {l.nilai_teks}</span> : null}{l.sumber_luar === 'konijabar' && <span className="ml-2 align-middle"><TandaLuar ref_luar={l.ref_luar} kecil /></span>}</div>
                           <div className="text-slate-400 mt-0.5">Dilaporkan <b className="text-slate-200">{l.pelapor_nama}</b> {waktuTampil(l.created_at)}</div>
                           {l.status === 'disahkan' && <div className="text-emerald-300 mt-0.5">✓ Disahkan oleh <b>{l.diputus_oleh ?? '—'}</b> {waktuTampil(l.diputus_at)}</div>}
                           {l.status === 'ditolak' && <div className="text-red-300 mt-0.5">✗ Ditolak oleh <b>{l.diputus_oleh ?? '—'}</b> {waktuTampil(l.diputus_at)}{l.alasan_tolak ? ` — ${l.alasan_tolak}` : ''}</div>}
