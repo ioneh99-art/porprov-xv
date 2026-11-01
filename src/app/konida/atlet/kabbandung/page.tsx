@@ -18,6 +18,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
 } from 'recharts'
 import BadgeElite from '@/components/konida/BadgeElite'
+import KartuBpjsProfil from '@/components/konida/KartuBpjsProfil'
 import { KATEGORI_CABOR, warnaKategori, TANPA_KATEGORI } from '@/lib/kategori-cabor'
 import { lengkapiPii } from '@/lib/atlet-pii-klien'
 
@@ -1339,6 +1340,9 @@ export default function PageAtletKabBandung() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Kartu BPJS Ketenagakerjaan */}
+                    <KartuBpjsProfil atletId={selectedAtlet.id} />
 
                     {/* Apparel + Bank */}
                     {(selectedAtlet.ukuran_kemeja || selectedAtlet.ukuran_sepatu || selectedAtlet.nama_bank || selectedAtlet.no_rekening) && (

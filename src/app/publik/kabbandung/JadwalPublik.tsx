@@ -4,7 +4,7 @@
 // WIB, supaya tetap benar walau halaman tersimpan di cache server.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, ChevronRight, Clock, LayoutDashboard, LogIn, MapPin, Search, Share2, Sparkles, Medal, Map as IkonPeta, Flag } from 'lucide-react'
+import { CalendarDays, ChevronRight, Clock, LayoutDashboard, LogIn, MapPin, Search, Share2, Sparkles, Medal, Map as IkonPeta, Flag, CreditCard } from 'lucide-react'
 import { tanggalWIB, hariPorprov, PORPROV_HARI, PORPROV_MULAI } from '@/lib/lapor'
 import { hitungMundur } from '@/lib/layar'
 import {
@@ -406,10 +406,15 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
               <div className="text-amber-300/80 text-[10px] font-semibold tracking-wider leading-tight truncate">PORPROV XV JAWA BARAT 2026</div>
             </div>
           </div>
+          <div className="shrink-0 flex items-center gap-2">
+          <a href="/bpjs" className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-400/15 backdrop-blur px-3 py-1.5 text-[13px] font-semibold text-emerald-100 hover:bg-emerald-400/25 transition-colors">
+            <CreditCard size={14} /> BPJS
+          </a>
           <a href={masuk ? '/konida/dashboard/kabbandung' : '/konida/login/kabbandung'}
             className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-white/20 transition-colors">
             {masuk ? <><LayoutDashboard size={14} /> Dashboard</> : <><LogIn size={14} /> Masuk</>}
           </a>
+          </div>
         </header>
 
         {/* Kabar LOLOS — tayang selama cabornya masih bertanding */}
@@ -733,7 +738,8 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
             {diperbarui && <div>Jadwal diperbarui {new Date(diperbarui).toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB</div>}
             <div>Jadwal dapat berubah sesuai keputusan panitia penyelenggara.</div>
           </div>
-          <a href={masuk ? '/konida/dashboard/kabbandung' : '/konida/login/kabbandung'} className="inline-block mt-4 text-[11px] text-slate-500 hover:text-slate-300">
+          <a href="/bpjs" className="block mt-4 text-[11px] text-emerald-300/80 hover:text-emerald-200">Cetak kartu BPJS Ketenagakerjaan →</a>
+          <a href={masuk ? '/konida/dashboard/kabbandung' : '/konida/login/kabbandung'} className="inline-block mt-2 text-[11px] text-slate-500 hover:text-slate-300">
             {masuk ? 'Buka dashboard' : 'Masuk untuk admin'} →
           </a>
         </footer>

@@ -30,6 +30,12 @@ function resolveTenantRewrite(req: NextRequest, tenant: string): NextResponse | 
     url.pathname = '/publik/kabbandung'
     return NextResponse.rewrite(url)
   }
+  // Alamat pendek cetak kartu BPJS: www.konikab-bdg.com/bpjs
+  if (tenant === 'kabbandung' && (pathname === '/bpjs' || pathname === '/bpjs/')) {
+    const url = req.nextUrl.clone()
+    url.pathname = '/publik/bpjs'
+    return NextResponse.rewrite(url)
+  }
 
   // / atau /konida → ke login page tenant
   if (pathname === '/' || pathname === '/konida' || pathname === '/konida/') {
@@ -182,7 +188,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   // /operator & /dashboard wajib ada di sini — tanpanya gerbang halaman hanya bergantung pada layout.
-  matcher: ['/', '/login', '/konida/:path*', '/superadmin/:path*', '/operator/:path*', '/dashboard/:path*', '/api/superadmin/:path*', '/api/users/:path*',
+  matcher: ['/', '/login', '/bpjs', '/konida/:path*', '/superadmin/:path*', '/operator/:path*', '/dashboard/:path*', '/api/superadmin/:path*', '/api/users/:path*',
     '/api/ai-brief/:path*', '/api/chatbot/:path*', '/api/sipa/:path*', '/api/dayung/brief/:path*',
     '/api/jarvis/:path*', '/api/sport-intel/:path*', '/api/baseline/smart-brief/:path*', '/api/performance/:path*'],
 }
