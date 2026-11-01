@@ -1,5 +1,5 @@
 // scripts/uji-kartu-bpjs.ts — aturan kartu BPJS (baca PDF, NIK, pembatas). Dijalankan: npm run uji:kartu-bpjs
-import { bacaHalamanKartu, bakukanNik, samarkanNik, nikSama, namaKartuCocok, putusanBatas, namaBerkasUnduh, BATAS } from '../src/lib/kartu-bpjs'
+import { bacaHalamanKartu, bakukanNik, samarkanNik, nikSama, namaKartuCocok, putusanBatas, namaBerkasUnduh, BATAS, kelompokkanBpjs, alasanTolakTaut } from '../src/lib/kartu-bpjs'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -42,6 +42,25 @@ cek('batas: IP terkunci', /perangkat ini/.test(putusanBatas(BATAS.gagalIp, 0) ??
 cek('batas: kartu didahulukan', /kartu ini/.test(putusanBatas(BATAS.gagalIp, BATAS.gagalKartu) ?? ''), true)
 
 cek('nama berkas unduh', [namaBerkasUnduh("Siti Nur'aini"), namaBerkasUnduh('  ')], ['BPJS_SITI_NUR_AINI.pdf', 'BPJS_KARTU.pdf'])
+
+// ── Rekap menu ──
+const K = (id: number, status: string, atlet_id: number | null, kandidat: number | null = null, unduh = 0) =>
+  ({ id, atlet_id, kandidat_atlet_id: kandidat, status_cocok: status, nik: '3204' + String(id).padStart(12, '0'), kpj: '1', nama_kartu: 'K' + id, berlaku: '10-2026', jumlah_unduh: unduh, terakhir_diunduh: null, sumber_halaman: id })
+const A = (id: number, nama: string, cabor: string | null) => ({ id, nama_lengkap: nama, cabor_nama_raw: cabor, gender: 'L', no_ktp: '3204' + id })
+const atl = [A(1, 'Budi', 'Gulat'), A(2, 'Ani', 'Atletik'), A(3, 'Cici', 'Atletik'), A(4, 'Dodi', null)]
+const rk = kelompokkanBpjs([K(10, 'nik', 1, null, 2), K(11, 'manual', 2), K(12, 'nik_beda', null, 3), K(13, 'bukan_atlet', null), K(14, 'nik_beda', null, 99)], atl)
+cek('rekap: angka', rk.angka, { kartu: 5, tertaut: 2, periksa: 1, official: 2, atlet: 4, tanpa: 2, diunduh: 1 })
+cek('rekap: periksa membawa kandidat', rk.periksa.map(r => r.atlet?.nama), ['Cici'])
+cek('rekap: kandidat di luar kontingen → official', rk.official.map(r => r.id), [13, 14])
+cek('rekap: tanpa kartu urut cabor (kosong dulu) lalu nama', rk.tanpa.map(t => t.nama), ['Dodi', 'Cici'])
+cek('rekap: atlet punya kartu', rk.atletPunyaKartu.sort(), [1, 2])
+
+cek('taut: boleh', alasanTolakTaut({ atlet_id: null, status_cocok: 'nik_beda' }, true, false), null)
+cek('taut: kartu sudah tertaut', /sudah tertaut/.test(alasanTolakTaut({ atlet_id: 5, status_cocok: 'nik_beda' }, true, false) ?? ''), true)
+cek('taut: kartu official tidak boleh', /perlu dicek/.test(alasanTolakTaut({ atlet_id: null, status_cocok: 'bukan_atlet' }, true, false) ?? ''), true)
+cek('taut: atlet lain kontingen', /tidak ditemukan/.test(alasanTolakTaut({ atlet_id: null, status_cocok: 'nik_beda' }, false, false) ?? ''), true)
+cek('taut: atlet sudah punya kartu', /sudah punya/.test(alasanTolakTaut({ atlet_id: null, status_cocok: 'nik_beda' }, true, true) ?? ''), true)
+cek('taut: kartu tidak ada', alasanTolakTaut(null, true, false), 'Kartu tidak ditemukan.')
 
 console.log(`uji-kartu-bpjs: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

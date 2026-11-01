@@ -80,3 +80,62 @@ export function putusanBatas(gagalIp: number, gagalKartu: number): string | null
 export function namaBerkasUnduh(nama: string): string {
   return `BPJS_${String(nama).toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'KARTU'}.pdf`
 }
+
+// ── Rekap menu Kartu BPJS (KONIDA) ──────────────────────────────────────────
+export interface KartuRekap {
+  id: number; atlet_id: number | null; kandidat_atlet_id: number | null; status_cocok: string
+  nik: string; kpj: string; nama_kartu: string; berlaku: string | null
+  jumlah_unduh: number; terakhir_diunduh: string | null; sumber_halaman: number | null
+}
+export interface AtletRekap { id: number; nama_lengkap: string; cabor_nama_raw: string | null; gender: string | null; no_ktp: string | null }
+export interface BarisBpjs extends KartuRekap {
+  atlet: { id: number; nama: string; cabor: string | null; nik: string | null } | null
+}
+
+/**
+ * Kelompokkan kartu + atlet jadi tab menu:
+ *  tertaut   — kartu milik atlet (cocok NIK atau ditautkan manual)
+ *  periksa   — nama sama tapi NIK beda; `atlet` = kandidatnya
+ *  official  — tidak ada atlet yang cocok (pelatih/official/pengurus)
+ *  tanpa     — atlet yang belum punya kartu
+ */
+export function kelompokkanBpjs(kartu: KartuRekap[], atlet: AtletRekap[]) {
+  const perId = new Map(atlet.map(a => [a.id, a]))
+  const ringkas = (id: number | null) => {
+    const a = id != null ? perId.get(id) : undefined
+    return a ? { id: a.id, nama: a.nama_lengkap, cabor: a.cabor_nama_raw, nik: a.no_ktp } : null
+  }
+  const tertaut: BarisBpjs[] = [], periksa: BarisBpjs[] = [], official: BarisBpjs[] = []
+  const punya = new Set<number>()
+  for (const k of kartu) {
+    if (k.atlet_id != null && perId.has(k.atlet_id)) { tertaut.push({ ...k, atlet: ringkas(k.atlet_id) }); punya.add(k.atlet_id) }
+    else if (k.status_cocok === 'nik_beda' && k.kandidat_atlet_id != null && perId.has(k.kandidat_atlet_id)) periksa.push({ ...k, atlet: ringkas(k.kandidat_atlet_id) })
+    else official.push({ ...k, atlet: null })
+  }
+  // kandidat yang ternyata sudah punya kartu lain tetap ditampilkan, tapi tidak bisa ditautkan dua kali
+  const tanpa = atlet.filter(a => !punya.has(a.id))
+    .map(a => ({ id: a.id, nama: a.nama_lengkap, cabor: a.cabor_nama_raw, gender: a.gender, nik: a.no_ktp }))
+  const urutCabor = (x: { cabor: string | null; nama: string }, y: { cabor: string | null; nama: string }) =>
+    (x.cabor ?? '').localeCompare(y.cabor ?? '') || x.nama.localeCompare(y.nama)
+  tanpa.sort(urutCabor)
+  return {
+    angka: {
+      kartu: kartu.length, tertaut: tertaut.length, periksa: periksa.length, official: official.length,
+      atlet: atlet.length, tanpa: tanpa.length,
+      diunduh: kartu.filter(k => (k.jumlah_unduh ?? 0) > 0).length,
+    },
+    tertaut, periksa, official, tanpa,
+    atletPunyaKartu: Array.from(punya),
+  }
+}
+
+/** Alasan penautan ditolak, atau null bila boleh. */
+export function alasanTolakTaut(k: { atlet_id: number | null; status_cocok: string } | null,
+  atletAda: boolean, atletSudahPunyaKartu: boolean): string | null {
+  if (!k) return 'Kartu tidak ditemukan.'
+  if (k.atlet_id != null) return 'Kartu ini sudah tertaut ke atlet.'
+  if (k.status_cocok !== 'nik_beda') return 'Hanya kartu "perlu dicek" yang bisa ditautkan dari sini.'
+  if (!atletAda) return 'Atlet tidak ditemukan di kontingen ini.'
+  if (atletSudahPunyaKartu) return 'Atlet ini sudah punya kartu BPJS lain.'
+  return null
+}

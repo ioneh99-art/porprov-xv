@@ -6,10 +6,12 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
-  CreditCard, CalendarDays, CalendarClock, X,
+  CreditCard, CalendarDays, CalendarClock, X, ShieldCheck,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { PREMIUM_REPORT_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
+
+const MENU_BERSARANG = ['/konida/atlet/kabbandung/bpjs', '/konida/atlet/kabbandung/idcard']
 
 const TENANT_COLORS: Record<string, { primary: string; dark: string; nama: string }> = {
   kabbogor:       { primary: '#065f46', dark: '#047857', nama: 'Kab. Bogor'          },
@@ -248,7 +250,9 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
   const NavItem = ({ label, href, icon: Icon, notif }: {
     label: string; href: string; icon: any; notif?: number
   }) => {
-    const active = pathname === href || pathname.startsWith(href + '/')
+    // Menu yang alamatnya di bawah menu lain (mis. Kartu BPJS di bawah Data Atlet) tidak ikut menyorot induknya.
+    const anakLain = MENU_BERSARANG.some(m => m !== href && m.startsWith(href + '/') && (pathname === m || pathname.startsWith(m + '/')))
+    const active = (pathname === href || pathname.startsWith(href + '/')) && !anakLain
     return (
       <Link href={href}
         className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
@@ -356,6 +360,7 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
             <NavItem label="Dashboard"       href={dashboardHref}                     icon={LayoutDashboard}/>
             <NavItem label="Data Atlet"      href="/konida/atlet/kabbandung"           icon={Users}/>
             <NavItem label="Dokumen Atlet"   href="/konida/dokumen/kabbandung"         icon={FileCheck}/>
+            <NavItem label="Kartu BPJS"      href="/konida/atlet/kabbandung/bpjs"      icon={ShieldCheck}/>
             {can('kualifikasi')
               ? <NavItem label="Kualifikasi" href="/konida/kualifikasi/kabbandung"     icon={ClipboardCheck}/>
               : <LockedNavItem label="Kualifikasi" icon={ClipboardCheck} plan="Standard"/>
