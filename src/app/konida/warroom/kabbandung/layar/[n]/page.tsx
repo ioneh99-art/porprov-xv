@@ -1,9 +1,10 @@
 'use client'
 // src/app/konida/warroom/kabbandung/layar/[n]/page.tsx
-// Command Center — 3 monitor landscape, masing-masing membuka satu alamat:
+// Command Center — monitor landscape, masing-masing membuka satu alamat:
 //   /konida/warroom/kabbandung/layar/1  Posisi kita (peringkat, medali, target 74, klasemen)
 //   /konida/warroom/kabbandung/layar/2  Hari ini, sekarang (sedang main, berikutnya, misi emas, hasil terbaru)
 //   /konida/warroom/kabbandung/layar/3  Sebaran dan wajah (peta kota, peraih medali, medali per cabor)
+//   /konida/warroom/kabbandung/layar/4  Perburuan emas (kalender panas, wajah calon peraih emas, hitungan target)
 // Data sama dengan War Room (segar tiap 20 dtk); Detik Emas tampil di ketiganya.
 // Mode Kunjungan (dinyalakan dari War Room → Command Center, mis. lewat HP):
 // huruf lebih besar, ucapan selamat datang, dan data internal disembunyikan.
@@ -16,10 +17,12 @@ import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 import { peringkatKontingen } from '@/lib/warroom'
 import { useWarRoom, tglPanjangWR } from '@/lib/warroom-klien'
 import { LAYAR, kalimatRingkas, nomorLayar, papanKlasemen, persenTarget, selisihTetangga } from '@/lib/command-center'
-import DetikEmas from '@/components/konida/warroom/DetikEmas'
+import DetikEmas, { type KenalMedali } from '@/components/konida/warroom/DetikEmas'
+import type { MedaliTerbaru } from '@/lib/lapor-klien'
 import MisiEmas from '@/components/konida/warroom/MisiEmas'
 import ArenaLive from '@/components/konida/warroom/ArenaLive'
 import PetaPerjuangan from '@/components/konida/warroom/PetaPerjuangan'
+import PerburuanEmas from '@/components/konida/warroom/PerburuanEmas'
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 const K_ID = 4, NAMA = 'KAB. BANDUNG', Q = `?kontingen_id=${K_ID}`
@@ -50,7 +53,7 @@ const nama = (s: string) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase(
 export default function LayarCommandCenter() {
   const params = useParams<{ n: string }>()
   const no = nomorLayar(params?.n) ?? 1
-  const { data: wr } = useWarRoom(K_ID)
+  const { data: wr, muat: muatWr } = useWarRoom(K_ID)
   const [rekap, setRekap] = useState<RekapLapangan | null>(null)
   const [klasemen, setKlasemen] = useState<BarisK[]>([])
   const [mode, setMode] = useState<ModeCC>({ mode_kunjungan: false, sambutan: '' })
@@ -92,10 +95,35 @@ export default function LayarCommandCenter() {
     document.addEventListener('visibilitychange', ulang)
     let t: any; const gerak = () => { setKursor(true); clearTimeout(t); t = setTimeout(() => setKursor(false), 3000) }
     window.addEventListener('mousemove', gerak); gerak()
-    const tombol = (e: KeyboardEvent) => { if (['1', '2', '3'].includes(e.key)) window.location.href = `/konida/warroom/kabbandung/layar/${e.key}` }
+    const tombol = (e: KeyboardEvent) => { if (['1', '2', '3', '4'].includes(e.key)) window.location.href = `/konida/warroom/kabbandung/layar/${e.key}` }
     window.addEventListener('keydown', tombol)
     return () => { document.removeEventListener('visibilitychange', ulang); window.removeEventListener('mousemove', gerak); window.removeEventListener('keydown', tombol); clearTimeout(t); try { kunci?.release() } catch { /* */ } }
   }, [])
+
+  // Medali baru disahkan → segarkan War Room saat itu juga, supaya foto & status target ikut siap di Detik Emas.
+  const kunciMedali = (rekap?.medali_semua ?? []).map(m => m.id).join(',')
+  const kunciLalu = useRef<string | null>(null)
+  useEffect(() => {
+    if (!rekap) return
+    if (kunciLalu.current != null && kunciLalu.current !== kunciMedali) muatWr()
+    kunciLalu.current = kunciMedali
+  }, [rekap, kunciMedali, muatWr])
+
+  // Detik Emas versi Command Center: foto peraih, emas ke-berapa, dan target KONI yang tercapai.
+  const kenal = useCallback((m: MedaliTerbaru): KenalMedali => {
+    const urutEmas = (rekap?.medali_semua ?? []).filter(x => x.hasil === 'emas').sort((a, b) => a.waktu.localeCompare(b.waktu) || a.id - b.id)
+    const ke = urutEmas.findIndex(x => x.id === m.id)
+    const buru = wr?.perburuan ?? []
+    const kena = buru.some(c => c.laporan_id === m.id)
+    // Data War Room yang lebih tua dari medali ini belum tahu soal medali itu — jangan buru-buru menyebut "kejutan".
+    const segar = !!wr && wr.diperbarui >= m.waktu
+    return {
+      foto: wr?.sorotan.find(s => s.id === m.id)?.foto ?? null,
+      emasKe: ke >= 0 ? ke + 1 : null,
+      target: kena ? { jadi: buru.filter(c => c.status === 'emas').length, total: buru.length } : null,
+      kejutan: !kena && segar && buru.length > 0,
+    }
+  }, [rekap, wr])
 
   const info = LAYAR[no - 1]
   return (
@@ -119,16 +147,17 @@ export default function LayarCommandCenter() {
         {no === 1 && <Layar1 wr={wr} rekap={rekap} klasemen={klasemen} kunjungan={kunjungan} />}
         {no === 2 && <Layar2 wr={wr} skala={skala} kunjungan={kunjungan} sambutan={mode.sambutan} />}
         {no === 3 && <Layar3 wr={wr} rekap={rekap} kunjungan={kunjungan} />}
+        {no === 4 && <PerburuanEmas data={wr} kunjungan={kunjungan} />}
       </main>
 
       {/* Penunjuk layar — hanya terlihat saat kursor digerakkan */}
       {kursor && (
         <div className="absolute bottom-[1vh] right-[1vw] flex gap-2 text-xs z-10">
-          {[1, 2, 3].map(n => <a key={n} href={`/konida/warroom/kabbandung/layar/${n}`} className={`rounded px-2 py-1 border ${n === no ? 'bg-sky-500 text-slate-950 border-sky-400' : 'border-slate-600 text-slate-300 bg-slate-900/80'}`}>Layar {n}</a>)}
+          {[1, 2, 3, 4].map(n => <a key={n} href={`/konida/warroom/kabbandung/layar/${n}`} className={`rounded px-2 py-1 border ${n === no ? 'bg-sky-500 text-slate-950 border-sky-400' : 'border-slate-600 text-slate-300 bg-slate-900/80'}`}>Layar {n}</a>)}
           <a href="/konida/warroom/kabbandung" className="rounded px-2 py-1 border border-slate-600 text-slate-300 bg-slate-900/80">Keluar</a>
         </div>
       )}
-      <DetikEmas medali={rekap?.medali_semua} />
+      <DetikEmas medali={rekap?.medali_semua} kenal={kenal} />
     </div>
   )
 }

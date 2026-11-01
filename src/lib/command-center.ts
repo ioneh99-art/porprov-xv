@@ -7,6 +7,7 @@ export const LAYAR = [
   { no: 1, judul: 'Posisi kita', isi: 'Peringkat, medali, target emas, klasemen' },
   { no: 2, judul: 'Hari ini, sekarang', isi: 'Sedang main, berikutnya, misi emas, hasil terbaru' },
   { no: 3, judul: 'Sebaran dan wajah', isi: 'Peta kota, peraih medali, medali per cabor' },
+  { no: 4, judul: 'Perburuan emas', isi: 'Kalender panas, wajah calon peraih emas, hitungan target' },
 ] as const
 
 const urut = (k: BarisKlasemenWR[]) => [...k].sort((a, b) => b.emas - a.emas || b.perak - a.perak || b.perunggu - a.perunggu || a.nama.localeCompare(b.nama, 'id'))
@@ -59,7 +60,7 @@ export function kalimatRingkas(o: { hariKe: number | null; peringkat: number | n
 export const persenTarget = (emas: number, target: number) => target > 0 ? Math.min(100, Math.round((emas / target) * 100)) : 0
 
 /** Nomor layar dari alamat (1–3); selain itu null. */
-export function nomorLayar(s: string | null | undefined): 1 | 2 | 3 | null {
+export function nomorLayar(s: string | null | undefined): 1 | 2 | 3 | 4 | null {
   const n = Number(s)
-  return n === 1 || n === 2 || n === 3 ? n : null
+  return n === 1 || n === 2 || n === 3 || n === 4 ? n : null
 }

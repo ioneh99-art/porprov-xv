@@ -59,7 +59,7 @@ export function duelRival(k: BarisKlasemenWR[], nama: string, rival: string[]) {
 export interface ProyeksiBaris { urutan: number; tanggal: string; cabor_id: number | null; cabor: string; nomor: string | null; atlet: string | null; kota: string | null }
 export interface HasilBaris { id: number; cabor_id: number; tanggal: string; hasil: string; nomor_teks: string }
 export type StatusMisi = 'emas' | 'medali_lain' | 'meleset' | 'berjalan' | 'belum'
-export interface Misi extends ProyeksiBaris { status: StatusMisi; hasil: string | null }
+export interface Misi extends ProyeksiBaris { status: StatusMisi; hasil: string | null; laporan_id?: number | null }
 
 const kataNomor = (s: string | null) => new Set(norm(s).split(' ').filter(w => w.length >= 2 && !['PA', 'PI', 'PUTRA', 'PUTRI', 'KELAS', 'NOMOR'].includes(w)))
 function miripNomor(a: string | null, b: string | null): number {
@@ -100,7 +100,7 @@ export function statusMisi(proyeksi: ProyeksiBaris[], laporan: HasilBaris[], cab
     let status: StatusMisi = 'belum'
     if (h) status = h.hasil === 'emas' ? 'emas' : h.hasil === 'perak' || h.hasil === 'perunggu' ? 'medali_lain' : h.hasil === 'lolos' || h.hasil === 'menang' || h.hasil === 'kalah' ? 'berjalan' : 'meleset'
     if (status === 'belum' && p.cabor_id != null && caborLive.has(p.cabor_id)) status = 'berjalan'
-    return { ...p, status, hasil: h?.hasil ?? null }
+    return { ...p, status, hasil: h?.hasil ?? null, laporan_id: h?.id ?? null }
   })
 }
 
@@ -179,3 +179,58 @@ export function koordinatKota(nama: string | null | undefined) {
 
 /** Rival utama Kab. Bandung (kontingen besar & tetangga). */
 export const RIVAL_KABBANDUNG = ['KOTA BANDUNG', 'KAB. BEKASI', 'KAB. BOGOR', 'KOTA BEKASI']
+
+// ── Perburuan Emas: wajah calon peraih emas (proyeksi KONI) ──────────────────
+/**
+ * Nama di proyeksi KONI sering ditulis singkat atau berupa tim
+ * ("BHERNARD - GISTA", "JEJEN, NADIA, SITI", "TEAM"). Dipecah per orang.
+ */
+export function pecahNamaProyeksi(teks: string | null | undefined): string[] {
+  const t = (teks ?? '').trim()
+  if (!t || /^(TEAM|TIM|BEREGU)$/i.test(t)) return []
+  return t.split(/\s*[,/&;]\s*|\s+-\s*|\s*-\s+|(?<=[A-Za-z])-(?=[A-Za-z])/).map(x => x.trim()).filter(x => x.length >= 2)
+}
+
+const kataNama = (s: string) => norm(s).split(' ').filter(Boolean)
+const awalanSama = (a: string, b: string) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i }
+/** Satu kata nama singkat cocok dengan satu kata nama lengkap? (inisial, potongan, atau beda ejaan di ujung) */
+function kataCocok(pendek: string, lengkap: string): boolean {
+  if (pendek === lengkap) return true
+  if (pendek.length === 1) return lengkap.startsWith(pendek)
+  const p = Math.min(pendek.length, lengkap.length)
+  if (p >= 3 && (lengkap.startsWith(pendek) || pendek.startsWith(lengkap))) return true
+  return awalanSama(pendek, lengkap) >= 5
+}
+/** Nama singkat cocok dengan nama lengkap: setiap kata nama singkat ditemukan berurutan. */
+export function namaCocok(pendek: string, lengkap: string): boolean {
+  const a = kataNama(pendek), b = kataNama(lengkap)
+  if (!a.length || !b.length) return false
+  if (a.join('') === b.join('')) return true                      // "AJIBAYU" = "AJI BAYU"
+  let j = 0
+  for (const w of a) {
+    while (j < b.length && !kataCocok(w, b[j])) j++
+    if (j >= b.length) return false
+    j++
+  }
+  // Satu kata pendek saja (mis. "FATUR") harus cocok persis/awalan panjang — bukan sekadar inisial.
+  return a.length > 1 || a[0].length >= 4
+}
+
+export interface AtletCalon { id: number; nama: string; foto: string | null }
+/**
+ * Cari atlet untuk satu nama singkat di antara atlet yang TERDAFTAR di cabor itu (lalu seluruh kontingen).
+ * Hanya bila tepat satu calon — kalau ragu, lebih baik tanpa foto daripada foto orang lain.
+ */
+export function cariAtletProyeksi(pendek: string, pool: AtletCalon[], semua: AtletCalon[] = []): AtletCalon | null {
+  const satu = (daftar: AtletCalon[]) => {
+    const persis = daftar.filter(a => norm(a.nama) === norm(pendek))
+    if (persis.length === 1) return persis[0]
+    const calon = daftar.filter(a => namaCocok(pendek, a.nama))
+    return calon.length === 1 ? calon[0] : null
+  }
+  // Cadangan: seluruh atlet kontingen (atlet kadang tercatat di cabor lain) — hanya nama ≥ 2 kata.
+  return satu(pool) ?? (kataNama(pendek).length >= 2 ? satu(semua) : null)
+}
+
+export interface WajahCalon { nama: string; foto: string | null; atlet_id: number | null }
+export interface CalonEmas extends Misi { wajah: WajahCalon[]; tim: boolean }

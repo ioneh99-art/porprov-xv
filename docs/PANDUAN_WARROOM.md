@@ -16,20 +16,22 @@ tampil kosong dengan jujur ("—", "Klasemen belum dimulai").
 | **Detik Emas** | Layar penuh setiap medali BARU disahkan (emas 12 dtk, perak/perunggu 8 dtk), juga di atas Mode Layar | rekap lapangan (cek tiap 20 dtk) |
 | Mode Layar (videotron) | 5 halaman berputar; halaman 5 = Misi emas + partai berikutnya | sama |
 
-## Command Center — 3 monitor (1 Nov 2026)
+## Command Center — 4 layar (1–2 Nov 2026)
 
-Tiga alamat, satu per monitor landscape (login KONIDA di komputer monitor, buka alamat, tekan F11):
+Empat alamat, satu per monitor landscape (login KONIDA di komputer monitor, buka alamat, tekan F11):
 
 | Layar | Alamat | Isi |
 |---|---|---|
 | 1 · Posisi kita | `/konida/warroom/kabbandung/layar/1` | Peringkat besar, emas/perak/perunggu, garis menuju **target 74**, kalimat ringkas 30 detik, 8 besar klasemen + selisih ke atas/bawah |
 | 2 · Hari ini, sekarang | `/konida/warroom/kabbandung/layar/2` | Arena (sedang main & berikutnya), Misi Emas, pita "hasil terbaru" (hanya yang disahkan) |
 | 3 · Sebaran dan wajah | `/konida/warroom/kabbandung/layar/3` | Peta kota hari ini, peraih medali terbaru + foto, medali per cabor, (di luar Mode Kunjungan) baris operasi |
+| 4 · Perburuan emas | `/konida/warroom/kabbandung/layar/4` | Kalender Panas raksasa (1 koin = 1 target emas KONI, berubah warna sesuai hasil yang disahkan), kartu wajah calon peraih emas hari ini/berikutnya, hitungan 74 emas diburu |
 
-- **Detik Emas** tampil di ketiga layar. Data segar tiap 20 dtk; layar tidak tidur; kursor hilang saat diam; muat ulang sendiri tiap 4 jam.
+- **Detik Emas** tampil di semua layar. Di Command Center emas dibuka dengan jeda tegang "Kabar dari arena…", lalu foto peraih, "EMAS KE-N", dan "Target KONI tercapai (n/74)" atau "EMAS KEJUTAN". Data segar tiap 20 dtk; layar tidak tidur; kursor hilang saat diam; muat ulang sendiri tiap 4 jam.
 - **Mode Kunjungan** (War Room → tombol **Command Center**, bisa dari HP): ucapan selamat datang di Layar 2, huruf lebih besar,
   data internal disembunyikan. Disimpan di tabel `command_center` (migrasi 065), audit `COMMAND_CENTER_UBAH`.
-- Papan ketik: tombol 1/2/3 berpindah layar. Aturan & uji: `src/lib/command-center.ts`, `npm run uji:command-center`.
+- Foto calon peraih: nama di proyeksi KONI dicocokkan ke atlet yang terdaftar di cabor itu (cadangan: seluruh kontingen, nama ≥ 2 kata), hanya bila calonnya tepat satu; selain itu inisial.
+- Papan ketik: tombol 1/2/3/4 berpindah layar. Aturan & uji: `src/lib/command-center.ts`, `npm run uji:command-center`.
 
 ## Klasemen resmi — otomatis dari situs KONI Jabar (sejak 1 Nov 2026)
 

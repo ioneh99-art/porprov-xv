@@ -12,7 +12,7 @@ import { KOLOM_PARTAI } from '@/lib/partai-server'
 import { jadwalPada } from '@/lib/layar'
 import type { BarisJadwal } from '@/lib/matriks'
 import { keadaanPic } from '@/lib/jalur-lapor'
-import { kalenderPanas, koordinatKota, lagaLive, partaiBerikut, statusMisi, type PartaiWR, type ProyeksiBaris } from '@/lib/warroom'
+import { cariAtletProyeksi, kalenderPanas, koordinatKota, lagaLive, partaiBerikut, pecahNamaProyeksi, statusMisi, type AtletCalon, type CalonEmas, type PartaiWR, type ProyeksiBaris } from '@/lib/warroom'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,14 +27,14 @@ export async function GET(req: NextRequest) {
   const db = dbLapor()
   const hariIni = tanggalWIB(), jamKini = jamWIB()
 
-  let proyeksiMentah: any[], laporan: any[], daftar: { cabor_id: number }[]
+  let proyeksiMentah: any[], laporan: any[], daftar: { cabor_id: number; atlet_id: number | null }[]
   try {
     ;[proyeksiMentah, laporan, daftar] = await Promise.all([
       ambilSemua((d, s) => db.from('proyeksi_medali').select('urutan,tanggal,cabor_id,cabor_teks,nomor_teks,atlet_teks,kota')
         .eq('kontingen_id', k).eq('medali', 'emas').order('urutan').range(d, s)),
       ambilSemua((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,hasil,peringkat,nomor_teks,nilai_teks,lawan,atlet_ids,status,diputus_at,created_at')
         .eq('kontingen_id', k).neq('status', 'ditolak').order('id').range(d, s)),
-      ambilSemua<{ cabor_id: number }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id').eq('kontingen_id', k).order('id').range(d, s)),
+      ambilSemua<{ cabor_id: number; atlet_id: number | null }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id,atlet_id').eq('kontingen_id', k).order('id').range(d, s)),
     ])
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -80,6 +80,31 @@ export async function GET(req: NextRequest) {
   const tglMisi = proyeksi.some(p => p.tanggal === hariIni) ? hariIni : (proyeksi.map(p => p.tanggal).filter(t => t > hariIni).sort()[0] ?? null)
   const misi = tglMisi ? statusMisi(proyeksi.filter(p => p.tanggal === tglMisi), sah, tglMisi === hariIni ? caborLive : new Set()) : []
   const besok = new Date(Date.parse(hariIni + 'T00:00:00Z') + 86_400_000).toISOString().slice(0, 10)
+
+  // ── Perburuan Emas: semua 74 target + wajah calon peraihnya (atlet terdaftar di cabor itu) ──
+  const semuaMisi = statusMisi(proyeksi, sah, new Set()).map(x =>
+    x.status === 'belum' && x.tanggal === hariIni && x.cabor_id != null && caborLive.has(x.cabor_id) ? { ...x, status: 'berjalan' as const } : x)
+  const atletDaftar = new Map<number, AtletCalon>()
+  for (const r of await ambilSemua<any>((d, s) => db.from('atlet').select('id,nama_lengkap,foto_url').eq('kontingen_id', k).order('id').range(d, s)))
+    atletDaftar.set(r.id, { id: r.id, nama: r.nama_lengkap, foto: r.foto_url ?? null })
+  const semuaAtlet = Array.from(atletDaftar.values())
+  const poolCabor = new Map<number, AtletCalon[]>()
+  for (const d of daftar) {
+    const a = d.atlet_id != null ? atletDaftar.get(d.atlet_id) : undefined
+    if (!a) continue
+    const l = poolCabor.get(d.cabor_id) ?? []
+    if (!l.some(x => x.id === a.id)) l.push(a)
+    poolCabor.set(d.cabor_id, l)
+  }
+  const perburuan: CalonEmas[] = semuaMisi.map(x => {
+    const nama = pecahNamaProyeksi(x.atlet)
+    const pool = x.cabor_id != null ? (poolCabor.get(x.cabor_id) ?? []) : []
+    const wajah = nama.map(n => {
+      const a = cariAtletProyeksi(n, pool, semuaAtlet)
+      return { nama: a?.nama ?? n, foto: a?.foto ?? null, atlet_id: a?.id ?? null }
+    })
+    return { ...x, wajah, tim: nama.length !== 1 }
+  })
 
   // ── Kegiatan cabor kita (jadwal KONI) ──
   const kegiatanKita = ((jadwal ?? []) as BarisJadwal[]).filter(j => j.jenis === 'pertandingan' && caborKita.some(c => norm(c) === norm(j.cabor_nama_raw)))
@@ -149,6 +174,7 @@ export async function GET(req: NextRequest) {
     misi: { tanggal: tglMisi, hari_ini: tglMisi === hariIni, daftar: misi, besok: proyeksi.filter(p => p.tanggal === besok).length },
     arena: { live: live.map(isiPartai), berikut: partaiBerikut(partai as PartaiWR[], hariIni, jamKini).map(isiPartai) },
     kalender,
+    perburuan,
     peta: { tanggal: tglPeta, hari_ini: tglPeta === hariIni, kota: Array.from(perKota.values()).sort((x, y) => y.kegiatan.length - x.kegiatan.length) },
     operasi,
     klasemen_diperbarui: (klas ?? [])[0]?.updated_at ?? null,

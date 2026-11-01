@@ -1,6 +1,6 @@
 'use client'
-// PanelCommandCenter — dibuka dari War Room (juga dari HP): alamat 3 layar command
-// center dan saklar Mode Kunjungan. Mode disimpan di server, jadi ketiga monitor
+// PanelCommandCenter — dibuka dari War Room (juga dari HP): alamat layar command
+// center dan saklar Mode Kunjungan. Mode disimpan di server, jadi semua monitor
 // berganti tampilan bersamaan dalam beberapa detik.
 
 import { useEffect, useState } from 'react'
@@ -34,7 +34,7 @@ export default function PanelCommandCenter({ onTutup }: { onTutup: () => void })
     <div className="fixed inset-0 z-[900] bg-black/70 flex items-end md:items-center justify-center p-3" onClick={onTutup}>
       <div className="w-full max-w-lg rounded-2xl bg-[#071423] border border-sky-500/30 p-5 text-zinc-200" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 font-black text-white"><Monitor size={16} className="text-sky-300" /> Command Center · 3 layar</div>
+          <div className="flex items-center gap-2 font-black text-white"><Monitor size={16} className="text-sky-300" /> Command Center · {LAYAR.length} layar</div>
           <button onClick={onTutup} aria-label="Tutup" className="text-zinc-400"><X size={18} /></button>
         </div>
 

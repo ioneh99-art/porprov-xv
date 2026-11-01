@@ -1,6 +1,6 @@
 // scripts/uji-warroom.ts — War Room tanpa data contoh: peringkat, klasemen kosong, laga live.
 // Dijalankan: npm run uji:warroom
-import { duelRival, kalenderPanas, klasemenDimulai, koordinatKota, lagaLive, menitLagi, partaiBerikut, peringkatKontingen, statusMisi, tetangga, type PartaiWR, type ProyeksiBaris } from '../src/lib/warroom'
+import { cariAtletProyeksi, namaCocok, pecahNamaProyeksi, duelRival, kalenderPanas, klasemenDimulai, koordinatKota, lagaLive, menitLagi, partaiBerikut, peringkatKontingen, statusMisi, tetangga, type PartaiWR, type ProyeksiBaris } from '../src/lib/warroom'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -66,5 +66,31 @@ const kal = kalenderPanas(['2026-11-18', '2026-11-18', '2026-11-03'], ['2026-11-
 cek('kalender panas', kal.map(h => [h.tanggal.slice(8), h.proyeksi, h.realisasi, h.kegiatan]), [['02', 0, 0, 1], ['03', 1, 1, 1], ['04', 0, 0, 1]])
 cek('koordinat kota', ['BEKASI', 'Kota Depok', 'KAB. BANDUNG', 'KOTA CIMAHI', 'Antah'].map(k => koordinatKota(k)?.label ?? null), ['Bekasi', 'Depok', 'Kab. Bandung', 'Cimahi', null])
 
+
+// ── Perburuan Emas: nama proyeksi KONI → atlet ──
+cek('pecah: satu nama', pecahNamaProyeksi('HASAN RUSLAN'), ['HASAN RUSLAN'])
+cek('pecah: koma', pecahNamaProyeksi('JEJEN, NADIA, SITI'), ['JEJEN', 'NADIA', 'SITI'])
+cek('pecah: strip berspasi', pecahNamaProyeksi('BHERNARD - GISTA'), ['BHERNARD', 'GISTA'])
+cek('pecah: strip rapat', pecahNamaProyeksi('ANDY-EN LIONG-FIKRY'), ['ANDY', 'EN LIONG', 'FIKRY'])
+cek('pecah: strip timpang', pecahNamaProyeksi('LAFIFAH KAFKA N - LAIQAH KALIKA N- PURI'), ['LAFIFAH KAFKA N', 'LAIQAH KALIKA N', 'PURI'])
+cek('pecah: TEAM = tanpa nama', pecahNamaProyeksi('TEAM'), [])
+cek('pecah: kosong', pecahNamaProyeksi(null), [])
+cek('cocok: potongan nama', namaCocok('ABDUL LATIF', 'Abdul Latif Hidayat'), true)
+cek('cocok: inisial di ujung', namaCocok('FAYYAZ AQSADIA G', 'Fayyaz Aqsadia Gisnan'), true)
+cek('cocok: beda ejaan di ujung', namaCocok('HERLIN APRILIA', 'Herlin Aprilin Lali'), true)
+cek('cocok: nama digabung', namaCocok('AJIBAYU', 'Aji Bayu Triantoro'), true)
+cek('cocok: M. = Muhammad', namaCocok('M MUHADZIB', 'Muhammad Muhadzdzib'), true)
+cek('tidak cocok: urutan terbalik', namaCocok('LATIF ABDUL', 'Abdul Latif Hidayat'), false)
+cek('tidak cocok: nama lain', namaCocok('DEWI KRISTINA', 'Dewi Lestari'), false)
+cek('tidak cocok: satu kata pendek', namaCocok('ANI', 'Ani Suryani'), false)
+const pool = [{ id: 1, nama: 'Abdul Latif Hidayat', foto: 'a.jpg' }, { id: 2, nama: 'Rizki Ramadhan', foto: null }, { id: 3, nama: 'Rizki Pratama', foto: null }]
+cek('cari: unik di cabor', cariAtletProyeksi('ABDUL LATIF', pool)?.id, 1)
+cek('cari: dua calon → tanpa foto (ragu)', cariAtletProyeksi('RIZKI', pool), null)
+cek('cari: persis menang dari awalan', cariAtletProyeksi('RIZKI PRATAMA', pool)?.id, 3)
+const semua = [...pool, { id: 9, nama: 'Herlin Aprilin Lali', foto: 'h.jpg' }]
+cek('cari: cadangan seluruh kontingen (≥ 2 kata)', cariAtletProyeksi('HERLIN APRILIA', pool, semua)?.id, 9)
+cek('cari: cadangan tidak untuk 1 kata', cariAtletProyeksi('HERLIN', pool, semua), null)
+cek('misi: laporan pengisi ikut dicatat', statusMisi([{ urutan: 1, tanggal: '2026-11-05', cabor_id: 7, cabor: 'Gulat', nomor: 'Bebas 65 kg', atlet: 'X', kota: null }],
+  [{ id: 55, cabor_id: 7, tanggal: '2026-11-05', hasil: 'emas', nomor_teks: 'Gaya Bebas 65 kg' }], new Set())[0].laporan_id, 55)
 console.log(`uji-warroom: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
