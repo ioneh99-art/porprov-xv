@@ -24,6 +24,18 @@ export interface BarisJejak<P extends PartaiJejak, L extends LaporanJejak> {
 
 const baku = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
+/** Nama nomor sama, abaikan huruf/tanda baca dan awalan disiplin ("BOLA VOLI PASIR · Beregu (Pa)" = "Beregu (Pa)"). */
+function samaNomor(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = baku(a), y = baku(b)
+  if (!x || !y) return false
+  return x === y || x.endsWith(' ' + y) || y.endsWith(' ' + x)
+}
+
+/** Dari kandidat: yang lawannya sama; kalau tidak ada, satu-satunya kandidat. */
+function pilih<P extends PartaiJejak>(kandidat: P[], lawan: string | null): P | undefined {
+  return (baku(lawan) ? kandidat.find(x => baku(x.lawan) === baku(lawan)) : undefined) ?? (kandidat.length === 1 ? kandidat[0] : undefined)
+}
+
 export function tahapDari(laporan: { status: string }[]): TahapJejak {
   if (laporan.some(l => l.status === 'disahkan')) return 'disahkan'
   if (laporan.some(l => l.status === 'menunggu')) return 'menunggu'
@@ -31,9 +43,9 @@ export function tahapDari(laporan: { status: string }[]): TahapJejak {
 }
 
 /**
- * Pasangkan laporan ke partai: utamakan partai_id; kalau tidak bertaut, cocokkan
- * cabor + tanggal + lawan yang sama; kalau lawan kosong/beda tapi cabor itu hanya
- * punya SATU partai di tanggal tersebut, pakai partai itu. Sisanya tampil sebagai
+ * Pasangkan laporan ke partai: utamakan partai_id; kalau tidak bertaut, cari di
+ * cabor + tanggal yang sama: nomor/kelas yang sama dulu (dipersempit lawan bila
+ * ada), lalu lawan yang sama, lalu SATU-SATUNYA partai cabor itu di tanggal tersebut. Sisanya tampil sebagai
  * baris tersendiri (laporan tanpa partai di jadwal) — tidak ada yang hilang.
  */
 export function susunJejak<P extends PartaiJejak, L extends LaporanJejak>(partai: P[], laporan: L[], hariIni: string): BarisJejak<P, L>[] {
@@ -44,7 +56,10 @@ export function susunJejak<P extends PartaiJejak, L extends LaporanJejak>(partai
     let p = l.partai_id != null ? byId.get(l.partai_id) : undefined
     if (!p) {
       const hari = partai.filter(x => x.cabor_id === l.cabor_id && x.tanggal === l.tanggal)
-      p = (baku(l.lawan) ? hari.find(x => baku(x.lawan) === baku(l.lawan)) : undefined) ?? (hari.length === 1 ? hari[0] : undefined)
+      // Nomor/kelas yang sama dulu (mis. Gulat: banyak kelas sehari, tanpa lawan),
+      // baru lawan, baru "satu-satunya partai hari itu".
+      const senomor = hari.filter(x => samaNomor(x.nomor_teks, l.nomor_teks))
+      p = pilih(senomor, l.lawan) ?? pilih(hari, l.lawan)
     }
     if (p) per.set(p.id, [...(per.get(p.id) ?? []), l])
     else lepas.push(l)
