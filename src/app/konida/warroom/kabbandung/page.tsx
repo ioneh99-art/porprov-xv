@@ -11,10 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import {
-  Monitor, Clock, Target, TrendingUp,
-  RefreshCw, Zap, MapPin, Crown,
-} from 'lucide-react'
+import { Monitor, Clock, RefreshCw, MapPin, Pencil } from 'lucide-react'
 import PetaKompetitor from '@/components/PetaKompetitor'
 import {
   StrategicActionsCard,
@@ -30,9 +27,8 @@ import { useWarRoom } from '@/lib/warroom-klien'
 import DetikEmas from '@/components/konida/warroom/DetikEmas'
 import MisiEmas from '@/components/konida/warroom/MisiEmas'
 import ArenaLive from '@/components/konida/warroom/ArenaLive'
-import PertarunganPeringkat from '@/components/konida/warroom/PertarunganPeringkat'
 import InputKlasemenResmi from '@/components/konida/warroom/InputKlasemenResmi'
-import KalenderPanas from '@/components/konida/warroom/KalenderPanas'
+import KalenderEmas from '@/components/konida/warroom/KalenderEmas'
 import PetaPerjuangan from '@/components/konida/warroom/PetaPerjuangan'
 import KesehatanOperasi from '@/components/konida/warroom/KesehatanOperasi'
 import PanelCommandCenter from '@/components/konida/warroom/PanelCommandCenter'
@@ -263,6 +259,10 @@ export default function PageWarRoom() {
               style={{ background:`${ACCENT}18`, borderColor:`${ACCENT}50`, color:ACCENT }}>
               <Monitor size={11}/> Mode Layar
             </button>
+            <button onClick={() => setInputKlasemen(true)} title="Cadangan bila klasemen resmi dari situs KONI Jabar tidak terbaca"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
+              <Pencil size={11}/> Klasemen manual
+            </button>
             <button onClick={() => window.location.reload()}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
               <RefreshCw size={11}/> Refresh
@@ -279,6 +279,15 @@ export default function PageWarRoom() {
 
       <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative z-10 space-y-6">
 
+        {/* ════ 1. KALENDER PANAS — koin per target emas; klik tanggal → calon & peraih emas ════ */}
+        <div {...ani(0)}><KalenderEmas data={wr} /></div>
+
+        {/* ════ 2. PETA PERJUANGAN + KESEHATAN OPERASI ════ */}
+        <div {...ani(5)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2"><PetaPerjuangan data={wr} accent={ACCENT} /></div>
+          <KesehatanOperasi data={wr} />
+        </div>
+
         {/* ════ 0. LAPORAN LAPANGAN — sumber angka medali selama PORPROV ════ */}
         {lapangan && (lapangan.rekap.laga > 0 || lapangan.menunggu > 0) && (
           <a href="/konida/lappertandingan/kabbandung" className="flex items-center justify-between gap-3 flex-wrap rounded-xl px-4 py-2.5 border"
@@ -291,7 +300,7 @@ export default function PageWarRoom() {
           </a>
         )}
 
-        {/* ════ 1. KPI STRIP — 5 panel ════ */}
+        {/* ════ 3. KPI STRIP — 5 panel ════ */}
         <div {...ani(0)} className="grid grid-cols-5 gap-2">
           {([
             { l:'Peringkat',    v: rankWR ? `#${rankWR}` : '—', c:'#ffd700', sub: rankWR ? `dari ${klasemen.length || 27} kontingen` : 'klasemen belum mulai', icon:'👑' },
@@ -319,158 +328,15 @@ export default function PageWarRoom() {
           ))}
         </div>
 
-        {/* ════ 2. MISI EMAS HARI INI + ARENA ════ */}
+        {/* ════ 4. MISI EMAS HARI INI + ARENA ════ */}
         <div {...ani(10)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2"><MisiEmas data={wr} accent={ACCENT} /></div>
           <ArenaLive data={wr} />
         </div>
 
-        {/* ════ 3. MISSION INTELLIGENCE — Gap · Target · Klasemen ════ */}
-        <div {...ani(30)} className="rounded-3xl overflow-hidden relative"
-          style={{ background:'rgba(2,10,20,0.65)', border:`1px solid ${ACCENT}18` }}>
-          <div className="px-5 py-3 flex items-center gap-3 border-b"
-            style={{ background:'rgba(0,0,0,0.25)', borderColor:`${ACCENT}12` }}>
-            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color:ACCENT }}>Mission Intelligence</span>
-            <span className="h-3 w-px bg-white/10"/>
-            <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Gap ke Puncak · Pertarungan Peringkat · Top Klasemen</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/[0.05]">
-
-            {/* ── Col 1: Gap ke Puncak ── */}
-            {myRank > 1 && klasemen[myRank-1] && klasemen[0] ? (()=> {
-              const gapEmas  = klasemen[0].emas  - klasemen[myRank-1].emas
-              const gapTotal = klasemen[0].total - klasemen[myRank-1].total
-              const pctToTop = klasemen[0].emas > 0 ? Math.round((klasemen[myRank-1].emas / klasemen[0].emas) * 100) : 0
-              return (
-                <div className="p-5 relative overflow-hidden" style={{ background:'rgba(239,68,68,0.05)' }}>
-                  <div className="absolute inset-0 opacity-[0.025] pointer-events-none"
-                    style={{ backgroundImage:`repeating-linear-gradient(-45deg,#ef4444 0,#ef4444 1px,transparent 0,transparent 12px)` }}/>
-                  <div className="relative">
-                    <div className="flex items-center gap-2 mb-3">
-                      <TrendingUp size={11} className="text-red-400"/>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Gap ke Puncak</span>
-                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-black transition-opacity ${pulse?'opacity-100':'opacity-40'}`}
-                        style={{ background:'rgba(239,68,68,0.2)', color:'#ef4444' }}>⚠ KRITIS</span>
-                    </div>
-                    <div className="flex items-end gap-3 mb-3">
-                      <div>
-                        <div className="text-5xl font-black leading-none text-red-400"
-                          style={{ textShadow:'0 0 28px rgba(239,68,68,0.55)' }}>-{gapEmas}</div>
-                        <div className="text-[10px] text-zinc-500 mt-1">🥇 emas dari <span className="text-zinc-400 font-semibold">{klasemen[0].nama}</span></div>
-                      </div>
-                      <div className="text-zinc-700 text-lg mb-0.5">/</div>
-                      <div>
-                        <div className="text-3xl font-black leading-none text-amber-400"
-                          style={{ textShadow:'0 0 20px rgba(251,191,36,0.4)' }}>-{gapTotal}</div>
-                        <div className="text-[10px] text-zinc-500 mt-1">🏅 total</div>
-                      </div>
-                    </div>
-                    <div className="h-1.5 rounded-full overflow-hidden mb-1.5" style={{ background:'rgba(255,255,255,0.05)' }}>
-                      <div className="h-full rounded-full transition-all duration-1000"
-                        style={{ width:`${pctToTop}%`, background:'linear-gradient(to right,#ef4444,#fbbf24)', boxShadow:'0 0 10px rgba(239,68,68,0.5)' }}/>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Zap size={9} className="text-red-400"/>
-                      <span className="text-[9px] font-bold text-red-400">{pctToTop}% dari #1 · +{gapEmas} emas dibutuhkan</span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })() : mulai ? (
-              <div className="p-5 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl font-black leading-none mb-2" style={{ color:ACCENT, textShadow:`0 0 24px ${ACCENT}60` }}>🏆 #1</div>
-                  <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Posisi Puncak</div>
-                </div>
-              </div>
-            ) : (
-              <div className="p-5 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-3xl font-black leading-none mb-2 text-zinc-500">—</div>
-                  <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Belum ada medali</div>
-                  <div className="text-[10px] text-zinc-600 mt-1">Gap dihitung begitu hasil pertama disahkan</div>
-                </div>
-              </div>
-            )}
-
-            {/* ── Col 2: Pertarungan Peringkat (pengganti referensi POPDA — khusus PORPROV) ── */}
-            <PertarunganPeringkat klasemen={klasemen} diperbarui={wr?.klasemen_diperbarui ?? null} onInput={() => setInputKlasemen(true)} />
-
-            {/* ── Col 3: Top 5 Klasemen ── */}
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Crown size={11} className="text-yellow-400"/>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-yellow-400">Top Klasemen</span>
-                </div>
-                <span className="text-[8px] font-mono font-bold border border-yellow-500/20 text-yellow-500/70 px-2 py-0.5 rounded-full">
-                  {rankWR ? `#${rankWR}` : '—'} / {klasemen.length||27}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                {!mulai && (
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-6 text-center">
-                    <div className="text-[11px] font-bold text-zinc-400">Klasemen belum dimulai</div>
-                    <div className="text-[10px] text-zinc-600 mt-1">Semua kontingen masih 0 medali</div>
-                  </div>
-                )}
-                {mulai && klasemen.slice(0, 5).map((k, i) => {
-                  const isUs = String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG'   // bukan sekadar memuat "BANDUNG": Kota Bandung ikut tertandai
-                  return (
-                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-colors"
-                      style={{
-                        background: isUs ? `${ACCENT}10` : 'rgba(255,255,255,0.025)',
-                        borderColor: isUs ? `${ACCENT}40` : 'rgba(255,255,255,0.05)',
-                      }}>
-                      <span className="text-xs w-6 text-center font-black shrink-0"
-                        style={{ color: i<3 ? ['#ffd700','#cbd5e1','#cd7f32'][i] : '#6b7280' }}>
-                        {i<3 ? ['🥇','🥈','🥉'][i] : `#${i+1}`}
-                      </span>
-                      <span className="flex-1 text-[10px] font-bold truncate" style={{ color: isUs ? ACCENT : '#d4d4d8' }}>
-                        {k.nama}{isUs?' ✦':''}
-                      </span>
-                      <div className="flex gap-1 text-[10px] font-mono font-bold shrink-0 bg-black/20 px-1.5 py-0.5 rounded">
-                        <span className="text-yellow-400">{k.emas}</span>
-                        <span className="text-zinc-500">{k.perak}</span>
-                        <span className="text-amber-700">{k.perunggu}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-                {myRank > 5 && klasemen[myRank-1] && (
-                  <>
-                    <div className="text-center text-[10px] text-zinc-700 font-mono py-0.5">⋮</div>
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
-                      style={{ background:`${ACCENT}12`, border:`1px solid ${ACCENT}45`, boxShadow:`0 0 10px ${ACCENT}15` }}>
-                      <span className="text-xs w-6 text-center font-black shrink-0" style={{ color: ACCENT }}>#{myRank}</span>
-                      <span className="flex-1 text-[10px] font-bold truncate" style={{ color: ACCENT }}>
-                        {klasemen[myRank-1].nama} ✦
-                      </span>
-                      <div className="flex gap-1 text-[10px] font-mono font-bold shrink-0 bg-black/20 px-1.5 py-0.5 rounded">
-                        <span className="text-yellow-400">{klasemen[myRank-1].emas}</span>
-                        <span className="text-zinc-500">{klasemen[myRank-1].perak}</span>
-                        <span className="text-amber-700">{klasemen[myRank-1].perunggu}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ════ 1b. SITUASI PEROLEHAN EMAS — proyeksi KONI vs realisasi ════ */}
+        {/* ════ 5. SITUASI PEROLEHAN EMAS — proyeksi KONI vs realisasi ════ */}
         <div {...ani(10)}>
           <GrafikProyeksiEmas kontingenId={4} />
-        </div>
-
-        {/* ════ 5. KALENDER PANAS ════ */}
-        <div {...ani(15)}><KalenderPanas data={wr} /></div>
-
-        {/* ════ 6. PETA PERJUANGAN + KESEHATAN OPERASI ════ */}
-        <div {...ani(20)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2"><PetaPerjuangan data={wr} accent={ACCENT} /></div>
-          <KesehatanOperasi data={wr} />
         </div>
 
         {/* ════ 4. PETA KOMPETITOR — full width ════ */}

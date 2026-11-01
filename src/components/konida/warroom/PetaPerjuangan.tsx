@@ -30,7 +30,7 @@ export default function PetaPerjuangan({ data, accent = '#38bdf8', tinggi = 420 
       if (!peta.current) {
         peta.current = L.map(wadah.current, { center: [-6.75, 107.55], zoom: 8, zoomControl: false, attributionControl: false, scrollWheelZoom: false })
         L.control.zoom({ position: 'bottomleft' }).addTo(peta.current)
-        pasangUbin(L, peta.current, 'gelap')
+        pasangUbin(L, peta.current, 'satelit')
       }
       const map = peta.current
       lapis.current?.remove()
@@ -68,6 +68,8 @@ export default function PetaPerjuangan({ data, accent = '#38bdf8', tinggi = 420 
       <div ref={wadah} className="absolute inset-0" />
       {data && kota.length === 0 && <div className="absolute inset-0 z-[400] grid place-items-center text-sm text-zinc-400 bg-black/40">Tidak ada kegiatan terjadwal.</div>}
       <style>{`
+        .ubin-satelit{filter:brightness(.62) saturate(.85) contrast(1.05)}
+        .ubin-label{filter:brightness(1.15)}
         .pp-titik{border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--w) 28%,transparent);border:2px solid var(--w);color:#fff;font:800 12px system-ui;box-shadow:0 0 16px var(--w)}
         .pp-live{animation:pp-denyut 1.4s ease-in-out infinite}
         @keyframes pp-denyut{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.7)}50%{box-shadow:0 0 0 14px rgba(239,68,68,0)}}

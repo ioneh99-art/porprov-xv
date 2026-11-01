@@ -12,7 +12,7 @@ import { KOLOM_PARTAI } from '@/lib/partai-server'
 import { jadwalPada } from '@/lib/layar'
 import type { BarisJadwal } from '@/lib/matriks'
 import { keadaanPic } from '@/lib/jalur-lapor'
-import { cariAtletProyeksi, kalenderPanas, koordinatKota, lagaLive, partaiBerikut, pecahNamaProyeksi, statusMisi, type AtletCalon, type CalonEmas, type PartaiWR, type ProyeksiBaris } from '@/lib/warroom'
+import { cariAtletProyeksi, kalenderPanas, koordinatKota, lagaLive, partaiBerikut, pecahNamaProyeksi, statusMisi, type AtletCalon, type CalonEmas, type EmasKejutan, type WajahCalon, type PartaiWR, type ProyeksiBaris } from '@/lib/warroom'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -88,6 +88,10 @@ export async function GET(req: NextRequest) {
   for (const r of await ambilSemua<any>((d, s) => db.from('atlet').select('id,nama_lengkap,foto_url').eq('kontingen_id', k).order('id').range(d, s)))
     atletDaftar.set(r.id, { id: r.id, nama: r.nama_lengkap, foto: r.foto_url ?? null })
   const semuaAtlet = Array.from(atletDaftar.values())
+  const wajahLaporan = (l: any): WajahCalon[] => ((l.atlet_ids ?? []) as number[]).map(id => {
+    const a = atletDaftar.get(id)
+    return { nama: a?.nama ?? `Atlet ${id}`, foto: a?.foto ?? null, atlet_id: id }
+  })
   const poolCabor = new Map<number, AtletCalon[]>()
   for (const d of daftar) {
     const a = d.atlet_id != null ? atletDaftar.get(d.atlet_id) : undefined
@@ -103,8 +107,12 @@ export async function GET(req: NextRequest) {
       const a = cariAtletProyeksi(n, pool, semuaAtlet)
       return { nama: a?.nama ?? n, foto: a?.foto ?? null, atlet_id: a?.id ?? null }
     })
-    return { ...x, wajah, tim: nama.length !== 1 }
+    const lap = x.laporan_id != null && (x.status === 'emas' || x.status === 'medali_lain') ? sah.find(l => l.id === x.laporan_id) : null
+    return { ...x, wajah, tim: nama.length !== 1, ...(lap ? { peraih: wajahLaporan(lap) } : {}) }
   })
+  const terpakai = new Set(perburuan.map(c => c.laporan_id).filter(Boolean))
+  const emasKejutan: EmasKejutan[] = sah.filter(l => l.hasil === 'emas' && !terpakai.has(l.id))
+    .map(l => ({ id: l.id, tanggal: l.tanggal, cabor: namaCabor.get(l.cabor_id) ?? 'Cabor', nomor: l.nomor_teks, peraih: wajahLaporan(l) }))
 
   // ── Kegiatan cabor kita (jadwal KONI) ──
   const kegiatanKita = ((jadwal ?? []) as BarisJadwal[]).filter(j => j.jenis === 'pertandingan' && caborKita.some(c => norm(c) === norm(j.cabor_nama_raw)))
@@ -175,6 +183,7 @@ export async function GET(req: NextRequest) {
     arena: { live: live.map(isiPartai), berikut: partaiBerikut(partai as PartaiWR[], hariIni, jamKini).map(isiPartai) },
     kalender,
     perburuan,
+    emas_kejutan: emasKejutan,
     peta: { tanggal: tglPeta, hari_ini: tglPeta === hariIni, kota: Array.from(perKota.values()).sort((x, y) => y.kegiatan.length - x.kegiatan.length) },
     operasi,
     klasemen_diperbarui: (klas ?? [])[0]?.updated_at ?? null,

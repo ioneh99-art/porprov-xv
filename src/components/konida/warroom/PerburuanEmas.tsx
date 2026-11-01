@@ -24,17 +24,28 @@ const PITA: Record<StatusMisi, { teks: string; warna: string }> = {
   meleset:     { teks: 'Belum rezeki',       warna: MERAH },
 }
 
-function Koin({ c, ukuran }: { c: CalonEmas; ukuran: string }) {
+/** Gaya koin per status — dipakai Layar 4 dan Kalender Panas War Room. */
+export function gayaKoin(c: Pick<CalonEmas, 'status' | 'hasil'>): React.CSSProperties {
   const lain = c.status === 'medali_lain' ? (c.hasil === 'perunggu' ? PERUNGGU : PERAK) : null
-  const gaya: React.CSSProperties =
-    c.status === 'emas' ? { background: `radial-gradient(circle at 35% 30%, #fff8c4, ${EMAS} 45%, #b8860b)`, boxShadow: `0 0 0.9vw ${EMAS}aa`, animation: 'pe-kilau 2.4s ease-in-out infinite' }
-    : c.status === 'berjalan' ? { background: `${HIJAU}cc`, boxShadow: `0 0 0.9vw ${HIJAU}`, animation: 'pe-denyut 1.2s ease-in-out infinite' }
+  return c.status === 'emas' ? { background: `radial-gradient(circle at 35% 30%, #fff8c4, ${EMAS} 45%, #b8860b)`, boxShadow: `0 0 10px ${EMAS}aa`, animation: 'pe-kilau 2.4s ease-in-out infinite', color: '#1a1200' }
+    : c.status === 'berjalan' ? { background: `${HIJAU}cc`, boxShadow: `0 0 10px ${HIJAU}`, animation: 'pe-denyut 1.2s ease-in-out infinite' }
     : lain ? { background: `radial-gradient(circle at 35% 30%, #fff, ${lain} 55%, #64748b)` }
-    : c.status === 'meleset' ? { background: 'rgba(248,113,113,0.12)', border: `0.15vw solid ${MERAH}55` }
-    : { border: `0.15vw solid ${EMAS}88`, background: 'rgba(255,215,0,0.05)' }
+    : c.status === 'meleset' ? { background: 'rgba(248,113,113,0.12)', border: `2px solid ${MERAH}55`, color: MERAH }
+    : { border: `2px solid ${EMAS}88`, background: 'rgba(255,215,0,0.05)' }
+}
+/** Animasi koin & kartu (sekali pasang per halaman). */
+export const CSS_KOIN = `
+  @keyframes pe-kilau{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+  @keyframes pe-denyut{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.18);opacity:.7}}
+  @keyframes pe-bingkai{0%,100%{box-shadow:0 0 6px ${HIJAU}55}50%{box-shadow:0 0 22px ${HIJAU}}}
+  @keyframes pe-sapu{0%{background-position:150% 0}60%,100%{background-position:-100% 0}}
+  @media (prefers-reduced-motion: reduce){[data-koin],[data-kartu-emas] *{animation:none!important}}
+`
+
+function Koin({ c, ukuran }: { c: CalonEmas; ukuran: string }) {
   return (
-    <div className="rounded-full grid place-items-center font-black shrink-0" title={`${c.cabor} · ${c.nomor ?? ''} · ${c.atlet ?? ''}`}
-      style={{ width: ukuran, height: ukuran, fontSize: `calc(${ukuran} * 0.5)`, color: c.status === 'meleset' ? MERAH : '#1a1200', ...gaya }}>
+    <div data-koin className="rounded-full grid place-items-center font-black shrink-0" title={`${c.cabor} · ${c.nomor ?? ''} · ${c.atlet ?? ''}`}
+      style={{ width: ukuran, height: ukuran, fontSize: `calc(${ukuran} * 0.5)`, color: '#1a1200', ...gayaKoin(c) }}>
       {c.status === 'meleset' ? '✕' : c.status === 'emas' ? '★' : ''}
     </div>
   )
@@ -53,10 +64,13 @@ function KartuCalon({ c, besar }: { c: CalonEmas; besar: boolean }) {
   const emas = c.status === 'emas'
   const redup = c.status === 'belum' || c.status === 'meleset'
   const ukuranFoto = 'min(8vw, 13vh)'
-  const wajah = c.wajah.length ? c.wajah : [{ nama: c.atlet && !/^(TEAM|TIM)$/i.test(c.atlet) ? c.atlet : `Tim ${judul(c.cabor)}`, foto: null, atlet_id: null }]
-  const tampil = wajah.slice(0, c.tim ? 4 : 1)
-  const namaTampil = c.tim
-    ? (c.wajah.length ? `${c.wajah.slice(0, 3).map(w => judul(w.nama).split(' ')[0]).join(', ')}${c.wajah.length > 3 ? ` +${c.wajah.length - 3}` : ''}` : `Tim ${judul(c.cabor)}`)
+  // Sudah ada medali → tampilkan atlet di laporan yang disahkan (bisa beda dari nama proyeksi).
+  const orang = c.peraih?.length ? c.peraih : c.wajah
+  const tim = orang.length > 1 || (c.tim && !c.peraih?.length)
+  const wajah = orang.length ? orang : [{ nama: c.atlet && !/^(TEAM|TIM)$/i.test(c.atlet) ? c.atlet : `Tim ${judul(c.cabor)}`, foto: null, atlet_id: null }]
+  const tampil = wajah.slice(0, tim ? 4 : 1)
+  const namaTampil = tim
+    ? (orang.length ? `${orang.slice(0, 3).map(w => judul(w.nama).split(' ')[0]).join(', ')}${orang.length > 3 ? ` +${orang.length - 3}` : ''}` : `Tim ${judul(c.cabor)}`)
     : judul(wajah[0].nama)
   const bingkai: React.CSSProperties = {
     background: emas ? 'linear-gradient(160deg, rgba(255,215,0,0.32), rgba(184,134,11,0.18) 60%, rgba(2,10,20,0.8))' : 'rgba(2,10,20,0.65)',
@@ -67,7 +81,7 @@ function KartuCalon({ c, besar }: { c: CalonEmas; besar: boolean }) {
   const kilau = emas && <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%)', backgroundSize: '250% 100%', animation: 'pe-sapu 3.5s ease-in-out infinite' }} />
   const foto = (u: string) => (
     <div className="flex justify-center -space-x-[1.2vw] shrink-0" style={{ filter: redup ? 'grayscale(0.55) brightness(0.8)' : undefined }}>
-      {tampil.map((w, i) => <Wajah key={i} w={w} warna={warna} ukuran={c.tim && tampil.length > 1 ? `calc(${u} * 0.7)` : u} />)}
+      {tampil.map((w, i) => <Wajah key={i} w={w} warna={warna} ukuran={tim && tampil.length > 1 ? `calc(${u} * 0.7)` : u} />)}
     </div>
   )
   const pita = (ukuran: string) => (
@@ -150,7 +164,7 @@ export default function PerburuanEmas({ data, kunjungan }: { data: DataWarRoom |
             const ini = t === hariIni, lalu = !!hariIni && t < hariIni
             const tgl = new Date(t + 'T00:00:00Z')
             const panas = daftar.length / maks
-            const urut = [...daftar].sort((a, b) => URUT[a.status] - URUT[b.status])
+            const urut = [...daftar].sort((a, b) => URUT_KOIN[a.status] - URUT_KOIN[b.status])
             return (
               <div key={t} className="flex-1 flex flex-col items-center min-w-0" style={{ opacity: lalu ? 0.75 : 1 }}>
                 <div className="font-black tabular-nums" style={{ fontSize: '1.1vw', color: `rgb(255,${Math.round(200 - panas * 110)},60)` }}>{daftar.length}</div>
@@ -198,16 +212,10 @@ export default function PerburuanEmas({ data, kunjungan }: { data: DataWarRoom |
         </div>
       </section>
 
-      <style>{`
-        @keyframes pe-kilau{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
-        @keyframes pe-denyut{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.18);opacity:.7}}
-        @keyframes pe-bingkai{0%,100%{box-shadow:0 0 0.6vw ${HIJAU}55}50%{box-shadow:0 0 2.2vw ${HIJAU}}}
-        @keyframes pe-sapu{0%{background-position:150% 0}60%,100%{background-position:-100% 0}}
-        @media (prefers-reduced-motion: reduce){*{animation:none!important}}
-      `}</style>
+      <style>{CSS_KOIN.replace(/(\d+)px/g, (_, n) => `${(Number(n) / 10).toFixed(1)}vw`)}</style>
     </div>
   )
 }
 
 /** Urutan koin dari bawah: emas dulu (fondasi), lalu medali lain, bertanding, menunggu, meleset di puncak. */
-const URUT: Record<StatusMisi, number> = { emas: 0, medali_lain: 1, berjalan: 2, belum: 3, meleset: 4 }
+export const URUT_KOIN: Record<StatusMisi, number> = { emas: 0, medali_lain: 1, berjalan: 2, belum: 3, meleset: 4 }

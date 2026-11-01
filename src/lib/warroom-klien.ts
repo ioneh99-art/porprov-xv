@@ -2,7 +2,7 @@
 // src/lib/warroom-klien.ts — memuat bahan War Room (/api/konida/warroom) dan menyegarkannya sendiri.
 
 import { useCallback, useEffect, useState } from 'react'
-import type { CalonEmas, HariPanas, Misi } from './warroom'
+import type { CalonEmas, EmasKejutan, HariPanas, Misi } from './warroom'
 import type { KeadaanPic } from './jalur-lapor'
 
 export interface PartaiArena {
@@ -17,6 +17,8 @@ export interface DataWarRoom {
   kalender: HariPanas[]
   /** Semua target emas KONI (74) + status + wajah calon peraihnya. */
   perburuan?: CalonEmas[]
+  /** Emas disahkan di luar target KONI. */
+  emas_kejutan?: EmasKejutan[]
   peta: { tanggal: string; hari_ini: boolean; kota: KotaPeta[] }
   operasi: {
     menunggu: number; catatan_baru: number; catatan_mendesak: number

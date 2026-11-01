@@ -55,3 +55,10 @@ Rute: `GET/POST /api/konida/klasemen-resmi`. Bahan War Room: `GET /api/konida/wa
   punya pemicu yang menulis `klasemen_medali`. Tidak disentuh; bila ada baris baru untuk kontingen 4, klasemen Kab. Bandung
   bisa tertimpa angka uji itu.
 - Aturan & uji: `src/lib/warroom.ts`, `scripts/uji-warroom.ts`.
+
+## Susunan War Room (2 Nov 2026)
+
+1. **Kalender Panas** (`KalenderEmas.tsx`): koin per target emas KONI, warna mengikuti hasil yang disahkan; klik tanggal → daftar calon & peraih emas (peraih sebenarnya dari laporan bila beda dengan proyeksi) + emas kejutan (`emas_kejutan` di /api/konida/warroom).
+2. **Peta Perjuangan** (ubin satelit Esri digelapkan + nama kota, `pasangUbin(..., 'satelit')`) + **Kesehatan Operasi** di sampingnya.
+3. KPI → Misi Emas + Arena → Situasi Perolehan Emas.
+- Mission Intelligence dihapus; tombol cadangan **Klasemen manual** pindah ke kepala halaman.

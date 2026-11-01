@@ -233,4 +233,10 @@ export function cariAtletProyeksi(pendek: string, pool: AtletCalon[], semua: Atl
 }
 
 export interface WajahCalon { nama: string; foto: string | null; atlet_id: number | null }
-export interface CalonEmas extends Misi { wajah: WajahCalon[]; tim: boolean }
+export interface CalonEmas extends Misi {
+  wajah: WajahCalon[]; tim: boolean
+  /** Atlet di laporan yang disahkan (bila sudah ada medali) — bisa beda dari nama proyeksi. */
+  peraih?: WajahCalon[]
+}
+/** Emas yang disahkan di luar daftar target KONI. */
+export interface EmasKejutan { id: number; tanggal: string; cabor: string; nomor: string; peraih: WajahCalon[] }
