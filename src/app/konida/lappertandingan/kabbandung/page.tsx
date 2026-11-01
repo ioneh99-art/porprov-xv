@@ -16,6 +16,7 @@ import { ALAMAT_RESMI_KABBANDUNG, DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
 import { urutCaborLangsung, type KeadaanPic } from '@/lib/jalur-lapor'
 import { ringkasJejak, susunJejak, type PartaiJejak, type TahapJejak } from '@/lib/jejak-partai'
 import { NAMA_SUMBER_KONIJABAR, urlLaga, type AlarmBeda } from '@/lib/konijabar'
+import type { InfoKembar } from '@/lib/lapor-kembar'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
@@ -26,6 +27,8 @@ interface Laporan {
   nilai_teks: string | null; keterangan: string | null; lawan: string | null; jam: string | null; tanggal: string; pelapor_nama: string; pelapor_wa: string | null
   status: 'menunggu' | 'disahkan' | 'ditolak'; diputus_oleh: string | null; alasan_tolak: string | null; created_at: string; ada_foto?: boolean
   partai_id?: number | null; diputus_at?: string | null; sumber_luar?: string | null; ref_luar?: string | null
+  /** Laga yang sama juga ada dari sumber lain (situs KONI Jabar ↔ PIC). */
+  kembar?: InfoKembar | null
 }
 /** Laga yang dibaca dari situs panitia (porprov.konijabar.or.id). */
 interface HasilLuar {
@@ -409,7 +412,20 @@ export default function PageLapPertandingan() {
           ⚠ Beda dengan situs KONI Jabar: {a.alasan}{a.berubah ? ` · panitia mengubah skor ${a.berubah}` : ''} · <a href={a.url} target="_blank" rel="noopener" className="underline underline-offset-2">cek di situs ↗</a>
         </p>
       ))}
-      {l.sumber_luar === 'konijabar' && l.status === 'menunggu' && (
+      {l.status === 'menunggu' && l.kembar && (
+        <p className="text-xs mt-2 rounded-lg px-3 py-2 font-bold" style={l.kembar.hasil_sama
+          ? { color: '#bae6fd', background: '#0ea5e91a', border: '1px solid #0ea5e966' }
+          : { color: '#fecaca', background: `${WARNA_ALARM}1a`, border: `1px solid ${WARNA_ALARM}66` }}>
+          {l.kembar.sumber === 'pic'
+            ? (l.kembar.hasil_sama
+              ? `⧉ Kembar dengan laporan PIC #${l.kembar.id}${l.kembar.pelapor_nama ? ` (${l.kembar.pelapor_nama})` : ''}${l.kembar.status === 'disahkan' ? ' yang sudah disahkan. Tekan Sahkan untuk mengeluarkan data situs ini dari antrean (medali tidak dihitung dua kali).' : '. Tekan Sahkan: yang disahkan laporan PIC, data situs ini keluar dari antrean.'}`
+              : `⧉ Laga ini juga dilaporkan PIC (#${l.kembar.id}) tetapi hasilnya beda. Perbaiki salah satunya atau tolak yang keliru.`)
+            : (l.kembar.hasil_sama
+              ? `⧉ Data yang sama juga dibaca dari situs KONI Jabar (#${l.kembar.id}). Saat laporan PIC ini disahkan, data situs itu ikut keluar dari antrean.`
+              : `⧉ Situs KONI Jabar (#${l.kembar.id}) mencatat hasil berbeda untuk laga ini. Cek dulu sebelum mengesahkan.`)}
+        </p>
+      )}
+      {l.sumber_luar === 'konijabar' && l.status === 'menunggu' && !l.kembar && (
         <p className="text-xs mt-2 rounded-lg px-3 py-2" style={{ color: '#e9d5ff', background: `${WARNA_LUAR}14`, border: `1px solid ${WARNA_LUAR}40` }}>
           Dibaca otomatis dari situs panitia, bukan dari PIC. Cocokkan dulu (hasil, atlet, nomor), perbaiki bila perlu, lalu sahkan, atau tolak bila tidak sesuai.
         </p>

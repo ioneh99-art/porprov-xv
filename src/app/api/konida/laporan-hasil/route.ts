@@ -8,6 +8,7 @@ import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { writeAudit, reqMeta } from '@/lib/audit'
 import { segarkanPublik } from '@/lib/partai-server'
+import { ALASAN_KEMBAR, pasangKembar, rencanaSahkan, type LaporKembar } from '@/lib/lapor-kembar'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
     for (const r of (data ?? [])) namaCabor[r.id] = r.nama
   }
 
+  const kembar = pasangKembar(laporan as LaporKembar[])
   return NextResponse.json({
     // Alamat berkas foto tidak dikirim ke peramban — cukup tanda ada/tidaknya.
     laporan: laporan.map(({ foto_path, ...l }: any) => ({
@@ -46,6 +48,7 @@ export async function GET(req: NextRequest) {
       ada_foto: !!foto_path,
       cabor: namaCabor[l.cabor_id] ?? `Cabor ${l.cabor_id}`,
       atlet: (l.atlet_ids as number[]).map(id => namaAtlet[id] ?? `Atlet ${id}`),
+      kembar: kembar.get(l.id) ?? null,
     })),
   })
 }
@@ -60,13 +63,14 @@ export async function POST(req: NextRequest) {
 
   const db = dbLapor()
   const { data: lama } = await db.from('laporan_hasil')
-    .select('id,status,hasil,peringkat,nilai_teks,nomor_teks,tanggal,lawan,jam').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
+    .select('id,status,hasil,peringkat,nilai_teks,nomor_teks,tanggal,lawan,jam,cabor_id,partai_id,ref_luar,pelapor_nama').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
   if (!lama) return NextResponse.json({ error: 'Laporan tidak ditemukan.' }, { status: 404 })
 
   const kini = new Date().toISOString()
   let ubah: Record<string, any>
   if (aksi === 'sahkan') {
-    ubah = { status: 'disahkan', diputus_oleh: a.nama, diputus_at: kini, alasan_tolak: null }
+    if (lama.status !== 'menunggu') return NextResponse.json({ error: 'Laporan ini sudah diputus. Muat ulang halaman.' }, { status: 409 })
+    return sahkanDenganKembar(req, a, lama as LaporKembar, kini)
   } else if (aksi === 'tolak') {
     const alasan = typeof b?.alasan === 'string' ? b.alasan.trim().slice(0, 200) : ''
     if (!alasan) return NextResponse.json({ error: 'Tulis alasan penolakan supaya PIC tahu apa yang salah.' }, { status: 422 })
@@ -119,4 +123,42 @@ export async function POST(req: NextRequest) {
   // Perolehan medali di halaman publik dihitung dari laporan yang disahkan.
   if (lama.status === 'disahkan' || ubah.status === 'disahkan') segarkanPublik()
   return NextResponse.json({ ok: true })
+}
+
+/**
+ * Sahkan dengan memperhatikan laporan kembar (laga sama dari situs KONI Jabar dan dari PIC).
+ * Laporan PIC selalu yang disahkan; data situs kembarannya ditutup ('ditolak' beralasan "Kembar").
+ */
+async function sahkanDenganKembar(req: NextRequest, a: { kontingen_id: number; nama: string; sesi: any }, lama: LaporKembar, kini: string) {
+  const db = dbLapor()
+  const { data: sehari, error: eh } = await db.from('laporan_hasil')
+    .select('id,cabor_id,tanggal,lawan,partai_id,hasil,peringkat,status,ref_luar,pelapor_nama')
+    .eq('kontingen_id', a.kontingen_id).eq('cabor_id', lama.cabor_id).eq('tanggal', lama.tanggal).neq('status', 'ditolak')
+  if (eh) return NextResponse.json({ error: eh.message }, { status: 500 })
+  const k = pasangKembar((sehari ?? []) as LaporKembar[]).get(lama.id)
+  const rencana = rencanaSahkan(lama, k)
+  if ('galat' in rencana) return NextResponse.json({ error: rencana.galat }, { status: 409 })
+  // Laporan PIC dari pasangan ini (yang disahkan / yang menggantikan data situs).
+  const idPic = lama.ref_luar ? (k?.id ?? null) : lama.id
+
+  const aktor = {
+    actor_id: a.sesi.id != null ? String(a.sesi.id) : null, actor_email: a.sesi.username ?? null,
+    actor_role: a.sesi.role ?? a.sesi.level ?? null, kontingen_id: a.kontingen_id,
+  }
+  if (rencana.sahkan != null) {
+    const { error } = await db.from('laporan_hasil').update({ status: 'disahkan', diputus_oleh: a.nama, diputus_at: kini, alasan_tolak: null, updated_at: kini })
+      .eq('id', rencana.sahkan).eq('kontingen_id', a.kontingen_id).eq('status', 'menunggu')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await writeAudit({ action: 'LAPOR_HASIL_SAHKAN', resource: 'laporan_hasil', resource_id: rencana.sahkan, ...aktor,
+      payload: { sebelum: { status: 'menunggu' }, sesudah: { status: 'disahkan' }, ditekan_pada: lama.id }, ...reqMeta(req) })
+  }
+  if (rencana.tutup != null) {
+    const { error } = await db.from('laporan_hasil').update({ status: 'ditolak', diputus_oleh: a.nama, diputus_at: kini, alasan_tolak: ALASAN_KEMBAR(idPic ?? 0), updated_at: kini })
+      .eq('id', rencana.tutup).eq('kontingen_id', a.kontingen_id).not('ref_luar', 'is', null)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await writeAudit({ action: 'LAPOR_HASIL_KEMBAR_DITUTUP', resource: 'laporan_hasil', resource_id: rencana.tutup, ...aktor,
+      payload: { digantikan: idPic, ditekan_pada: lama.id }, ...reqMeta(req) })
+  }
+  segarkanPublik()
+  return NextResponse.json({ ok: true, disahkan: rencana.sahkan, ditutup: rencana.tutup })
 }
