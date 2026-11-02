@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Save, Send } from 'lucide-react'
 import Link from 'next/link'
@@ -14,6 +14,7 @@ export default function EditAtletPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [statusVerif, setStatusVerif] = useState('')
+  const piiAda = useRef(false)
   const [catatanCabor, setCatatanCabor] = useState('')
 
   const [form, setForm] = useState({
@@ -42,6 +43,8 @@ export default function EditAtletPage() {
     // NIK & rekening ditempelkan lewat rute bergerbang sesi — tabel sudah
     // tidak memberikannya kepada kunci anon.
     const atlet2: any = await lengkapiPiiSatu(atlet as any)
+    // no_ktp hanya datang dari rute data pribadi — tidak ada berarti rute itu gagal dimuat.
+    piiAda.current = !!atlet2 && 'no_ktp' in atlet2
     if (atlet2) {
       setForm({
         nama_lengkap: atlet2.nama_lengkap ?? '',
@@ -72,6 +75,13 @@ export default function EditAtletPage() {
   const canEdit = ['Draft', 'Ditolak Cabor', 'Ditolak Admin'].includes(form.status_registrasi)
   const canSubmit = canEdit
 
+  // Data pribadi gagal dimuat → isiannya kosong; jangan dikirim supaya data lama tidak tertimpa.
+  const isiKirim = () => {
+    const set: Record<string, unknown> = { ...form, cabor_id: parseInt(form.cabor_id) }
+    if (!piiAda.current) for (const k of ['no_ktp', 'telepon', 'email', 'kecamatan']) delete set[k]
+    return set
+  }
+
   const handleSave = async () => {
     if (!canEdit) return
     setError('')
@@ -80,7 +90,7 @@ export default function EditAtletPage() {
       // Update lewat server (service key + guard + cek kepemilikan). Anon write ditutup.
       const res = await fetch('/api/atlet/edit', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, set: { ...form, cabor_id: parseInt(form.cabor_id) } }),
+        body: JSON.stringify({ id, set: isiKirim() }),
       })
       if (!res.ok) throw new Error((await res.json().catch(()=>({})))?.error || 'Gagal menyimpan')
       setSuccess('Data berhasil disimpan!')
@@ -106,7 +116,7 @@ export default function EditAtletPage() {
       // Simpan dulu data terbaru (lewat server; anon write ditutup)
       await fetch('/api/atlet/edit', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, set: { ...form, cabor_id: parseInt(form.cabor_id) } }),
+        body: JSON.stringify({ id, set: isiKirim() }),
       })
 
       // Submit ke cabor

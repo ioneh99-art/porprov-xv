@@ -8,7 +8,7 @@
 // data pribadinya.
 //
 // Bentuk barisnya tidak berubah: sesudah dilengkapi, baris tetap punya
-// no_ktp, no_rekening, dan nama_bank seperti dulu. Jadi kode tampilan di tiap
+// no_ktp, no_rekening, nama_bank, dan kontak (no_hp, telepon, email, kecamatan) seperti dulu. Jadi kode tampilan di tiap
 // halaman tidak perlu disentuh sama sekali.
 
 interface PunyaId { id: number }
@@ -37,13 +37,19 @@ async function ambilPeta(): Promise<Record<number, any>> {
   return berjalan
 }
 
-/** Tempelkan no_ktp, no_rekening, dan nama_bank ke tiap baris. */
+/** Kolom pribadi yang ditempelkan dari rute bergerbang sesi. */
+const KOLOM_PII = ['no_ktp', 'no_rekening', 'nama_bank', 'no_hp', 'telepon', 'email', 'kecamatan'] as const
+
+/** Tempelkan NIK, rekening, nama bank, dan kontak (HP/telepon/email/kecamatan) ke tiap baris. */
 export async function lengkapiPii<T extends PunyaId>(baris: T[]): Promise<T[]> {
   if (!baris?.length) return baris
   const peta = await ambilPeta()
   return baris.map(b => {
     const p = peta[b.id]
-    return p ? { ...b, no_ktp: p.no_ktp, no_rekening: p.no_rekening, nama_bank: p.nama_bank } : b
+    if (!p) return b
+    const tempel: Record<string, unknown> = {}
+    for (const k of KOLOM_PII) if (k in p) tempel[k] = p[k]
+    return { ...b, ...tempel }
   })
 }
 

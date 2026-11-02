@@ -1,5 +1,6 @@
 // src/app/api/konida/atlet-pii/route.ts
-// Satu-satunya pintu ke data pribadi atlet: NIK, rekening, nama bank.
+// Satu-satunya pintu ke data pribadi atlet: NIK, rekening, nama bank, dan kontak
+// (HP, telepon, email, kecamatan — ditutup dari kunci anon sejak migrasi 067).
 //
 // Sebelum ini, ketiganya ikut terbaca kunci anon lewat tabel atlet — kunci
 // yang tertanam di halaman web dan bisa diambil siapa pun dari sumber
@@ -57,6 +58,14 @@ export async function GET(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     for (const r of (data ?? [])) {
       pii[r.atlet_id] = { no_ktp: r.no_ktp, no_rekening: r.no_rekening, nama_bank: r.nama_bank }
+    }
+    // Kontak atlet dibaca dari tabel atlet dengan kunci layanan (kunci anon tidak boleh lagi).
+    const { data: kontak, error: ek } = await db.from('atlet')
+      .select('id,no_hp,telepon,email,kecamatan')
+      .in('id', milik.slice(i, i + 500))
+    if (ek) return NextResponse.json({ error: ek.message }, { status: 500 })
+    for (const r of (kontak ?? []) as any[]) {
+      pii[r.id] = { ...(pii[r.id] ?? {}), no_hp: r.no_hp, telepon: r.telepon, email: r.email, kecamatan: r.kecamatan }
     }
   }
   return NextResponse.json({ pii, jumlah: Object.keys(pii).length })
