@@ -41,10 +41,16 @@ export async function GET(req: NextRequest) {
     if (s.kontingen_id == null) {
       return NextResponse.json({ error: 'Kontingen tidak diketahui dari sesi.' }, { status: 403 })
     }
-    let q = db.from('atlet').select('id').eq('kontingen_id', s.kontingen_id)
-    if (minta.length) q = q.in('id', minta)
-    const { data } = await q.range(0, 4999)
-    milik = (data ?? []).map((r: any) => r.id)
+    // Dibaca per 1.000 baris — PostgREST memotong jawaban di 1.000 baris, dan
+    // Kab. Bandung sudah lebih dari itu (dulu atlet ke-1.001 dst. tanpa NIK/kontak).
+    for (let dari = 0; ; dari += 1000) {
+      let q = db.from('atlet').select('id').eq('kontingen_id', s.kontingen_id).order('id')
+      if (minta.length) q = q.in('id', minta)
+      const { data, error } = await q.range(dari, dari + 999)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      milik = milik.concat((data ?? []).map((r: any) => r.id))
+      if ((data ?? []).length < 1000) break
+    }
   }
   if (milik.length === 0) return NextResponse.json({ pii: {} })
 
