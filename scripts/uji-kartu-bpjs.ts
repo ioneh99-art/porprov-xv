@@ -21,6 +21,19 @@ const hal = [
   '                      6. Penyalahgunaan kartu peserta ini dapat dituntut.',
 ].join('\n')
 cek('baca: NIK, KPJ, nama, berlaku', bacaHalamanKartu(hal), { nik: '3204111122220003', kpj: '12345678901', nama: "SITI NUR'AINI PUTRI", berlaku: '10-2026' })
+cek('baca: kolom kanan mepet ke baris NIK (berkas 443 KPJ)', bacaHalamanKartu([
+  '                      Penting dan untuk diperhatikan :',
+  '1211 0123 0186 0002   a. Kewajiban peserta BPJS Ketenagakerjaan adalah sebagai berikut :',
+  '22123661534                 - Tagihan iuran agar dibayarkan tepat waktu.',
+  'RIDUAN BANJARNAHOR       b. Hak peserta BPJS Ketenagakerjaan antara lain adalah :',
+  '10-2026',
+].join('\n')), { nik: '1211012301860002', kpj: '22123661534', nama: 'RIDUAN BANJARNAHOR', berlaku: '10-2026' })
+cek('baca: nama bergelar & KPJ belum terbit', bacaHalamanKartu([
+  '3204 1111 2222 0004     a. Kewajiban pes',
+  '0                            - Tagihan iuran',
+  'Muhammad Mi’raj Mubarok, S.Pd      b. Hak peserta',
+  '10-2026',
+].join('\n')), { nik: '3204111122220004', kpj: '0', nama: 'Muhammad Mi’raj Mubarok, S.Pd', berlaku: '10-2026' })
 cek('baca: tanpa NIK → null', bacaHalamanKartu(hal.replace('3204 1111 2222 0003', '')), null)
 cek('baca: kolom kanan (teks ketentuan) tidak jadi nama', bacaHalamanKartu('                      PENTING SEKALI\n3204 1111 2222 0003\n12345678901\n'), null)
 

@@ -14,12 +14,13 @@ export interface IsiKartu { nik: string; kpj: string; nama: string; berlaku: str
  */
 export function bacaHalamanKartu(teks: string): IsiKartu | null {
   // Isi kartu selalu mulai di kolom 0; baris yang diawali spasi = kolom kanan.
-  const kiri = teks.split('\n').filter(l => /^\S/.test(l)).map(l => l.slice(0, 25).trim())
+  // Kolom kanan bisa mepet ke isi kartu ("3204 … 0002   a. Kewajiban") — potong di jarak 2+ spasi.
+  const kiri = teks.split('\n').filter(l => /^\S/.test(l)).map(l => l.split(/\s{2,}(?=[a-z]\.\s|\d\.\s|-\s)/)[0].slice(0, 60).trim())
     .filter(l => l && !/^\d\.|^[a-b]\.|^-/.test(l))
   const nikBaris = kiri.find(l => /^\d{4} \d{4} \d{4} \d{4}$/.test(l))
-  const kpj = kiri.find(l => /^\d{11}$/.test(l))
-  const nama = kiri.find(l => /^[A-Z][A-Z .,'`-]+$/.test(l))
-  const berlaku = kiri.find(l => /^\d{2}-\d{4}$/.test(l)) ?? null
+  const kpj = kiri.find(l => /^\d{1,13}$/.test(l))   // KPJ belum terbit tercetak "0"
+  const nama = kiri.find(l => /^[A-Za-z][A-Za-z .,'`’‘-]+$/.test(l))   // termasuk gelar ("M. DHANI, M.Pd")
+  const berlaku = kiri.map(l => l.match(/^(\d{2}-\d{4})(?:\s|$)/)?.[1]).find(Boolean) ?? null
   if (!nikBaris || !kpj || !nama) return null
   return { nik: nikBaris.replace(/\s/g, ''), kpj, nama: nama.replace(/\s+/g, ' '), berlaku }
 }

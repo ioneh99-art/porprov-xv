@@ -2,6 +2,8 @@
 //
 //   npx tsx scripts/impor-kartu-bpjs.ts "<berkas.pdf>"           → uji saja, tidak menulis
 //   npx tsx scripts/impor-kartu-bpjs.ts "<berkas.pdf>" --tulis   → unggah & simpan
+//   … --timpa  → kartu yang NIK-nya sudah ada ikut ditimpa (bawaan: dilewati, supaya
+//                tautan manual KONIDA & kartu lama tidak berubah — untuk berkas tambahan)
 //
 // Tiap halaman = satu kartu. Halaman dipecah jadi PDF sendiri (untuk diunduh
 // pemiliknya) + gambar JPG kartu (untuk profil atlet), disimpan di bucket
@@ -9,7 +11,7 @@
 // Pencocokan atlet: NIK sama → 'nik'; nama sama tapi NIK beda → 'nik_beda'
 // (kandidat, TIDAK ditautkan otomatis); selain itu 'bukan_atlet' (official dsb).
 // Butuh poppler (pdftotext, pdfseparate, pdftoppm) & .env.local.
-// Aman diulang: baris di-upsert per (kontingen, NIK), berkas ditimpa.
+// Aman diulang: kartu yang sudah ada dilewati (kecuali --timpa).
 
 import { readFileSync, existsSync, mkdtempSync, rmSync } from 'fs'
 import { execFileSync } from 'child_process'
@@ -74,6 +76,20 @@ function muatEnv() {
     const c = atlet.filter(a => !dipakai.has(a.id) && namaKartuCocok(r.nama, a.nama_lengkap))
     if (c.length === 1) { r.status = 'nik_beda'; r.kandidat = c[0].id }
   }
+  // Kartu yang NIK-nya sudah tersimpan dilewati (kecuali --timpa): berkas tambahan tidak boleh
+  // mengubah kartu lama, termasuk yang sudah ditautkan manual oleh KONIDA.
+  const timpa = process.argv.includes('--timpa')
+  const ada = new Set<string>()
+  for (let f = 0; ; f += 1000) {
+    const { data, error } = await db.from('kartu_bpjs').select('nik').eq('kontingen_id', KONTINGEN_ID).range(f, f + 999)
+    if (error) throw error
+    for (const r of data ?? []) ada.add(r.nik)
+    if ((data ?? []).length < 1000) break
+  }
+  const kembarBerkas = kartu.length - new Set(kartu.map(k => k.nik)).size
+  const sudahAda = rencana.filter(r => ada.has(r.nik)).length
+  if (!timpa) for (let i = rencana.length - 1; i >= 0; i--) if (ada.has(rencana[i].nik)) rencana.splice(i, 1)
+  console.log(`Sudah ada di sistem: ${sudahAda}${timpa ? ' (akan ditimpa)' : ' (dilewati)'} · NIK kembar di berkas: ${kembarBerkas} · Akan disimpan: ${rencana.length}`)
   const hitung = (s: string) => rencana.filter(r => r.status === s).length
   console.log(`Cocok NIK: ${hitung('nik')} · Nama sama NIK beda: ${hitung('nik_beda')} · Bukan atlet: ${hitung('bukan_atlet')}`)
   if (!tulis) { console.log('(uji saja — tambahkan --tulis untuk menyimpan)'); return }
@@ -109,7 +125,7 @@ function muatEnv() {
 
   await db.from('audit_logs').insert({
     action: 'KARTU_BPJS_DIIMPOR', resource: 'kartu_bpjs', kontingen_id: KONTINGEN_ID, actor_email: 'skrip impor-kartu-bpjs',
-    severity: 'info', payload: { berkas: basename(berkas), tersimpan: ok, gagal, nik: hitung('nik'), nik_beda: hitung('nik_beda'), bukan_atlet: hitung('bukan_atlet') },
+    severity: 'info', payload: { berkas: basename(berkas), tersimpan: ok, gagal, dilewati_sudah_ada: timpa ? 0 : sudahAda, nik: hitung('nik'), nik_beda: hitung('nik_beda'), bukan_atlet: hitung('bukan_atlet') },
   })
   console.log(`✓ Tersimpan ${ok} kartu${gagal ? `, gagal ${gagal}` : ''}.`)
 })()
