@@ -11,6 +11,7 @@ import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { rentangTanggal, susunMatriks, type BarisJadwal, type LaporanMatriks } from '@/lib/matriks'
 import { targetAtlet, targetTim } from '@/lib/target-atlet'
+import { teksPengisi } from '@/lib/pengisi'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
   let laporan: any[]
   try {
     laporan = await ambilSemua((d, s) => db.from('laporan_hasil')
-      .select('id,cabor_id,disiplin,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,lawan,jam,tanggal,pelapor_nama,created_at')
+      .select('id,cabor_id,disiplin,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,lawan,jam,tanggal,pelapor_nama,pengisi_nama,pengisi_jabatan,created_at')
       .eq('kontingen_id', a.kontingen_id).eq('status', 'disahkan').gte('tanggal', dari).lte('tanggal', sampai).order('id').range(d, s))
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
     id: l.id, tanggal: l.tanggal, cabor: namaCabor.get(l.cabor_id) ?? '', disiplin: l.disiplin, nomor_teks: l.nomor_teks,
     atlet: (l.atlet_ids as number[]).map(id => atlet[id]?.nama ?? `Atlet ${id}`),
     hasil: l.hasil, peringkat: l.peringkat, nilai_teks: l.nilai_teks, lawan: l.lawan, jam: l.jam, jam_lapor: jamWIB(l.created_at),
-    pelapor_nama: l.pelapor_nama, target: targetTim(l.atlet_ids as number[], target),
+    pelapor_nama: teksPengisi(l), target: targetTim(l.atlet_ids as number[], target),
   }))
 
   return NextResponse.json({

@@ -9,6 +9,7 @@ import { tanggalWIB } from '@/lib/lapor'
 import { WADAH_BUKTI, ambilSesiLapor, atletCabor, bacaKiriman, dbLapor, pendaftaranCabor, simpanFotoBukti } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { writeAudit, reqMeta } from '@/lib/audit'
+import { periksaPengisi } from '@/lib/pengisi'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
   const hasil = periksaCatatan(kiriman.mentah)
   if ('galat' in hasil) return NextResponse.json({ error: hasil.galat }, { status: 422 })
   const isi = hasil.isi
+  const cekPengisi = periksaPengisi(kiriman.mentah)
+  if ('galat' in cekPengisi) return NextResponse.json({ error: cekPengisi.galat }, { status: 422 })
+  const { pengisi } = cekPengisi
 
   // Atlet yang disebut harus termasuk atlet yang boleh dilaporkan lewat kode ini.
   if (isi.atlet_ids.length) {
@@ -45,6 +49,7 @@ export async function POST(req: NextRequest) {
   const { data: baru, error } = await db.from('catatan_lapangan').insert({
     kontingen_id: s.kontingen_id, cabor_id: s.cabor_id, ...isi, tanggal, foto_path,
     akses_id: s.akses_id, pelapor_nama: s.nama_pic, pelapor_wa: s.no_wa,
+    pengisi_nama: pengisi.nama, pengisi_jabatan: pengisi.jabatan,
   }).select('id').single()
   if (error) {
     if (foto_path) await db.storage.from(WADAH_BUKTI).remove([foto_path])   // jangan tinggalkan foto yatim
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
   await writeAudit({
     action: 'LAPOR_CATATAN_KIRIM', resource: 'catatan_lapangan', resource_id: baru.id,
     actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic, actor_role: s.jalur === 'konida' ? 'konida_langsung' : 'pic_lapangan',
-    kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, jenis: isi.jenis, mendesak: isi.mendesak, foto: !!foto_path },
+    kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, jenis: isi.jenis, mendesak: isi.mendesak, foto: !!foto_path, pengisi },
     ...reqMeta(req),
   })
   return NextResponse.json({ ok: true, id: baru.id })

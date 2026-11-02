@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react'
 import { CONTOH_JENIS, ISI_MIN, JENIS_CATATAN, LABEL_JENIS, LABEL_STATUS_CATATAN, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
 import { kecilkanFoto } from './foto'
+import IsianPengisi, { usePengisi } from './IsianPengisi'
 
 export interface CatatanSaya {
   id: number; jenis: JenisCatatan; mendesak: boolean; tanggal: string; jam: string | null; nomor_teks: string | null
@@ -19,12 +20,14 @@ const WARNA_STATUS: Record<StatusCatatan, string> = { baru: '#fbbf24', ditangani
 const kotak = 'w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3.5 text-base text-white placeholder-slate-500 focus:outline-none focus:border-sky-400'
 const judulIsian = 'block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'
 
-export default function FormCatatan({ nomor, atlet, catatan, muat, sesiHabis }: {
+export default function FormCatatan({ nomor, atlet, catatan, muat, sesiHabis, peng, pemilikKode }: {
   nomor: NomorPilihan[]
   atlet: { id: number; nama: string }[]
   catatan: CatatanSaya[]
   muat: () => Promise<boolean>
   sesiHabis: (pesan: string) => void
+  peng: ReturnType<typeof usePengisi>
+  pemilikKode?: string
 }) {
   const [jenis, setJenis] = useState<JenisCatatan | null>(null)
   const [mendesak, setMendesak] = useState(false)
@@ -56,9 +59,11 @@ export default function FormCatatan({ nomor, atlet, catatan, muat, sesiHabis }: 
     setGalat('')
     if (!jenis) return setGalat('Pilih jenis catatannya.')
     if (isi.trim().length < ISI_MIN) return setGalat(`Ceritakan kejadiannya sedikit lebih jelas (minimal ${ISI_MIN} huruf).`)
+    const kurangPengisi = peng.kurang()
+    if (kurangPengisi) return setGalat(kurangPengisi)
     setSibuk(true)
     try {
-      const muatan = JSON.stringify({ jenis, mendesak, jam, nomor_teks: nomorPilih?.label ?? '', atlet_ids: pilihan, isi })
+      const muatan = JSON.stringify({ jenis, mendesak, jam, nomor_teks: nomorPilih?.label ?? '', atlet_ids: pilihan, isi, ...peng.pengisi })
       let r: Response
       if (foto) {
         const fd = new FormData()
@@ -169,6 +174,8 @@ export default function FormCatatan({ nomor, atlet, catatan, muat, sesiHabis }: 
             </label>
           )}
         </div>
+
+        <IsianPengisi pengisi={peng.pengisi} ubah={peng.ubah} pemilikKode={pemilikKode} />
 
         {galat && <p role="alert" className="rounded-xl bg-red-500/15 border border-red-400/40 px-4 py-3 text-sm font-bold text-red-300">{galat}</p>}
 

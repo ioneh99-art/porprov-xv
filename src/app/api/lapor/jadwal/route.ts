@@ -9,6 +9,7 @@ import { KOLOM_PARTAI, cocokkanPartai, segarkanPublik } from '@/lib/partai-serve
 import { ambilSesiLapor, dbLapor } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { writeAudit, reqMeta } from '@/lib/audit'
+import { periksaPengisi, teksPengisi, type Pengisi } from '@/lib/pengisi'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,9 @@ const jejak = (req: NextRequest, s: Sesi, action: string, id: number, payload: a
     actor_role: s.jalur === 'konida' ? 'konida_langsung' : 'pic_lapangan', kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, ...payload }, severity, ...reqMeta(req),
   })
 
+/** Teks "dibuat/diubah oleh": pengisi sebenarnya + pemilik kode PIC. */
+const oleh = (s: Sesi, p: Pengisi) => teksPengisi({ pengisi_nama: p.nama, pengisi_jabatan: p.jabatan, pelapor_nama: s.nama_pic })
+
 /** Baris partai milik cabor sesi ini, atau null. */
 async function barisMilik(s: Sesi, id: number) {
   if (!Number.isInteger(id) || id <= 0) return null
@@ -41,6 +45,8 @@ export async function POST(req: NextRequest) {
   const { s, tolak } = await siapkan(req)
   if (tolak) return tolak
   const mentah = await req.json().catch(() => null)
+  const cekP = periksaPengisi(mentah)
+  if ('galat' in cekP) return NextResponse.json({ error: cekP.galat }, { status: 422 })
   const cek = periksaPartai(mentah, false)
   if ('galat' in cek) return NextResponse.json({ error: cek.galat }, { status: 422 })
   const isi: any = cek.isi
@@ -49,10 +55,10 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await dbLapor().from('jadwal_partai').insert({
     ...isi, kontingen_id: s!.kontingen_id, cabor_id: s!.cabor_id, sumber: s!.jalur === 'konida' ? 'konida' : 'pic', akses_id: s!.akses_id,
-    dibuat_oleh: s!.nama_pic, diubah_oleh: s!.nama_pic,
+    dibuat_oleh: oleh(s!, cekP.pengisi), diubah_oleh: oleh(s!, cekP.pengisi),
   }).select(KOLOM_PARTAI).single()
   if (error) return NextResponse.json({ error: 'Gagal menyimpan. Coba lagi.' }, { status: 500 })
-  await jejak(req, s!, 'LAPOR_JADWAL_TAMBAH', (data as any).id, { sesudah: data })
+  await jejak(req, s!, 'LAPOR_JADWAL_TAMBAH', (data as any).id, { sesudah: data, pengisi: cekP.pengisi })
   segarkanPublik()
   return NextResponse.json({ ok: true, partai: data })
 }
@@ -63,7 +69,9 @@ export async function PATCH(req: NextRequest) {
   const mentah = await req.json().catch(() => null)
   const lama = await barisMilik(s!, Number(mentah?.id))
   if (!lama) return NextResponse.json({ error: 'Jadwal itu tidak ditemukan untuk cabor Anda.' }, { status: 404 })
-  const { id: _id, ...isian } = mentah
+  const cekP = periksaPengisi(mentah)
+  if ('galat' in cekP) return NextResponse.json({ error: cekP.galat }, { status: 422 })
+  const { id: _id, pengisi_nama: _n, pengisi_jabatan: _j, pengisi_jabatan_lain: _l, ...isian } = mentah
   const cek = periksaPartai(isian, true)
   if ('galat' in cek) return NextResponse.json({ error: cek.galat }, { status: 422 })
   const isi: any = cek.isi
@@ -71,10 +79,10 @@ export async function PATCH(req: NextRequest) {
   if (salah) return NextResponse.json({ error: salah }, { status: 403 })
 
   const { data, error } = await dbLapor().from('jadwal_partai')
-    .update({ ...isi, diubah_oleh: s!.nama_pic, updated_at: new Date().toISOString() }).eq('id', lama.id).select(KOLOM_PARTAI).single()
+    .update({ ...isi, diubah_oleh: oleh(s!, cekP.pengisi), updated_at: new Date().toISOString() }).eq('id', lama.id).select(KOLOM_PARTAI).single()
   if (error) return NextResponse.json({ error: 'Gagal menyimpan. Coba lagi.' }, { status: 500 })
   const sebelum = Object.fromEntries(Object.keys(isi).map(k => [k, lama[k] ?? null]))
-  await jejak(req, s!, 'LAPOR_JADWAL_UBAH', lama.id, { nomor: lama.nomor_teks, sebelum, sesudah: isi })
+  await jejak(req, s!, 'LAPOR_JADWAL_UBAH', lama.id, { nomor: lama.nomor_teks, sebelum, sesudah: isi, pengisi: cekP.pengisi })
   segarkanPublik()
   return NextResponse.json({ ok: true, partai: data })
 }
@@ -82,12 +90,15 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const { s, tolak } = await siapkan(req)
   if (tolak) return tolak
-  const lama = await barisMilik(s!, Number(new URL(req.url).searchParams.get('id')))
+  const q = new URL(req.url).searchParams
+  const cekP = periksaPengisi({ pengisi_nama: q.get('pengisi_nama'), pengisi_jabatan: q.get('pengisi_jabatan'), pengisi_jabatan_lain: q.get('pengisi_jabatan_lain') })
+  if ('galat' in cekP) return NextResponse.json({ error: cekP.galat }, { status: 422 })
+  const lama = await barisMilik(s!, Number(q.get('id')))
   if (!lama) return NextResponse.json({ error: 'Jadwal itu tidak ditemukan untuk cabor Anda.' }, { status: 404 })
   const { error } = await dbLapor().from('jadwal_partai').delete().eq('id', lama.id)
   if (error) return NextResponse.json({ error: 'Gagal menghapus. Coba lagi.' }, { status: 500 })
   // Isi lengkap disimpan di jejak supaya bisa dikembalikan bila salah hapus.
-  await jejak(req, s!, 'LAPOR_JADWAL_HAPUS', lama.id, { baris: lama }, 'warning')
+  await jejak(req, s!, 'LAPOR_JADWAL_HAPUS', lama.id, { baris: lama, pengisi: cekP.pengisi, oleh: oleh(s!, cekP.pengisi) }, 'warning')
   segarkanPublik()
   return NextResponse.json({ ok: true })
 }

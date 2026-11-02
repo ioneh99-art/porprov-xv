@@ -17,6 +17,7 @@ import { urutCaborLangsung, type KeadaanPic } from '@/lib/jalur-lapor'
 import { ringkasJejak, susunJejak, type PartaiJejak, type TahapJejak } from '@/lib/jejak-partai'
 import { NAMA_SUMBER_KONIJABAR, urlLaga, type AlarmBeda } from '@/lib/konijabar'
 import type { InfoKembar } from '@/lib/lapor-kembar'
+import { teksPengisi } from '@/lib/pengisi'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
@@ -27,6 +28,7 @@ interface Laporan {
   nilai_teks: string | null; keterangan: string | null; lawan: string | null; jam: string | null; tanggal: string; pelapor_nama: string; pelapor_wa: string | null
   status: 'menunggu' | 'disahkan' | 'ditolak'; diputus_oleh: string | null; alasan_tolak: string | null; created_at: string; ada_foto?: boolean
   partai_id?: number | null; diputus_at?: string | null; sumber_luar?: string | null; ref_luar?: string | null
+  pengisi_nama?: string | null; pengisi_jabatan?: string | null
   /** Laga yang sama juga ada dari sumber lain (situs KONI Jabar ↔ PIC). */
   kembar?: InfoKembar | null
 }
@@ -45,7 +47,7 @@ interface Akses { id: number; cabor: string; cabor_id: number; kode_ujung: strin
 interface Cabor { id: number; nama: string; atlet: number }
 interface Catatan {
   id: number; cabor: string; cabor_id: number; jenis: JenisCatatan; mendesak: boolean; tanggal: string; jam: string | null
-  nomor_teks: string | null; atlet: string[]; isi: string; pelapor_nama: string; pelapor_wa: string | null
+  nomor_teks: string | null; atlet: string[]; isi: string; pelapor_nama: string; pelapor_wa: string | null; pengisi_nama?: string | null; pengisi_jabatan?: string | null
   status: StatusCatatan; tanggapan: string | null; ditangani_oleh: string | null; ditangani_at: string | null; created_at: string; ada_foto?: boolean
 }
 
@@ -359,7 +361,7 @@ export default function PageLapPertandingan() {
   }
 
   function cetak() {
-    const baris = jurnal.map((l, i) => `<tr><td>${i + 1}</td><td>${aman(jamTampil(l.created_at))}</td><td><b>${aman(l.cabor)}</b></td><td>${aman(l.nomor_teks)}</td><td>${aman(l.atlet.join(', '))}</td><td><b>${aman(tulisHasil(l))}</b></td><td>${aman(l.nilai_teks ?? '—')}</td><td>${aman(l.pelapor_nama)}</td></tr>`).join('')
+    const baris = jurnal.map((l, i) => `<tr><td>${i + 1}</td><td>${aman(jamTampil(l.created_at))}</td><td><b>${aman(l.cabor)}</b></td><td>${aman(l.nomor_teks)}</td><td>${aman(l.atlet.join(', '))}</td><td><b>${aman(tulisHasil(l))}</b></td><td>${aman(l.nilai_teks ?? '—')}</td><td>${aman(teksPengisi(l))}</td></tr>`).join('')
     const hari = hariPorprov(tanggalAktif)
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Jurnal ${aman(tanggalAktif)}</title><style>
       body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:24px}h2{font-size:15px;margin:0 0 2px}p{color:#555;font-size:10px;margin:0 0 14px}
@@ -403,7 +405,7 @@ export default function PageLapPertandingan() {
         </a>
       )}
       <div className="text-xs text-slate-500 mt-2">
-        Pertandingan {tglTampil(l.tanggal)} · dilaporkan {l.pelapor_nama}{l.pelapor_wa ? ` (${l.pelapor_wa})` : ''} pada {tglLaporTampil(l.created_at)} pukul {jamTampil(l.created_at)}
+        Pertandingan {tglTampil(l.tanggal)} · diisi <b className="text-slate-300">{teksPengisi(l)}</b>{l.pelapor_wa ? ` (WA pemilik kode: ${l.pelapor_wa})` : ''} pada {tglLaporTampil(l.created_at)} pukul {jamTampil(l.created_at)}
         {l.status !== 'menunggu' && l.diputus_oleh ? ` · ${l.status} oleh ${l.diputus_oleh}` : ''}
       </div>
       {l.status === 'ditolak' && l.alasan_tolak && <p className="text-xs text-red-300 mt-1">Alasan ditolak: {l.alasan_tolak}</p>}
@@ -501,7 +503,7 @@ export default function PageLapPertandingan() {
           </a>
         )}
         <div className="text-xs text-slate-500 mt-2">
-          Kejadian {tglTampil(c.tanggal)}{c.jam ? ` pukul ${c.jam}` : ''} · dilaporkan {c.pelapor_nama} pada {tglLaporTampil(c.created_at)} pukul {jamTampil(c.created_at)}
+          Kejadian {tglTampil(c.tanggal)}{c.jam ? ` pukul ${c.jam}` : ''} · diisi <b className="text-slate-300">{teksPengisi(c)}</b> pada {tglLaporTampil(c.created_at)} pukul {jamTampil(c.created_at)}
           {wa && <> · <a href={wa} target="_blank" rel="noopener" className="font-bold text-emerald-300 underline underline-offset-2">Hubungi lewat WA</a></>}
           {!wa && c.pelapor_wa ? ` (${c.pelapor_wa})` : ''}
         </div>
@@ -725,7 +727,7 @@ export default function PageLapPertandingan() {
                       {(b.laporan as Laporan[]).map(l => (
                         <div key={l.id} className="mt-2 rounded-lg bg-slate-950/50 border border-slate-800 px-3 py-2 text-xs">
                           <div><b style={{ color: WARNA[l.hasil] }}>{tulisHasil(l)}</b>{l.nilai_teks ? <span className="text-white font-bold"> · {l.nilai_teks}</span> : null}{l.sumber_luar === 'konijabar' && <span className="ml-2 align-middle"><TandaLuar ref_luar={l.ref_luar} kecil /></span>}</div>
-                          <div className="text-slate-400 mt-0.5">Dilaporkan <b className="text-slate-200">{l.pelapor_nama}</b> {waktuTampil(l.created_at)}</div>
+                          <div className="text-slate-400 mt-0.5">Diisi <b className="text-slate-200">{teksPengisi(l)}</b> {waktuTampil(l.created_at)}</div>
                           {l.status === 'disahkan' && <div className="text-emerald-300 mt-0.5">✓ Disahkan oleh <b>{l.diputus_oleh ?? '—'}</b> {waktuTampil(l.diputus_at)}</div>}
                           {l.status === 'ditolak' && <div className="text-red-300 mt-0.5">✗ Ditolak oleh <b>{l.diputus_oleh ?? '—'}</b> {waktuTampil(l.diputus_at)}{l.alasan_tolak ? ` — ${l.alasan_tolak}` : ''}</div>}
                           {l.status === 'menunggu' && <div className="text-amber-300 mt-0.5">Menunggu disahkan KONIDA</div>}

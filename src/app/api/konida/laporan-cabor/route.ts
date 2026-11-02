@@ -10,6 +10,7 @@ import { ambilSemua, dbLapor, keluargaCabor } from '@/lib/lapor-sesi'
 import { jadwalUntukCabor, type BahanLaporanCabor, type NomorLaporan } from '@/lib/laporan-cabor'
 import type { BarisJadwal } from '@/lib/matriks'
 import { targetAtlet, targetTim } from '@/lib/target-atlet'
+import { teksPengisi } from '@/lib/pengisi'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,10 +32,10 @@ export async function GET(req: NextRequest) {
       ambilSemua((d, s) => db.from('pendaftaran_nomor').select('disiplin,nomor,atlet_id,nama_berkas')
         .eq('kontingen_id', a.kontingen_id).in('cabor_id', idKeluarga).order('id').range(d, s)),
       ambilSemua((d, s) => db.from('laporan_hasil')
-        .select('id,tanggal,jam,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,lawan,pelapor_nama,diputus_oleh,foto_path')
+        .select('id,tanggal,jam,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,lawan,pelapor_nama,pengisi_nama,pengisi_jabatan,diputus_oleh,foto_path')
         .eq('kontingen_id', a.kontingen_id).in('cabor_id', idKeluarga).eq('status', 'disahkan').order('id').range(d, s)),
       ambilSemua((d, s) => db.from('catatan_lapangan')
-        .select('id,jenis,mendesak,tanggal,jam,nomor_teks,atlet_ids,isi,status,tanggapan,pelapor_nama,ditangani_oleh,foto_path')
+        .select('id,jenis,mendesak,tanggal,jam,nomor_teks,atlet_ids,isi,status,tanggapan,pelapor_nama,pengisi_nama,pengisi_jabatan,ditangani_oleh,foto_path')
         .eq('kontingen_id', a.kontingen_id).in('cabor_id', idKeluarga).neq('status', 'diabaikan').order('id').range(d, s)),
     ])
   } catch (e: any) {
@@ -87,12 +88,12 @@ export async function GET(req: NextRequest) {
     hasil: hasil.map(h => ({
       id: h.id, tanggal: h.tanggal, jam: h.jam, nomor_teks: h.nomor_teks, atlet: (h.atlet_ids as number[]).map(nama),
       hasil: h.hasil, peringkat: h.peringkat, nilai_teks: h.nilai_teks, lawan: h.lawan,
-      target: targetTim(h.atlet_ids as number[], target), pelapor_nama: h.pelapor_nama, diputus_oleh: h.diputus_oleh, ada_foto: !!h.foto_path,
+      target: targetTim(h.atlet_ids as number[], target), pelapor_nama: teksPengisi(h), diputus_oleh: h.diputus_oleh, ada_foto: !!h.foto_path,
     })),
     catatan: catatan.map(c => ({
       id: c.id, jenis: c.jenis, mendesak: c.mendesak, tanggal: c.tanggal, jam: c.jam, nomor_teks: c.nomor_teks,
       atlet: (c.atlet_ids as number[]).map(nama), isi: c.isi, status: c.status, tanggapan: c.tanggapan,
-      pelapor_nama: c.pelapor_nama, ditangani_oleh: c.ditangani_oleh, ada_foto: !!c.foto_path,
+      pelapor_nama: teksPengisi(c), ditangani_oleh: c.ditangani_oleh, ada_foto: !!c.foto_path,
     })),
     dibuat: tanggalWIB(),
   }

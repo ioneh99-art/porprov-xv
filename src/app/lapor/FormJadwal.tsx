@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react'
 import { LABEL_STATUS_PARTAI, SARAN_BABAK, STATUS_PARTAI, WARNA_STATUS_PARTAI, type StatusPartai } from '@/lib/jadwal-partai'
 import { tanggalWIB } from '@/lib/lapor'
 import { DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
+import IsianPengisi, { usePengisi } from './IsianPengisi'
 
 export interface PartaiSaya {
   id: number; tanggal: string; jam: string | null; nomor_teks: string; disiplin: string | null; nomor_resmi: string | null
@@ -24,13 +25,15 @@ const tglTampil = (t: string) => { const d = new Date(t + 'T00:00:00Z'); return 
 
 interface Isian { tanggal: string; jam: string; nomorTeks: string; nomor: NomorJadwal | null; babak: string; atlet: number[]; lawan: string; venue: string; keterangan: string; status: StatusPartai }
 
-export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiHabis }: {
+export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiHabis, peng, pemilikKode }: {
   nomor: NomorJadwal[]
   atlet: { id: number; nama: string }[]
   partai: PartaiSaya[]
   kegiatan: Kegiatan[]
   muat: () => Promise<boolean>
   sesiHabis: (pesan: string) => void
+  peng: ReturnType<typeof usePengisi>
+  pemilikKode?: string
 }) {
   const hariIni = tanggalWIB()
   const venueSaran = useMemo(() => Array.from(new Set(kegiatan.flatMap(k => (k.venue ?? '').split(/ \| | \/ /)).map(v => v.trim()).filter(Boolean))), [kegiatan])
@@ -44,6 +47,7 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
   const [cariAtlet, setCariAtlet] = useState('')
   const [semuaAtlet, setSemuaAtlet] = useState(false)
   const [galat, setGalat] = useState('')
+  const [perluPengisi, setPerluPengisi] = useState(false)
   const [sibuk, setSibuk] = useState(false)
   const [kabar, setKabar] = useState('')
   const [lihatLama, setLihatLama] = useState(false)
@@ -76,10 +80,15 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
   }
 
   async function kirim(metode: 'POST' | 'PATCH' | 'DELETE', isi?: any, id?: number): Promise<boolean> {
-    setSibuk(true); setGalat('')
+    setGalat('')
+    // Siapa yang mengubah jadwal ikut tercatat (kode PIC bisa dipinjam orang lain).
+    const kurangPengisi = peng.kurang()
+    if (kurangPengisi) { setGalat(kurangPengisi); setPerluPengisi(true); window.scrollTo({ top: 0, behavior: 'smooth' }); return false }
+    setSibuk(true)
     try {
-      const r = await fetch('/api/lapor/jadwal' + (metode === 'DELETE' ? `?id=${id}` : ''), {
-        method: metode, headers: { 'content-type': 'application/json' }, body: metode === 'DELETE' ? undefined : JSON.stringify(isi),
+      const qs = metode === 'DELETE' ? `?${new URLSearchParams({ id: String(id), ...peng.pengisi })}` : ''
+      const r = await fetch('/api/lapor/jadwal' + qs, {
+        method: metode, headers: { 'content-type': 'application/json' }, body: metode === 'DELETE' ? undefined : JSON.stringify({ ...isi, ...peng.pengisi }),
       })
       const j = await r.json().catch(() => ({}))
       if (r.status === 401) { sesiHabis(j.error ?? 'Sesi habis.'); return false }
@@ -127,6 +136,9 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
         <p className="mt-2 text-xs text-slate-400">Jadwal KONI cabor ini: {kegiatan.map(k => `${k.nama}${k.mulai ? ` (${tglTampil(k.mulai)}${k.selesai && k.selesai !== k.mulai ? ` – ${tglTampil(k.selesai)}` : ''})` : ''}`).join(' · ')}</p>
       )}
       {kabar && <div role="status" className="mt-3 rounded-xl bg-emerald-500/15 border border-emerald-400/40 px-4 py-3 text-sm font-bold text-emerald-300">{kabar}</div>}
+
+      {/* Tombol cepat (status / hapus) di luar form butuh pengisi juga — tampilkan isiannya bila belum lengkap. */}
+      {!buka && (perluPengisi || peng.kurang()) && <div className="mt-4"><IsianPengisi pengisi={peng.pengisi} ubah={peng.ubah} pemilikKode={pemilikKode} /></div>}
 
       {!buka ? (
         <button type="button" onClick={bukaBaru} className="mt-4 w-full rounded-xl bg-sky-500 py-4 text-base font-black text-slate-950">+ Tambah jadwal partai</button>
@@ -239,6 +251,8 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
             <label htmlFor="j-ket" className={judulIsian}>Keterangan <span className="normal-case font-normal text-slate-500">(boleh kosong)</span></label>
             <textarea id="j-ket" rows={2} value={buka.isi.keterangan} onChange={e => ganti('keterangan', e.target.value)} placeholder="Mis. lapangan 2, partai ke-3, menunggu partai sebelumnya" className={kotak} />
           </div>
+
+          <IsianPengisi pengisi={peng.pengisi} ubah={peng.ubah} pemilikKode={pemilikKode} />
 
           {galat && <p role="alert" className="rounded-xl bg-red-500/15 border border-red-400/40 px-4 py-3 text-sm font-bold text-red-300">{galat}</p>}
           <button type="button" onClick={simpan} disabled={sibuk} className="w-full rounded-xl bg-sky-500 py-4 text-lg font-black text-slate-950 disabled:opacity-40">

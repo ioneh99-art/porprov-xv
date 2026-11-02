@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { HASIL, LABEL_HASIL, tulisHasil, type Hasil } from '@/lib/lapor'
 import FormCatatan, { type CatatanSaya } from './FormCatatan'
+import IsianPengisi, { usePengisi } from './IsianPengisi'
 import FormJadwal, { type PartaiSaya } from './FormJadwal'
 import { partaiUntukLapor } from '@/lib/jadwal-partai'
 import { tanggalWIB } from '@/lib/lapor'
@@ -72,6 +73,7 @@ export default function HalamanLapor() {
   const [foto, setFoto] = useState<Blob | null>(null)
   const [pratinjau, setPratinjau] = useState('')
   const [partaiId, setPartaiId] = useState<number | null>(null)
+  const peng = usePengisi()
 
   const muat = useCallback(async () => {
     const r = await fetch('/api/lapor/data', { cache: 'no-store' })
@@ -176,6 +178,8 @@ export default function HalamanLapor() {
     if (!nomorTeks.trim()) return setGalat('Nomor pertandingan belum diisi.')
     if (pilihan.length === 0) return setGalat('Pilih minimal satu atlet.')
     if (!hasil) return setGalat('Pilih hasil pertandingannya.')
+    const kurangPengisi = peng.kurang()
+    if (kurangPengisi) return setGalat(kurangPengisi)
     setSibuk(true)
     try {
       const isi = JSON.stringify({
@@ -183,6 +187,7 @@ export default function HalamanLapor() {
         // Nomor dari daftar resmi dicocokkan ulang di server lewat dua isian ini.
         ...(nomorPilih?.disiplin ? { disiplin: nomorPilih.disiplin, nomor_resmi: nomorPilih.nama } : {}),
         peringkat: hasil === 'peringkat' ? Number(peringkat) : null, nilai_teks: nilai, keterangan, lawan, jam, partai_id: partaiId,
+        ...peng.pengisi,
       })
       let r: Response
       if (foto) {
@@ -274,6 +279,8 @@ export default function HalamanLapor() {
                 kegiatan={bahan.kegiatan}
                 muat={muat}
                 sesiHabis={pesan => { setTahap('masuk'); setGalat(pesan) }}
+                peng={peng}
+                pemilikKode={jalurKonida ? undefined : bahan.pic.nama}
               />
             )}
 
@@ -285,6 +292,8 @@ export default function HalamanLapor() {
                 catatan={bahan.catatan}
                 muat={muat}
                 sesiHabis={pesan => { setTahap('masuk'); setGalat(pesan) }}
+                peng={peng}
+                pemilikKode={jalurKonida ? undefined : bahan.pic.nama}
               />
             )}
 
@@ -466,6 +475,8 @@ export default function HalamanLapor() {
                   </label>
                 )}
               </div>
+
+              <IsianPengisi pengisi={peng.pengisi} ubah={peng.ubah} pemilikKode={jalurKonida ? undefined : bahan.pic.nama} />
 
               {galat && <p role="alert" className="rounded-xl bg-red-500/15 border border-red-400/40 px-4 py-3 text-sm font-bold text-red-300">{galat}</p>}
 

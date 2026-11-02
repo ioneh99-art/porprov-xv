@@ -9,6 +9,7 @@ import { WADAH_BUKTI, ambilSesiLapor, atletCabor, bacaKiriman, dbLapor, keluarga
 import { checkRateLimit } from '@/lib/rate-limit'
 import { writeAudit, reqMeta } from '@/lib/audit'
 import { segarkanPublik } from '@/lib/partai-server'
+import { periksaPengisi } from '@/lib/pengisi'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,6 +26,10 @@ export async function POST(req: NextRequest) {
 
   const hasil = periksaLaporan(mentah)
   if ('galat' in hasil) return NextResponse.json({ error: hasil.galat }, { status: 422 })
+  // Siapa yang benar-benar mengisi (kode PIC bisa dipinjam orang lain).
+  const cekPengisi = periksaPengisi(mentah)
+  if ('galat' in cekPengisi) return NextResponse.json({ error: cekPengisi.galat }, { status: 422 })
+  const { pengisi } = cekPengisi
   const isi = hasil.isi
   const db = dbLapor()
 
@@ -81,6 +86,7 @@ export async function POST(req: NextRequest) {
     kontingen_id: s.kontingen_id, cabor_id: s.cabor_id,
     ...isi, disiplin, tanggal, foto_path, partai_id,
     akses_id: s.akses_id, pelapor_nama: s.nama_pic, pelapor_wa: s.no_wa,
+    pengisi_nama: pengisi.nama, pengisi_jabatan: pengisi.jabatan,
   }).select('id').single()
   if (error) {
     if (foto_path) await db.storage.from(WADAH_BUKTI).remove([foto_path])   // jangan tinggalkan foto yatim
@@ -90,7 +96,7 @@ export async function POST(req: NextRequest) {
   await writeAudit({
     action: 'LAPOR_HASIL_KIRIM', resource: 'laporan_hasil', resource_id: baru.id,
     actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic, actor_role: s.jalur === 'konida' ? 'konida_langsung' : 'pic_lapangan',
-    kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, hasil: isi.hasil, nomor: isi.nomor_teks, foto: !!foto_path, partai_id },
+    kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, hasil: isi.hasil, nomor: isi.nomor_teks, foto: !!foto_path, partai_id, pengisi },
     ...reqMeta(req),
   })
   // Partainya sudah dimainkan: tandai selesai supaya halaman publik ikut berubah.
