@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/konijabar",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/konijabar-lawan",
+      "schedule": "30 13 * * *"
     }
   ]
 }

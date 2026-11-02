@@ -6,12 +6,12 @@ import {
   Trophy, ClipboardCheck, User, MapPin, Monitor,
   CheckSquare, Hotel, FileText, Building2, Shield, Cpu,
   Download, Lock, Activity, Database, FileCheck, TrendingUp, BarChart3,
-  CreditCard, CalendarDays, CalendarClock, X, ShieldCheck, ChevronDown,
+  CreditCard, CalendarDays, CalendarClock, X, ShieldCheck, ChevronDown, Swords,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { PREMIUM_REPORT_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
 
-const MENU_BERSARANG = ['/konida/atlet/kabbandung/bpjs', '/konida/atlet/kabbandung/idcard']
+const MENU_BERSARANG = ['/konida/atlet/kabbandung/bpjs', '/konida/atlet/kabbandung/idcard', '/konida/warroom/kabbandung/head-to-head']
 
 const TENANT_COLORS: Record<string, { primary: string; dark: string; nama: string }> = {
   kabbogor:       { primary: '#065f46', dark: '#047857', nama: 'Kab. Bogor'          },
@@ -96,7 +96,9 @@ function getLoginTarget(tenantId: string): string {
 function NavItemVIP({ label, href, icon: Icon, badge = 'VIP' }: { label: string; href: string; icon: any; badge?: string }) {
   const pathname = usePathname()
   const tc       = TENANT_COLORS['kabbandung']
-  const active   = pathname === href || pathname.startsWith(href + '/')
+  // Halaman anak yang punya menu sendiri (mis. Head-to-Head di bawah War Room) tidak ikut menyorot induknya.
+  const anakLain = MENU_BERSARANG.some(m => m !== href && m.startsWith(href + '/') && (pathname === m || pathname.startsWith(m + '/')))
+  const active   = (pathname === href || pathname.startsWith(href + '/')) && !anakLain
   const vvip     = badge === 'VVIP'
   return (
     <Link href={href}
@@ -431,7 +433,7 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
             {/* ── 3. Command Center ── */}
             <Kelompok judul="Command Center" warna="rgba(167,139,250,0.85)" buka={kelompok.cc} onToggle={() => ubahKelompok('cc')}
               aktif={dalam(['/konida/Premiumreport/kabbandung', '/konida/jadwal/kabbandung', '/konida/keberangkatan/kabbandung', '/konida/lappertandingan/kabbandung', '/konida/warroom/kabbandung'], ['/konida/Premiumreport/kabbandung/tes-fisik', '/konida/Premiumreport/kabbandung/heatmap-cabor'])}
-              jumlah={PREMIUM_REPORT_KABBANDUNG_TAMPIL ? 5 : 4}>
+              jumlah={PREMIUM_REPORT_KABBANDUNG_TAMPIL ? 6 : 5}>
               {PREMIUM_REPORT_KABBANDUNG_TAMPIL && (
                 <NavItemVIP label="Premium Report"    href="/konida/Premiumreport/kabbandung"    icon={Download} />
               )}
@@ -439,6 +441,7 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
               <NavItemVIP label="Jadwal Keberangkatan" href="/konida/keberangkatan/kabbandung"  icon={CalendarClock} />
               <NavItemVIP label="Report Pertandingan" href="/konida/lappertandingan/kabbandung"  icon={FileText} />
               <NavItemVIP label="War Room"            href="/konida/warroom/kabbandung"         icon={Monitor}  badge="VVIP" />
+              <NavItemVIP label="Head-to-Head"        href="/konida/warroom/kabbandung/head-to-head" icon={Swords} badge="VVIP" />
             </Kelompok>
           </>
         ) : (

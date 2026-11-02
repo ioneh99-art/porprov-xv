@@ -5,11 +5,13 @@
 // (foto, cabor, nomor, status), plus emas kejutan di luar target.
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Flame } from 'lucide-react'
 import type { DataWarRoom } from '@/lib/warroom-klien'
 import { tglPanjangWR } from '@/lib/warroom-klien'
 import type { CalonEmas, EmasKejutan, StatusMisi, WajahCalon } from '@/lib/warroom'
 import { CSS_KOIN, URUT_KOIN, gayaKoin } from './PerburuanEmas'
+import PanelHeadToHead from './HeadToHead'
 
 const EMAS = '#ffd700', PERAK = '#e2e8f0', PERUNGGU = '#e0a060', HIJAU = '#34d399', MERAH = '#f87171', SIAN = '#22d3ee'
 const HARI = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
@@ -37,7 +39,7 @@ function namaRingkas(orang: WajahCalon[], cadangan: string) {
   return `${orang.slice(0, 3).map(w => judul(w.nama).split(' ')[0]).join(', ')}${orang.length > 3 ? ` +${orang.length - 3}` : ''}`
 }
 
-function KartuTarget({ c }: { c: CalonEmas }) {
+function KartuTarget({ c, onLawan }: { c: CalonEmas; onLawan: () => void }) {
   const s = STATUS[c.status]
   const warna = c.status === 'medali_lain' ? (c.hasil === 'perunggu' ? PERUNGGU : PERAK) : s.warna
   const emas = c.status === 'emas'
@@ -47,7 +49,9 @@ function KartuTarget({ c }: { c: CalonEmas }) {
   // Peraih sebenarnya beda dari nama di proyeksi → tetap tampilkan nama proyeksi sebagai keterangan.
   const beda = !!c.peraih?.length && c.atlet && !c.peraih.some(p => c.wajah.some(w => w.atlet_id != null && w.atlet_id === p.atlet_id))
   return (
-    <div data-kartu-emas className="relative rounded-2xl overflow-hidden flex items-center gap-3 px-3 py-2.5"
+    <div data-kartu-emas role="button" tabIndex={0} onClick={onLawan} onKeyDown={e => { if (e.key === 'Enter') onLawan() }}
+      title="Lihat head-to-head lawannya"
+      className="relative rounded-2xl overflow-hidden flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:brightness-125"
       style={{
         background: emas ? 'linear-gradient(150deg, rgba(255,215,0,0.22), rgba(184,134,11,0.10) 60%, rgba(2,10,20,0.7))' : 'rgba(255,255,255,0.03)',
         border: `1px solid ${emas ? EMAS : c.status === 'berjalan' ? HIJAU : `${warna}33`}`,
@@ -61,6 +65,7 @@ function KartuTarget({ c }: { c: CalonEmas }) {
         <div className="text-sm font-black text-white truncate" title={orang.map(o => o.nama).join(', ')}>{namaRingkas(orang, cadangan)}</div>
         <div className="text-[11px] truncate"><b className="uppercase tracking-wide text-sky-300">{c.cabor}</b> <span className="text-zinc-400">· {c.nomor ?? '—'}{c.kota ? ` · ${c.kota}` : ''}</span></div>
         {beda && <div className="text-[10px] text-zinc-500 truncate">Proyeksi KONI: {judul(c.atlet!)}</div>}
+        <div className="text-[10px] font-bold text-red-300">⚔ Lihat lawan</div>
       </div>
       <span className="relative shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap"
         style={{ color: emas ? '#1a1200' : warna, background: emas ? EMAS : `${warna}18`, border: `1px solid ${warna}66` }}>
@@ -103,6 +108,7 @@ export default function KalenderEmas({ data }: { data: DataWarRoom | null }) {
   const puncak = hari.filter(t => t >= hariIni && perTgl.has(t)).sort((a, b) => (perTgl.get(b)!.length - perTgl.get(a)!.length) || a.localeCompare(b))[0]
 
   const [pilih, setPilih] = useState<string | null>(null)
+  const [h2h, setH2h] = useState<number | null>(null)
   // Tanggal awal: hari ini bila ada target/emas, selain itu hari target terdekat.
   useEffect(() => {
     if (pilih || !data) return
@@ -190,10 +196,17 @@ export default function KalenderEmas({ data }: { data: DataWarRoom | null }) {
             ? <div className="text-sm text-zinc-500 py-4 text-center">Tidak ada target emas di tanggal ini.</div>
             : <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                 {kejutanPilih.map(e => <KartuKejutan key={`k${e.id}`} e={e} />)}
-                {daftar.map(c => <KartuTarget key={c.urutan} c={c} />)}
+                {daftar.map(c => <KartuTarget key={c.urutan} c={c} onLawan={() => setH2h(c.urutan)} />)}
               </div>}
         </div>
       )}
+      {/* Lewat portal ke <body>: bagian War Room memakai animasi transform yang mengurung elemen fixed. */}
+      {h2h != null && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[1200] bg-black/75 backdrop-blur-sm overflow-y-auto p-4 md:p-10" onClick={() => setH2h(null)}>
+          <div className="max-w-3xl mx-auto" onClick={e => e.stopPropagation()}>
+            <PanelHeadToHead urutan={h2h} onTutup={() => setH2h(null)} />
+          </div>
+        </div>, document.body)}
       <style>{CSS_KOIN}</style>
     </div>
   )

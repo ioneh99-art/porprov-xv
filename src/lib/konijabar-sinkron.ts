@@ -68,7 +68,7 @@ async function sinkronKlasemen(kontingenId: number, oleh: string): Promise<Ringk
   return { diubah: diubah.length, kontingen: baris.length, situs: typeof j?.updated === 'string' ? j.updated : null }
 }
 
-async function ambilHalaman(url: string): Promise<string> {
+export async function ambilHalaman(url: string): Promise<string> {
   const ac = new AbortController()
   const t = setTimeout(() => ac.abort(), 12_000)
   try {
