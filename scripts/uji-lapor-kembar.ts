@@ -20,6 +20,8 @@ cek('laga beda: dua-duanya berpartai, partai beda', lagaSama(s135, L({ id: 1, pa
 cek('laga sama: partai sama walau lawan ditulis lain', lagaSama(s135, L({ id: 1, partai_id: 14, lawan: 'KOTA BDG' })), true)
 cek('laga beda: lawan beda', lagaSama(s135, L({ id: 1, lawan: 'Kab. Bogor' })), false)
 cek('dua laporan PIC bukan kembar situs', lagaSama(L({ id: 1 }), L({ id: 2 })), false)
+cek('laga sama: "Kab. Garut" vs "Garut"', lagaSama(L({ id: 1, ref_luar: 'x', lawan: 'Kab. Garut', nomor_teks: 'Beregu Putri (Pi)' }), L({ id: 2, lawan: 'Garut', nomor_teks: 'HOCKEY INDOOR · Beregu Putri (Pi)' })), true)
+cek('laga beda: putra ≠ putri walau lawan sama', lagaSama(L({ id: 1, ref_luar: 'x', lawan: 'Kab. Garut', nomor_teks: 'Beregu Putra (Pa)' }), L({ id: 2, lawan: 'Garut', nomor_teks: 'Beregu Putri (Pi)' })), false)
 cek('lawan kosong tidak dianggap sama', lagaSama(L({ id: 1, ref_luar: 'x', lawan: null }), L({ id: 2, lawan: null })), false)
 
 const k = pasangKembar([s135, p138])

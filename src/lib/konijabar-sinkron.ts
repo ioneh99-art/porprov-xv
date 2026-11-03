@@ -9,6 +9,10 @@
 // hanya dibuka untuk laga kita yang sudah selesai dan belum pernah dibaca.
 
 import { ambilSemua, dbLapor } from './lapor-sesi'
+import { genderNomor } from './lawan-luar'
+
+/** Putra/putri dua tulisan nomor tidak bertentangan (salah satu tanpa keterangan = boleh). */
+const genderSejalan = (a: string | null | undefined, b: string | null | undefined) => { const x = genderNomor(a), y = genderNomor(b); return !x || !y || x === y }
 import { writeAudit } from './audit'
 import {
   MULAI_LAGA, NAMA_KONTINGEN_SITUS, PELAPOR_KONIJABAR, SITUS_KONIJABAR, baku, bacaJadwalHarian, bacaKlasemen, bacaLaga,
@@ -161,7 +165,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
     const [cabor, partaiMentah, laporan, atlet, daftar] = await Promise.all([
       ambilSemua<{ id: number; nama: string }>((d, s) => db.from('cabang_olahraga').select('id,nama').order('id').range(d, s)),
       ambilSemua<any>((d, s) => db.from('jadwal_partai').select('id,cabor_id,tanggal,jam,nomor_teks,disiplin,lawan,atlet_ids,status').eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
-      ambilSemua<any>((d, s) => db.from('laporan_hasil').select('id,cabor_id,partai_id,tanggal,lawan,status,ref_luar,hasil,nilai_teks').eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
+      ambilSemua<any>((d, s) => db.from('laporan_hasil').select('id,cabor_id,partai_id,tanggal,lawan,status,ref_luar,hasil,nilai_teks,nomor_teks').eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
       ambilSemua<{ id: number; nama_lengkap: string }>((d, s) => db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', kontingenId).order('id').range(d, s)),
       ambilSemua<{ cabor_id: number; disiplin: string | null; nomor: string }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id,disiplin,nomor').eq('kontingen_id', kontingenId).order('id').range(d, s)),
     ])
@@ -184,7 +188,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
       const p = cocokPartai(lk, caborId, partai)
       const ada = laporan.find(l => l.ref_luar === ref)
         ?? laporan.find(l => l.status !== 'ditolak' && !l.ref_luar && (
-          (p && l.partai_id === p.id) || (l.cabor_id === caborId && l.tanggal === laga!.tanggal && lawanSama(lk.lawan, l.lawan))))
+          (p && l.partai_id === p.id) || (l.cabor_id === caborId && l.tanggal === laga!.tanggal && lawanSama(lk.lawan, l.lawan) && genderSejalan(laga!.nomor, l.nomor_teks))))
       const tebak = tebakHasil(laga.babak, laga.kode, lk.akhir)
       const daftarCabor = daftar.filter(d => d.cabor_id === caborId)
       const nomorResmi = p?.nomor_teks ?? pilihNomorResmi(laga, daftarCabor)

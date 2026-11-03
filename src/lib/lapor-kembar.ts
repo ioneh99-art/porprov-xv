@@ -5,10 +5,12 @@
 // dengan alasan "Kembar …", barisnya tetap tersimpan sebagai jejak).
 
 import { lawanSama } from './konijabar'
+import { genderNomor } from './lawan-luar'
 
 export interface LaporKembar {
   id: number; cabor_id: number; tanggal: string; lawan: string | null; partai_id?: number | null
   hasil: string; peringkat?: number | null; status: string; ref_luar?: string | null; pelapor_nama?: string | null
+  nomor_teks?: string | null
 }
 
 export interface InfoKembar {
@@ -28,6 +30,9 @@ export const ALASAN_KEMBAR = (idPic: number) => `Kembar — digantikan laporan P
 export function lagaSama(s: LaporKembar, p: LaporKembar): boolean {
   if (!s.ref_luar || p.ref_luar) return false
   if (s.cabor_id !== p.cabor_id || s.tanggal !== p.tanggal) return false
+  // Putra ≠ putri (mis. hockey putra & putri sama-sama melawan Garut di hari yang sama).
+  const gs = genderNomor(s.nomor_teks), gp = genderNomor(p.nomor_teks)
+  if (gs && gp && gs !== gp) return false
   // Keduanya bertaut ke jadwal → partainya harus sama persis.
   if (s.partai_id && p.partai_id) return s.partai_id === p.partai_id
   return lawanSama(s.lawan ?? '', p.lawan)

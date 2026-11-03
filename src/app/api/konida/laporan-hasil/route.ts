@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
 async function sahkanDenganKembar(req: NextRequest, a: { kontingen_id: number; nama: string; sesi: any }, lama: LaporKembar, kini: string) {
   const db = dbLapor()
   const { data: sehari, error: eh } = await db.from('laporan_hasil')
-    .select('id,cabor_id,tanggal,lawan,partai_id,hasil,peringkat,status,ref_luar,pelapor_nama')
+    .select('id,cabor_id,tanggal,lawan,partai_id,hasil,peringkat,status,ref_luar,pelapor_nama,nomor_teks')
     .eq('kontingen_id', a.kontingen_id).eq('cabor_id', lama.cabor_id).eq('tanggal', lama.tanggal).neq('status', 'ditolak')
   if (eh) return NextResponse.json({ error: eh.message }, { status: 500 })
   const k = pasangKembar((sehari ?? []) as LaporKembar[]).get(lama.id)

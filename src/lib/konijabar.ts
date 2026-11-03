@@ -172,10 +172,16 @@ export function nomorSama(situs: string, kita: string | null | undefined): boole
 
 /** Lawan di situs ("Kota Bandung") sama dengan lawan kita ("Kota Bandung 2")? Angka urut tim diabaikan. */
 export function lawanSama(situs: string, kita: string | null | undefined): boolean {
-  const a = baku(situs), b = baku(kita)
+  // "Kabupaten Garut" = "Kab. Garut" = "Garut"; "Kota Bandung 2" = "Kota Bandung".
+  const rapi = (s: string | null | undefined) => baku(s).replace(/\bkabupaten\b/g, 'kab').replace(/\s\d+$/, '').trim()
+  const a = rapi(situs), b = rapi(kita)
   if (!a || !b) return false
-  const potong = (s: string) => s.replace(/\s\d+$/, '')
-  return a === b || potong(a) === potong(b)
+  if (a === b) return true
+  const pecah = (s: string) => { const m = s.match(/^(kab|kota)\s+(.+)$/); return m ? { awal: m[1], inti: m[2] } : { awal: null, inti: s } }
+  const x = pecah(a), y = pecah(b)
+  // Kota X dan Kab. X kontingen berbeda (mis. Kota/Kab. Bekasi) — hanya disamakan bila salah satu tanpa awalan.
+  if (x.awal && y.awal && x.awal !== y.awal) return false
+  return x.inti === y.inti
 }
 
 export interface PartaiCocok { id: number; cabor_id: number; tanggal: string; jam: string | null; nomor_teks: string; lawan: string | null; atlet_nama?: string[] }
