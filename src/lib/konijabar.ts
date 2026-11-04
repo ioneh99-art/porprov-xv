@@ -16,7 +16,11 @@ export const NAMA_KONTINGEN_SITUS: Record<number, string> = { 4: 'Kab. Bandung' 
 /** Hari pertama ada laga (pra-PORPROV) — dipakai saat membaca pertama kali. */
 export const MULAI_LAGA = '2026-10-28'
 
-export const urlLaga = (ref: string) => `${SITUS_KONIJABAR}/laga/${ref}`
+/** Halaman sumber satu laporan situs: laga biasa → /laga/<ref>; medali grup ("grup-<bagan>-<peringkat>") → bagannya. */
+export const urlLaga = (ref: string) => {
+  const g = ref.match(/^grup-(\d+)/)
+  return g ? `${SITUS_KONIJABAR}/bagan?nomor=${g[1]}` : `${SITUS_KONIJABAR}/laga/${ref}`
+}
 
 export const baku = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
@@ -57,6 +61,8 @@ export interface LagaLuar {
   status: string; selesai: boolean; babak: string | null; kode: string | null; venue: string | null
   /** null bila laga bukan bentuk "tim A lawan tim B" (mis. heat/peringkat) — belum dibaca otomatis. */
   a: SisiLaga | null; b: SisiLaga | null; skorA: number | null; skorB: number | null; video: string | null
+  /** Ref bagan nomor ini (/bagan?nomor=…), untuk membaca klasemen grup. */
+  bagan: number | null
 }
 
 function sisi(h: string, kelas: 'side-a' | 'side-b'): SisiLaga | null {
@@ -106,6 +112,7 @@ export function bacaLaga(html: string, ref: string): LagaLuar | null {
     babak, kode: kode ? teks(kode) : null, venue,
     a: duel ? sisi(h, 'side-a') : null, b: duel ? sisi(h, 'side-b') : null,
     skorA: angka.length === 2 ? angka[0] : null, skorB: angka.length === 2 ? angka[1] : null,
+    bagan: Number(h.match(/href="\/bagan\?nomor=(\d+)"/)?.[1]) || null,
     video: h.match(/href="(https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/[^"]+)"/)?.[1]?.replace(/&amp;/g, '&') ?? null,
   }
 }

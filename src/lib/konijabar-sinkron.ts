@@ -14,6 +14,7 @@ import { genderNomor } from './lawan-luar'
 /** Putra/putri dua tulisan nomor tidak bertentangan (salah satu tanpa keterangan = boleh). */
 const genderSejalan = (a: string | null | undefined, b: string | null | undefined) => { const x = genderNomor(a), y = genderNomor(b); return !x || !y || x === y }
 import { writeAudit } from './audit'
+import { babakGrup, bacaGrupMurni, medaliGrup, refGrup, urlBaganGrup } from './grup-medali'
 import {
   MULAI_LAGA, NAMA_KONTINGEN_SITUS, PELAPOR_KONIJABAR, SITUS_KONIJABAR, baku, bacaJadwalHarian, bacaKlasemen, bacaLaga,
   cariAlarm, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, pilihNomorResmi, skorTeks, tebakHasil, urlLaga,
@@ -33,6 +34,13 @@ export interface RingkasSinkron {
   berubah?: number
   /** Klasemen resmi: jumlah kontingen yang angkanya diperbarui + jam pembaruan menurut situs. */
   klasemen?: { diubah: number; kontingen: number; situs: string | null }
+  /**
+   * Bagan nomor sistem grup yang diikuti kita (kunci = ref bagan): laporan dasar kita di nomor itu
+   * dan apakah sudah tuntas diperiksa. Dibawa dari sinkron ke sinkron sampai grupnya selesai.
+   */
+  grup?: Record<string, { laporan: number; tuntas: boolean }>
+  /** Laporan medali baru dari klasemen grup murni (setengah kompetisi). */
+  medali_grup?: number
   galat: string[]
 }
 
@@ -131,6 +139,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
   await db.from('sinkron_luar').upsert({ sumber: 'konijabar', kontingen_id: kontingenId, terakhir: kini })
 
   const r: RingkasSinkron = { terakhir: kini, hari: 0, laga_kita: 0, dibaca: 0, laporan_baru: 0, sudah_dilaporkan: 0, tak_terbaca: 0, galat: [] }
+  r.grup = { ...(((log?.ringkas as any)?.grup ?? {}) as NonNullable<RingkasSinkron['grup']>) }
   const hariIni = hariIniWIB()
   const { count } = await db.from('hasil_luar').select('id', { count: 'exact', head: true }).eq('sumber', 'konijabar').eq('kontingen_id', kontingenId)
   const awal = !count ? MULAI_LAGA : [MULAI_LAGA, geserHari(hariIni, -HARI_KE_BELAKANG)].sort()[1]
@@ -224,6 +233,13 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
         else { laporanId = lap.id; r.laporan_baru++; laporan.push({ id: lap.id, cabor_id: caborId, partai_id: p?.id ?? null, tanggal: laga.tanggal, lawan: lk.lawan, status: 'menunggu', ref_luar: ref }) }
       }
 
+      // Laga babak grup: ingat bagannya — kalau ternyata grup murni (tanpa final), medali dibaca dari klasemennya.
+      if (laporanId != null && laga.bagan && babakGrup(laga.babak) && (tebak.hasil === 'menang' || tebak.hasil === 'kalah')) {
+        const g = r.grup![String(laga.bagan)]
+        if (!g) r.grup![String(laga.bagan)] = { laporan: laporanId, tuntas: false }
+        else if (!g.tuntas) g.laporan = laporanId
+      }
+
       const { error: eh } = await db.from('hasil_luar').upsert({
         sumber: 'konijabar', ref, kontingen_id: kontingenId, cabor_id: caborId,
         cabor_teks: laga.cabor, disiplin_teks: laga.disiplin, nomor_teks: laga.nomor, babak: laga.babak, kode: laga.kode,
@@ -236,6 +252,9 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
     }
   }
 
+  // 4) Kelas sistem grup murni: medali dari klasemen grup yang sudah selesai.
+  try { await periksaGrup(kontingenId, namaKita, r) } catch (e: any) { r.galat.push(`Klasemen grup: ${e?.message ?? e}`) }
+
   await db.from('sinkron_luar').upsert({ sumber: 'konijabar', kontingen_id: kontingenId, terakhir: kini, ringkas: r })
   if (r.laporan_baru || r.berubah || r.galat.length) {
     await writeAudit({
@@ -244,4 +263,67 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
     })
   }
   return r
+}
+
+/** Paling banyak sekian bagan grup dibuka per sinkron (situs panitia jangan dibanjiri). */
+const BAGAN_GRUP_PER_SINKRON = 12
+const kunciNomor = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+/**
+ * Buka bagan nomor grup yang belum tuntas. Grup dengan babak gugur → tuntas (medalinya dari laga
+ * Final/Perebutan juara 3, sudah dibaca di langkah 3). Grup murni yang semua laganya selesai →
+ * kontingen kita peringkat 1/2/3 masuk Antrean sebagai laporan medali (status menunggu).
+ * Tidak membuat laporan bila medali yang sama untuk nomor itu sudah ada (dari PIC/KONIDA/situs).
+ */
+async function periksaGrup(kontingenId: number, namaKita: string, r: RingkasSinkron) {
+  const db = dbLapor()
+  const terbuka = Object.entries(r.grup ?? {}).filter(([, g]) => !g.tuntas).slice(0, BAGAN_GRUP_PER_SINKRON)
+  let atletKita: Map<string, number> | null = null
+  for (const [bagan, g] of terbuka) {
+    await tidur(300)
+    const gm = bacaGrupMurni(await ambilHalaman(urlBaganGrup(bagan)))
+    if (!gm.murni) { g.tuntas = true; continue }
+    if (!gm.selesai) continue
+    g.tuntas = true
+    const medali = medaliGrup(gm, namaKita)
+    if (!medali.length) continue
+
+    const { data: dasar } = await db.from('laporan_hasil').select('cabor_id,nomor_teks,disiplin,atlet_ids,tanggal')
+      .eq('id', g.laporan).eq('kontingen_id', kontingenId).maybeSingle()
+    if (!dasar) { r.galat.push(`Klasemen grup ${bagan}: laporan dasar #${g.laporan} tidak ditemukan`); continue }
+    const { data: sejenis } = await db.from('laporan_hasil').select('id,hasil,status,ref_luar,nomor_teks')
+      .eq('kontingen_id', kontingenId).eq('cabor_id', dasar.cabor_id)
+
+    for (const m of medali) {
+      const ref = refGrup(Number(bagan), m.peserta.peringkat)
+      if ((sejenis ?? []).some((l: any) => l.ref_luar === ref)) continue
+      if ((sejenis ?? []).some((l: any) => l.status !== 'ditolak' && l.hasil === m.hasil && kunciNomor(l.nomor_teks) === kunciNomor(dasar.nomor_teks))) continue
+
+      // Atlet: perorangan → cari nama di data kita; beregu/tak ketemu → atlet laporan dasar.
+      let atlet_ids: number[] = dasar.atlet_ids ?? []
+      if (m.peserta.kontingen && (medali.length > 1 || !atlet_ids.length)) {
+        if (!atletKita) {
+          const semua = await ambilSemua<{ id: number; nama_lengkap: string }>((d, s) => db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', kontingenId).order('id').range(d, s))
+          atletKita = new Map(semua.map(a => [baku(a.nama_lengkap), a.id]))
+        }
+        const id = atletKita.get(baku(m.peserta.nama))
+        if (id != null) atlet_ids = [id]
+      }
+
+      const { error } = await db.from('laporan_hasil').insert({
+        kontingen_id: kontingenId, cabor_id: dasar.cabor_id, partai_id: null,
+        nomor_teks: dasar.nomor_teks, disiplin: dasar.disiplin, atlet_ids,
+        hasil: m.hasil, peringkat: null,
+        nilai_teks: `Peringkat ${m.peserta.peringkat} grup${m.peserta.poin != null ? ` · ${m.peserta.poin} poin` : ''}`,
+        keterangan: `Situs KONI Jabar: sistem grup (setengah kompetisi), tanpa laga final — peringkat ${m.peserta.peringkat} dari ${m.jumlahPeserta} peserta, semua ${gm.laga?.total ?? '?'} laga selesai${m.jumlahPeserta < 4 ? '. PESERTA KURANG DARI 4 — cek aturan pembagian medali cabor ini sebelum mengesahkan' : ''} · ${urlBaganGrup(bagan)}`,
+        tanggal: dasar.tanggal, jam: null, lawan: 'Seluruh peserta grup',
+        pelapor_nama: PELAPOR_KONIJABAR, status: 'menunggu', sumber_luar: 'konijabar', ref_luar: ref,
+      })
+      if (error) { if (error.code !== '23505') r.galat.push(`Medali grup ${bagan}: ${error.message}`); continue }
+      r.laporan_baru++; r.medali_grup = (r.medali_grup ?? 0) + 1
+    }
+  }
+  // Catatan tidak membengkak: buang yang sudah tuntas bila terlalu banyak.
+  const semua = Object.entries(r.grup ?? {})
+  if (semua.length > 300) r.grup = Object.fromEntries(semua.filter(([, g]) => !g.tuntas))
 }
