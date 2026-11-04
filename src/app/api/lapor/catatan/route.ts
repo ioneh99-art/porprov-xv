@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
 
   // Atlet yang disebut harus termasuk atlet yang boleh dilaporkan lewat kode ini.
   if (isi.atlet_ids.length) {
-    const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id)
-    const boleh = new Set((await atletCabor(s.kontingen_id, s.cabor_id, daftar)).map(a => a.id))
+    const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id, s.disiplin)
+    const boleh = new Set((await atletCabor(s.kontingen_id, s.cabor_id, daftar, !!s.disiplin)).map(a => a.id))
     if (isi.atlet_ids.some(id => !boleh.has(id)))
       return NextResponse.json({ error: 'Ada atlet yang bukan dari cabor Anda.' }, { status: 403 })
   }

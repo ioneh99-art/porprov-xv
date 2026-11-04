@@ -38,6 +38,8 @@ async function barisMilik(s: Sesi, id: number) {
   if (!Number.isInteger(id) || id <= 0) return null
   const { data } = await dbLapor().from('jadwal_partai').select(KOLOM_PARTAI).eq('id', id)
     .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).maybeSingle()
+  // Kode per disiplin hanya boleh mengubah partai disiplinnya.
+  if (data && s.disiplin && (data as any).disiplin && (data as any).disiplin !== s.disiplin) return null
   return data as any
 }
 
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
   const cek = periksaPartai(mentah, false)
   if ('galat' in cek) return NextResponse.json({ error: cek.galat }, { status: 422 })
   const isi: any = cek.isi
-  const salah = await cocokkanPartai(s!.kontingen_id, s!.cabor_id, mentah, isi)
+  const salah = await cocokkanPartai(s!.kontingen_id, s!.cabor_id, mentah, isi, s!.disiplin)
   if (salah) return NextResponse.json({ error: salah }, { status: 403 })
 
   const { data, error } = await dbLapor().from('jadwal_partai').insert({
@@ -75,7 +77,7 @@ export async function PATCH(req: NextRequest) {
   const cek = periksaPartai(isian, true)
   if ('galat' in cek) return NextResponse.json({ error: cek.galat }, { status: 422 })
   const isi: any = cek.isi
-  const salah = await cocokkanPartai(s!.kontingen_id, s!.cabor_id, isian, isi)
+  const salah = await cocokkanPartai(s!.kontingen_id, s!.cabor_id, isian, isi, s!.disiplin)
   if (salah) return NextResponse.json({ error: salah }, { status: 403 })
 
   const { data, error } = await dbLapor().from('jadwal_partai')

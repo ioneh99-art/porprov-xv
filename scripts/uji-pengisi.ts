@@ -1,5 +1,5 @@
 // scripts/uji-pengisi.ts — "Siapa yang mengisi?" di laporan PIC. Dijalankan: npm run uji:pengisi
-import { periksaPengisi, teksPengisi, tulisPengisi } from '../src/lib/pengisi'
+import { judulDisiplin, periksaPengisi, teksPengisi, tulisPengisi } from '../src/lib/pengisi'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -22,6 +22,8 @@ cek('tulis pengisi', tulisPengisi({ nama: 'Budi', jabatan: 'Pelatih' }), 'Budi (
 cek('teks: orang lain memakai kode', teksPengisi({ pengisi_nama: 'Budi', pengisi_jabatan: 'Pelatih', pelapor_nama: 'Asep' }), 'Budi (Pelatih) · kode PIC Asep')
 cek('teks: pemilik kode sendiri', teksPengisi({ pengisi_nama: 'asep ', pengisi_jabatan: 'PIC Cabor', pelapor_nama: 'Asep' }), 'asep (PIC Cabor)')
 cek('teks: laporan lama tanpa pengisi', teksPengisi({ pengisi_nama: null, pengisi_jabatan: null, pelapor_nama: 'Asep' }), 'Asep')
+
+cek('judul disiplin', ['AKUATIK - POLO AIR', 'RENANG PERAIRAN TERBUKA', 'DAYUNG CANOEING', 'HOCKEY INDOOR', 'BALAP SEPEDA - BMX'].map(judulDisiplin), ['Polo Air', 'Renang Perairan Terbuka', 'Canoeing', 'Hockey Indoor', 'Bmx'])
 
 console.log(`uji-pengisi: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

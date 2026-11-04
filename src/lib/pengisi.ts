@@ -38,3 +38,9 @@ export function teksPengisi(l: { pengisi_nama?: string | null; pengisi_jabatan?:
   const isi = `${l.pengisi_nama.trim()}${l.pengisi_jabatan ? ` (${l.pengisi_jabatan})` : ''}`
   return l.pengisi_nama.trim().toLowerCase() === l.pelapor_nama.trim().toLowerCase() ? isi : `${isi} · kode PIC ${l.pelapor_nama}`
 }
+
+/** "AKUATIK - POLO AIR" → "Polo Air", "DAYUNG CANOEING" → "Canoeing", "HOCKEY INDOOR" → "Hockey Indoor". */
+export function judulDisiplin(d: string): string {
+  const buang = d.replace(/^(AKUATIK|DAYUNG|BALAP MOTOR|BALAP SEPEDA)\s*-?\s*/i, '').trim()
+  return (buang || d).toLowerCase().replace(/\b\w/g, x => x.toUpperCase())
+}

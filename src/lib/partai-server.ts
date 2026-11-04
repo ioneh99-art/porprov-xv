@@ -19,23 +19,23 @@ export function segarkanPublik() {
  * cabor ini, dan nomor resmi harus ada di daftar pendaftaran cabornya — tulisan
  * nomornya disusun di server. Mengubah `isi` di tempat.
  */
-export async function cocokkanPartai(kontingenId: number, caborId: number, mentah: any, isi: IsiPartai & { disiplin?: string | null; nomor_resmi?: string | null }): Promise<string | null> {
+export async function cocokkanPartai(kontingenId: number, caborId: number, mentah: any, isi: IsiPartai & { disiplin?: string | null; nomor_resmi?: string | null }, disiplinKode: string | null = null): Promise<string | null> {
   const perluAtlet = isi.atlet_ids && isi.atlet_ids.length > 0
   const perluNomor = mentah?.disiplin != null && mentah.disiplin !== ''
   if (!perluAtlet && !perluNomor) {
     if ('nomor_teks' in isi) { isi.disiplin = null; isi.nomor_resmi = null }
     return null
   }
-  const daftar = await pendaftaranCabor(kontingenId, caborId)
+  const daftar = await pendaftaranCabor(kontingenId, caborId, disiplinKode)
   if (perluAtlet) {
-    const boleh = new Set((await atletCabor(kontingenId, caborId, daftar)).map(a => a.id))
+    const boleh = new Set((await atletCabor(kontingenId, caborId, daftar, !!disiplinKode)).map(a => a.id))
     if (isi.atlet_ids!.some(id => !boleh.has(id))) return 'Ada atlet yang bukan dari cabor ini.'
   }
   if (perluNomor) {
     const d = rapikan(mentah.disiplin), n = rapikan(mentah.nomor_resmi)
     if (!daftar.some(x => x.disiplin === d && x.nomor === n)) return 'Nomor itu tidak ada di daftar resmi cabor ini.'
     isi.disiplin = d; isi.nomor_resmi = n
-    isi.nomor_teks = tulisNomorResmi(d, n, new Set(daftar.map(x => x.disiplin)).size)
+    isi.nomor_teks = tulisNomorResmi(d, n, disiplinKode ? 2 : new Set(daftar.map(x => x.disiplin)).size)
   } else if ('nomor_teks' in isi) {
     isi.disiplin = null; isi.nomor_resmi = null
   }

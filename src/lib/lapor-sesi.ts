@@ -51,7 +51,7 @@ function samaPersis(a: string, b: string): boolean {
  * masih berlaku untuk kontingen itu: logout dari dashboard = pintu ini ikut
  * tertutup. Nama pelapornya diambil dari sesi dashboard tersebut.
  */
-export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string; no_wa: string | null; jalur: Jalur }) | null> {
+export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string; no_wa: string | null; jalur: Jalur; disiplin: string | null }) | null> {
   const c = cookies()
   const nilai = c.get(COOKIE_SESI)?.value
   const sig = c.get(COOKIE_SIG)?.value
@@ -61,16 +61,17 @@ export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string;
     const s = JSON.parse(nilai) as SesiLapor
     if (!s || typeof s.exp !== 'number' || s.exp < Date.now()) return null
     const { data } = await dbLapor().from('lapor_akses')
-      .select('id,kontingen_id,cabor_id,nama_pic,no_wa,aktif,jalur').eq('id', s.akses_id).maybeSingle()
+      .select('id,kontingen_id,cabor_id,nama_pic,no_wa,aktif,jalur,disiplin').eq('id', s.akses_id).maybeSingle()
     if (!data || !data.aktif) return null
     // Kontingen dan cabor diambil dari baris akses, bukan dari cookie.
     const dasar = { akses_id: data.id, kontingen_id: data.kontingen_id, cabor_id: data.cabor_id, exp: s.exp }
     if (data.jalur === 'konida') {
       const admin = await getServerSession()
       if (!adminUntukKontingen(admin, data.kontingen_id)) return null
-      return { ...dasar, nama_pic: namaPelaporKonida(admin), no_wa: null, jalur: 'konida' }
+      return { ...dasar, nama_pic: namaPelaporKonida(admin), no_wa: null, jalur: 'konida', disiplin: null }
     }
-    return { ...dasar, nama_pic: data.nama_pic, no_wa: data.no_wa, jalur: 'pic' }
+    // Kode per disiplin (mis. Akuatik · Polo Air): PIC hanya melihat & melapor disiplin itu.
+    return { ...dasar, nama_pic: data.nama_pic, no_wa: data.no_wa, jalur: 'pic', disiplin: data.disiplin ?? null }
   } catch {
     return null
   }
@@ -142,10 +143,13 @@ export async function simpanFotoBukti(folder: string, foto: File): Promise<{ pat
 export interface BarisDaftar { disiplin: string; nomor: string; penanda: string | null; atlet_id: number | null }
 
 /** Pendaftaran resmi (klasifikasi_verified) untuk satu cabor. Kosong = cabor itu belum punya daftar resmi. */
-export function pendaftaranCabor(kontingenId: number, caborId: number): Promise<BarisDaftar[]> {
+export function pendaftaranCabor(kontingenId: number, caborId: number, disiplin?: string | null): Promise<BarisDaftar[]> {
   const db = dbLapor()
-  return ambilSemua<BarisDaftar>((dari, sampai) => db.from('pendaftaran_nomor')
-    .select('disiplin,nomor,penanda,atlet_id').eq('kontingen_id', kontingenId).eq('cabor_id', caborId).order('id').range(dari, sampai))
+  return ambilSemua<BarisDaftar>((dari, sampai) => {
+    let q = db.from('pendaftaran_nomor').select('disiplin,nomor,penanda,atlet_id').eq('kontingen_id', kontingenId).eq('cabor_id', caborId)
+    if (disiplin) q = q.eq('disiplin', disiplin)   // kode PIC per disiplin
+    return q.order('id').range(dari, sampai)
+  })
 }
 
 /**
@@ -154,9 +158,10 @@ export function pendaftaranCabor(kontingenId: number, caborId: number): Promise<
  * cabor lain (ada cabor kembar di tabel cabang_olahraga, mis. "IBCA MMA" dan
  * "Ibca Mma"). Daftar resmi yang jadi patokan, bukan pencatatan kita.
  */
-export async function atletCabor(kontingenId: number, caborId: number, daftar: BarisDaftar[]): Promise<{ id: number; nama_lengkap: string; gender: string | null }[]> {
+export async function atletCabor(kontingenId: number, caborId: number, daftar: BarisDaftar[], hanyaTerdaftar = false): Promise<{ id: number; nama_lengkap: string; gender: string | null }[]> {
   const db = dbLapor()
-  const { data: milik } = await db.from('atlet').select('id,nama_lengkap,gender')
+  // Kode per disiplin: hanya atlet yang terdaftar resmi di disiplin itu (bukan seluruh atlet cabor).
+  const { data: milik } = hanyaTerdaftar ? { data: [] as any[] } : await db.from('atlet').select('id,nama_lengkap,gender')
     .eq('kontingen_id', kontingenId).eq('cabor_id', caborId).order('nama_lengkap').range(0, 999)
   const hasil = [...(milik ?? [])]
   const sudah = new Set(hasil.map(a => a.id))

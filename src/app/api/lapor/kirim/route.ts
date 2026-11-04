@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
 
   // Atlet yang dikirim peramban tidak dipercaya: semuanya harus termasuk atlet
   // yang boleh dilaporkan lewat kode ini (cabornya, atau terdaftar resmi di cabornya).
-  const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id)
-  const boleh = new Set((await atletCabor(s.kontingen_id, s.cabor_id, daftar)).map(a => a.id))
+  const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id, s.disiplin)
+  const boleh = new Set((await atletCabor(s.kontingen_id, s.cabor_id, daftar, !!s.disiplin)).map(a => a.id))
   if (isi.atlet_ids.some(id => !boleh.has(id)))
     return NextResponse.json({ error: 'Ada atlet yang bukan dari cabor Anda.' }, { status: 403 })
 
@@ -49,8 +49,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nomor itu tidak ada di daftar resmi cabor Anda.' }, { status: 422 })
     disiplin = d
     isi.nomor_id = null
-    isi.nomor_teks = tulisNomorResmi(d, n, new Set(daftar.map(x => x.disiplin)).size)
+    isi.nomor_teks = tulisNomorResmi(d, n, s.disiplin ? 2 : new Set(daftar.map(x => x.disiplin)).size)
   }
+
+  // Kode per disiplin: nomor yang diketik bebas tetap dicatat di disiplin kode itu.
+  if (!disiplin && s.disiplin) disiplin = s.disiplin
 
   if (isi.nomor_id != null) {
     const idKeluarga = (await keluargaCabor(s.cabor_id)).map(k => k.id)

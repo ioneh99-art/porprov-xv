@@ -17,7 +17,7 @@ import { urutCaborLangsung, type KeadaanPic } from '@/lib/jalur-lapor'
 import { ringkasJejak, susunJejak, type PartaiJejak, type TahapJejak } from '@/lib/jejak-partai'
 import { NAMA_SUMBER_KONIJABAR, urlLaga, type AlarmBeda } from '@/lib/konijabar'
 import type { InfoKembar } from '@/lib/lapor-kembar'
-import { teksPengisi } from '@/lib/pengisi'
+import { judulDisiplin, teksPengisi } from '@/lib/pengisi'
 
 const ACCENT = '#38bdf8'
 const KONTINGEN_ID = 4
@@ -43,7 +43,7 @@ interface RingkasLuar { terakhir: string; dilewati?: boolean; laga_kita: number;
 const WARNA_LUAR = '#c084fc'
 const WARNA_ALARM = '#f87171'
 const AKHIR_TAMPIL: Record<string, string> = { menang: 'menang', kalah: 'kalah', seri: 'seri' }
-interface Akses { id: number; cabor: string; cabor_id: number; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null; jumlah_laporan: number }
+interface Akses { id: number; cabor: string; cabor_id: number; disiplin?: string | null; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null; jumlah_laporan: number }
 interface Cabor { id: number; nama: string; atlet: number }
 interface Catatan {
   id: number; cabor: string; cabor_id: number; jenis: JenisCatatan; mendesak: boolean; tanggal: string; jam: string | null
@@ -110,7 +110,8 @@ export default function PageLapPertandingan() {
   const [koreksi, setKoreksi] = useState({ nomor_teks: '', hasil: 'emas' as Hasil, peringkat: '', nilai_teks: '', tanggal: '', lawan: '', jam: '' })
   const [sibukMatriks, setSibukMatriks] = useState(false)
 
-  const [formKode, setFormKode] = useState({ cabor_id: '', nama_pic: '', no_wa: '' })
+  const [formKode, setFormKode] = useState({ cabor_id: '', disiplin: '', nama_pic: '', no_wa: '' })
+  const [disiplinCabor, setDisiplinCabor] = useState<Record<number, string[]>>({})
   const [kodeBaru, setKodeBaru] = useState<{ kode: string; cabor: string; nama: string; wa: string } | null>(null)
   const [tersalin, setTersalin] = useState(false)
   const [mengubahPic, setMengubahPic] = useState<number | null>(null)
@@ -129,7 +130,7 @@ export default function PageLapPertandingan() {
   const muatAkses = useCallback(async () => {
     const r = await fetch(`/api/konida/lapor-akses${Q}`, { cache: 'no-store' })
     const j = await r.json().catch(() => ({}))
-    if (r.ok) { setAkses(j.akses ?? []); setCabor(j.cabor ?? []) }
+    if (r.ok) { setAkses(j.akses ?? []); setCabor(j.cabor ?? []); setDisiplinCabor(j.disiplin ?? {}) }
   }, [])
   const muatPartai = useCallback(async () => {
     const r = await fetch(`/api/konida/jadwal-partai${Q}`, { cache: 'no-store' })
@@ -285,8 +286,8 @@ export default function PageLapPertandingan() {
     const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'buat', ...formKode, cabor_id: Number(formKode.cabor_id) }) })
     const j = await r.json().catch(() => ({}))
     if (!r.ok) { setGalat(j.error ?? 'Gagal membuat kode.'); return }
-    setKodeBaru({ kode: j.kode, cabor: cabor.find(c => c.id === Number(formKode.cabor_id))?.nama ?? '', nama: formKode.nama_pic, wa: formKode.no_wa })
-    setFormKode({ cabor_id: '', nama_pic: '', no_wa: '' }); setTersalin(false)
+    setKodeBaru({ kode: j.kode, cabor: `${cabor.find(c => c.id === Number(formKode.cabor_id))?.nama ?? ''}${formKode.disiplin ? ` · ${judulDisiplin(formKode.disiplin)}` : ''}`, nama: formKode.nama_pic, wa: formKode.no_wa })
+    setFormKode({ cabor_id: '', disiplin: '', nama_pic: '', no_wa: '' }); setTersalin(false)
     await muatAkses()
   }
   /** Jalur kedua: buka formulir lapor cabor ini tanpa kode PIC, atas nama admin yang login. */
@@ -887,10 +888,16 @@ export default function PageLapPertandingan() {
             <div className={`${kartu} p-5 lg:col-span-2 h-fit`}>
               <h2 className="text-sm font-black text-white">Buat kode untuk PIC</h2>
               <div className="mt-3 space-y-3">
-                <select value={formKode.cabor_id} onChange={e => setFormKode({ ...formKode, cabor_id: e.target.value })} aria-label="Cabor" className={kotak}>
+                <select value={formKode.cabor_id} onChange={e => setFormKode({ ...formKode, cabor_id: e.target.value, disiplin: '' })} aria-label="Cabor" className={kotak}>
                   <option value="">Pilih cabor…</option>
                   {cabor.map(c => <option key={c.id} value={c.id}>{c.nama} ({c.atlet} atlet)</option>)}
                 </select>
+                {(disiplinCabor[Number(formKode.cabor_id)] ?? []).length > 1 && (
+                  <select value={formKode.disiplin} onChange={e => setFormKode({ ...formKode, disiplin: e.target.value })} aria-label="Disiplin" className={kotak}>
+                    <option value="">Semua disiplin (koordinator cabor)</option>
+                    {disiplinCabor[Number(formKode.cabor_id)].map(d => <option key={d} value={d}>{judulDisiplin(d)} saja</option>)}
+                  </select>
+                )}
                 <input value={formKode.nama_pic} onChange={e => setFormKode({ ...formKode, nama_pic: e.target.value })} placeholder="Nama PIC" aria-label="Nama PIC" className={kotak} />
                 <input value={formKode.no_wa} onChange={e => setFormKode({ ...formKode, no_wa: e.target.value })} placeholder="Nomor WhatsApp (boleh kosong)" aria-label="Nomor WhatsApp" inputMode="tel" className={kotak} />
                 <button onClick={buatKode} disabled={!formKode.cabor_id || !formKode.nama_pic.trim()} className="w-full rounded-lg bg-sky-500 py-2.5 text-sm font-black text-slate-950 disabled:opacity-40">Buat kode</button>
@@ -940,7 +947,7 @@ export default function PageLapPertandingan() {
                     </tr>
                   ) : (
                     <tr key={a.id} className={`border-b border-slate-800/60 ${a.aktif ? '' : 'opacity-50'}`}>
-                      <td className="px-4 py-3 font-bold text-white">{a.cabor}</td>
+                      <td className="px-4 py-3 font-bold text-white">{a.cabor}{a.disiplin && <div className="text-xs font-bold text-sky-300">{judulDisiplin(a.disiplin)}</div>}</td>
                       <td className="px-4 py-3">{a.nama_pic}<div className="text-xs text-slate-500">{a.no_wa ?? 'tanpa nomor WA'}</div></td>
                       <td className="px-4 py-3 font-mono text-slate-400">••••-{a.kode_ujung}</td>
                       <td className="px-4 py-3 text-xs text-slate-400">{a.terakhir_dipakai ? new Date(a.terakhir_dipakai).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }) : 'Belum pernah'}</td>

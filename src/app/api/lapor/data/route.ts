@@ -20,14 +20,15 @@ export async function GET() {
   const db = dbLapor()
   const keluarga = await keluargaCabor(s.cabor_id)
   const namaCabor = keluarga[0]?.nama ?? 'Cabor'
-  const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id)
+  // Kode per disiplin: nomor, atlet & jadwal hanya dari disiplin itu.
+  const daftar = await pendaftaranCabor(s.kontingen_id, s.cabor_id, s.disiplin)
 
   // Jadwal partai: tiga hari ke belakang sampai seterusnya — cukup untuk mengisi laporan yang tertunda.
   const sejak = new Date(Date.parse(tanggalWIB() + 'T00:00:00Z') - 3 * 86_400_000).toISOString().slice(0, 10)
   const namaKeluarga = keluarga.map(k => k.nama)
   const [{ data: kontingen }, atlet, { data: laporan }, { data: catatan }, { data: partai }, { data: kegiatan }] = await Promise.all([
     db.from('kontingen').select('nama').eq('id', s.kontingen_id).maybeSingle(),
-    atletCabor(s.kontingen_id, s.cabor_id, daftar),
+    atletCabor(s.kontingen_id, s.cabor_id, daftar, !!s.disiplin),
     db.from('laporan_hasil')
       .select('id,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,keterangan,foto_path,tanggal,status,alasan_tolak,created_at')
       .eq('akses_id', s.akses_id).order('created_at', { ascending: false }).limit(100),
@@ -48,7 +49,7 @@ export async function GET() {
   const resmi = daftar.length > 0
   if (resmi) {
     const kelompok = kelompokkanNomor(daftar)
-    const banyakDisiplin = new Set(kelompok.map(k => k.disiplin)).size > 1
+    const banyakDisiplin = new Set(kelompok.map(k => k.disiplin)).size > 1 || !!s.disiplin
     nomor = kelompok.map(k => ({
       id: null, kunci: k.kunci, nama: k.nomor, gender: k.penanda ? JK_PENANDA[k.penanda] : null,
       sub: banyakDisiplin ? k.disiplin : null, disiplin: k.disiplin,
@@ -67,7 +68,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    pic: { nama: s.nama_pic, jalur: s.jalur },
+    pic: { nama: s.nama_pic, jalur: s.jalur, disiplin: s.disiplin },
     kontingen: kontingen?.nama ?? '',
     cabor: namaCabor,
     atlet: atlet.map(a => ({ id: a.id, nama: a.nama_lengkap, gender: a.gender })),
@@ -75,7 +76,9 @@ export async function GET() {
     nomor,
     laporan: (laporan ?? []).map(({ foto_path, ...l }: any) => ({ ...l, ada_foto: !!foto_path })),
     catatan: (catatan ?? []).map(({ foto_path, ...c }: any) => ({ ...c, ada_foto: !!foto_path })),
-    partai: urutPartai((partai ?? []) as any[]),
+    partai: urutPartai(((partai ?? []) as any[]).filter(p => !s.disiplin || !p.disiplin || p.disiplin === s.disiplin)
+      // Partai tanpa disiplin: hanya bila atletnya termasuk disiplin ini.
+      .filter(p => !s.disiplin || p.disiplin || (p.atlet_ids ?? []).some((id: number) => atlet.some(a => a.id === id)))),
     kegiatan: (kegiatan ?? []).map((k: any) => ({ nama: k.cabor_disiplin, mulai: k.mulai, selesai: k.selesai, venue: k.venue })),
   })
 }

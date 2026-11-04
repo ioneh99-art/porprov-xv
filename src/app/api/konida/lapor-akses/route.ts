@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const db = dbLapor()
 
   const [{ data: akses }, atlet] = await Promise.all([
-    db.from('lapor_akses').select('id,cabor_id,kode_ujung,nama_pic,no_wa,aktif,created_at,terakhir_dipakai')
+    db.from('lapor_akses').select('id,cabor_id,disiplin,kode_ujung,nama_pic,no_wa,aktif,created_at,terakhir_dipakai')
       .eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').order('created_at', { ascending: false }),
     ambilSemua<{ cabor_id: number }>((dari, sampai) =>
       db.from('atlet').select('cabor_id').eq('kontingen_id', a.kontingen_id).not('cabor_id', 'is', null).order('id').range(dari, sampai)),
@@ -36,7 +36,14 @@ export async function GET(req: NextRequest) {
   const jumlahLaporan: Record<number, number> = {}
   for (const r of dipakai) if (r.akses_id != null) jumlahLaporan[r.akses_id] = (jumlahLaporan[r.akses_id] ?? 0) + 1
 
+  // Disiplin per cabor dari daftar resmi — untuk kode PIC per disiplin (mis. Akuatik · Polo Air).
+  const daftarDisiplin = await ambilSemua<{ cabor_id: number; disiplin: string }>((dari, sampai) =>
+    db.from('pendaftaran_nomor').select('cabor_id,disiplin').eq('kontingen_id', a.kontingen_id).order('id').range(dari, sampai))
+  const disiplin: Record<number, string[]> = {}
+  for (const r of daftarDisiplin) if (r.disiplin && !(disiplin[r.cabor_id] ?? []).includes(r.disiplin)) disiplin[r.cabor_id] = [...(disiplin[r.cabor_id] ?? []), r.disiplin].sort()
+
   return NextResponse.json({
+    disiplin,
     cabor: (cabor ?? []).map((c: any) => ({ id: c.id, nama: c.nama, atlet: jumlah[c.id] ?? 0 })),
     akses: (akses ?? []).map((x: any) => ({ ...x, cabor: nama.get(x.cabor_id) ?? `Cabor ${x.cabor_id}`, jumlah_laporan: jumlahLaporan[x.id] ?? 0 })),
   })
@@ -61,10 +68,18 @@ export async function POST(req: NextRequest) {
       .eq('kontingen_id', a.kontingen_id).eq('cabor_id', cabor_id)
     if (!count) return NextResponse.json({ error: 'Kontingen ini tidak punya atlet di cabor tersebut.' }, { status: 422 })
 
+    // Kode per disiplin (boleh kosong = semua disiplin cabor itu).
+    const disiplin = typeof b?.disiplin === 'string' && b.disiplin.trim() ? b.disiplin.trim() : null
+    if (disiplin) {
+      const { count: ada } = await db.from('pendaftaran_nomor').select('id', { count: 'exact', head: true })
+        .eq('kontingen_id', a.kontingen_id).eq('cabor_id', cabor_id).eq('disiplin', disiplin)
+      if (!ada) return NextResponse.json({ error: 'Disiplin itu tidak ada di daftar resmi cabor ini.' }, { status: 422 })
+    }
+
     const kode = buatKode()
     const baku = bakukanKode(kode)
     const { data, error } = await db.from('lapor_akses').insert({
-      kontingen_id: a.kontingen_id, cabor_id, nama_pic, no_wa: no_wa || null,
+      kontingen_id: a.kontingen_id, cabor_id, disiplin, nama_pic, no_wa: no_wa || null,
       kode_hash: await sidikKode(baku), kode_ujung: baku.slice(-4), dibuat_oleh: a.nama,
     }).select('id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -73,7 +88,7 @@ export async function POST(req: NextRequest) {
       action: 'LAPOR_AKSES_BUAT', resource: 'lapor_akses', resource_id: data.id,
       actor_id: a.sesi.id != null ? String(a.sesi.id) : null, actor_email: a.sesi.username ?? null,
       actor_role: a.sesi.role ?? a.sesi.level ?? null, kontingen_id: a.kontingen_id,
-      payload: { cabor_id, nama_pic }, ...reqMeta(req),
+      payload: { cabor_id, disiplin, nama_pic }, ...reqMeta(req),
     })
     return NextResponse.json({ ok: true, id: data.id, kode })
   }
