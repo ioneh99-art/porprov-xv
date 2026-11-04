@@ -2,7 +2,7 @@
 // Bahan form PIC: atlet dan nomor pertandingan cabornya, plus laporan dan catatan yang sudah ia kirim.
 // Hanya nama dan jenis kelamin atlet yang keluar dari sini — tidak ada data pribadi.
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { buangNomorKembar, tanggalWIB } from '@/lib/lapor'
 import { urutPartai } from '@/lib/jadwal-partai'
 import { kelompokkanNomor } from '@/lib/pendaftaran'
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 
 const JK_PENANDA: Record<string, string> = { Pa: 'L', Pi: 'P', Campuran: 'MIX', Terbuka: 'OPEN' }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const s = await ambilSesiLapor()
   if (!s) return NextResponse.json({ error: 'Masukkan kode lapor dulu.' }, { status: 401 })
 
@@ -41,6 +41,17 @@ export async function GET() {
     // Venue dan rentang hari cabor ini dari jadwal KONI, sebagai saran isian.
     namaKeluarga.length ? db.from('jadwal_cabor').select('cabor_disiplin,mulai,selesai,venue').in('cabor_nama_raw', namaKeluarga) : Promise.resolve({ data: [] as any[] }),
   ])
+
+  // "Laporkan sekarang" dari Jejak Pertandingan (KONIDA) bisa menunjuk partai yang lebih lama
+  // dari tiga hari — ikut dikirim asal milik cabor ini.
+  const idDiminta = Number(new URL(req.url).searchParams.get('partai'))
+  let partaiDiminta: any[] = []
+  if (Number.isInteger(idDiminta) && idDiminta > 0 && !(partai ?? []).some((p: any) => p.id === idDiminta)) {
+    const { data } = await db.from('jadwal_partai')
+      .select('id,tanggal,jam,nomor_teks,disiplin,nomor_resmi,babak,atlet_ids,lawan,venue,status,keterangan,sumber,diubah_oleh,updated_at')
+      .eq('id', idDiminta).eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).maybeSingle()
+    if (data) partaiDiminta = [data]
+  }
 
   // Nomor: daftar resmi pendaftaran bila ada. Katalog lama hanya dipakai untuk
   // cabor yang belum punya daftar resmi — isinya tidak cocok dengan yang
@@ -76,7 +87,7 @@ export async function GET() {
     nomor,
     laporan: (laporan ?? []).map(({ foto_path, ...l }: any) => ({ ...l, ada_foto: !!foto_path })),
     catatan: (catatan ?? []).map(({ foto_path, ...c }: any) => ({ ...c, ada_foto: !!foto_path })),
-    partai: urutPartai(((partai ?? []) as any[]).filter(p => !s.disiplin || !p.disiplin || p.disiplin === s.disiplin)
+    partai: urutPartai(([...(partai ?? []), ...partaiDiminta] as any[]).filter(p => !s.disiplin || !p.disiplin || p.disiplin === s.disiplin)
       // Partai tanpa disiplin: hanya bila atletnya termasuk disiplin ini.
       .filter(p => !s.disiplin || p.disiplin || (p.atlet_ids ?? []).some((id: number) => atlet.some(a => a.id === id)))),
     kegiatan: (kegiatan ?? []).map((k: any) => ({ nama: k.cabor_disiplin, mulai: k.mulai, selesai: k.selesai, venue: k.venue })),

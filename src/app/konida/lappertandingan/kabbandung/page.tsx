@@ -70,7 +70,7 @@ const GAYA_TAHAP: Record<TahapJejak | 'perlu', { teks: string; warna: string }> 
   disahkan: { teks: '✓ Disahkan', warna: '#34d399' },
   menunggu: { teks: 'Menunggu disahkan', warna: '#fbbf24' },
   ditolak: { teks: 'Ditolak', warna: '#f87171' },
-  perlu: { teks: 'Belum dilaporkan', warna: '#fb923c' },
+  perlu: { teks: 'Belum ada laporan — tidak ada di Antrean', warna: '#fb923c' },
   belum: { teks: 'Belum bertanding', warna: '#64748b' },
 }
 const LABEL_STATUS_PARTAI: Record<string, string> = { terjadwal: 'Terjadwal', berlangsung: 'Berlangsung', ditunda: 'Ditunda', selesai: 'Selesai', batal: 'Batal' }
@@ -335,14 +335,18 @@ export default function PageLapPertandingan() {
     await muatAkses()
   }
   /** Jalur kedua: buka formulir lapor cabor ini tanpa kode PIC, atas nama admin yang login. */
-  async function bukaLangsung(cabor_id: number) {
-    setGalat(''); setMembuka(cabor_id)
+  // Dari Jejak Pertandingan: `partaiId` membuat formulir langsung terisi dari jadwal itu.
+  async function bukaLangsung(cabor_id: number, partaiId?: number) {
+    const tanda = partaiId != null ? -partaiId : cabor_id
+    setGalat(''); setMembuka(tanda)
+    const gagal = (teks: string) => { setGalat(teks); setKabar({ id: 0, ok: false, teks }); setMembuka(null) }
     try {
       const r = await fetch(`/api/konida/lapor-langsung${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cabor_id }) })
       const j = await r.json().catch(() => ({}))
-      if (!r.ok) { setGalat(j.error ?? 'Gagal membuka formulir.'); setMembuka(null); return }
-      window.location.href = '/lapor'
-    } catch { setGalat('Tidak ada sambungan. Coba lagi.'); setMembuka(null) }
+      if (r.status === 401) setSesiHabis(true)
+      if (!r.ok) return gagal(j.error ?? 'Gagal membuka formulir.')
+      window.location.href = partaiId != null ? `/lapor?partai=${partaiId}` : '/lapor'
+    } catch { gagal('Tidak ada sambungan. Coba lagi.') }
   }
 
   async function ubahAkses(id: number, aksi: 'aktifkan' | 'matikan') {
@@ -805,7 +809,7 @@ export default function PageLapPertandingan() {
                     <div className="text-[11px] mt-0.5 tabular-nums">
                       {r.disahkan > 0 && <span className="text-emerald-300">{r.disahkan}✓ </span>}
                       {r.menunggu > 0 && <span className="text-amber-300">{r.menunggu} menunggu </span>}
-                      {r.perluLaporan > 0 && <span className="text-orange-300">{r.perluLaporan} belum lapor</span>}
+                      {r.perluLaporan > 0 && <span className="text-orange-300">{r.perluLaporan} belum ada laporan</span>}
                       {!r.disahkan && !r.menunggu && !r.perluLaporan && <span className="text-slate-600">—</span>}
                     </div>
                   </button>
@@ -840,7 +844,15 @@ export default function PageLapPertandingan() {
                           {p.diubah_oleh ? <> · terakhir diubah <b className="text-slate-300">{p.diubah_oleh}</b> {waktuTampil(p.updated_at)}</> : p.dibuat_oleh ? <> · dibuat {p.dibuat_oleh}</> : null}
                         </div>
                       )}
-                      {b.laporan.length === 0 && b.perluLaporan && <div className="text-xs text-orange-300 mt-1.5">Belum ada laporan hasil dari PIC maupun Input Langsung.</div>}
+                      {b.laporan.length === 0 && b.perluLaporan && p && (
+                        <div className="mt-2 rounded-lg border border-orange-400/40 bg-orange-500/10 px-3 py-2 flex items-center gap-3 flex-wrap">
+                          <span className="flex-1 min-w-[200px] text-xs text-orange-200">Belum ada laporan hasil dari PIC maupun Input Langsung, jadi tidak ada yang bisa disahkan di Antrean. Laporkan dari sini kalau hasilnya sudah diketahui.</span>
+                          <button onClick={() => bukaLangsung(b.cabor_id, p.id)} disabled={membuka != null}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-orange-400 px-3 py-1.5 text-xs font-black text-slate-950 disabled:opacity-50">
+                            <PenLine size={13} /> {membuka === -p.id ? 'Membuka…' : 'Laporkan sekarang'}
+                          </button>
+                        </div>
+                      )}
                       {alarmKartu.map(a => (
                         <div key={a.kunci} className="mt-2 rounded-lg px-3 py-2 text-xs font-bold" style={{ color: '#fecaca', background: `${WARNA_ALARM}1a`, border: `1px solid ${WARNA_ALARM}66` }}>
                           ⚠ Beda dengan situs KONI Jabar: {a.alasan}{a.berubah ? ` · panitia mengubah skor ${a.berubah}` : ''}
