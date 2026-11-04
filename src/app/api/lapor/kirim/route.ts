@@ -64,19 +64,23 @@ export async function POST(req: NextRequest) {
 
   // Laporan dari partai terjadwal: partainya harus milik cabor ini.
   let partai_id: number | null = null
+  let tanggalPartai: string | null = null
   if (mentah?.partai_id != null && mentah.partai_id !== '') {
-    const { data: p } = await db.from('jadwal_partai').select('id').eq('id', Number(mentah.partai_id))
+    const { data: p } = await db.from('jadwal_partai').select('id,tanggal').eq('id', Number(mentah.partai_id))
       .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).maybeSingle()
     if (!p) return NextResponse.json({ error: 'Jadwal partai itu bukan dari cabor Anda.' }, { status: 403 })
-    partai_id = p.id
+    partai_id = p.id; tanggalPartai = p.tanggal
   }
 
-  const tanggal = tanggalWIB()
+  // Laporan dari jadwal memakai tanggal pertandingannya (dilaporkan belakangan tetap masuk
+  // jurnal hari pertandingan); laporan bebas memakai tanggal hari ini.
+  const hariIni = tanggalWIB()
+  const tanggal = tanggalPartai && tanggalPartai <= hariIni ? tanggalPartai : hariIni
   const { data: sudahAda } = await db.from('laporan_hasil').select('nomor_teks,atlet_ids,tanggal,hasil')
     .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).eq('tanggal', tanggal).neq('status', 'ditolak')
   const kunci = kunciKembar({ ...isi, tanggal })
   if ((sudahAda ?? []).some((l: any) => adalahFinal(l.hasil) && kunciKembar(l) === kunci))
-    return NextResponse.json({ error: 'Hasil akhir nomor ini untuk atlet yang sama sudah dilaporkan hari ini.' }, { status: 409 })
+    return NextResponse.json({ error: 'Hasil akhir nomor ini untuk atlet yang sama sudah dilaporkan untuk tanggal ini.' }, { status: 409 })
 
   let foto_path: string | null = null
   if (foto) {

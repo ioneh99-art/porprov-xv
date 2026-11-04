@@ -75,8 +75,15 @@ export default function HalamanLapor() {
   const [partaiId, setPartaiId] = useState<number | null>(null)
   const peng = usePengisi()
 
+  // "Laporkan sekarang" dari Jejak Pertandingan KONIDA: /lapor?partai=<id> → formulir terisi dari jadwal itu.
+  const partaiTautan = useRef<number | null>(null)
+  if (typeof window !== 'undefined' && partaiTautan.current == null) {
+    const n = Number(new URLSearchParams(window.location.search).get('partai'))
+    partaiTautan.current = Number.isInteger(n) && n > 0 ? n : 0
+  }
+
   const muat = useCallback(async () => {
-    const r = await fetch('/api/lapor/data', { cache: 'no-store' })
+    const r = await fetch(`/api/lapor/data${partaiTautan.current ? `?partai=${partaiTautan.current}` : ''}`, { cache: 'no-store' })
     if (r.status === 401) { setBahan(null); setTahap('masuk'); return false }
     if (!r.ok) { setGalat('Gagal memuat data. Periksa sinyal lalu coba lagi.'); setTahap('masuk'); return false }
     setBahan(await r.json()); setTahap('form'); return true
@@ -155,6 +162,23 @@ export default function HalamanLapor() {
     if (n) pilihNomor(n); else { setNomorPilih(null); setNomorTeks(p.nomor_teks) }
     setPilihan(p.atlet_ids); setLawan(p.lawan ?? ''); setJam(p.jam ?? ''); setKeterangan(p.babak ?? ''); setPartaiId(p.id)
   }
+  useEffect(() => {
+    const id = partaiTautan.current
+    if (!bahan || !id) return
+    partaiTautan.current = 0
+    history.replaceState(null, '', window.location.pathname)
+    const p = bahan.partai.find(x => x.id === id)
+    if (p) { setMode('hasil'); isiDariPartai(p) }
+    else setGalat('Pertandingan itu tidak ditemukan di jadwal cabor ini. Isi formulirnya manual.')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bahan])
+  const tanggalPartai = partaiId ? bahan?.partai.find(x => x.id === partaiId)?.tanggal ?? null : null
+  // Partai pilihan dari tautan bisa lebih lama dari kemarin — tetap ditampilkan paling atas.
+  const partaiTampil = useMemo(() => {
+    const p = partaiId && !partaiLapor.some(x => x.id === partaiId) ? bahan?.partai.find(x => x.id === partaiId) : undefined
+    return p ? [p, ...partaiLapor] : partaiLapor
+  }, [partaiId, partaiLapor, bahan])
+
   const ubahPilihan = (id: number) => setPilihan(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
 
   const kosongkan = () => {
@@ -304,19 +328,19 @@ export default function HalamanLapor() {
               </div>
             )}
 
-            {partaiLapor.length > 0 && (
+            {partaiTampil.length > 0 && (
               <div className="mt-5 rounded-2xl border border-sky-400/30 bg-sky-500/10 p-3">
                 <div className="text-xs font-bold uppercase tracking-wider text-sky-200 mb-2">Isi cepat dari jadwal</div>
                 <div className="space-y-2">
-                  {partaiLapor.map(p => (
+                  {partaiTampil.map(p => (
                     <button key={p.id} type="button" onClick={() => isiDariPartai(p)} aria-pressed={partaiId === p.id}
                       className={`w-full text-left rounded-xl border px-3 py-2.5 ${partaiId === p.id ? 'border-sky-300 bg-sky-500/20' : 'border-slate-700 bg-slate-900/70'}`}>
-                      <div className="text-sm font-bold text-white">{p.jam ?? '--:--'} · {p.nomor_teks}</div>
+                      <div className="text-sm font-bold text-white">{p.tanggal !== tanggalWIB() ? `${p.tanggal.split('-').reverse().slice(0, 2).join('/')} · ` : ''}{p.jam ?? '--:--'} · {p.nomor_teks}</div>
                       <div className="text-xs text-slate-400">{[p.babak, p.lawan ? `vs ${p.lawan}` : null, p.atlet_ids.map(id => namaAtlet.get(id)).filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</div>
                     </button>
                   ))}
                 </div>
-                {partaiId && <p className="text-xs text-sky-200 mt-2">Formulir diisi dari jadwal. Tinggal pilih hasilnya. Setelah terkirim, jadwal partai ini ditandai selesai.</p>}
+                {partaiId && <p className="text-xs text-sky-200 mt-2">Formulir diisi dari jadwal{tanggalPartai && tanggalPartai !== tanggalWIB() ? ` pertandingan tanggal ${tanggalPartai.split('-').reverse().join('-')} (laporan tercatat di tanggal itu)` : ''}. Tinggal pilih hasilnya. Setelah terkirim, jadwal partai ini ditandai selesai.</p>}
               </div>
             )}
 
