@@ -272,3 +272,20 @@ export function buangNomorKembar<T extends NomorPilihan>(nomor: T[]): T[] {
   const boleh = new Set(Array.from(terpilih.values()).map(n => n.id))
   return nomor.filter(n => boleh.has(n.id))
 }
+
+export interface KodePic { id: number; cabor_id: number; disiplin?: string | null; aktif: boolean; nama_pic?: string; kode_ujung?: string }
+
+/**
+ * Satu cabor (atau satu disiplin cabor) hanya boleh punya SATU kode PIC aktif.
+ * Kode koordinator (tanpa disiplin) dan kode per disiplin di cabor yang sama
+ * tidak saling menghalangi — keduanya memang boleh hidup berdampingan.
+ * Mengembalikan kode aktif yang bentrok, atau null bila aman.
+ */
+export function kodePicKembar<T extends KodePic>(daftar: T[], cabor_id: number, disiplin: string | null | undefined, kecualiId?: number): T | null {
+  const d = disiplin || null
+  return daftar.find(k => k.aktif && k.id !== kecualiId && k.cabor_id === cabor_id && (k.disiplin || null) === d) ?? null
+}
+
+/** Pesan galat untuk kode yang bentrok. */
+export const pesanKodeKembar = (k: KodePic, namaSasaran: string) =>
+  `${namaSasaran} sudah punya kode PIC aktif${k.nama_pic ? ` (${k.nama_pic}` : ''}${k.kode_ujung ? `${k.nama_pic ? ', ' : ' ('}kode berakhiran ${k.kode_ujung})` : k.nama_pic ? ')' : ''}. Pakai kode itu — ubah nama/WA PIC lewat tombol Ubah — atau Matikan dulu kalau memang mau diganti.`

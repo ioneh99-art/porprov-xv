@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle, ClipboardList, ListChecks, Copy, Download, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
-import { HASIL, LABEL_HASIL, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
+import { HASIL, LABEL_HASIL, kodePicKembar, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
 import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
 import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
 import { ALAMAT_RESMI_KABBANDUNG, DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -281,6 +281,9 @@ export default function PageLapPertandingan() {
     } catch { w?.close(); setGalat('Tidak ada sambungan.') } finally { setSibukCabor(null) }
   }
 
+  // Cabor/disiplin yang dipilih di form sudah punya kode aktif? (server juga menolak)
+  const kodeKembarForm = formKode.cabor_id ? kodePicKembar(akses, Number(formKode.cabor_id), formKode.disiplin) : null
+
   async function buatKode() {
     setGalat('')
     const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'buat', ...formKode, cabor_id: Number(formKode.cabor_id) }) })
@@ -302,7 +305,10 @@ export default function PageLapPertandingan() {
   }
 
   async function ubahAkses(id: number, aksi: 'aktifkan' | 'matikan') {
-    await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi, id }) })
+    setGalat('')
+    const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi, id }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) setGalat(j.error ?? 'Gagal mengubah kode.')
     await muatAkses()
   }
   async function simpanPic(id: number) {
@@ -890,17 +896,22 @@ export default function PageLapPertandingan() {
               <div className="mt-3 space-y-3">
                 <select value={formKode.cabor_id} onChange={e => setFormKode({ ...formKode, cabor_id: e.target.value, disiplin: '' })} aria-label="Cabor" className={kotak}>
                   <option value="">Pilih cabor…</option>
-                  {cabor.map(c => <option key={c.id} value={c.id}>{c.nama} ({c.atlet} atlet)</option>)}
+                  {cabor.map(c => <option key={c.id} value={c.id}>{c.nama} ({c.atlet} atlet){kodePicKembar(akses, c.id, null) ? ' — sudah ada kode' : ''}</option>)}
                 </select>
                 {(disiplinCabor[Number(formKode.cabor_id)] ?? []).length > 1 && (
                   <select value={formKode.disiplin} onChange={e => setFormKode({ ...formKode, disiplin: e.target.value })} aria-label="Disiplin" className={kotak}>
-                    <option value="">Semua disiplin (koordinator cabor)</option>
-                    {disiplinCabor[Number(formKode.cabor_id)].map(d => <option key={d} value={d}>{judulDisiplin(d)} saja</option>)}
+                    <option value="">Semua disiplin (koordinator cabor){kodePicKembar(akses, Number(formKode.cabor_id), null) ? ' — sudah ada kode' : ''}</option>
+                    {disiplinCabor[Number(formKode.cabor_id)].map(d => <option key={d} value={d}>{judulDisiplin(d)} saja{kodePicKembar(akses, Number(formKode.cabor_id), d) ? ' — sudah ada kode' : ''}</option>)}
                   </select>
+                )}
+                {kodeKembarForm && (
+                  <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                    {cabor.find(c => c.id === kodeKembarForm.cabor_id)?.nama}{formKode.disiplin ? ` · ${judulDisiplin(formKode.disiplin)}` : ''} sudah punya kode aktif: <b>{kodeKembarForm.nama_pic}</b> (…{kodeKembarForm.kode_ujung}). Pakai kode itu — ganti nama/WA lewat tombol Ubah di daftar — atau Matikan dulu kalau mau diganti.
+                  </p>
                 )}
                 <input value={formKode.nama_pic} onChange={e => setFormKode({ ...formKode, nama_pic: e.target.value })} placeholder="Nama PIC" aria-label="Nama PIC" className={kotak} />
                 <input value={formKode.no_wa} onChange={e => setFormKode({ ...formKode, no_wa: e.target.value })} placeholder="Nomor WhatsApp (boleh kosong)" aria-label="Nomor WhatsApp" inputMode="tel" className={kotak} />
-                <button onClick={buatKode} disabled={!formKode.cabor_id || !formKode.nama_pic.trim()} className="w-full rounded-lg bg-sky-500 py-2.5 text-sm font-black text-slate-950 disabled:opacity-40">Buat kode</button>
+                <button onClick={buatKode} disabled={!formKode.cabor_id || !formKode.nama_pic.trim() || !!kodeKembarForm} className="w-full rounded-lg bg-sky-500 py-2.5 text-sm font-black text-slate-950 disabled:opacity-40">Buat kode</button>
               </div>
 
               {kodeBaru && (

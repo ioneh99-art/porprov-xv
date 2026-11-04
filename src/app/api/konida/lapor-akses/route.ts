@@ -3,13 +3,24 @@
 // cuma sidiknya, jadi kebocoran tabel ini tidak membuka pintu lapor.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { bakukanKode, buatKode } from '@/lib/lapor'
+import { bakukanKode, buatKode, kodePicKembar, pesanKodeKembar } from '@/lib/lapor'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor, sidikKode } from '@/lib/lapor-sesi'
 import { writeAudit, reqMeta } from '@/lib/audit'
+import { judulDisiplin } from '@/lib/pengisi'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+/** Kode PIC aktif lain di cabor ini — satu cabor/disiplin hanya boleh satu kode aktif. */
+async function kodeBentrok(db: ReturnType<typeof dbLapor>, kontingen_id: number, cabor_id: number, disiplin: string | null, kecualiId?: number) {
+  const { data } = await db.from('lapor_akses').select('id,cabor_id,disiplin,aktif,nama_pic,kode_ujung')
+    .eq('kontingen_id', kontingen_id).eq('cabor_id', cabor_id).eq('jalur', 'pic').eq('aktif', true)
+  const k = kodePicKembar(data ?? [], cabor_id, disiplin, kecualiId)
+  if (!k) return null
+  const { data: c } = await db.from('cabang_olahraga').select('nama').eq('id', cabor_id).maybeSingle()
+  return pesanKodeKembar(k, `${c?.nama ?? `Cabor ${cabor_id}`}${disiplin ? ` · ${judulDisiplin(disiplin)}` : ''}`)
+}
 
 export async function GET(req: NextRequest) {
   const a = await ambilAdminLapor(req)
@@ -76,6 +87,9 @@ export async function POST(req: NextRequest) {
       if (!ada) return NextResponse.json({ error: 'Disiplin itu tidak ada di daftar resmi cabor ini.' }, { status: 422 })
     }
 
+    const bentrok = await kodeBentrok(db, a.kontingen_id, cabor_id, disiplin)
+    if (bentrok) return NextResponse.json({ error: bentrok }, { status: 409 })
+
     const kode = buatKode()
     const baku = bakukanKode(kode)
     const { data, error } = await db.from('lapor_akses').insert({
@@ -96,6 +110,13 @@ export async function POST(req: NextRequest) {
   if (aksi === 'aktifkan' || aksi === 'matikan') {
     const id = Number(b?.id)
     if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: 'Kode tidak dikenali.' }, { status: 400 })
+    if (aksi === 'aktifkan') {
+      // Menghidupkan kode lama tidak boleh membuat cabor/disiplin itu punya dua kode aktif.
+      const { data: k } = await db.from('lapor_akses').select('cabor_id,disiplin').eq('id', id).eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').maybeSingle()
+      if (!k) return NextResponse.json({ error: 'Kode tidak ditemukan.' }, { status: 404 })
+      const bentrok = await kodeBentrok(db, a.kontingen_id, k.cabor_id, k.disiplin ?? null, id)
+      if (bentrok) return NextResponse.json({ error: bentrok }, { status: 409 })
+    }
     const { data, error } = await db.from('lapor_akses').update({ aktif: aksi === 'aktifkan' })
       .eq('id', id).eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').select('id')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -117,7 +138,7 @@ export async function POST(req: NextRequest) {
     const no_wa = typeof b?.no_wa === 'string' ? b.no_wa.replace(/[^0-9+]/g, '').slice(0, 20) : ''
     if (!nama_pic) return NextResponse.json({ error: 'Nama PIC tidak boleh kosong.' }, { status: 422 })
 
-    const { data: lama } = await db.from('lapor_akses').select('id,nama_pic,no_wa,cabor_id').eq('id', id).eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').maybeSingle()
+    const { data: lama } = await db.from('lapor_akses').select('id,nama_pic,no_wa,cabor_id,disiplin,aktif').eq('id', id).eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').maybeSingle()
     if (!lama) return NextResponse.json({ error: 'Kode tidak ditemukan.' }, { status: 404 })
 
     const ubah: Record<string, any> = { nama_pic, no_wa: no_wa || null }
@@ -131,6 +152,12 @@ export async function POST(req: NextRequest) {
       const { count: adaAtlet } = await db.from('atlet').select('id', { count: 'exact', head: true })
         .eq('kontingen_id', a.kontingen_id).eq('cabor_id', cabor_id)
       if (!adaAtlet) return NextResponse.json({ error: 'Kontingen ini tidak punya atlet di cabor tersebut.' }, { status: 422 })
+      // Disiplin milik cabor lama tidak berlaku di cabor baru.
+      if (lama.disiplin) return NextResponse.json({ error: 'Kode per disiplin tidak bisa dipindah cabor. Matikan kode ini lalu buat kode baru untuk cabor yang benar.' }, { status: 409 })
+      if (lama.aktif) {
+        const bentrok = await kodeBentrok(db, a.kontingen_id, cabor_id, null, id)
+        if (bentrok) return NextResponse.json({ error: bentrok }, { status: 409 })
+      }
       ubah.cabor_id = cabor_id
     }
 

@@ -1,7 +1,7 @@
 // scripts/uji-lapor.ts — mengunci aturan laporan hasil lapangan.
 // Dijalankan: npm run uji:lapor
 import {
-  ABJAD_KODE, adalahFinal, bakukanKode, buangNomorKembar, buatKode, capaianTarget, hariPorprov, jenisGambar, kunciKembar,
+  ABJAD_KODE, adalahFinal, kodePicKembar, pesanKodeKembar, bakukanKode, buangNomorKembar, buatKode, capaianTarget, hariPorprov, jenisGambar, kunciKembar,
   periksaJam, periksaLaporan, petaCabang, rekapMedali, tanggalSah, tanggalWIB, timpaKlasemen, tulisHasil,
 } from '../src/lib/lapor'
 
@@ -164,6 +164,22 @@ cek('beda jenis kelamin bukan kembar', bersih.filter(n => n.nama.includes('55'))
 cek('beda sub-cabor bukan kembar', bersih.filter(n => n.nama === 'Sprint 200m' && n.gender === 'L').length, 2)
 cek('daftar tanpa kembar tidak berubah', buangNomorKembar(bersih).map(n => n.id), bersih.map(n => n.id))
 cek('daftar kosong', buangNomorKembar([]), [])
+
+// ── kode PIC tidak boleh dobel ──
+const kodeAda = [
+  { id: 1, cabor_id: 148, disiplin: null, aktif: true, nama_pic: 'PIC Akuatik', kode_ujung: 'AB12' },
+  { id: 2, cabor_id: 148, disiplin: 'POLO AIR', aktif: true, nama_pic: 'PIC Polo Air', kode_ujung: 'CD34' },
+  { id: 3, cabor_id: 148, disiplin: 'RENANG', aktif: false },
+  { id: 4, cabor_id: 39, disiplin: null, aktif: true },
+]
+cek('koordinator kedua di cabor sama = dobel', kodePicKembar(kodeAda, 148, null)?.id, 1)
+cek('disiplin kosong "" sama dengan null', kodePicKembar(kodeAda, 148, '')?.id, 1)
+cek('disiplin yang sudah punya kode = dobel', kodePicKembar(kodeAda, 148, 'POLO AIR')?.id, 2)
+cek('disiplin yang kodenya dimatikan boleh dibuat lagi', kodePicKembar(kodeAda, 148, 'RENANG'), null)
+cek('disiplin baru di cabor yang punya koordinator boleh', kodePicKembar(kodeAda, 148, 'RENANG ARTISTIK'), null)
+cek('cabor lain tidak saling menghalangi', kodePicKembar(kodeAda, 52, null), null)
+cek('kode itu sendiri tidak dihitung (aktifkan/ubah)', kodePicKembar(kodeAda, 148, 'POLO AIR', 2), null)
+cek('pesan menyebut PIC & ujung kode', pesanKodeKembar(kodeAda[1], 'Akuatik · Polo Air').includes('PIC Polo Air, kode berakhiran CD34'), true)
 
 console.log(`\n${lulus} lulus, ${gagal} gagal`)
 if (gagal > 0) process.exit(1)
