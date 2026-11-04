@@ -333,3 +333,26 @@ export function namaAtletPartai(tersambung: string[], belumTersambung: string[])
   const ada = new Set(tersambung.map(n => n.toLowerCase()))
   return [...tersambung, ...belumTersambung.map(namaRapi).filter(n => !ada.has(n.toLowerCase()))]
 }
+
+/* ---------- Klasemen medali resmi panitia (porprov.konijabar.or.id) ---------- */
+
+export interface BarisKlasemenPublik { nama: string; emas: number; perak: number; perunggu: number; total: number; peringkat: number; kita: boolean }
+export interface KlasemenPublik { baris: BarisKlasemenPublik[]; diperbarui: string | null; selesai: number | null; nomor: number | null; dimulai: boolean }
+
+/** Kab. Bandung saja — "Kab. Bandung Barat" & "Kota Bandung" bukan kita. */
+export const kontingenKita = (nama: string) => /^kab(upaten|\.)?\s*bandung$/i.test(nama.replace(/\s+/g, ' ').trim())
+
+/**
+ * Urut klasemen ala panitia: emas → perak → perunggu, lalu nama. Peringkat sama
+ * kalau medalinya sama persis (mis. dua kontingen 1-0-0 sama-sama ke-1).
+ */
+export function susunKlasemen(baris: { nama: string; emas: number; perak: number; perunggu: number }[]): BarisKlasemenPublik[] {
+  const urut = [...baris].sort((a, b) => b.emas - a.emas || b.perak - a.perak || b.perunggu - a.perunggu || a.nama.localeCompare(b.nama, 'id'))
+  const keluar: BarisKlasemenPublik[] = []
+  urut.forEach((r, i) => {
+    const s = keluar[i - 1]
+    const sama = s && s.emas === r.emas && s.perak === r.perak && s.perunggu === r.perunggu
+    keluar.push({ ...r, total: r.emas + r.perak + r.perunggu, peringkat: sama ? s.peringkat : i + 1, kita: kontingenKita(r.nama) })
+  })
+  return keluar
+}

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle, ClipboardList, ListChecks, Copy, Download, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
-import { HASIL, LABEL_HASIL, kodePicKembar, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
+import { HASIL, LABEL_HASIL, kodePicKembar, urutAntrean, adalahMedali, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
 import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
 import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
 import { ALAMAT_RESMI_KABBANDUNG, DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -181,6 +181,9 @@ export default function PageLapPertandingan() {
   }, [muatLaporan, muatAkses, muatCatatan, muatPartai, tarikLuar, muatLuar])
 
   const menunggu = useMemo(() => laporan.filter(l => l.status === 'menunggu'), [laporan])
+  // Laporan medali paling atas: begitu disahkan langsung tampil di halaman publik.
+  const antreanUrut = useMemo(() => urutAntrean(menunggu), [menunggu])
+  const medaliMenunggu = useMemo(() => menunggu.filter(l => adalahMedali(l.hasil)), [menunggu])
   const alarmAktif = useMemo(() => luar.alarm.filter(a => !a.dicek), [luar.alarm])
   const alarmPerLaporan = useMemo(() => { const m = new Map<number, AlarmBeda[]>(); for (const a of alarmAktif) m.set(a.laporan_id, [...(m.get(a.laporan_id) ?? []), a]); return m }, [alarmAktif])
   const caborLaporan = useMemo(() => new Map(laporan.map(l => [l.id, l.cabor])), [laporan])
@@ -384,8 +387,18 @@ export default function PageLapPertandingan() {
 
   // Fungsi biasa, bukan komponen: komponen yang dibuat di dalam komponen lain
   // dipasang ulang tiap ketikan, sehingga kotak isian kehilangan fokus.
-  const kartuLaporan = (l: Laporan) => (
-    <div key={l.id} className={`${kartu} p-4`}>
+  const kartuLaporan = (l: Laporan) => {
+    const medaliTunggu = l.status === 'menunggu' && adalahMedali(l.hasil)
+    const wm = WARNA[l.hasil]
+    return (
+    <div key={l.id} className={`${kartu} p-4`}
+      style={medaliTunggu ? { borderColor: wm, borderWidth: 2, background: `linear-gradient(135deg, ${wm}26 0%, rgba(2,10,20,0.92) 55%)`, boxShadow: `0 0 28px ${wm}40` } : {}}>
+      {medaliTunggu && (
+        <div className="-mx-4 -mt-4 mb-3 flex items-center justify-between gap-2 flex-wrap rounded-t-[inherit] px-4 py-2 text-xs font-black uppercase tracking-wider text-slate-950" style={{ background: wm }}>
+          <span>{l.hasil === 'emas' ? '🥇' : l.hasil === 'perak' ? '🥈' : '🥉'} Laporan medali {LABEL_HASIL[l.hasil as Hasil]} · prioritas</span>
+          <span className="normal-case tracking-normal font-bold">Periksa lalu sahkan segera — langsung tampil di halaman publik</span>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           {l.sumber_luar === 'konijabar' && <TandaLuar ref_luar={l.ref_luar} />}
@@ -474,7 +487,7 @@ export default function PageLapPertandingan() {
         <div className="mt-3 flex gap-2 flex-wrap">
           {l.status === 'menunggu' ? (
             <>
-              <button onClick={() => putuskan(l.id, { aksi: 'sahkan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"><CheckCircle size={15} /> Sahkan</button>
+              <button onClick={() => putuskan(l.id, { aksi: 'sahkan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"><CheckCircle size={15} /> {medaliTunggu ? `Sahkan medali ${LABEL_HASIL[l.hasil as Hasil].toLowerCase()}` : 'Sahkan'}</button>
               <button onClick={() => { setMemperbaiki(l.id); setKoreksi({ nomor_teks: l.nomor_teks, hasil: l.hasil, peringkat: l.peringkat ? String(l.peringkat) : '', nilai_teks: l.nilai_teks ?? '', tanggal: l.tanggal, lawan: l.lawan ?? '', jam: l.jam ?? '' }) }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"><Pencil size={14} /> Perbaiki</button>
               <button onClick={() => { setMenolak(l.id); setAlasan('') }} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300"><XCircle size={15} /> Tolak</button>
             </>
@@ -484,7 +497,8 @@ export default function PageLapPertandingan() {
         </div>
       )}
     </div>
-  )
+    )
+  }
 
   const kartuCatatan = (c: Catatan) => {
     const wa = tautanWA(c.pelapor_wa)
@@ -613,7 +627,7 @@ export default function PageLapPertandingan() {
                   <div className="text-slate-300 mt-0.5">Laporan {a.pelapor} ({a.laporan_status}): <b className="text-white">{a.kita}</b> · Situs KONI Jabar: <b className="text-white">{a.situs}</b></div>
                   <div className="text-xs mt-0.5" style={{ color: '#fecaca' }}>{a.alasan}{a.berubah ? ` · panitia mengubah skor ${a.berubah}` : ''}</div>
                   <div className="flex gap-2 flex-wrap mt-2">
-                    {a.tanggal && <button onClick={() => { setTab('jejak'); setTanggalJejak(a.tanggal) }} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-200">Lihat di Jejak Partai</button>}
+                    {a.tanggal && <button onClick={() => { setTab('jejak'); setTanggalJejak(a.tanggal) }} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-200">Lihat di Jejak Pertandingan</button>}
                     <a href={a.url} target="_blank" rel="noopener" className="rounded-lg px-3 py-1 text-xs font-bold" style={{ color: WARNA_LUAR, border: `1px solid ${WARNA_LUAR}66` }}>Buka di situs ↗</a>
                     {!a.dicek && <button onClick={() => { if (window.confirm('Tandai sudah dicek? Alarm ini padam sampai skor di salah satu sisi berubah lagi.')) tandaiDicek(a) }} className="rounded-lg bg-slate-200 px-3 py-1 text-xs font-bold text-slate-900">Sudah dicek</button>}
                   </div>
@@ -641,8 +655,8 @@ export default function PageLapPertandingan() {
         </div>
 
         <div className="flex gap-2 mt-6 flex-wrap">
-          <TombolTab id="antrean" label="Antrean" jumlah={menunggu.length} Ikon={ClipboardList} />
-          <TombolTab id="jejak" label="Jejak Partai" jumlah={perluLaporan} Ikon={ListChecks} />
+          <TombolTab id="antrean" label={medaliMenunggu.length ? `Antrean · 🏅${medaliMenunggu.length}` : 'Antrean'} jumlah={menunggu.length} Ikon={ClipboardList} />
+          <TombolTab id="jejak" label="Jejak Pertandingan" jumlah={perluLaporan} Ikon={ListChecks} />
           <TombolTab id="catatan" label="Catatan Lapangan" jumlah={catatanBaru.length} Ikon={AlertTriangle} />
           <TombolTab id="jurnal" label="Jurnal Harian" Ikon={Trophy} />
           <TombolTab id="cabor" label="Laporan Cabor" Ikon={FileText} />
@@ -661,7 +675,20 @@ export default function PageLapPertandingan() {
                 <p className="text-sm text-slate-500 mt-1">{akses.length === 0 ? 'Belum ada PIC yang punya kode lapor. Buat dulu di tab Kode PIC.' : 'Laporan baru dari PIC akan muncul di sini dengan sendirinya.'}</p>
               </div>
             )}
-            {menunggu.map(kartuLaporan)}
+            {medaliMenunggu.length > 0 && (
+              <div className="rounded-xl border-2 px-4 py-3 flex items-center gap-3 flex-wrap" style={{ borderColor: WARNA.emas, background: 'rgba(255,215,0,0.08)' }}>
+                <span className="text-2xl" aria-hidden>🏅</span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-black text-white">{medaliMenunggu.length} laporan medali menunggu disahkan</div>
+                  <div className="text-sm text-slate-300">
+                    {(['emas', 'perak', 'perunggu'] as const).map(j => [j, medaliMenunggu.filter(l => l.hasil === j).length] as const).filter(([, n]) => n > 0)
+                      .map(([j, n]) => <span key={j} className="mr-3 font-bold" style={{ color: WARNA[j] }}>{n} {LABEL_HASIL[j]}</span>)}
+                    <span>Ada di urutan paling atas. Medali baru tampil di halaman publik setelah disahkan.</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {antreanUrut.map(kartuLaporan)}
             {ditolak.length > 0 && (
               <details className="pt-4">
                 <summary className="cursor-pointer text-sm font-bold text-slate-400">Ditolak ({ditolak.length})</summary>
@@ -673,7 +700,7 @@ export default function PageLapPertandingan() {
 
         {!memuat && tab === 'jejak' && (
           <div className="mt-5">
-            <p className="text-sm text-slate-400">Setiap partai di jadwal beserta jejaknya: sudah dilaporkan atau belum, siapa yang melapor, dan siapa yang mengesahkan. Laporan cabor tanpa jadwal partai juga ikut tampil di tanggalnya.</p>
+            <p className="text-sm text-slate-400">Setiap pertandingan di jadwal beserta jejaknya: sudah dilaporkan atau belum, siapa yang melapor, dan siapa yang mengesahkan. Laporan cabor tanpa jadwal pertandingan juga ikut tampil di tanggalnya.</p>
             <div className="flex gap-2 overflow-x-auto pb-2 mt-3">
               {tanggalJejakList.map(t => {
                 const r = ringkasJejak(jejak.filter(b => b.tanggal === t)), aktif = t === tglJejakAktif
@@ -693,7 +720,7 @@ export default function PageLapPertandingan() {
               })}
             </div>
             <div className="mt-3 space-y-2.5">
-              {jejakHari.length === 0 && <div className={`${kartu} p-8 text-center text-slate-400`}>Belum ada partai atau laporan di tanggal ini.</div>}
+              {jejakHari.length === 0 && <div className={`${kartu} p-8 text-center text-slate-400`}>Belum ada pertandingan atau laporan di tanggal ini.</div>}
               {jejakHari.map(b => {
                 const p = b.partai as (PartaiJejak & { dibuat_oleh?: string | null; diubah_oleh?: string | null; updated_at?: string | null }) | null
                 const g = GAYA_TAHAP[b.perluLaporan ? 'perlu' : b.tahap]
@@ -707,7 +734,7 @@ export default function PageLapPertandingan() {
                         <div className="min-w-0">
                           <div className="font-bold text-white">{namaCaborJejak.get(b.cabor_id) ?? `Cabor ${b.cabor_id}`} <span className="font-normal text-slate-300">· {p?.nomor_teks ?? l0?.nomor_teks}</span></div>
                           {p && <div className="text-xs text-slate-400 mt-0.5">{[p.babak, p.lawan ? `vs ${p.lawan}` : null, p.venue].filter(Boolean).join(' · ')}</div>}
-                          {!p && <div className="text-xs text-slate-500 mt-0.5">{l0?.lawan ? `vs ${l0.lawan} · ` : ''}Laporan ini tidak bertaut ke partai di jadwal.</div>}
+                          {!p && <div className="text-xs text-slate-500 mt-0.5">{l0?.lawan ? `vs ${l0.lawan} · ` : ''}Laporan ini tidak bertaut ke pertandingan di jadwal.</div>}
                         </div>
                         <button onClick={() => b.tahap === 'menunggu' && setTab('antrean')} disabled={b.tahap !== 'menunggu'}
                           className="shrink-0 rounded-full px-2.5 py-1 text-xs font-black" style={{ color: g.warna, background: `${g.warna}1a`, border: `1px solid ${g.warna}55` }}>

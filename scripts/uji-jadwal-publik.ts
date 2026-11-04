@@ -1,6 +1,7 @@
 // scripts/uji-jadwal-publik.ts — mengunci susunan halaman publik jadwal dan rencana impor matriks KONI.
 // Dijalankan: npm run uji:jadwal-publik
 import { hasilPublik, namaAtletPartai, namaRapi, pasangHasil, pilihKabarLolos, kabarLolosAktif, type LaporanSah, type PartaiPublik } from '../src/lib/jadwal-publik'
+import { kontingenKita, susunKlasemen } from '../src/lib/jadwal-publik'
 import { adalahMedali, medaliPerCabor, rekapPublik, urutMedali, type MedaliPublik } from '../src/lib/jadwal-publik'
 import { ikonCabor, ringkasWilayah, segeraMulai, cocokCari, deretTanggal, hariKe, kegiatanPada, rentangSingkat, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik } from '../src/lib/jadwal-publik'
 import { jamSel, rencanaMatriks, rencanaPartai, type BarisAda } from '../src/lib/impor-matriks'
@@ -207,6 +208,23 @@ cek('namaRapi', [namaRapi('  SITI NAJIRA  ADABINA GYSANI'), namaRapi("EVANDRA SA
 cek('tim dilengkapi dari daftar resmi', namaAtletPartai(['Khania Julianti'], ['SRI SALSABILA', 'KHANIA JULIANTI']), ['Khania Julianti', 'Sri Salsabila'])
 cek('nama HURUF BESAR dirapikan, campuran dibiarkan', namaAtletPartai(['REVAN ANWARI', 'Fauzan McDonald'], []), ['Revan Anwari', 'Fauzan McDonald'])
 cek('partai tanpa atlet tetap kosong', namaAtletPartai([], ['SRI SALSABILA']), [])
+
+// ── klasemen resmi panitia ──
+cek('Kab. Bandung = kita', kontingenKita('Kab. Bandung'), true)
+cek('Kabupaten Bandung = kita', kontingenKita('Kabupaten  Bandung'), true)
+cek('Kab. Bandung Barat bukan kita', kontingenKita('Kab. Bandung Barat'), false)
+cek('Kota Bandung bukan kita', kontingenKita('Kota Bandung'), false)
+const KL = susunKlasemen([
+  { nama: 'Kota Bandung', emas: 3, perak: 0, perunggu: 0 },
+  { nama: 'Kab. Bandung', emas: 3, perak: 2, perunggu: 1 },
+  { nama: 'Kab. Bogor', emas: 1, perak: 5, perunggu: 9 },
+  { nama: 'Kota Depok', emas: 1, perak: 5, perunggu: 9 },
+  { nama: 'Kab. Garut', emas: 0, perak: 0, perunggu: 0 },
+])
+cek('urut emas → perak → perunggu', KL.map(r => r.nama), ['Kab. Bandung', 'Kota Bandung', 'Kab. Bogor', 'Kota Depok', 'Kab. Garut'])
+cek('medali sama = peringkat sama', KL.map(r => r.peringkat), [1, 2, 3, 3, 5])
+cek('total dihitung', KL[0].total, 6)
+cek('baris kita ditandai', KL.filter(r => r.kita).map(r => r.nama), ['Kab. Bandung'])
 
 console.log(`uji-jadwal-publik: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

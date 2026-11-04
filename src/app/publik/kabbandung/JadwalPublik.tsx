@@ -10,7 +10,7 @@ import { hitungMundur } from '@/lib/layar'
 import {
   LABEL_STATUS, cocokCari, deretTanggal, hariKe, ikonCabor, kegiatanPada, namaHari, rentangSingkat, ringkasWilayah,
   segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik, type PartaiPublik, type StatusKegiatan,
-  medaliPerCabor, rekapPublik, urutMedali, kabarLolosAktif, type JenisMedali, type MedaliPublik, type HasilPartai, type KabarLolos,
+  medaliPerCabor, rekapPublik, urutMedali, kabarLolosAktif, type KlasemenPublik, type JenisMedali, type MedaliPublik, type HasilPartai, type KabarLolos,
 } from '@/lib/jadwal-publik'
 import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -269,6 +269,131 @@ function PerolehanMedali({ medali }: { medali: MedaliPublik[] }) {
   )
 }
 
+const ikonMedali = (j: JenisMedali) => (j === 'emas' ? '🥇' : j === 'perak' ? '🥈' : '🥉')
+
+/**
+ * Spanduk medali di paling atas halaman — gaya emas, beda dari "Kabar gembira" (hijau).
+ * Muncul begitu ada medali yang disahkan KONI Kab. Bandung: berapa & apa saja.
+ */
+function KabarMedali({ medali, klasemen, hariIni }: { medali: MedaliPublik[]; klasemen: KlasemenPublik | null; hariIni: string }) {
+  const rekap = useMemo(() => rekapPublik(medali), [medali])
+  const terbaru = useMemo(() => urutMedali(medali).slice(0, 3), [medali])
+  const kita = klasemen?.dimulai ? klasemen.baris.find(b => b.kita) : undefined
+  const baruHariIni = medali.filter(m => m.tanggal === hariIni).length
+  const keMedali = () => document.getElementById('perolehan-medali')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  return (
+    <div role="status" className="relative overflow-hidden rounded-3xl p-[2px] bg-gradient-to-br from-yellow-200 via-amber-500 to-orange-700 shadow-[0_0_50px_rgba(250,204,21,0.40)]">
+      <div className="relative rounded-[22px] bg-gradient-to-br from-[#2a1a00] via-[#140c00] to-[#0b0700] px-4 py-4 lg:px-7 lg:py-5">
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,230,150,0.14)_45%,transparent_60%)] bg-[length:250%_100%]" style={{ animation: 'kilau 3s linear infinite' }} />
+        <div className="relative flex items-center gap-2 text-[10px] font-black tracking-[0.22em] text-amber-300">
+          <Medal size={13} /> KABAR MEDALI<span className="hidden sm:inline"> · RESMI KONI KAB. BANDUNG</span>
+          {baruHariIni > 0 && <span className="ml-auto rounded-full bg-amber-300 px-2 py-0.5 text-[10px] tracking-wider text-[#1a1200]" style={{ animation: 'denyut 1.8s ease-in-out infinite' }}>+{baruHariIni} HARI INI</span>}
+        </div>
+        <div className="relative mt-1 uppercase font-extrabold leading-[0.95] text-white text-[26px] lg:text-[36px]" style={TAMPIL}>
+          Kabupaten Bandung sudah meraih{' '}
+          <span className="bg-gradient-to-r from-yellow-200 via-amber-300 to-orange-400 bg-clip-text text-transparent text-[34px] lg:text-[46px]">{rekap.total} medali!</span>
+        </div>
+        <div className="relative mt-3 grid grid-cols-3 gap-2 max-w-md">
+          {(['emas', 'perak', 'perunggu'] as const).map(j => (
+            <div key={j} className={`rounded-2xl border bg-gradient-to-br ${GAYA_MEDALI[j].latar} px-2 py-2 text-center`} style={{ borderColor: `${GAYA_MEDALI[j].warna}66` }}>
+              <div className="text-[30px] lg:text-[38px] leading-none font-extrabold tabular-nums" style={{ ...TAMPIL, color: GAYA_MEDALI[j].warna }}>
+                <span className="text-[20px] lg:text-[24px] align-middle mr-1" aria-hidden>{ikonMedali(j)}</span><AngkaNaik nilai={rekap[j]} />
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: GAYA_MEDALI[j].warna }}>{GAYA_MEDALI[j].label}</div>
+            </div>
+          ))}
+        </div>
+        {kita && (
+          <div className="relative mt-2.5 text-[12px] text-amber-100">
+            Peringkat <b className="text-white text-[15px]">ke-{kita.peringkat}</b> dari {klasemen!.baris.length} kontingen di klasemen resmi panitia ({kita.emas}-{kita.perak}-{kita.perunggu})
+          </div>
+        )}
+        <div className="relative mt-3 grid gap-1.5 lg:grid-cols-3 lg:gap-2.5">
+          {terbaru.map(m => (
+            <div key={m.id} className="flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: `${GAYA_MEDALI[m.medali].warna}14`, border: `1px solid ${GAYA_MEDALI[m.medali].warna}40` }}>
+              <span className="text-[26px] leading-none shrink-0" aria-label={`Medali ${GAYA_MEDALI[m.medali].label}`}>{ikonMedali(m.medali)}</span>
+              <div className="min-w-0">
+                <div className="text-[10px] font-black uppercase tracking-wider" style={{ color: GAYA_MEDALI[m.medali].warna }}>{GAYA_MEDALI[m.medali].label} · {m.cabor}</div>
+                <div className="text-[13px] font-bold text-white leading-snug break-words">{m.nomor}</div>
+                {m.atlet.length > 0 && <div className="text-[11px] text-amber-100/80 break-words">{m.atlet.join(', ')}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={keMedali} className="relative mt-3 inline-flex items-center gap-1 text-[13px] font-bold text-amber-300 hover:text-amber-200">
+          {medali.length > 3 ? `Lihat semua ${medali.length} medali` : 'Lihat perolehan medali'}{klasemen?.dimulai ? ' & klasemen' : ''} <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Klasemen medali resmi panitia (porprov.konijabar.or.id) — angka apa adanya, Kab. Bandung disorot. */
+function KlasemenResmi({ klasemen }: { klasemen: KlasemenPublik | null }) {
+  const [semua, setSemua] = useState(false)
+  if (!klasemen) return null
+  const sumber = (
+    <div className="mt-2 text-[11px] text-slate-500">
+      Sumber: <a href="https://porprov.konijabar.or.id" target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-slate-300">porprov.konijabar.or.id</a> (panitia PORPROV XV)
+      {klasemen.diperbarui ? ` · ${klasemen.diperbarui}` : ''}
+      {klasemen.selesai != null && klasemen.nomor ? ` · ${angkaID(klasemen.selesai)} dari ${angkaID(klasemen.nomor)} nomor selesai` : ''}
+    </div>
+  )
+  if (!klasemen.dimulai) {
+    return (
+      <section id="klasemen" className="pt-8 scroll-mt-4">
+        <JudulBagian ikon={<Flag size={12} />} kecil="Klasemen resmi panitia" besar="Klasemen Medali PORPROV XV" />
+        <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] text-slate-400">Klasemen resmi tampil di sini begitu panitia mulai mengumumkan medali yang sudah diverifikasi.</p>
+        {sumber}
+      </section>
+    )
+  }
+  const batas = 10
+  const kita = klasemen.baris.find(b => b.kita)
+  const tampil = semua ? klasemen.baris : klasemen.baris.slice(0, batas)
+  const kitaDiLuar = !semua && kita && !tampil.includes(kita)
+  const baris = (b: KlasemenPublik['baris'][number]) => (
+    <tr key={b.nama} className={b.kita ? 'bg-amber-300/15' : ''} style={b.kita ? { boxShadow: 'inset 3px 0 0 #facc15' } : {}}>
+      <td className="py-2 pl-3 pr-1 text-center tabular-nums font-bold text-slate-400">{b.peringkat}</td>
+      <td className={`py-2 px-1 ${b.kita ? 'font-extrabold text-amber-200' : 'font-semibold text-white'}`}>{b.nama}{b.kita ? ' ★' : ''}</td>
+      <td className="py-2 px-1 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.emas.warna }}>{b.emas}</td>
+      <td className="py-2 px-1 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.perak.warna }}>{b.perak}</td>
+      <td className="py-2 px-1 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.perunggu.warna }}>{b.perunggu}</td>
+      <td className="py-2 pl-1 pr-3 text-right tabular-nums font-extrabold text-white">{b.total}</td>
+    </tr>
+  )
+  return (
+    <section id="klasemen" className="pt-8 scroll-mt-4">
+      <JudulBagian ikon={<Flag size={12} />} kecil="Klasemen resmi panitia" besar="Klasemen Medali PORPROV XV" />
+      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden lg:max-w-3xl">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="text-[11px] text-slate-400 border-b border-white/[0.08]">
+              <th className="py-2 pl-3 pr-1 w-8 font-semibold">#</th>
+              <th className="py-2 px-1 text-left font-semibold">Kontingen</th>
+              <th className="py-2 px-1 w-9 text-right" aria-label="Emas">🥇</th>
+              <th className="py-2 px-1 w-9 text-right" aria-label="Perak">🥈</th>
+              <th className="py-2 px-1 w-9 text-right" aria-label="Perunggu">🥉</th>
+              <th className="py-2 pl-1 pr-3 w-12 text-right font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            {tampil.map(baris)}
+            {kitaDiLuar && (<>
+              <tr aria-hidden><td colSpan={6} className="py-0.5 text-center text-slate-600 text-[11px]">⋯</td></tr>
+              {baris(kita!)}
+            </>)}
+          </tbody>
+        </table>
+      </div>
+      {klasemen.baris.length > batas && (
+        <button onClick={() => setSemua(x => !x)} className="mt-2 text-sm font-bold text-sky-300">{semua ? 'Tampilkan 10 teratas' : `Lihat semua ${klasemen.baris.length} kontingen →`}</button>
+      )}
+      {sumber}
+    </section>
+  )
+}
+
 function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: string; besar: string }) {
   return (
     <div className="mb-4">
@@ -278,8 +403,8 @@ function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: str
   )
 }
 
-export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, partai = [], medali = [], kabar = [] }: {
-  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; partai?: PartaiPublik[]; medali?: MedaliPublik[]; kabar?: KabarLolos[]
+export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, partai = [], medali = [], kabar = [], klasemen = null }: {
+  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; partai?: PartaiPublik[]; medali?: MedaliPublik[]; kabar?: KabarLolos[]; klasemen?: KlasemenPublik | null
 }) {
   const [hariIni, setHariIni] = useState(hariIniServer)
   const [masuk, setMasuk] = useState(false)
@@ -417,6 +542,13 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
           </div>
         </header>
 
+        {/* Kabar MEDALI — paling atas, gaya emas */}
+        {medali.length > 0 && (
+          <div className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pt-3">
+            <KabarMedali medali={medali} klasemen={klasemen} hariIni={hariIni} />
+          </div>
+        )}
+
         {/* Kabar LOLOS — tayang selama cabornya masih bertanding */}
         {kabarAktif.length > 0 && (
           <div className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pt-3 grid gap-2.5 lg:grid-cols-2">
@@ -517,6 +649,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
       <main className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pb-12">
         {/* ══ PEROLEHAN MEDALI ══ */}
         <PerolehanMedali medali={medali} />
+        <KlasemenResmi klasemen={klasemen} />
 
         {galat ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-6 text-center text-sm text-red-300">

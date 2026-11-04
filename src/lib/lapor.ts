@@ -289,3 +289,15 @@ export function kodePicKembar<T extends KodePic>(daftar: T[], cabor_id: number, 
 /** Pesan galat untuk kode yang bentrok. */
 export const pesanKodeKembar = (k: KodePic, namaSasaran: string) =>
   `${namaSasaran} sudah punya kode PIC aktif${k.nama_pic ? ` (${k.nama_pic}` : ''}${k.kode_ujung ? `${k.nama_pic ? ', ' : ' ('}kode berakhiran ${k.kode_ujung})` : k.nama_pic ? ')' : ''}. Pakai kode itu — ubah nama/WA PIC lewat tombol Ubah — atau Matikan dulu kalau memang mau diganti.`
+
+/**
+ * Urutan Antrean KONIDA: laporan medali paling atas (emas → perak → perunggu)
+ * supaya langsung disahkan — medali yang disahkan langsung tampil di halaman publik.
+ * Sisanya tetap urutan semula.
+ */
+export const PRIORITAS_MEDALI: Record<string, number> = { emas: 0, perak: 1, perunggu: 2 }
+export function urutAntrean<T extends { hasil: string }>(laporan: T[]): T[] {
+  return laporan.map((l, i) => ({ l, i }))
+    .sort((a, b) => (PRIORITAS_MEDALI[a.l.hasil] ?? 9) - (PRIORITAS_MEDALI[b.l.hasil] ?? 9) || a.i - b.i)
+    .map(x => x.l)
+}

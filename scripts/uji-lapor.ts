@@ -1,7 +1,7 @@
 // scripts/uji-lapor.ts — mengunci aturan laporan hasil lapangan.
 // Dijalankan: npm run uji:lapor
 import {
-  ABJAD_KODE, adalahFinal, kodePicKembar, pesanKodeKembar, bakukanKode, buangNomorKembar, buatKode, capaianTarget, hariPorprov, jenisGambar, kunciKembar,
+  ABJAD_KODE, adalahFinal, kodePicKembar, pesanKodeKembar, urutAntrean, bakukanKode, buangNomorKembar, buatKode, capaianTarget, hariPorprov, jenisGambar, kunciKembar,
   periksaJam, periksaLaporan, petaCabang, rekapMedali, tanggalSah, tanggalWIB, timpaKlasemen, tulisHasil,
 } from '../src/lib/lapor'
 
@@ -180,6 +180,11 @@ cek('disiplin baru di cabor yang punya koordinator boleh', kodePicKembar(kodeAda
 cek('cabor lain tidak saling menghalangi', kodePicKembar(kodeAda, 52, null), null)
 cek('kode itu sendiri tidak dihitung (aktifkan/ubah)', kodePicKembar(kodeAda, 148, 'POLO AIR', 2), null)
 cek('pesan menyebut PIC & ujung kode', pesanKodeKembar(kodeAda[1], 'Akuatik · Polo Air').includes('PIC Polo Air, kode berakhiran CD34'), true)
+
+// ── Antrean: medali di atas ──
+const AN = [{ id: 1, hasil: 'menang' }, { id: 2, hasil: 'perunggu' }, { id: 3, hasil: 'kalah' }, { id: 4, hasil: 'emas' }, { id: 5, hasil: 'perak' }, { id: 6, hasil: 'emas' }]
+cek('emas → perak → perunggu di atas, sisanya urutan semula', urutAntrean(AN).map(l => l.id), [4, 6, 5, 2, 1, 3])
+cek('antrean tanpa medali tidak berubah', urutAntrean([{ id: 1, hasil: 'kalah' }, { id: 2, hasil: 'lolos' }]).map(l => l.id), [1, 2])
 
 console.log(`\n${lulus} lulus, ${gagal} gagal`)
 if (gagal > 0) process.exit(1)
