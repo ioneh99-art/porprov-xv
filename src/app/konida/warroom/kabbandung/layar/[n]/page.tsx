@@ -178,7 +178,7 @@ function Layar1({ wr, rekap, klasemen, kunjungan }: { wr: ReturnType<typeof useW
         <div className="rounded-[1.4vw] flex-1 flex flex-col items-center justify-center" style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.28)' }}>
           <div className="uppercase tracking-[0.3em] text-yellow-300/80 font-black" style={{ fontSize: '1.3vw' }}>Peringkat Kab. Bandung</div>
           <div className="font-black leading-none tabular-nums" style={{ fontSize: peringkat ? '13vw' : '7vw', color: EMAS, textShadow: '0 0 3vw rgba(255,215,0,.35)' }}>{peringkat ? `#${peringkat}` : '—'}</div>
-          <div className="text-slate-300 font-bold" style={{ fontSize: '1.3vw' }}>{peringkat ? `dari ${klasemen.length || 27} kontingen` : 'Klasemen belum dimulai'}</div>
+          <div className="text-slate-300 font-bold" style={{ fontSize: '1.3vw' }}>{peringkat ? `dari ${klasemen.length || 27} kontingen` : (r?.total ? 'Menunggu klasemen resmi panitia' : 'Klasemen belum dimulai')}</div>
           <div className="flex gap-[3vw] mt-[2.5vh]">
             {([['Emas', r?.emas ?? 0, EMAS], ['Perak', r?.perak ?? 0, PERAK], ['Perunggu', r?.perunggu ?? 0, PERUNGGU]] as const).map(([l, v, w]) => (
               <div key={l} className="text-center">
@@ -210,8 +210,10 @@ function Layar1({ wr, rekap, klasemen, kunjungan }: { wr: ReturnType<typeof useW
         {papan.length === 0 ? (
           <div className="flex-1 grid place-items-center text-center px-[2vw]">
             <div>
-              <div className="font-black text-slate-300" style={{ fontSize: '2vw' }}>Klasemen belum dimulai</div>
-              <div className="text-slate-500 mt-[1vh]" style={{ fontSize: '1.1vw' }}>Semua kontingen masih 0 medali. Upacara pembukaan Sabtu, 7 November 2026.</div>
+              <div className="font-black text-slate-300" style={{ fontSize: '2vw' }}>{r?.total ? 'Menunggu klasemen resmi panitia' : 'Klasemen belum dimulai'}</div>
+              <div className="text-slate-500 mt-[1vh]" style={{ fontSize: '1.1vw' }}>{r?.total
+                ? `Panitia KONI Jabar belum mengesahkan medali kontingen mana pun, jadi peringkat belum bisa dibandingkan. Kab. Bandung: ${r.emas} emas · ${r.perak} perak · ${r.perunggu} perunggu dari hasil yang disahkan KONIDA.`
+                : 'Semua kontingen masih 0 medali. Upacara pembukaan Sabtu, 7 November 2026.'}</div>
             </div>
           </div>
         ) : (

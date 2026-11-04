@@ -20,7 +20,7 @@ export interface BarisPapan extends BarisKlasemenWR { peringkat: number; kita: b
  * terakhir diganti kita (supaya tetap terlihat). Peringkat bersama bila medali sama persis.
  */
 export function papanKlasemen(k: BarisKlasemenWR[], nama: string, n = 8): BarisPapan[] {
-  if (!klasemenDimulai(k)) return []
+  if (!klasemenDimulai(k, nama)) return []
   const u = urut(k)
   const semua: BarisPapan[] = []
   u.forEach((r, i) => {
@@ -36,7 +36,7 @@ export function papanKlasemen(k: BarisKlasemenWR[], nama: string, n = 8): BarisP
 
 /** Selisih emas ke kontingen tepat di atas dan di bawah kita (null bila tidak ada / belum mulai). */
 export function selisihTetangga(k: BarisKlasemenWR[], nama: string): { atas: { nama: string; emas: number } | null; bawah: { nama: string; emas: number } | null } {
-  if (!klasemenDimulai(k)) return { atas: null, bawah: null }
+  if (!klasemenDimulai(k, nama)) return { atas: null, bawah: null }
   const u = urut(k)
   const i = u.findIndex(r => sama(r.nama, nama))
   if (i < 0) return { atas: null, bawah: null }

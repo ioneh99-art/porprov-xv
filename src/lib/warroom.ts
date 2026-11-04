@@ -4,15 +4,20 @@
 
 export interface BarisKlasemenWR { nama: string; emas: number; perak: number; perunggu: number; total: number }
 
-/** Klasemen baru bermakna setelah ada satu medali di kontingen mana pun. */
-export const klasemenDimulai = (k: BarisKlasemenWR[]) => k.some(r => (r.total ?? 0) > 0 || r.emas + r.perak + r.perunggu > 0)
+/**
+ * Klasemen baru bermakna setelah ada medali. Bila `kita` disebut, medali kontingen LAIN yang
+ * dihitung: angka kita dari laporan yang disahkan KONIDA, angka kontingen lain dari klasemen
+ * resmi panitia — selama panitia masih nol semua, "#1 dari 27" hanya karena lawan belum dihitung.
+ */
+export const klasemenDimulai = (k: BarisKlasemenWR[], kita?: string) =>
+  k.some(r => (!kita || r.nama.trim().toUpperCase() !== kita.trim().toUpperCase()) && ((r.total ?? 0) > 0 || r.emas + r.perak + r.perunggu > 0))
 
 /**
  * Peringkat kontingen di klasemen (urut emas → perak → perunggu, peringkat bersama bila sama persis).
  * null bila klasemen belum dimulai atau kontingennya tidak ada — jangan tampilkan "#1" dari deretan nol.
  */
 export function peringkatKontingen(k: BarisKlasemenWR[], nama: string): number | null {
-  if (!klasemenDimulai(k)) return null
+  if (!klasemenDimulai(k, nama)) return null
   const urut = [...k].sort((a, b) => b.emas - a.emas || b.perak - a.perak || b.perunggu - a.perunggu)
   const i = urut.findIndex(r => r.nama.toUpperCase() === nama.toUpperCase())
   if (i < 0) return null
@@ -38,7 +43,7 @@ const urutKlasemen = <T extends BarisKlasemenWR>(k: T[]) =>
 
 /** Kontingen tepat di atas dan di bawah kita — "siapa yang dikejar, siapa yang mengejar". */
 export function tetangga(k: BarisKlasemenWR[], nama: string): { atas: BarisKlasemenWR | null; kita: BarisKlasemenWR | null; bawah: BarisKlasemenWR | null } {
-  if (!klasemenDimulai(k)) return { atas: null, kita: null, bawah: null }
+  if (!klasemenDimulai(k, nama)) return { atas: null, kita: null, bawah: null }
   const u = urutKlasemen(k)
   const i = u.findIndex(r => r.nama.toUpperCase() === nama.toUpperCase())
   if (i < 0) return { atas: null, kita: null, bawah: null }

@@ -196,7 +196,7 @@ export default function PageWarRoom() {
   }, [versi])
 
   // Klasemen yang masih nol semua tidak punya peringkat — tanpa ini Kab. Bandung tampil "#1".
-  const mulai  = klasemenDimulai(klasemen)
+  const mulai  = klasemenDimulai(klasemen, 'KAB. BANDUNG')
   const rankWR = peringkatKontingen(klasemen, 'KAB. BANDUNG')
   const myRank = mulai ? klasemen.findIndex(k => String(k.nama ?? '').toUpperCase() === 'KAB. BANDUNG') + 1 : 0
   const LAGA_LIVE = wr?.arena.live ?? []
@@ -301,10 +301,12 @@ export default function PageWarRoom() {
         )}
 
         {/* ════ 3. KPI STRIP — 5 panel ════ */}
-        <div {...ani(0)} className="grid grid-cols-5 gap-2">
+        <div {...ani(0)} className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
           {([
-            { l:'Peringkat',    v: rankWR ? `#${rankWR}` : '—', c:'#ffd700', sub: rankWR ? `dari ${klasemen.length || 27} kontingen` : 'klasemen belum mulai', icon:'👑' },
+            { l:'Peringkat',    v: rankWR ? `#${rankWR}` : '—', c:'#ffd700', sub: rankWR ? `dari ${klasemen.length || 27} kontingen` : summary.total_medali ? 'menunggu klasemen resmi panitia' : 'klasemen belum mulai', icon:'👑' },
             { l:'Medali Emas',  v:summary.emas,               c:'#ffd700', sub: targetEmas ? `/ ${targetEmas} proyeksi KONI` : 'emas',  icon:'🥇' },
+            { l:'Medali Perak', v:summary.perak,              c:'#c0c0c0', sub:'disahkan KONIDA',   icon:'🥈' },
+            { l:'Perunggu',     v:summary.perunggu,           c:'#cd7f32', sub:'disahkan KONIDA',   icon:'🥉' },
             { l:'Total Medali', v:summary.total_medali,       c:'#3b82f6', sub:'semua jenis',       icon:'🏅' },
             { l:'Laga Live',    v:LAGA_LIVE.length,           c:'#ef4444', sub:'berlangsung',       icon:null  },
             { l:'Total Atlet',  v:summary.total,              c:ACCENT,    sub:`${summary.verified} ok`, icon:'⚡' },

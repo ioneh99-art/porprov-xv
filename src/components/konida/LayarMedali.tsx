@@ -173,7 +173,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
   }, [info, r, data])
   const namaKita = (data?.kontingen || info?.kontingen || '').trim().toUpperCase()
   // Deretan nol tidak punya peringkat — tanpa ini layar menampilkan "#1" sebelum ada medali.
-  const klasemenMulai = klasemenDimulai(klasemen)
+  const klasemenMulai = klasemenDimulai(klasemen, namaKita)
   const peringkat = klasemenMulai ? klasemen.findIndex(k => k.nama.trim().toUpperCase() === namaKita) + 1 : 0
   const grafik = useMemo(() => {
     if (proyeksi && proyeksi.ada) return { ada_proyeksi: true, hari: proyeksi.hari.map(h => ({ ...h, label: labelTanggal(h.tanggal) })), total_proyeksi: proyeksi.total_proyeksi }

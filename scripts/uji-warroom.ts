@@ -18,6 +18,12 @@ cek('peringkat urut emas', peringkatKontingen(ADA, 'KOTA BANDUNG'), 1)
 cek('peringkat bersama bila sama persis', [peringkatKontingen(ADA, 'KAB. BANDUNG'), peringkatKontingen(ADA, 'KAB. BEKASI')], [2, 2])
 cek('perunggu saja di bawah emas', peringkatKontingen(ADA, 'KOTA DEPOK'), 4)
 cek('nama tak dikenal → null', peringkatKontingen(ADA, 'KAB. ANTAH'), null)
+// Medali kita sudah dihitung, kontingen lain (klasemen panitia) masih nol semua → belum ada peringkat.
+const KITA_SAJA = [b('KAB. BANDUNG', 3, 1, 3), b('KOTA BANDUNG', 0), b('KAB. BEKASI', 0)]
+cek('hanya kita yang bermedali → klasemen belum mulai bagi kita', klasemenDimulai(KITA_SAJA, 'Kab. Bandung'), false)
+cek('hanya kita yang bermedali → bukan "#1"', peringkatKontingen(KITA_SAJA, 'KAB. BANDUNG'), null)
+cek('tanpa nama kita tetap dianggap mulai', klasemenDimulai(KITA_SAJA), true)
+cek('kontingen lain bermedali → peringkat muncul', peringkatKontingen([...KITA_SAJA, b('KOTA DEPOK', 1)], 'KAB. BANDUNG'), 1)
 cek('huruf kecil tetap cocok', peringkatKontingen(ADA, 'kab. bandung'), 2)
 
 const P = (id: number, tanggal: string, jam: string | null, status: string): PartaiWR => ({ id, cabor_id: 165, tanggal, jam, nomor_teks: 'Beregu (Pa)', lawan: null, venue: null, status })
