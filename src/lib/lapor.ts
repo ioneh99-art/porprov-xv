@@ -155,6 +155,44 @@ export function rekapMedali(laporan: { hasil: string; status: string }[]): Rekap
   return r
 }
 
+export type JenisMedali = 'emas' | 'perak' | 'perunggu'
+export interface BarisMedali {
+  id: number; cabor: string; nomor_teks: string; atlet: string[]; tanggal: string
+  /** id medali lain (sudah disahkan) dengan cabor, nomor & jenis medali yang sama — kemungkinan dicatat dua kali. */
+  dobel: number[]
+}
+
+/** Kunci "medali yang sama": cabor + nomor (tanpa beda huruf/spasi) + jenis medali. */
+export const kunciMedali = (l: { cabor: string; nomor_teks: string; hasil: string }) =>
+  [l.cabor, l.nomor_teks, l.hasil].map(x => (x ?? '').toLowerCase().replace(/\s+/g, ' ').trim()).join('|')
+export interface RincianMedali {
+  /** Per jenis medali: siapa, cabor apa, nomor apa — terbaru di atas. */
+  daftar: Record<JenisMedali, BarisMedali[]>
+  /** Per cabor: jumlah emas/perak/perunggu, urut seperti klasemen. */
+  cabor: { cabor: string; emas: number; perak: number; perunggu: number }[]
+}
+
+/** Asal setiap medali yang sudah disahkan: atlet & cabornya, supaya angka "2 emas" bisa ditelusuri. */
+export function rincianMedali(laporan: { id: number; cabor: string; nomor_teks: string; atlet: string[]; hasil: string; status: string; tanggal: string }[]): RincianMedali {
+  const daftar: Record<JenisMedali, BarisMedali[]> = { emas: [], perak: [], perunggu: [] }
+  const per = new Map<string, { cabor: string; emas: number; perak: number; perunggu: number }>()
+  const kunci = new Map<number, string>()
+  for (const l of laporan) {
+    if (l.status !== 'disahkan' || !adalahMedali(l.hasil)) continue
+    const j = l.hasil as JenisMedali
+    daftar[j].push({ id: l.id, cabor: l.cabor, nomor_teks: l.nomor_teks, atlet: l.atlet, tanggal: l.tanggal, dobel: [] })
+    kunci.set(l.id, kunciMedali(l))
+    const c = per.get(l.cabor) ?? { cabor: l.cabor, emas: 0, perak: 0, perunggu: 0 }
+    c[j]++; per.set(l.cabor, c)
+  }
+  for (const j of Object.keys(daftar) as JenisMedali[]) for (const b of daftar[j])
+    b.dobel = daftar[j].filter(x => x.id !== b.id && kunci.get(x.id) === kunci.get(b.id)).map(x => x.id)
+  for (const j of Object.keys(daftar) as JenisMedali[])
+    daftar[j].sort((a, b) => b.tanggal.localeCompare(a.tanggal) || b.id - a.id)
+  const cabor = Array.from(per.values()).sort((a, b) => b.emas - a.emas || b.perak - a.perak || b.perunggu - a.perunggu || a.cabor.localeCompare(b.cabor))
+  return { daftar, cabor }
+}
+
 export function tulisHasil(l: { hasil: string; peringkat?: number | null }): string {
   if (l.hasil === 'peringkat') return `Peringkat ${l.peringkat ?? '?'}`
   return LABEL_HASIL[l.hasil as Hasil] ?? l.hasil

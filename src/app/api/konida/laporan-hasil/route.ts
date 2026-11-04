@@ -53,7 +53,29 @@ export async function GET(req: NextRequest) {
   })
 }
 
+/**
+ * Setiap keputusan (sahkan/tolak/perbaiki/kembalikan) yang DITOLAK server ikut dicatat di
+ * audit — dulu penolakan tidak meninggalkan jejak sama sekali, sehingga "tombol Sahkan
+ * tidak nyampe" (4 Nov) tidak bisa ditelusuri.
+ */
 export async function POST(req: NextRequest) {
+  const salinan = req.clone()
+  const res = await putuskanLaporan(req)
+  if (res.status >= 400) {
+    const b = await salinan.json().catch(() => ({}))
+    const j = await res.clone().json().catch(() => ({}))
+    const a = await ambilAdminLapor(req).catch(() => null)
+    const sesi = a && !('error' in a) ? a : null
+    await writeAudit({
+      action: 'LAPOR_HASIL_GAGAL', resource: 'laporan_hasil', resource_id: Number.isFinite(Number(b?.id)) ? Number(b.id) : null,
+      actor_email: sesi?.sesi.username ?? null, kontingen_id: sesi?.kontingen_id ?? null, severity: 'warning',
+      payload: { aksi: b?.aksi ?? null, status_http: res.status, pesan: j?.error ?? null }, ...reqMeta(req),
+    })
+  }
+  return res
+}
+
+async function putuskanLaporan(req: NextRequest) {
   const a = await ambilAdminLapor(req)
   if ('error' in a) return NextResponse.json({ error: a.error }, { status: a.status })
   const b = await req.json().catch(() => ({}))

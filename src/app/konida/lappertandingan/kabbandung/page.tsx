@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle, ClipboardList, ListChecks, Copy, Download, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
-import { HASIL, LABEL_HASIL, kodePicKembar, urutAntrean, adalahMedali, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, tulisHasil, type Hasil } from '@/lib/lapor'
+import { HASIL, LABEL_HASIL, kodePicKembar, urutAntrean, adalahMedali, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, rincianMedali, kunciMedali, tulisHasil, type Hasil, type JenisMedali } from '@/lib/lapor'
 import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
 import { KEPALA_MATRIKS, lembarMatriks, type BarisMatriks } from '@/lib/matriks'
 import { ALAMAT_RESMI_KABBANDUNG, DOMAIN_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -102,6 +102,10 @@ export default function PageLapPertandingan() {
   const [memuat, setMemuat] = useState(true)
   const [galat, setGalat] = useState('')
   const [sibuk, setSibuk] = useState<number | null>(null)
+  // Hasil tombol (Sahkan/Tolak/…) tampil di pojok bawah layar — selalu terlihat, juga di HP
+  // saat kartu ada jauh di bawah. Dulu pesan gagal hanya muncul di atas halaman.
+  const [kabar, setKabar] = useState<{ id: number; ok: boolean; teks: string } | null>(null)
+  const [sesiHabis, setSesiHabis] = useState(false)
   const [tanggal, setTanggal] = useState<string | null>(null)
 
   const [menolak, setMenolak] = useState<number | null>(null)
@@ -122,9 +126,12 @@ export default function PageLapPertandingan() {
   const [formPic, setFormPic] = useState({ nama_pic: '', no_wa: '', cabor_id: '' })
 
   const muatLaporan = useCallback(async () => {
-    const r = await fetch(`/api/konida/laporan-hasil${Q}`, { cache: 'no-store' })
+    const r = await fetch(`/api/konida/laporan-hasil${Q}`, { cache: 'no-store' }).catch(() => null)
+    if (!r) return // sinyal putus sesaat — dicoba lagi pada penyegaran berikutnya
     const j = await r.json().catch(() => ({}))
+    if (r.status === 401) setSesiHabis(true)
     if (!r.ok) { setGalat(j.error ?? 'Gagal memuat laporan.'); return }
+    setSesiHabis(false)
     setGalat(''); setLaporan(j.laporan ?? [])
   }, [])
   const muatAkses = useCallback(async () => {
@@ -190,6 +197,13 @@ export default function PageLapPertandingan() {
   const ditolak = useMemo(() => laporan.filter(l => l.status === 'ditolak'), [laporan])
   const disahkan = useMemo(() => laporan.filter(l => l.status === 'disahkan'), [laporan])
   const rekapSemua = useMemo(() => rekapMedali(laporan), [laporan])
+  const rincian = useMemo(() => rincianMedali(laporan), [laporan])
+  // Medali yang sudah disahkan per kunci (cabor+nomor+jenis) — untuk memperingatkan laporan medali dobel di Antrean.
+  const medaliSah = useMemo(() => {
+    const m = new Map<string, number[]>()
+    for (const l of laporan) if (l.status === 'disahkan' && adalahMedali(l.hasil)) m.set(kunciMedali(l), [...(m.get(kunciMedali(l)) ?? []), l.id])
+    return m
+  }, [laporan])
   const catatanBaru = useMemo(() => catatan.filter(c => c.status === 'baru'), [catatan])
   const mendesakBaru = useMemo(() => catatanBaru.filter(c => c.mendesak), [catatanBaru])
   const catatanTampil = useMemo(() => urutCatatan(catatan.filter(c =>
@@ -237,14 +251,38 @@ export default function PageLapPertandingan() {
     const alarm = alarmPerLaporan.get(id)
     if (body.aksi === 'sahkan' && alarm?.length &&
       !window.confirm(`Data laporan ini BEDA dengan situs KONI Jabar:\n${alarm.map(a => `• ${a.alasan}`).join('\n')}\n\nTetap sahkan?`)) return false
-    setSibuk(id); setGalat('')
+    setSibuk(id); setGalat(''); setKabar(null)
+    const l = laporan.find(x => x.id === id)
+    const BELUM: Record<string, string> = { sahkan: 'BELUM disahkan', tolak: 'BELUM ditolak', perbaiki: 'BELUM tersimpan', kembalikan: 'BELUM dikembalikan' }
+    const belum = BELUM[String(body.aksi)] ?? 'BELUM tersimpan'
     try {
-      const r = await fetch(`/api/konida/laporan-hasil${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, ...body }) })
+      let r: Response
+      try {
+        r = await fetch(`/api/konida/laporan-hasil${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, ...body }) })
+      } catch {
+        setKabar({ id, ok: false, teks: `Tidak tersambung ke server (sinyal/internet putus). Laporan ${belum} — tekan lagi setelah sinyal pulih.` })
+        return false
+      }
       const j = await r.json().catch(() => ({}))
-      if (!r.ok) { setGalat(j.error ?? 'Gagal menyimpan.'); return false }
+      if (!r.ok) {
+        if (r.status === 401) setSesiHabis(true)
+        const teks = r.status === 401 ? `Sesi login habis. Laporan ${belum} — login ulang lalu tekan lagi.` : `${j.error ?? 'Gagal menyimpan.'} (Laporan ${belum}.)`
+        setGalat(teks); setKabar({ id, ok: false, teks }); return false
+      }
+      const apa = l ? `${l.cabor} · ${l.nomor_teks}` : `Laporan #${id}`
+      const teks = body.aksi === 'sahkan'
+        ? (l && adalahMedali(l.hasil) ? `✓ Medali ${LABEL_HASIL[l.hasil].toLowerCase()} disahkan — ${apa}. Sudah tampil di halaman publik.` : `✓ Disahkan — ${apa}`)
+        : body.aksi === 'tolak' ? `Ditolak — ${apa}` : body.aksi === 'kembalikan' ? `Dikembalikan ke antrean — ${apa}` : `Perbaikan tersimpan — ${apa}`
+      setKabar({ id, ok: true, teks })
       await Promise.all([muatLaporan(), muatLuar()]); return true
     } finally { setSibuk(null) }
   }
+
+  useEffect(() => {
+    if (!kabar?.ok) return
+    const t = setTimeout(() => setKabar(k => (k === kabar ? null : k)), 7000)
+    return () => clearTimeout(t)
+  }, [kabar])
 
   async function tindakCatatan(id: number, aksi: 'tangani' | 'selesai' | 'abaikan' | 'buka', tanggapan = '') {
     setSibuk(id); setGalat('')
@@ -494,7 +532,16 @@ export default function PageLapPertandingan() {
           ) : (
             <button onClick={() => putuskan(l.id, { aksi: 'kembalikan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 disabled:opacity-40"><RotateCcw size={13} /> Kembalikan ke antrean</button>
           )}
+          {sibuk === l.id && <span className="self-center text-xs text-slate-400">Menyimpan…</span>}
         </div>
+      )}
+      {l.status === 'menunggu' && adalahMedali(l.hasil) && (medaliSah.get(kunciMedali(l))?.length ?? 0) > 0 && (
+        <p className="mt-2 rounded-lg bg-amber-400/10 border border-amber-400/50 px-3 py-2 text-sm font-bold text-amber-200">
+          ⚠ Medali {LABEL_HASIL[l.hasil].toLowerCase()} untuk nomor ini SUDAH disahkan (#{medaliSah.get(kunciMedali(l))!.join(', #')}). Kemungkinan laporan dobel — kalau sama, Tolak yang ini supaya medali tidak terhitung dua kali.
+        </p>
+      )}
+      {kabar && !kabar.ok && kabar.id === l.id && (
+        <p role="alert" className="mt-2 rounded-lg bg-red-500/15 border border-red-400/40 px-3 py-2 text-sm font-bold text-red-300">{kabar.teks}</p>
       )}
     </div>
     )
@@ -589,6 +636,14 @@ export default function PageLapPertandingan() {
           <button onClick={() => { muatLaporan(); muatAkses(); muatCatatan() }} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300"><RefreshCw size={14} /> Muat ulang</button>
         </div>
 
+        {sesiHabis && (
+          <div role="alert" className="mt-4 rounded-xl border-2 border-red-400 bg-red-500/15 px-4 py-3 flex items-center gap-3 flex-wrap">
+            <AlertTriangle size={18} className="text-red-300 shrink-0" />
+            <span className="flex-1 text-sm font-bold text-red-200">Sesi login habis (berlaku 8 jam). Data di layar mungkin lama dan tombol Sahkan/Tolak tidak akan tersimpan sampai login ulang.</span>
+            <a href="/login" className="rounded-lg bg-red-400 px-4 py-2 text-sm font-black text-slate-950">Login ulang</a>
+          </div>
+        )}
+
         {mendesakBaru.length > 0 && (
           <button onClick={() => { setTab('catatan'); setFilterCatatan('aktif') }}
             className="mt-5 w-full flex items-center gap-3 rounded-xl border border-red-400/60 bg-red-500/15 px-4 py-3 text-left">
@@ -608,6 +663,44 @@ export default function PageLapPertandingan() {
             </div>
           ))}
         </div>
+
+        {rekapSemua.total > 0 && (
+          <div className={`${kartu} mt-3 p-4`}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Trophy size={16} style={{ color: WARNA.emas }} />
+              <span className="font-black text-white">Asal {rekapSemua.total} medali</span>
+              <span className="text-xs text-slate-400">· hanya yang sudah disahkan</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {rincian.cabor.map(c => (
+                <span key={c.cabor} className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs text-slate-200">
+                  <b className="text-white">{c.cabor}</b>
+                  {(['emas', 'perak', 'perunggu'] as JenisMedali[]).filter(j => c[j] > 0).map(j => (
+                    <span key={j} className="ml-2 font-bold" style={{ color: WARNA[j] }}>{c[j]} {LABEL_HASIL[j]}</span>
+                  ))}
+                </span>
+              ))}
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              {(['emas', 'perak', 'perunggu'] as JenisMedali[]).map(j => (
+                <div key={j} className="rounded-lg bg-slate-950/50 px-3 py-2" style={{ borderLeft: `3px solid ${WARNA[j]}` }}>
+                  <div className="text-sm font-black" style={{ color: WARNA[j] }}>{j === 'emas' ? '🥇' : j === 'perak' ? '🥈' : '🥉'} {rincian.daftar[j].length} {LABEL_HASIL[j]}</div>
+                  {rincian.daftar[j].length === 0 && <div className="text-xs text-slate-500 mt-1">Belum ada</div>}
+                  <ol className="mt-1 space-y-1.5">
+                    {rincian.daftar[j].map(b => (
+                      <li key={b.id} className="text-xs leading-snug">
+                        <div className="text-white"><b>{b.cabor}</b> · {b.nomor_teks}</div>
+                        <div className="text-slate-300">{b.atlet.length ? b.atlet.join(', ') : 'Nama atlet belum diisi'}</div>
+                        <div className="text-slate-500">{tglTampil(b.tanggal)} · #{b.id}</div>
+                        {b.dobel.length > 0 && <div className="mt-0.5 font-bold text-amber-300">⚠ Kemungkinan dobel dengan #{b.dobel.join(', #')} — tolak salah satunya lewat Antrean (Kembalikan → Tolak)</div>}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {(alarmAktif.length > 0 || (lihatDicek && luar.alarm.length > 0)) && (
           <div role="alert" className="mt-4 rounded-xl px-4 py-3" style={{ background: `${WARNA_ALARM}14`, border: `1px solid ${WARNA_ALARM}80` }}>
@@ -1001,6 +1094,14 @@ export default function PageLapPertandingan() {
           </div>
         )}
       </div>
+      {kabar && (
+        <div role={kabar.ok ? 'status' : 'alert'} className="fixed inset-x-3 bottom-24 md:bottom-6 z-50 mx-auto max-w-lg rounded-xl border-2 px-4 py-3 shadow-2xl flex items-start gap-3"
+          style={kabar.ok ? { background: '#052e1c', borderColor: '#34d399' } : { background: '#2a0b0b', borderColor: '#f87171' }}>
+          <span className={`flex-1 text-sm font-bold ${kabar.ok ? 'text-emerald-200' : 'text-red-200'}`}>{kabar.teks}</span>
+          {!kabar.ok && sesiHabis && <a href="/login" className="rounded-lg bg-red-400 px-3 py-1 text-xs font-black text-slate-950">Login ulang</a>}
+          <button onClick={() => setKabar(null)} aria-label="Tutup" className="text-slate-400 text-lg leading-none">×</button>
+        </div>
+      )}
     </div>
   )
 }
