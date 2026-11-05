@@ -1,7 +1,8 @@
 'use client'
 // KlasemenBanding — klasemen medali menurut situs resmi KONI Jabar, dengan sakelar
 // "Disesuaikan data kita" (angka Kab. Bandung dari laporan yang disahkan KONIDA), sakelar
-// "Rekap sementara" (potret terbaru tabel klasemen_sementara — khusus dalam aplikasi) dan
+// "Rekap sementara" (kontingen lain dari potret terbaru tabel klasemen_sementara, Kab. Bandung
+// dari data kita yang disahkan saat ini — khusus dalam aplikasi) dan
 // kotak akurasi: seberapa sama catatan panitia dengan data kita.
 
 import { useEffect, useMemo, useState } from 'react'
@@ -36,10 +37,9 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
 
   const angkaKita = kita ?? { emas: 0, perak: 0, perunggu: 0 }
   const banding = useMemo(() => situs ? bandingKlasemen(situs.baris, angkaKita) : null, [situs, angkaKita.emas, angkaKita.perak, angkaKita.perunggu]) // eslint-disable-line react-hooks/exhaustive-deps
-  const baris = useMemo(() => mode === 'sementara' ? (sementara?.baris ?? []) : !situs ? [] : mode === 'situs' ? situs.baris : klasemenDisesuaikan(situs.baris, angkaKita),
+  const baris = useMemo(() => mode === 'sementara' ? klasemenDisesuaikan(sementara?.baris ?? [], angkaKita) : !situs ? [] : mode === 'situs' ? situs.baris : klasemenDisesuaikan(situs.baris, angkaKita),
     [situs, sementara, mode, angkaKita.emas, angkaKita.perak, angkaKita.perunggu]) // eslint-disable-line react-hooks/exhaustive-deps
-  const kitaSementara = sementara?.baris.find(b => b.kita)
-  const bedaSementara = kitaSementara ? JENIS.filter(j => kitaSementara[j] !== angkaKita[j]) : []
+  const jamKini = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   const batas = 10
   const kitaBaris = baris.find(b => b.kita)
   const tampil = semua ? baris : baris.slice(0, batas)
@@ -50,7 +50,7 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
     <tr key={b.nama} className={b.kita ? 'bg-sky-400/10' : ''} style={b.kita ? { boxShadow: 'inset 3px 0 0 #38bdf8' } : {}}>
       <td className="py-1.5 pl-3 pr-1 text-center tabular-nums font-bold text-zinc-400">{b.total > 0 && !(b.kita && mode === 'kita' && banding?.peringkatKita == null) ? b.peringkat : '–'}</td>
       <td className={`py-1.5 px-1 ${b.kita ? 'font-black text-sky-200' : 'font-semibold text-white'}`}>
-        {b.nama}{b.kita && mode === 'kita' ? <span className="ml-1 text-[10px] font-bold text-sky-300">(data kita)</span> : ''}
+        {b.nama}{b.kita && mode !== 'situs' ? <span className="ml-1 text-[10px] font-bold text-sky-300">(data kita)</span> : ''}
       </td>
       {JENIS.map(j => <td key={j} className="py-1.5 px-1 text-right tabular-nums font-bold" style={{ color: WARNA[j] }}>{b[j]}</td>)}
       <td className="py-1.5 pl-1 pr-3 text-right tabular-nums font-black text-white">{b.total}</td>
@@ -85,10 +85,9 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
           <div className="rounded-2xl border border-white/10 bg-black/30 overflow-x-auto">
             {mode === 'sementara' && sementara && (
               <div className="border-b border-amber-300/20 bg-amber-300/5 px-3 py-2 text-[11px] leading-snug text-amber-100">
-                <b>Rekap sementara</b> · {sementara.sumber}{sementara.potret_at ? ` · ${jamWIB(sementara.potret_at)} WIB` : ''}. Hanya tampil di dalam aplikasi; halaman publik tetap mengikuti situs KONI Jabar.
-                {kitaSementara && (bedaSementara.length
-                  ? <div className="mt-1 font-bold text-amber-300">Kab. Bandung di rekap ini {kitaSementara.emas}-{kitaSementara.perak}-{kitaSementara.perunggu}, data kita (disahkan KONIDA) {angkaKita.emas}-{angkaKita.perak}-{angkaKita.perunggu}: beda di {bedaSementara.join(', ')}.</div>
-                  : <div className="mt-1 font-bold text-emerald-300">Angka Kab. Bandung di rekap ini sama dengan data kita.</div>)}
+                <b>Rekap sementara</b> · kontingen lain: {sementara.sumber}{sementara.potret_at ? ` · ${jamWIB(sementara.potret_at)} WIB` : ''}.
+                <div className="mt-0.5 font-bold text-sky-200">Kab. Bandung: data kita yang sudah disahkan KONIDA, per {jamKini} WIB.</div>
+                <div className="mt-0.5 text-amber-100/70">Hanya tampil di dalam aplikasi; halaman publik tetap mengikuti situs KONI Jabar.</div>
               </div>
             )}
             <table className="w-full text-[12px] min-w-[300px]">
