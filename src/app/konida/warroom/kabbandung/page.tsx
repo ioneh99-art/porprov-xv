@@ -32,6 +32,7 @@ import KalenderEmas from '@/components/konida/warroom/KalenderEmas'
 import PetaPerjuangan from '@/components/konida/warroom/PetaPerjuangan'
 import KesehatanOperasi from '@/components/konida/warroom/KesehatanOperasi'
 import PanelCommandCenter from '@/components/konida/warroom/PanelCommandCenter'
+import KlasemenBanding from '@/components/konida/warroom/KlasemenBanding'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -334,6 +335,11 @@ export default function PageWarRoom() {
         <div {...ani(10)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2"><MisiEmas data={wr} accent={ACCENT} /></div>
           <ArenaLive data={wr} />
+        </div>
+
+        {/* ════ 4b. KLASEMEN KONI JABAR vs DATA KITA ════ */}
+        <div {...ani(10)}>
+          <KlasemenBanding kita={lapangan?.rekap ?? null} q={Q} />
         </div>
 
         {/* ════ 5. SITUASI PEROLEHAN EMAS — proyeksi KONI vs realisasi ════ */}

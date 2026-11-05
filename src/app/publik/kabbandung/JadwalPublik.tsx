@@ -278,7 +278,7 @@ const ikonMedali = (j: JenisMedali) => (j === 'emas' ? '🥇' : j === 'perak' ? 
 function KabarMedali({ medali, klasemen, hariIni }: { medali: MedaliPublik[]; klasemen: KlasemenPublik | null; hariIni: string }) {
   const rekap = useMemo(() => rekapPublik(medali), [medali])
   const terbaru = useMemo(() => urutMedali(medali).slice(0, 3), [medali])
-  const kita = klasemen?.dimulai ? klasemen.baris.find(b => b.kita) : undefined
+  const kita = klasemen?.dimulai ? klasemen.baris.find(b => b.kita && b.total > 0) : undefined
   const baruHariIni = medali.filter(m => m.tanggal === hariIni).length
   const keMedali = () => document.getElementById('perolehan-medali')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return (
@@ -329,7 +329,7 @@ function KabarMedali({ medali, klasemen, hariIni }: { medali: MedaliPublik[]; kl
 }
 
 /** Klasemen medali resmi panitia (porprov.konijabar.or.id) — angka apa adanya, Kab. Bandung disorot. */
-function KlasemenResmi({ klasemen }: { klasemen: KlasemenPublik | null }) {
+function KlasemenResmi({ klasemen, medali }: { klasemen: KlasemenPublik | null; medali: MedaliPublik[] }) {
   const [semua, setSemua] = useState(false)
   if (!klasemen) return null
   const sumber = (
@@ -339,22 +339,13 @@ function KlasemenResmi({ klasemen }: { klasemen: KlasemenPublik | null }) {
       {klasemen.selesai != null && klasemen.nomor ? ` · ${angkaID(klasemen.selesai)} dari ${angkaID(klasemen.nomor)} nomor selesai` : ''}
     </div>
   )
-  if (!klasemen.dimulai) {
-    return (
-      <section id="klasemen" className="pt-8 scroll-mt-4">
-        <JudulBagian ikon={<Flag size={12} />} kecil="Klasemen resmi panitia" besar="Klasemen Medali PORPROV XV" />
-        <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] text-slate-400">Klasemen resmi tampil di sini begitu panitia mulai mengumumkan medali yang sudah diverifikasi.</p>
-        {sumber}
-      </section>
-    )
-  }
   const batas = 10
   const kita = klasemen.baris.find(b => b.kita)
   const tampil = semua ? klasemen.baris : klasemen.baris.slice(0, batas)
   const kitaDiLuar = !semua && kita && !tampil.includes(kita)
   const baris = (b: KlasemenPublik['baris'][number]) => (
     <tr key={b.nama} className={b.kita ? 'bg-amber-300/15' : ''} style={b.kita ? { boxShadow: 'inset 3px 0 0 #facc15' } : {}}>
-      <td className="py-2 pl-3 pr-1 text-center tabular-nums font-bold text-slate-400">{b.peringkat}</td>
+      <td className="py-2 pl-3 pr-1 text-center tabular-nums font-bold text-slate-400">{b.total > 0 ? b.peringkat : '–'}</td>
       <td className={`py-2 px-1 ${b.kita ? 'font-extrabold text-amber-200' : 'font-semibold text-white'}`}>{b.nama}{b.kita ? ' ★' : ''}</td>
       <td className="py-2 px-1 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.emas.warna }}>{b.emas}</td>
       <td className="py-2 px-1 text-right tabular-nums font-bold" style={{ color: GAYA_MEDALI.perak.warna }}>{b.perak}</td>
@@ -386,6 +377,12 @@ function KlasemenResmi({ klasemen }: { klasemen: KlasemenPublik | null }) {
           </tbody>
         </table>
       </div>
+      {!klasemen.dimulai && (
+        <p className="mt-2 text-[12px] text-slate-400">Panitia belum mengumumkan medali yang sudah diverifikasi — semua kontingen masih 0, sama seperti di situs resmi.</p>
+      )}
+      {kita && kita.total < medali.length && (
+        <p className="mt-2 text-[12px] text-amber-200/80">{medali.length} medali Kab. Bandung di halaman ini sudah disahkan KONI Kab. Bandung; klasemen ini mengikuti situs panitia dan menunggu verifikasi panitia.</p>
+      )}
       {klasemen.baris.length > batas && (
         <button onClick={() => setSemua(x => !x)} className="mt-2 text-sm font-bold text-sky-300">{semua ? 'Tampilkan 10 teratas' : `Lihat semua ${klasemen.baris.length} kontingen →`}</button>
       )}
@@ -649,7 +646,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
       <main className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pb-12">
         {/* ══ PEROLEHAN MEDALI ══ */}
         <PerolehanMedali medali={medali} />
-        <KlasemenResmi klasemen={klasemen} />
+        <KlasemenResmi klasemen={klasemen} medali={medali} />
 
         {galat ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-6 text-center text-sm text-red-300">
