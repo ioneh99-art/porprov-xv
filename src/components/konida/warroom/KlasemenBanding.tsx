@@ -1,24 +1,30 @@
 'use client'
 // KlasemenBanding — klasemen medali menurut situs resmi KONI Jabar, dengan sakelar
-// "Disesuaikan data kita" (angka Kab. Bandung dari laporan yang disahkan KONIDA) dan
+// "Disesuaikan data kita" (angka Kab. Bandung dari laporan yang disahkan KONIDA), sakelar
+// "Rekap sementara" (potret terbaru tabel klasemen_sementara — khusus dalam aplikasi) dan
 // kotak akurasi: seberapa sama catatan panitia dengan data kita.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Flag, RefreshCw } from 'lucide-react'
-import type { KlasemenPublik } from '@/lib/jadwal-publik'
+import type { BarisKlasemenPublik, KlasemenPublik } from '@/lib/jadwal-publik'
 import { JENIS, bandingKlasemen, klasemenDisesuaikan, type AngkaMedali } from '@/lib/klasemen-banding'
 
 const WARNA = { emas: '#ffd700', perak: '#c0c0c0', perunggu: '#cd7f32' } as const
+type Sementara = { potret: string | null; potret_at?: string; sumber?: string; baris: BarisKlasemenPublik[] }
+const jamWIB = (iso?: string) => iso ? new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
 
 export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | null; q?: string }) {
   const [situs, setSitus] = useState<KlasemenPublik | null>(null)
   const [galat, setGalat] = useState<string | null>(null)
   const [memuat, setMemuat] = useState(false)
-  const [mode, setMode] = useState<'situs' | 'kita'>('situs')
+  const [mode, setMode] = useState<'situs' | 'kita' | 'sementara'>('situs')
+  const [sementara, setSementara] = useState<Sementara | null>(null)
   const [semua, setSemua] = useState(false)
 
   async function muat() {
     setMemuat(true)
+    fetch(`/api/konida/klasemen-sementara${q}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null).then(j => { if (j?.baris) setSementara(j) }).catch(() => {})
     try {
       const r = await fetch(`/api/konida/klasemen-situs${q}`, { cache: 'no-store' })
       const j = await r.json().catch(() => null)
@@ -30,8 +36,10 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
 
   const angkaKita = kita ?? { emas: 0, perak: 0, perunggu: 0 }
   const banding = useMemo(() => situs ? bandingKlasemen(situs.baris, angkaKita) : null, [situs, angkaKita.emas, angkaKita.perak, angkaKita.perunggu]) // eslint-disable-line react-hooks/exhaustive-deps
-  const baris = useMemo(() => !situs ? [] : mode === 'situs' ? situs.baris : klasemenDisesuaikan(situs.baris, angkaKita),
-    [situs, mode, angkaKita.emas, angkaKita.perak, angkaKita.perunggu]) // eslint-disable-line react-hooks/exhaustive-deps
+  const baris = useMemo(() => mode === 'sementara' ? (sementara?.baris ?? []) : !situs ? [] : mode === 'situs' ? situs.baris : klasemenDisesuaikan(situs.baris, angkaKita),
+    [situs, sementara, mode, angkaKita.emas, angkaKita.perak, angkaKita.perunggu]) // eslint-disable-line react-hooks/exhaustive-deps
+  const kitaSementara = sementara?.baris.find(b => b.kita)
+  const bedaSementara = kitaSementara ? JENIS.filter(j => kitaSementara[j] !== angkaKita[j]) : []
   const batas = 10
   const kitaBaris = baris.find(b => b.kita)
   const tampil = semua ? baris : baris.slice(0, batas)
@@ -64,6 +72,7 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
           <div className="flex rounded-lg overflow-hidden border border-white/10 text-[11px] font-bold">
             <button onClick={() => setMode('situs')} aria-pressed={mode === 'situs'} className={`px-3 py-1.5 ${mode === 'situs' ? 'bg-sky-400 text-slate-950' : 'text-zinc-300'}`}>Menurut situs</button>
             <button onClick={() => setMode('kita')} aria-pressed={mode === 'kita'} className={`px-3 py-1.5 ${mode === 'kita' ? 'bg-sky-400 text-slate-950' : 'text-zinc-300'}`}>Disesuaikan data kita</button>
+            {sementara?.potret && <button onClick={() => setMode('sementara')} aria-pressed={mode === 'sementara'} className={`px-3 py-1.5 ${mode === 'sementara' ? 'bg-amber-300 text-slate-950' : 'text-amber-200'}`}>Rekap sementara</button>}
           </div>
           <button onClick={muat} disabled={memuat} title="Baca ulang situs" className="rounded-lg border border-white/10 p-1.5 text-zinc-300 disabled:opacity-40"><RefreshCw size={13} className={memuat ? 'animate-spin' : ''} /></button>
         </div>
@@ -71,9 +80,17 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
 
       {galat && <p className="mx-5 mt-4 rounded-lg bg-red-500/10 border border-red-400/30 px-3 py-2 text-xs font-bold text-red-300">{galat}</p>}
 
-      {banding && (
+      {(banding || (mode === 'sementara' && sementara)) && (
         <div className="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
           <div className="rounded-2xl border border-white/10 bg-black/30 overflow-x-auto">
+            {mode === 'sementara' && sementara && (
+              <div className="border-b border-amber-300/20 bg-amber-300/5 px-3 py-2 text-[11px] leading-snug text-amber-100">
+                <b>Rekap sementara</b> · {sementara.sumber}{sementara.potret_at ? ` · ${jamWIB(sementara.potret_at)} WIB` : ''}. Hanya tampil di dalam aplikasi; halaman publik tetap mengikuti situs KONI Jabar.
+                {kitaSementara && (bedaSementara.length
+                  ? <div className="mt-1 font-bold text-amber-300">Kab. Bandung di rekap ini {kitaSementara.emas}-{kitaSementara.perak}-{kitaSementara.perunggu}, data kita (disahkan KONIDA) {angkaKita.emas}-{angkaKita.perak}-{angkaKita.perunggu}: beda di {bedaSementara.join(', ')}.</div>
+                  : <div className="mt-1 font-bold text-emerald-300">Angka Kab. Bandung di rekap ini sama dengan data kita.</div>)}
+              </div>
+            )}
             <table className="w-full text-[12px] min-w-[300px]">
               <thead>
                 <tr className="text-[10px] text-zinc-500 border-b border-white/10">
@@ -95,7 +112,7 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
             )}
           </div>
 
-          <div className="rounded-2xl border p-4 md:w-72" style={{ borderColor: `${warnaAkurasi}55`, background: `${warnaAkurasi}0d` }}>
+          {banding && <div className="rounded-2xl border p-4 md:w-72" style={{ borderColor: `${warnaAkurasi}55`, background: `${warnaAkurasi}0d` }}>
             <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Akurasi data Kab. Bandung</div>
             <div className="text-3xl font-black mt-1" style={{ color: warnaAkurasi }}>{banding.akurasi == null ? '—' : `${banding.akurasi}%`}</div>
             <div className="text-[11px] text-zinc-400">{banding.cocok} medali sama-sama tercatat</div>
@@ -119,10 +136,10 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
             <ul className="mt-3 space-y-1.5 text-[11px] leading-snug text-zinc-300">
               {banding.catatan.map(c => <li key={c}>• {c}</li>)}
             </ul>
-          </div>
+          </div>}
         </div>
       )}
-      {!banding && !galat && <p className="px-5 py-6 text-sm text-zinc-500">Membaca klasemen situs KONI Jabar…</p>}
+      {!banding && !galat && mode !== 'sementara' && <p className="px-5 py-6 text-sm text-zinc-500">Membaca klasemen situs KONI Jabar…</p>}
     </div>
   )
 }
