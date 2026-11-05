@@ -2,6 +2,8 @@
 // Aturan murni War Room (tanpa I/O). Prinsipnya: War Room hanya menampilkan
 // angka yang benar-benar ada — tidak ada peringkat, target, atau laga contoh.
 
+import { SELISIH_HARI, nomorCocok } from './mesin-emas'
+
 export interface BarisKlasemenWR { nama: string; emas: number; perak: number; perunggu: number; total: number }
 
 /**
@@ -67,6 +69,9 @@ export type StatusMisi = 'emas' | 'medali_lain' | 'meleset' | 'berjalan' | 'belu
 export interface Misi extends ProyeksiBaris { status: StatusMisi; hasil: string | null; laporan_id?: number | null }
 
 const kataNomor = (s: string | null) => new Set(norm(s).split(' ').filter(w => w.length >= 2 && !['PA', 'PI', 'PUTRA', 'PUTRI', 'KELAS', 'NOMOR'].includes(w)))
+/** Kedua nomor menyebut angka (kelas/jarak) dan angkanya berbeda — "52 Kg" bukan "62 Kg". */
+const angkaNomor = (s: string | null) => (s ?? '').replace(/(\d)[.,](\d{3})\b/g, '$1$2').match(/\d+/g)?.map(Number).sort((a, b) => a - b).join(',') ?? ''
+const angkaBeda = (a: string | null, b: string | null) => { const x = angkaNomor(a), y = angkaNomor(b); return !!x && !!y && x !== y }
 function miripNomor(a: string | null, b: string | null): number {
   const x = kataNomor(a), y = kataNomor(b)
   if (!x.size || !y.size) return 0
@@ -90,14 +95,21 @@ export function statusMisi(proyeksi: ProyeksiBaris[], laporan: HasilBaris[], cab
   const urut = [...proyeksi].sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.urutan - b.urutan)
   // 1. lewat nama nomor
   for (const p of urut) {
-    const calon = (lapPer.get(kunci(p.tanggal, p.cabor_id)) ?? []).filter(l => !dipakai.has(l.id))
+    const calon = (lapPer.get(kunci(p.tanggal, p.cabor_id)) ?? []).filter(l => !dipakai.has(l.id) && !angkaBeda(p.nomor, l.nomor_teks))
       .map(l => ({ l, s: miripNomor(p.nomor, l.nomor_teks) })).filter(x => x.s >= 0.6).sort((a, b) => b.s - a.s || (a.l.hasil === 'emas' ? -1 : 1))
     if (calon[0]) { dipakai.add(calon[0].l.id); hasilRow.set(p.urutan, calon[0].l) }
+  }
+  // 1b. jadwal bergeser (±2 hari, sama dengan Mesin Emas): nomor harus cocok ketat
+  for (const p of urut) {
+    if (hasilRow.has(p.urutan) || p.cabor_id == null) continue
+    const geser = laporan.find(l => !dipakai.has(l.id) && l.cabor_id === p.cabor_id && l.tanggal !== p.tanggal
+      && Math.abs(Date.parse(l.tanggal) - Date.parse(p.tanggal)) <= SELISIH_HARI * 86_400_000 && nomorCocok(p.nomor, l.nomor_teks))
+    if (geser) { dipakai.add(geser.id); hasilRow.set(p.urutan, geser) }
   }
   // 2. emas sisa di cabor & tanggal yang sama
   for (const p of urut) {
     if (hasilRow.has(p.urutan)) continue
-    const emas = (lapPer.get(kunci(p.tanggal, p.cabor_id)) ?? []).find(l => !dipakai.has(l.id) && l.hasil === 'emas')
+    const emas = (lapPer.get(kunci(p.tanggal, p.cabor_id)) ?? []).find(l => !dipakai.has(l.id) && l.hasil === 'emas' && !angkaBeda(p.nomor, l.nomor_teks))
     if (emas) { dipakai.add(emas.id); hasilRow.set(p.urutan, emas) }
   }
   return urut.map(p => {

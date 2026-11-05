@@ -15,6 +15,9 @@ import { genderNomor } from './lawan-luar'
 const genderSejalan = (a: string | null | undefined, b: string | null | undefined) => { const x = genderNomor(a), y = genderNomor(b); return !x || !y || x === y }
 import { writeAudit } from './audit'
 import { babakGrup, bacaGrupMurni, medaliGrup, refGrup, urlBaganGrup } from './grup-medali'
+import { ALASAN_KEMBAR } from './lapor-kembar'
+import { MEDALI, MESIN_EMAS, rencanaMesinEmas, type LaporMesin, type TargetEmas } from './mesin-emas'
+import { segarkanPublik } from './partai-server'
 import {
   MULAI_LAGA, NAMA_KONTINGEN_SITUS, PELAPOR_KONIJABAR, SITUS_KONIJABAR, baku, bacaJadwalHarian, bacaKlasemen, bacaLaga,
   cariAlarm, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, pilihNomorResmi, skorTeks, tebakHasil, urlLaga,
@@ -41,6 +44,8 @@ export interface RingkasSinkron {
   grup?: Record<string, { laporan: number; tuntas: boolean }>
   /** Laporan medali baru dari klasemen grup murni (setengah kompetisi). */
   medali_grup?: number
+  /** Mesin Emas: target emas yang hasilnya disahkan otomatis / ditahan untuk KONIDA. */
+  mesin_emas?: { disahkan: { id: number; urutan: number; hasil: string; nomor: string | null; atlet: string | null }[]; ditahan: { urutan: number; laporan: number; alasan: string; nomor: string | null; atlet: string | null }[] }
   galat: string[]
 }
 
@@ -255,8 +260,11 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
   // 4) Kelas sistem grup murni: medali dari klasemen grup yang sudah selesai.
   try { await periksaGrup(kontingenId, namaKita, r) } catch (e: any) { r.galat.push(`Klasemen grup: ${e?.message ?? e}`) }
 
+  // 5) Mesin Emas: target emas yang hasilnya final di situs → disahkan otomatis.
+  try { await jalankanMesinEmas(kontingenId, r) } catch (e: any) { r.galat.push(`Mesin Emas: ${e?.message ?? e}`) }
+
   await db.from('sinkron_luar').upsert({ sumber: 'konijabar', kontingen_id: kontingenId, terakhir: kini, ringkas: r })
-  if (r.laporan_baru || r.berubah || r.galat.length) {
+  if (r.laporan_baru || r.berubah || r.galat.length || r.mesin_emas?.disahkan.length) {
     await writeAudit({
       action: 'KONIJABAR_SINKRON', resource: 'laporan_hasil', kontingen_id: kontingenId,
       actor_email: opsi.oleh ?? 'otomatis', payload: r, severity: r.galat.length ? 'warning' : 'info',
@@ -326,4 +334,67 @@ async function periksaGrup(kontingenId: number, namaKita: string, r: RingkasSink
   // Catatan tidak membengkak: buang yang sudah tuntas bila terlalu banyak.
   const semua = Object.entries(r.grup ?? {})
   if (semua.length > 300) r.grup = Object.fromEntries(semua.filter(([, g]) => !g.tuntas))
+}
+
+/** Aksi KONIDA yang membuat mesin tidak lagi menyentuh sebuah laporan. */
+const AKSI_KOREKSI = ['LAPOR_HASIL_KEMBALIKAN', 'LAPOR_HASIL_TOLAK', 'LAPOR_HASIL_PERBAIKI']
+
+/**
+ * Mesin Emas (lib/mesin-emas.ts): target emas yang tanggalnya sudah tiba dan hasilnya sudah final
+ * di situs → laporan disahkan atas nama MESIN_EMAS. Hanya laporan berstatus 'menunggu' yang diubah;
+ * yang meragukan dicatat sebagai "ditahan" untuk KONIDA. Koreksi lewat tombol Koreksi di Antrean.
+ */
+export async function jalankanMesinEmas(kontingenId: number, r: RingkasSinkron) {
+  const db = dbLapor()
+  const hariIni = hariIniWIB()
+  const [target, laporan] = await Promise.all([
+    ambilSemua<any>((d, s) => db.from('proyeksi_medali').select('urutan,tanggal,cabor_id,nomor_teks,atlet_teks')
+      .eq('kontingen_id', kontingenId).eq('medali', 'emas').lte('tanggal', hariIni).order('id').range(d, s)),
+    ambilSemua<any>((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,lawan,partai_id,hasil,peringkat,status,ref_luar,pelapor_nama,nomor_teks,atlet_ids')
+      .eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).neq('status', 'ditolak').order('id').range(d, s)),
+  ])
+  r.mesin_emas = { disahkan: [], ditahan: [] }
+  if (!target.length) return
+  // Hanya laporan situs bermedali yang masih menunggu yang mungkin disentuh — cek riwayat koreksinya.
+  const calon = laporan.filter(l => l.ref_luar && l.status === 'menunggu' && (MEDALI as readonly string[]).includes(l.hasil))
+  if (!calon.length) return
+  const { data: jejak, error: ej } = await db.from('audit_logs').select('resource_id')
+    .eq('resource', 'laporan_hasil').in('action', AKSI_KOREKSI).in('resource_id', calon.map(l => String(l.id)))
+  if (ej) throw new Error(ej.message)
+  const dikoreksi = new Set((jejak ?? []).map((x: any) => Number(x.resource_id)))
+
+  const idAtlet = Array.from(new Set(laporan.flatMap(l => (l.atlet_ids ?? []) as number[])))
+  const nama = new Map<number, string>()
+  for (let i = 0; i < idAtlet.length; i += 500) {
+    const { data } = await db.from('atlet').select('id,nama_lengkap').in('id', idAtlet.slice(i, i + 500))
+    for (const a of data ?? []) nama.set(a.id, a.nama_lengkap)
+  }
+  const lap: LaporMesin[] = laporan.map(l => ({
+    ...l, atlet: ((l.atlet_ids ?? []) as number[]).map(id => nama.get(id)).filter((x): x is string => !!x), dikoreksi: dikoreksi.has(l.id),
+  }))
+  const tgt: TargetEmas[] = target.map(t => ({ urutan: t.urutan, tanggal: t.tanggal, cabor_id: t.cabor_id, nomor: t.nomor_teks, atlet: t.atlet_teks }))
+  const rencana = rencanaMesinEmas(tgt, lap, hariIni)
+  const info = new Map(target.map(t => [t.urutan, { nomor: t.nomor_teks as string | null, atlet: t.atlet_teks as string | null }]))
+  const kini = new Date().toISOString()
+
+  for (const s of rencana.sahkan) {
+    if (s.sahkan != null) {
+      const { data: ok, error } = await db.from('laporan_hasil').update({ status: 'disahkan', diputus_oleh: MESIN_EMAS, diputus_at: kini, alasan_tolak: null, updated_at: kini })
+        .eq('id', s.sahkan).eq('kontingen_id', kontingenId).eq('status', 'menunggu').select('id')
+      if (error) { r.galat.push(`Mesin Emas #${s.sahkan}: ${error.message}`); continue }
+      if (!ok?.length) continue // keburu diputus KONIDA
+      await writeAudit({ action: 'LAPOR_HASIL_SAHKAN_OTOMATIS', resource: 'laporan_hasil', resource_id: s.sahkan, kontingen_id: kontingenId, actor_email: MESIN_EMAS,
+        payload: { target_urutan: s.urutan, ...info.get(s.urutan), hasil: s.hasil, data_situs: s.dari, sebelum: { status: 'menunggu' }, sesudah: { status: 'disahkan' } } })
+    }
+    if (s.tutup != null) {
+      const idPic = s.sahkan ?? 0
+      const { error } = await db.from('laporan_hasil').update({ status: 'ditolak', diputus_oleh: MESIN_EMAS, diputus_at: kini, alasan_tolak: ALASAN_KEMBAR(idPic), updated_at: kini })
+        .eq('id', s.tutup).eq('kontingen_id', kontingenId).eq('status', 'menunggu').not('ref_luar', 'is', null)
+      if (error) { r.galat.push(`Mesin Emas tutup #${s.tutup}: ${error.message}`); continue }
+      await writeAudit({ action: 'LAPOR_HASIL_KEMBAR_DITUTUP', resource: 'laporan_hasil', resource_id: s.tutup, kontingen_id: kontingenId, actor_email: MESIN_EMAS, payload: { digantikan: idPic } })
+    }
+    r.mesin_emas.disahkan.push({ id: s.sahkan ?? s.dari, urutan: s.urutan, hasil: s.hasil, ...info.get(s.urutan)! })
+  }
+  r.mesin_emas.ditahan = rencana.tahan.map(t => ({ ...t, ...info.get(t.urutan)! }))
+  if (r.mesin_emas.disahkan.length) segarkanPublik()
 }

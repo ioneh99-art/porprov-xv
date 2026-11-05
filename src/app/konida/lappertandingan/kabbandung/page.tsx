@@ -17,6 +17,7 @@ import { urutCaborLangsung, type KeadaanPic } from '@/lib/jalur-lapor'
 import { ringkasJejak, susunJejak, type PartaiJejak, type TahapJejak } from '@/lib/jejak-partai'
 import { NAMA_SUMBER_KONIJABAR, urlLaga, type AlarmBeda } from '@/lib/konijabar'
 import type { InfoKembar } from '@/lib/lapor-kembar'
+import { MESIN_EMAS } from '@/lib/mesin-emas'
 import { judulDisiplin, teksPengisi } from '@/lib/pengisi'
 
 const ACCENT = '#38bdf8'
@@ -39,7 +40,9 @@ interface HasilLuar {
   akhir: 'menang' | 'kalah' | 'seri' | null; url: string | null; partai_id: number | null; laporan_id: number | null; catatan: string | null
   skor_sebelum?: string | null; berubah_at?: string | null
 }
-interface RingkasLuar { terakhir: string; dilewati?: boolean; laga_kita: number; dibaca: number; laporan_baru: number; sudah_dilaporkan: number; tak_terbaca: number; galat: string[] }
+interface RingkasLuar { terakhir: string; dilewati?: boolean; laga_kita: number; dibaca: number; laporan_baru: number; sudah_dilaporkan: number; tak_terbaca: number; galat: string[]
+  mesin_emas?: { disahkan: { id: number; urutan: number; hasil: string; nomor: string | null; atlet: string | null }[]; ditahan: { urutan: number; laporan: number; alasan: string; nomor: string | null; atlet: string | null }[] }
+}
 const WARNA_LUAR = '#c084fc'
 const WARNA_ALARM = '#f87171'
 const AKHIR_TAMPIL: Record<string, string> = { menang: 'menang', kalah: 'kalah', seri: 'seri' }
@@ -195,6 +198,10 @@ export default function PageLapPertandingan() {
   const alarmPerLaporan = useMemo(() => { const m = new Map<number, AlarmBeda[]>(); for (const a of alarmAktif) m.set(a.laporan_id, [...(m.get(a.laporan_id) ?? []), a]); return m }, [alarmAktif])
   const caborLaporan = useMemo(() => new Map(laporan.map(l => [l.id, l.cabor])), [laporan])
   const ditolak = useMemo(() => laporan.filter(l => l.status === 'ditolak'), [laporan])
+  // Medali yang disahkan Mesin Emas (target emas + hasil situs KONI Jabar) — terbaru di atas, bisa dikoreksi.
+  const otomatis = useMemo(() => laporan.filter(l => l.status === 'disahkan' && l.diputus_oleh === MESIN_EMAS)
+    .sort((a, b) => (b.diputus_at ?? '').localeCompare(a.diputus_at ?? '') || b.id - a.id), [laporan])
+  const ditahanMesin = useMemo(() => (luar.ringkas?.mesin_emas?.ditahan ?? []).filter(t => laporan.some(l => l.id === t.laporan && l.status === 'menunggu')), [luar.ringkas, laporan])
   const disahkan = useMemo(() => laporan.filter(l => l.status === 'disahkan'), [laporan])
   const rekapSemua = useMemo(() => rekapMedali(laporan), [laporan])
   const rincian = useMemo(() => rincianMedali(laporan), [laporan])
@@ -441,6 +448,11 @@ export default function PageLapPertandingan() {
           <span className="normal-case tracking-normal font-bold">Periksa lalu sahkan segera — langsung tampil di halaman publik</span>
         </div>
       )}
+      {l.status === 'disahkan' && l.diputus_oleh === MESIN_EMAS && (
+        <p className="mb-2 rounded-lg px-3 py-2 text-xs font-bold" style={{ color: '#e9d5ff', background: `${WARNA_LUAR}1a`, border: `1px solid ${WARNA_LUAR}66` }}>
+          🤖 Disahkan otomatis oleh Mesin Emas {waktuTampil(l.diputus_at)} — nomor target emas KONI & hasil final di situs KONI Jabar cocok. Kalau keliru, pakai tombol Koreksi di bawah.
+        </p>
+      )}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           {l.sumber_luar === 'konijabar' && <TandaLuar ref_luar={l.ref_luar} />}
@@ -532,6 +544,13 @@ export default function PageLapPertandingan() {
               <button onClick={() => putuskan(l.id, { aksi: 'sahkan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"><CheckCircle size={15} /> {medaliTunggu ? `Sahkan medali ${LABEL_HASIL[l.hasil as Hasil].toLowerCase()}` : 'Sahkan'}</button>
               <button onClick={() => { setMemperbaiki(l.id); setKoreksi({ nomor_teks: l.nomor_teks, hasil: l.hasil, peringkat: l.peringkat ? String(l.peringkat) : '', nilai_teks: l.nilai_teks ?? '', tanggal: l.tanggal, lawan: l.lawan ?? '', jam: l.jam ?? '' }) }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"><Pencil size={14} /> Perbaiki</button>
               <button onClick={() => { setMenolak(l.id); setAlasan('') }} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300"><XCircle size={15} /> Tolak</button>
+            </>
+          ) : l.status === 'disahkan' && l.diputus_oleh === MESIN_EMAS ? (
+            <>
+              <span className="self-center text-xs font-black uppercase tracking-wider" style={{ color: WARNA_LUAR }}>Koreksi:</span>
+              <button onClick={() => { if (window.confirm('Batalkan pengesahan? Medali ini keluar dari hitungan dan kembali ke Antrean. Mesin Emas tidak akan mengesahkannya lagi.')) putuskan(l.id, { aksi: 'kembalikan' }) }} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-bold text-slate-200 disabled:opacity-40"><RotateCcw size={13} /> Batalkan sah</button>
+              <button onClick={async () => { if (await putuskan(l.id, { aksi: 'kembalikan' })) { setMemperbaiki(l.id); setKoreksi({ nomor_teks: l.nomor_teks, hasil: l.hasil, peringkat: l.peringkat ? String(l.peringkat) : '', nilai_teks: l.nilai_teks ?? '', tanggal: l.tanggal, lawan: l.lawan ?? '', jam: l.jam ?? '' }) } }} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/50 px-3 py-1.5 text-xs font-bold text-sky-200 disabled:opacity-40"><Pencil size={13} /> Ganti medali / data</button>
+              <button onClick={() => { setMenolak(l.id); setAlasan('') }} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-300 disabled:opacity-40"><XCircle size={13} /> Tolak</button>
             </>
           ) : (
             <button onClick={() => putuskan(l.id, { aksi: 'kembalikan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 disabled:opacity-40"><RotateCcw size={13} /> Kembalikan ke antrean</button>
@@ -695,7 +714,7 @@ export default function PageLapPertandingan() {
                       <li key={b.id} className="text-xs leading-snug">
                         <div className="text-white"><b>{b.cabor}</b> · {b.nomor_teks}</div>
                         <div className="text-slate-300">{b.atlet.length ? b.atlet.join(', ') : 'Nama atlet belum diisi'}</div>
-                        <div className="text-slate-500">{tglTampil(b.tanggal)} · #{b.id}</div>
+                        <div className="text-slate-500">{tglTampil(b.tanggal)} · #{b.id}{laporan.find(x => x.id === b.id)?.diputus_oleh === MESIN_EMAS && <span className="ml-1 font-bold" style={{ color: WARNA_LUAR }}>· 🤖 Mesin Emas</span>}</div>
                         {b.dobel.length > 0 && <div className="mt-0.5 font-bold text-amber-300">⚠ Kemungkinan dobel dengan #{b.dobel.join(', #')} — tolak salah satunya lewat Antrean (Kembalikan → Tolak)</div>}
                       </li>
                     ))}
@@ -766,6 +785,27 @@ export default function PageLapPertandingan() {
 
         {!memuat && tab === 'antrean' && (
           <div className="mt-5 space-y-3">
+            {(otomatis.length > 0 || ditahanMesin.length > 0) && (
+              <div className="rounded-xl px-4 py-3" style={{ background: `${WARNA_LUAR}10`, border: `2px solid ${WARNA_LUAR}66` }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xl" aria-hidden>🤖</span>
+                  <span className="font-black text-white">Mesin Emas</span>
+                  <span className="text-sm text-slate-300">· {otomatis.length} medali target disahkan otomatis{ditahanMesin.length ? ` · ${ditahanMesin.length} ditahan, perlu keputusan KONIDA` : ''}</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Target emas KONI yang hasil finalnya sudah tercatat di situs KONI Jabar langsung disahkan dan tampil di publik. Medali di luar target tetap masuk Antrean seperti biasa.</p>
+                {ditahanMesin.map(t => (
+                  <p key={`${t.urutan}-${t.laporan}`} className="mt-2 rounded-lg px-3 py-2 text-xs font-bold" style={{ color: '#fde68a', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.4)' }}>
+                    ⏸ Target #{t.urutan} {t.nomor ?? ''}{t.atlet ? ` · ${t.atlet}` : ''} (laporan #{t.laporan}): {t.alasan}
+                  </p>
+                ))}
+                {otomatis.length > 0 && (
+                  <details className="mt-3" open={otomatis.length <= 3}>
+                    <summary className="cursor-pointer text-sm font-bold" style={{ color: WARNA_LUAR }}>Medali yang disahkan mesin ({otomatis.length}) · tombol Koreksi ada di tiap kartu</summary>
+                    <div className="mt-3 space-y-3">{otomatis.map(kartuLaporan)}</div>
+                  </details>
+                )}
+              </div>
+            )}
             {menunggu.length === 0 && (
               <div className={`${kartu} p-8 text-center`}>
                 <p className="text-slate-300 font-bold">Tidak ada laporan yang menunggu.</p>

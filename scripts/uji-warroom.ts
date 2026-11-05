@@ -57,6 +57,10 @@ cek('misi: gugur = meleset', sm.find(m => m.urutan === 3)?.status, 'meleset')
 cek('misi: kalah di pool = masih berjalan', statusMisi([PR(3, 71, 'Kyorugi -54 kg (Pa)')], [{ ...LAP[2], hasil: 'kalah' }], new Set()).map(m => m.status), ['berjalan'])
 cek('misi: cabor sedang main = berjalan', sm.find(m => m.urutan === 4)?.status, 'berjalan')
 cek('misi: laporan tanggal lain tidak dipakai', statusMisi([PR(9, 25, 'X', '2026-11-06')], LAP, new Set()).map(m => m.status), ['belum'])
+cek('misi: 62 kg tidak dipakai target 52 kg walau kata lain sama', statusMisi([PR(2, 25, 'Bebas - Kelas s/d 52 Kg')], [{ id: 21, cabor_id: 25, tanggal: '2026-11-05', hasil: 'perak', nomor_teks: 'Bebas - Kelas s/d 62 Kg (Pi)' }], new Set()).map(m => [m.status, m.laporan_id]), [['belum', null]])
+cek('misi: jadwal bergeser 1 hari, nomor cocok ketat → tetap terhitung', statusMisi([PR(2, 25, 'Bebas - Kelas s/d 52 Kg')], [{ id: 22, cabor_id: 25, tanggal: '2026-11-06', hasil: 'emas', nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pa)' }], new Set()).map(m => [m.status, m.laporan_id]), [['emas', 22]])
+cek('misi: bergeser 3 hari → tidak', statusMisi([PR(2, 25, 'Bebas - Kelas s/d 52 Kg')], [{ id: 23, cabor_id: 25, tanggal: '2026-11-08', hasil: 'emas', nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pa)' }], new Set()).map(m => m.status), ['belum'])
+cek('misi: emas 62 kg tidak jadi "emas sisa" target 52 kg', statusMisi([PR(2, 25, 'Bebas - Kelas s/d 52 Kg')], [{ id: 24, cabor_id: 25, tanggal: '2026-11-05', hasil: 'emas', nomor_teks: 'Bebas - Kelas s/d 62 Kg (Pi)' }], new Set()).map(m => m.status), ['belum'])
 cek('misi: emas tanpa nama cocok dibagi berurutan, sekali pakai', statusMisi([PR(1, 25, 'A'), PR(2, 25, 'B')], [{ id: 1, cabor_id: 25, tanggal: '2026-11-05', hasil: 'emas', nomor_teks: 'zzz' }], new Set()).map(m => m.status), ['emas', 'belum'])
 
 // ── arena ──
