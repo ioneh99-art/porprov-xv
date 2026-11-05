@@ -305,6 +305,7 @@ export default function HalamanLapor() {
                 sesiHabis={pesan => { setTahap('masuk'); setGalat(pesan) }}
                 peng={peng}
                 pemilikKode={jalurKonida ? undefined : bahan.pic.nama}
+                onLapor={p => { setMode('hasil'); setGalat(''); isiDariPartai(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
               />
             )}
 

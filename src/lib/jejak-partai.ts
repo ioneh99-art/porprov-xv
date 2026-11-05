@@ -18,8 +18,10 @@ export type TahapJejak = 'belum' | 'menunggu' | 'disahkan' | 'ditolak'
 export interface BarisJejak<P extends PartaiJejak, L extends LaporanJejak> {
   kunci: string; tanggal: string; cabor_id: number; jam: string | null
   partai: P | null; laporan: L[]; tahap: TahapJejak
-  /** Partai yang tanggalnya sudah lewat/hari ini tapi belum ada laporan sama sekali. */
+  /** Partai yang jam mainnya sudah lewat tapi belum ada laporan sama sekali. */
   perluLaporan: boolean
+  /** Sudah dilaksanakan (jam lewat, sudah dilaporkan, atau berstatus Selesai) — tampil di Jejak; sisanya "Akan Datang". */
+  sudahMain: boolean
 }
 
 const baku = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -48,7 +50,11 @@ export function tahapDari(laporan: { status: string }[]): TahapJejak {
  * ada), lalu lawan yang sama, lalu SATU-SATUNYA partai cabor itu di tanggal tersebut. Sisanya tampil sebagai
  * baris tersendiri (laporan tanpa partai di jadwal) — tidak ada yang hilang.
  */
-export function susunJejak<P extends PartaiJejak, L extends LaporanJejak>(partai: P[], laporan: L[], hariIni: string): BarisJejak<P, L>[] {
+export function susunJejak<P extends PartaiJejak, L extends LaporanJejak>(partai: P[], laporan: L[], hariIni: string, jamKini?: string): BarisJejak<P, L>[] {
+  // Jam main sudah lewat: tanggal sebelum hari ini, atau hari ini dan jamnya sudah lewat.
+  // Hari ini tanpa jam: dianggap belum lewat sampai besok. Tanpa jamKini: per tanggal saja.
+  const lewat = (tanggal: string, jam: string | null) =>
+    tanggal < hariIni || (tanggal === hariIni && (jamKini == null || (!!jam && jam.slice(0, 5) <= jamKini)))
   const per = new Map<number, L[]>()
   const lepas: L[] = []
   const byId = new Map(partai.map(p => [p.id, p]))
@@ -68,12 +74,14 @@ export function susunJejak<P extends PartaiJejak, L extends LaporanJejak>(partai
   const baris: BarisJejak<P, L>[] = partai.map(p => {
     const lap = (per.get(p.id) ?? []).sort(urutLap)
     const tahap = tahapDari(lap)
+    const jamLewat = lewat(p.tanggal, p.jam)
     return {
       kunci: `p${p.id}`, tanggal: p.tanggal, cabor_id: p.cabor_id, jam: p.jam, partai: p, laporan: lap, tahap,
-      perluLaporan: tahap === 'belum' && p.tanggal <= hariIni && p.status !== 'batal' && p.status !== 'ditunda',
+      perluLaporan: tahap === 'belum' && jamLewat && p.status !== 'batal' && p.status !== 'ditunda',
+      sudahMain: jamLewat || lap.length > 0 || p.status === 'selesai',
     }
   })
-  for (const l of lepas) baris.push({ kunci: `l${l.id}`, tanggal: l.tanggal, cabor_id: l.cabor_id, jam: l.jam ?? null, partai: null, laporan: [l], tahap: tahapDari([l]), perluLaporan: false })
+  for (const l of lepas) baris.push({ kunci: `l${l.id}`, tanggal: l.tanggal, cabor_id: l.cabor_id, jam: l.jam ?? null, partai: null, laporan: [l], tahap: tahapDari([l]), perluLaporan: false, sudahMain: true })
   return baris.sort((a, b) => a.tanggal.localeCompare(b.tanggal) || (a.jam ?? '99').localeCompare(b.jam ?? '99') || a.cabor_id - b.cabor_id || a.kunci.localeCompare(b.kunci))
 }
 

@@ -36,5 +36,18 @@ cek('laporan terbaru di depan', susunJejak([P({})], [L({ id: 1, status: 'ditolak
 cek('ringkas', ringkasJejak(susunJejak([P({}), P({ id: 2, lawan: 'X', jam: '09:00' }), P({ id: 3, lawan: 'Y', jam: '10:00' })], [L({ partai_id: 2, status: 'disahkan' }), L({ id: 2, partai_id: 3 })], '2026-10-31')),
   { partai: 3, disahkan: 1, menunggu: 1, ditolak: 0, perluLaporan: 1 })
 
+// Jam main (6 Nov 2026: jadwal 08.00 dibuka tengah malam tidak boleh oranye)
+{ const pp = [P({ id: 1, tanggal: '2026-11-06', jam: '08:00' }), P({ id: 2, tanggal: '2026-11-05', jam: '08:00' }), P({ id: 3, tanggal: '2026-11-06', jam: null }), P({ id: 4, tanggal: '2026-11-06', jam: '08:00', status: 'selesai' })]
+  const tengahMalam = susunJejak(pp, [], '2026-11-06', '00:10')
+  cek('00.10: jadwal 08.00 hari ini belum main & tidak oranye', tengahMalam.filter(b => b.tanggal === '2026-11-06' && b.partai!.id === 1).map(b => [b.sudahMain, b.perluLaporan]), [[false, false]])
+  cek('00.10: jadwal kemarin oranye & sudah main', tengahMalam.filter(b => b.partai!.id === 2).map(b => [b.sudahMain, b.perluLaporan]), [[true, true]])
+  cek('hari ini tanpa jam: belum main', tengahMalam.filter(b => b.partai!.id === 3).map(b => b.sudahMain), [false])
+  cek('berstatus Selesai: ikut Jejak', tengahMalam.filter(b => b.partai!.id === 4).map(b => b.sudahMain), [true])
+  const pagi = susunJejak(pp, [], '2026-11-06', '08:00')
+  cek('08.00: jadwal 08.00 sudah main & oranye', pagi.filter(b => b.partai!.id === 1).map(b => [b.sudahMain, b.perluLaporan]), [[true, true]])
+  cek('jam berdetik (08:00:00) tetap dibaca', susunJejak([P({ id: 9, tanggal: '2026-11-06', jam: '08:00:00' })], [], '2026-11-06', '08:00')[0].sudahMain, true)
+  const lapor = susunJejak([P({ id: 1, tanggal: '2026-11-06', jam: '20:00' })], [L({ partai_id: 1, tanggal: '2026-11-06' })], '2026-11-06', '09:00')
+  cek('sudah dilaporkan sebelum jamnya: ikut Jejak', lapor[0].sudahMain, true) }
+
 console.log(`uji-jejak-partai: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

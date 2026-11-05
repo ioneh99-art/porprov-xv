@@ -7,7 +7,7 @@
 // Semua data lewat rute server — tidak ada yang disimpan di peramban.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle, ClipboardList, ListChecks, Copy, Download, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle, ChevronDown, ClipboardList, ListChecks, Copy, Download, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
 import { HASIL, LABEL_HASIL, kodePicKembar, urutAntrean, adalahMedali, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, rincianMedali, kunciMedali, tulisHasil, type Hasil, type JenisMedali } from '@/lib/lapor'
 import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
@@ -68,6 +68,7 @@ const aman = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&
 const kotak = 'w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-400'
 const kartu = 'rounded-xl border border-slate-800 bg-slate-900/60'
 const hariIniWIB = () => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10)
+const jamWIB = () => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(11, 16)
 const waktuTampil = (ts: string | null | undefined) => ts ? `${tglLaporTampil(ts)} ${jamTampil(ts)}` : ''
 const GAYA_TAHAP: Record<TahapJejak | 'perlu', { teks: string; warna: string }> = {
   disahkan: { teks: '✓ Disahkan', warna: '#34d399' },
@@ -88,7 +89,12 @@ function TandaLuar({ ref_luar, kecil }: { ref_luar?: string | null; kecil?: bool
 }
 
 export default function PageLapPertandingan() {
-  const [tab, setTab] = useState<'antrean' | 'jejak' | 'catatan' | 'jurnal' | 'cabor' | 'kode' | 'langsung'>('antrean')
+  const [tab, setTab] = useState<'antrean' | 'jejak' | 'datang' | 'catatan' | 'jurnal' | 'cabor' | 'kode' | 'langsung'>('antrean')
+  // Rincian medali & beda data dilipat secara bawaan — dibuka bila perlu.
+  const [bukaMedali, setBukaMedali] = useState(false)
+  const [bukaAlarm, setBukaAlarm] = useState(false)
+  const [jamKini, setJamKini] = useState(jamWIB)
+  useEffect(() => { const t = setInterval(() => setJamKini(jamWIB()), 60_000); return () => clearInterval(t) }, [])
   const [partaiJadwal, setPartaiJadwal] = useState<PartaiJejak[]>([])
   const [caborPartai, setCaborPartai] = useState<{ id: number; nama: string }[]>([])
   const [tanggalJejak, setTanggalJejak] = useState<string | null>(null)
@@ -245,12 +251,20 @@ export default function PageLapPertandingan() {
     for (const l of laporan) m.set(l.cabor_id, l.cabor)
     return m
   }, [caborPartai, cabor, laporan])
-  const jejak = useMemo(() => susunJejak(partaiJadwal, laporan, hariIni), [partaiJadwal, laporan, hariIni])
+  const jejakSemua = useMemo(() => susunJejak(partaiJadwal, laporan, hariIni, jamKini), [partaiJadwal, laporan, hariIni, jamKini])
+  // Jejak = pertandingan yang sudah dilaksanakan; Akan Datang = yang belum (dipisah supaya tidak bercampur).
+  const jejak = useMemo(() => jejakSemua.filter(b => b.sudahMain), [jejakSemua])
+  const akanDatang = useMemo(() => jejakSemua.filter(b => !b.sudahMain && b.partai?.status !== 'batal'), [jejakSemua])
   const perluLaporan = useMemo(() => jejak.filter(b => b.perluLaporan).length, [jejak])
   const tanggalJejakList = useMemo(() => Array.from(new Set(jejak.map(b => b.tanggal))).sort(), [jejak])
   const tglJejakAktif = tanggalJejak && tanggalJejakList.includes(tanggalJejak) ? tanggalJejak
-    : tanggalJejakList.includes(hariIni) ? hariIni : (tanggalJejakList.find(t => t >= hariIni) ?? tanggalJejakList[tanggalJejakList.length - 1] ?? hariIni)
+    : tanggalJejakList.includes(hariIni) ? hariIni : (tanggalJejakList[tanggalJejakList.length - 1] ?? hariIni)
   const jejakHari = useMemo(() => jejak.filter(b => b.tanggal === tglJejakAktif), [jejak, tglJejakAktif])
+  const datangPerTanggal = useMemo(() => {
+    const m = new Map<string, typeof akanDatang>()
+    for (const b of akanDatang) m.set(b.tanggal, [...(m.get(b.tanggal) ?? []), b])
+    return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [akanDatang])
   const jurnal = useMemo(() => disahkan.filter(l => l.tanggal === tanggalAktif).sort((a, b) => a.created_at.localeCompare(b.created_at)), [disahkan, tanggalAktif])
   const rekapHari = useMemo(() => rekapMedali(jurnal), [jurnal])
 
@@ -689,11 +703,14 @@ export default function PageLapPertandingan() {
 
         {rekapSemua.total > 0 && (
           <div className={`${kartu} mt-3 p-4`}>
-            <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setBukaMedali(v => !v)} aria-expanded={bukaMedali} className="w-full flex items-center gap-2 flex-wrap text-left">
               <Trophy size={16} style={{ color: WARNA.emas }} />
               <span className="font-black text-white">Asal {rekapSemua.total} medali</span>
               <span className="text-xs text-slate-400">· hanya yang sudah disahkan</span>
-            </div>
+              <span className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-bold text-slate-200">
+                {bukaMedali ? 'Sembunyikan' : 'Lihat peraih medali'} <ChevronDown size={14} className={bukaMedali ? 'rotate-180' : ''} />
+              </span>
+            </button>
             <div className="mt-2 flex flex-wrap gap-2">
               {rincian.cabor.map(c => (
                 <span key={c.cabor} className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs text-slate-200">
@@ -704,7 +721,7 @@ export default function PageLapPertandingan() {
                 </span>
               ))}
             </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {bukaMedali && <div className="mt-3 grid gap-3 md:grid-cols-3">
               {(['emas', 'perak', 'perunggu'] as JenisMedali[]).map(j => (
                 <div key={j} className="rounded-lg bg-slate-950/50 px-3 py-2" style={{ borderLeft: `3px solid ${WARNA[j]}` }}>
                   <div className="text-sm font-black" style={{ color: WARNA[j] }}>{j === 'emas' ? '🥇' : j === 'perak' ? '🥈' : '🥉'} {rincian.daftar[j].length} {LABEL_HASIL[j]}</div>
@@ -721,7 +738,7 @@ export default function PageLapPertandingan() {
                   </ol>
                 </div>
               ))}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -732,11 +749,14 @@ export default function PageLapPertandingan() {
               <span className="flex-1 text-sm font-black" style={{ color: '#fecaca' }}>
                 {alarmAktif.length ? `${alarmAktif.length} laga BEDA DATA dengan situs KONI Jabar` : 'Tidak ada beda data yang belum dicek'}
               </span>
+              <button onClick={() => setBukaAlarm(v => !v)} aria-expanded={bukaAlarm} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-bold text-slate-200">
+                {bukaAlarm ? 'Sembunyikan' : 'Lihat rinciannya'} <ChevronDown size={14} className={bukaAlarm ? 'rotate-180' : ''} />
+              </button>
               {luar.alarm.some(a => a.dicek) && (
                 <button onClick={() => setLihatDicek(v => !v)} className="text-xs text-slate-400 underline underline-offset-2">{lihatDicek ? 'Sembunyikan yang sudah dicek' : `Lihat yang sudah dicek (${luar.alarm.filter(a => a.dicek).length})`}</button>
               )}
             </div>
-            <div className="mt-2 space-y-2">
+            {bukaAlarm && <><div className="mt-2 space-y-2">
               {(lihatDicek ? luar.alarm : alarmAktif).map(a => (
                 <div key={a.kunci} className={`rounded-lg bg-slate-950/60 border border-slate-800 px-3 py-2 text-sm ${a.dicek ? 'opacity-60' : ''}`}>
                   <div className="text-white font-bold">{caborLaporan.get(a.laporan_id) ?? 'Laga'}{a.tanggal ? ` · ${tglTampil(a.tanggal)}` : ''}</div>
@@ -750,7 +770,7 @@ export default function PageLapPertandingan() {
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-slate-400 mt-2">Perbaiki laporan yang salah lewat Antrean (kembalikan dulu bila sudah disahkan). Kalau yang keliru situs panitia, laporkan ke panitia lalu tandai sudah dicek.</p>
+            <p className="text-[11px] text-slate-400 mt-2">Perbaiki laporan yang salah lewat Antrean (kembalikan dulu bila sudah disahkan). Kalau yang keliru situs panitia, laporkan ke panitia lalu tandai sudah dicek. Gugur dan Kalah dianggap sama.</p></>}
           </div>
         )}
 
@@ -773,6 +793,7 @@ export default function PageLapPertandingan() {
         <div className="flex gap-2 mt-6 flex-wrap">
           <TombolTab id="antrean" label={medaliMenunggu.length ? `Antrean · 🏅${medaliMenunggu.length}` : 'Antrean'} jumlah={menunggu.length} Ikon={ClipboardList} />
           <TombolTab id="jejak" label="Jejak Pertandingan" jumlah={perluLaporan} Ikon={ListChecks} />
+          <TombolTab id="datang" label={`Akan Datang${akanDatang.length ? ` · ${akanDatang.length}` : ''}`} Ikon={CalendarClock} />
           <TombolTab id="catatan" label="Catatan Lapangan" jumlah={catatanBaru.length} Ikon={AlertTriangle} />
           <TombolTab id="jurnal" label="Jurnal Harian" Ikon={Trophy} />
           <TombolTab id="cabor" label="Laporan Cabor" Ikon={FileText} />
@@ -837,7 +858,7 @@ export default function PageLapPertandingan() {
 
         {!memuat && tab === 'jejak' && (
           <div className="mt-5">
-            <p className="text-sm text-slate-400">Setiap pertandingan di jadwal beserta jejaknya: sudah dilaporkan atau belum, siapa yang melapor, dan siapa yang mengesahkan. Laporan cabor tanpa jadwal pertandingan juga ikut tampil di tanggalnya.</p>
+            <p className="text-sm text-slate-400">Pertandingan yang <b className="text-slate-200">sudah dilaksanakan</b> (jam mainnya sudah lewat) beserta jejaknya: sudah dilaporkan atau belum, siapa yang melapor, dan siapa yang mengesahkan. Laporan cabor tanpa jadwal pertandingan juga ikut tampil di tanggalnya. Pertandingan yang belum dimulai ada di tab <button onClick={() => setTab('datang')} className="font-bold text-sky-300 underline underline-offset-2">Akan Datang</button>.</p>
             <div className="flex gap-2 overflow-x-auto pb-2 mt-3">
               {tanggalJejakList.map(t => {
                 const r = ringkasJejak(jejak.filter(b => b.tanggal === t)), aktif = t === tglJejakAktif
@@ -857,7 +878,7 @@ export default function PageLapPertandingan() {
               })}
             </div>
             <div className="mt-3 space-y-2.5">
-              {jejakHari.length === 0 && <div className={`${kartu} p-8 text-center text-slate-400`}>Belum ada pertandingan atau laporan di tanggal ini.</div>}
+              {jejakHari.length === 0 && <div className={`${kartu} p-8 text-center text-slate-400`}>Belum ada pertandingan yang sudah dilaksanakan di tanggal ini.</div>}
               {jejakHari.map(b => {
                 const p = b.partai as (PartaiJejak & { dibuat_oleh?: string | null; diubah_oleh?: string | null; updated_at?: string | null }) | null
                 const g = GAYA_TAHAP[b.perluLaporan ? 'perlu' : b.tahap]
@@ -881,7 +902,7 @@ export default function PageLapPertandingan() {
                       {p && (
                         <div className="text-xs text-slate-500 mt-1.5">
                           Status jadwal: <b className="text-slate-300">{LABEL_STATUS_PARTAI[p.status] ?? p.status}</b>
-                          {p.diubah_oleh ? <> · terakhir diubah <b className="text-slate-300">{p.diubah_oleh}</b> {waktuTampil(p.updated_at)}</> : p.dibuat_oleh ? <> · dibuat {p.dibuat_oleh}</> : null}
+                          {p.diubah_oleh ? <> · jadwal terakhir diubah <b className="text-slate-300">{p.diubah_oleh}</b> {waktuTampil(p.updated_at)}</> : p.dibuat_oleh ? <> · jadwal dibuat {p.dibuat_oleh}</> : null}
                         </div>
                       )}
                       {b.laporan.length === 0 && b.perluLaporan && p && (
@@ -916,6 +937,39 @@ export default function PageLapPertandingan() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {!memuat && tab === 'datang' && (
+          <div className="mt-5">
+            <p className="text-sm text-slate-400">Pertandingan yang <b className="text-slate-200">belum dimulai</b>, urut tanggal dan jam. Begitu jam mainnya lewat, pertandingan pindah ke Jejak Pertandingan untuk dilaporkan hasilnya.</p>
+            {datangPerTanggal.length === 0 && <div className={`${kartu} mt-3 p-8 text-center text-slate-400`}>Tidak ada pertandingan terjadwal yang belum dimulai.</div>}
+            <div className="mt-3 space-y-5">
+              {datangPerTanggal.map(([tgl, daftar]) => (
+                <div key={tgl}>
+                  <div className="text-xs font-black text-sky-300 mb-2">{tglTampil(tgl)}{tgl === hariIni ? ' · HARI INI' : ''} · {daftar.length} pertandingan</div>
+                  <div className="space-y-2">
+                    {daftar.map(b => {
+                      const p = b.partai as (PartaiJejak & { dibuat_oleh?: string | null; diubah_oleh?: string | null; updated_at?: string | null }) | null
+                      if (!p) return null
+                      return (
+                        <div key={b.kunci} className={`${kartu} px-4 py-3 flex gap-3 md:gap-4`} style={{ borderLeft: '4px solid #475569' }}>
+                          <div className="w-12 shrink-0 text-white font-black tabular-nums">{b.jam?.slice(0, 5) ?? '—'}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2 flex-wrap">
+                              <div className="font-bold text-white">{namaCaborJejak.get(b.cabor_id) ?? `Cabor ${b.cabor_id}`} <span className="font-normal text-slate-300">· {p.nomor_teks}</span></div>
+                              <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-black text-slate-300" style={{ background: '#64748b1a', border: '1px solid #64748b55' }}>{p.status === 'ditunda' ? 'Ditunda' : p.status === 'berlangsung' ? 'Sedang bertanding' : 'Belum bertanding'}</span>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">{[p.babak, p.lawan ? `vs ${p.lawan}` : null, p.venue].filter(Boolean).join(' · ')}</div>
+                            {(p.diubah_oleh || p.dibuat_oleh) && <div className="text-[11px] text-slate-500 mt-1">Jadwal {p.diubah_oleh ? <>terakhir diubah {p.diubah_oleh} {waktuTampil(p.updated_at)}</> : <>dibuat {p.dibuat_oleh}</>}</div>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

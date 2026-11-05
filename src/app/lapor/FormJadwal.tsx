@@ -25,7 +25,7 @@ const tglTampil = (t: string) => { const d = new Date(t + 'T00:00:00Z'); return 
 
 interface Isian { tanggal: string; jam: string; nomorTeks: string; nomor: NomorJadwal | null; babak: string; atlet: number[]; lawan: string; venue: string; keterangan: string; status: StatusPartai }
 
-export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiHabis, peng, pemilikKode }: {
+export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiHabis, peng, pemilikKode, onLapor }: {
   nomor: NomorJadwal[]
   atlet: { id: number; nama: string }[]
   partai: PartaiSaya[]
@@ -34,6 +34,8 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
   sesiHabis: (pesan: string) => void
   peng: ReturnType<typeof usePengisi>
   pemilikKode?: string
+  /** Buka formulir lapor hasil untuk partai ini (status Selesai terisi otomatis setelah hasil dikirim). */
+  onLapor: (p: PartaiSaya) => void
 }) {
   const hariIni = tanggalWIB()
   const venueSaran = useMemo(() => Array.from(new Set(kegiatan.flatMap(k => (k.venue ?? '').split(/ \| | \/ /)).map(v => v.trim()).filter(Boolean))), [kegiatan])
@@ -236,7 +238,7 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
             <div>
               <div className={judulIsian}>Status</div>
               <div className="grid grid-cols-3 gap-2">
-                {STATUS_PARTAI.map(st => (
+                {STATUS_PARTAI.filter(st => st !== 'selesai' || buka.isi.status === 'selesai').map(st => (
                   <button key={st} type="button" onClick={() => ganti('status', st)} aria-pressed={buka.isi.status === st}
                     className="rounded-xl border-2 px-2 py-2.5 text-xs font-black"
                     style={{ borderColor: buka.isi.status === st ? WARNA_STATUS_PARTAI[st] : '#334155', color: buka.isi.status === st ? WARNA_STATUS_PARTAI[st] : '#cbd5e1', background: buka.isi.status === st ? WARNA_STATUS_PARTAI[st] + '22' : 'transparent' }}>
@@ -244,6 +246,7 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
                   </button>
                 ))}
               </div>
+              {buka.isi.status !== 'selesai' && <p className="mt-1.5 text-[11px] text-slate-400">Status “Selesai” terisi sendiri setelah hasilnya dilaporkan.</p>}
             </div>
           )}
 
@@ -293,7 +296,10 @@ export default function FormJadwal({ nomor, atlet, partai, kegiatan, muat, sesiH
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button type="button" onClick={() => bukaUbah(p)} className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-bold text-slate-200">Ubah</button>
-                      {(['berlangsung', 'ditunda', 'selesai'] as const).filter(st => st !== p.status).map(st => (
+                      {p.status !== 'selesai' && p.status !== 'batal' && p.tanggal <= hariIni && (
+                        <button type="button" onClick={() => onLapor(p)} className="rounded-lg bg-emerald-400 px-3 py-1.5 text-xs font-black text-slate-950">Laporkan hasil</button>
+                      )}
+                      {(['berlangsung', 'ditunda'] as const).filter(st => st !== p.status && p.status !== 'selesai').map(st => (
                         <button key={st} type="button" disabled={sibuk} onClick={() => ubahStatus(p, st)}
                           className="rounded-lg border px-3 py-1.5 text-xs font-bold" style={{ borderColor: WARNA_STATUS_PARTAI[st] + '80', color: WARNA_STATUS_PARTAI[st] }}>
                           {st === 'berlangsung' ? 'Sedang main' : LABEL_STATUS_PARTAI[st]}

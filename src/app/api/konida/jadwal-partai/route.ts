@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { periksaPartai, urutPartai } from '@/lib/jadwal-partai'
-import { KOLOM_PARTAI, segarkanPublik } from '@/lib/partai-server'
+import { KOLOM_PARTAI, segarkanPublik, tolakSelesaiTanpaHasil } from '@/lib/partai-server'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { writeAudit, reqMeta } from '@/lib/audit'
 
@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
   if (!Number.isInteger(caborId) || caborId <= 0) return NextResponse.json({ error: 'Pilih cabornya.' }, { status: 400 })
   const cek = periksaPartai(mentah, false)
   if ('galat' in cek) return NextResponse.json({ error: cek.galat }, { status: 422 })
+  const selesai = await tolakSelesaiTanpaHasil(null, (cek.isi as any).status, null)
+  if (selesai) return NextResponse.json({ error: selesai, perlu_hasil: true }, { status: 409 })
   const db = dbLapor()
   const { data: c } = await db.from('cabang_olahraga').select('id').eq('id', caborId).maybeSingle()
   if (!c) return NextResponse.json({ error: 'Cabor tidak dikenali.' }, { status: 400 })
@@ -77,6 +79,8 @@ export async function PATCH(req: NextRequest) {
   // Nomor diketik ulang oleh admin: tautan ke daftar resmi dilepas supaya tidak menyesatkan.
   const isi: any = { ...cek.isi }
   if ('nomor_teks' in isi && isi.nomor_teks !== (lama as any).nomor_teks) { isi.disiplin = null; isi.nomor_resmi = null }
+  const selesai = await tolakSelesaiTanpaHasil(id, isi.status, (lama as any).status)
+  if (selesai) return NextResponse.json({ error: selesai, perlu_hasil: true }, { status: 409 })
   const { data, error } = await db.from('jadwal_partai')
     .update({ ...isi, diubah_oleh: a.nama, updated_at: new Date().toISOString() }).eq('id', id).select(KOLOM_PARTAI).single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

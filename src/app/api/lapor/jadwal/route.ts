@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { periksaPartai } from '@/lib/jadwal-partai'
-import { KOLOM_PARTAI, cocokkanPartai, segarkanPublik } from '@/lib/partai-server'
+import { KOLOM_PARTAI, cocokkanPartai, segarkanPublik, tolakSelesaiTanpaHasil } from '@/lib/partai-server'
 import { ambilSesiLapor, dbLapor } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { writeAudit, reqMeta } from '@/lib/audit'
@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
   const cek = periksaPartai(mentah, false)
   if ('galat' in cek) return NextResponse.json({ error: cek.galat }, { status: 422 })
   const isi: any = cek.isi
+  const selesai = await tolakSelesaiTanpaHasil(null, isi.status, null)
+  if (selesai) return NextResponse.json({ error: selesai, perlu_hasil: true }, { status: 409 })
   const salah = await cocokkanPartai(s!.kontingen_id, s!.cabor_id, mentah, isi, s!.disiplin)
   if (salah) return NextResponse.json({ error: salah }, { status: 403 })
 
@@ -77,6 +79,8 @@ export async function PATCH(req: NextRequest) {
   const cek = periksaPartai(isian, true)
   if ('galat' in cek) return NextResponse.json({ error: cek.galat }, { status: 422 })
   const isi: any = cek.isi
+  const selesai = await tolakSelesaiTanpaHasil(lama.id, isi.status, lama.status)
+  if (selesai) return NextResponse.json({ error: selesai, perlu_hasil: true }, { status: 409 })
   const salah = await cocokkanPartai(s!.kontingen_id, s!.cabor_id, isian, isi, s!.disiplin)
   if (salah) return NextResponse.json({ error: salah }, { status: 403 })
 

@@ -4,10 +4,24 @@
 
 import { revalidatePath } from 'next/cache'
 import { rapikan, tulisNomorResmi } from './pendaftaran'
-import { atletCabor, pendaftaranCabor } from './lapor-sesi'
+import { atletCabor, dbLapor, pendaftaranCabor } from './lapor-sesi'
 import type { IsiPartai } from './jadwal-partai'
 
 export const KOLOM_PARTAI = 'id,kontingen_id,cabor_id,tanggal,jam,nomor_teks,disiplin,nomor_resmi,babak,atlet_ids,lawan,venue,status,keterangan,sumber,akses_id,dibuat_oleh,diubah_oleh,updated_at'
+
+export const PESAN_SELESAI_TANPA_HASIL = 'Status "Selesai" baru bisa dipakai setelah hasil pertandingan ini dilaporkan. Laporkan hasilnya dulu — statusnya otomatis jadi Selesai.'
+
+/**
+ * "Selesai" hanya untuk partai yang hasilnya sudah dilaporkan (laporan yang tidak ditolak).
+ * Status ini terisi otomatis saat hasil dikirim; memilihnya manual tanpa hasil membuat
+ * partai hilang dari formulir lapor dan seolah-olah sudah dilaporkan. Null = boleh.
+ */
+export async function tolakSelesaiTanpaHasil(partaiId: number | null, statusBaru: unknown, statusLama: string | null): Promise<string | null> {
+  if (statusBaru !== 'selesai' || statusLama === 'selesai') return null
+  if (partaiId == null) return PESAN_SELESAI_TANPA_HASIL
+  const { count } = await dbLapor().from('laporan_hasil').select('id', { count: 'exact', head: true }).eq('partai_id', partaiId).neq('status', 'ditolak')
+  return count ? null : PESAN_SELESAI_TANPA_HASIL
+}
 
 /** Halaman publik langsung memuat perubahan; bila gagal, cukup menunggu cache satu menit. */
 export function segarkanPublik() {
