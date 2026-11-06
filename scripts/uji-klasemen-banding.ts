@@ -1,6 +1,7 @@
 // scripts/uji-klasemen-banding.ts — klasemen situs KONI Jabar vs data kita (War Room).
 // Dijalankan: npm run uji:klasemen-banding
 import { bandingKlasemen, klasemenDisesuaikan } from '../src/lib/klasemen-banding'
+import { bacaKlasemenKotaBdg } from '../src/lib/klasemen-kotabdg'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -43,6 +44,26 @@ const JALAN = [
   cek('urut ulang dengan data kita', k.map(r => r.nama), ['Kota Bandung', 'Kab. Bandung', 'Kab. Bogor', 'Kab. Bandung Barat'])
   cek('kontingen lain tidak berubah', k.find(r => r.nama === 'Kota Bandung')?.emas, 10) }
 cek('Kab. Bandung tidak ada di situs → ditambahkan', klasemenDisesuaikan([{ nama: 'Kota Bandung', emas: 1, perak: 0, perunggu: 0 }], { emas: 2, perak: 0, perunggu: 0 }).map(r => r.nama), ['Kab. Bandung', 'Kota Bandung'])
+
+// ── Situs KONI Kota Bandung (rekap sementara) — potongan HTML asli 6 Nov ──
+const tr = (no: number, kode: string, nama: string, e: number, p: number, b: number) => `<tr>
+  <td class="klasemen-center">${no}</td>
+  <td>
+      <span class="klasemen-code">${kode}</span>
+      ${nama}                            </td>
+  <td class="klasemen-center">${e}</td><td class="klasemen-center">${p}</td><td class="klasemen-center">${b}</td>
+  <td class="klasemen-center"><strong>${e + p + b}</strong></td>
+  <td class="klasemen-center"><a href="https://koni-kotabandung.or.id/klasemen_detail/${kode}">Lihat</a></td></tr>`
+const HTML_KB = `<table><thead><tr><th>No.</th><th>Kontingen</th></tr></thead><tbody>${[
+  tr(1, '001', 'Kota Bandung', 13, 15, 14), tr(6, '028', 'Kab. Bandung Barat', 5, 2, 5), tr(7, '023', 'Kab. Karawangan', 3, 4, 4),
+  tr(9, '007', 'Kab. Bandung', 2, 3, 13), tr(26, '016', 'KBB', 0, 0, 0),
+].join('')}</tbody></table>`
+const KB = bacaKlasemenKotaBdg(HTML_KB)
+cek('kota bdg: baris terbaca, KBB kosong dibuang', KB.map(b => b.nama), ['Kota Bandung', 'Kab. Bandung Barat', 'Kab. Karawang', 'Kab. Bandung'])
+cek('kota bdg: angka Kab. Bandung', KB.find(b => b.nama === 'Kab. Bandung'), { kode: '007', nama: 'Kab. Bandung', emas: 2, perak: 3, perunggu: 13 })
+cek('kota bdg: Kab. Bandung diganti data kita, KBB tidak ikut terganti',
+  klasemenDisesuaikan(KB, { emas: 8, perak: 3, perunggu: 12 }).map(r => `${r.peringkat}:${r.nama}:${r.emas}`), ['1:Kota Bandung:13', '2:Kab. Bandung:8', '3:Kab. Bandung Barat:5', '4:Kab. Karawang:3'])
+cek('kota bdg: halaman tanpa tabel = kosong', bacaKlasemenKotaBdg('<html>galat</html>'), [])
 
 console.log(`\nuji-klasemen-banding: ${lulus} lulus, ${gagal} gagal`)
 if (gagal > 0) process.exit(1)

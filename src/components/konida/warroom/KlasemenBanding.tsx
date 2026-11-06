@@ -1,9 +1,8 @@
 'use client'
-// KlasemenBanding — klasemen medali menurut situs resmi KONI Jabar, dengan sakelar
-// "Disesuaikan data kita" (angka Kab. Bandung dari laporan yang disahkan KONIDA), sakelar
-// "Rekap sementara" (kontingen lain dari potret terbaru tabel klasemen_sementara, Kab. Bandung
-// dari data kita yang disahkan saat ini — khusus dalam aplikasi) dan
-// kotak akurasi: seberapa sama catatan panitia dengan data kita.
+// KlasemenBanding — dua tampilan klasemen medali di War Room (keputusan Bos 6 Nov 2026):
+//  • "Rekap sementara" (dibuka pertama): kontingen lain dari situs KONI Kota Bandung,
+//    Kab. Bandung dari data kita yang disahkan saat ini — khusus dalam aplikasi.
+//  • "Situs KONI Jabar": klasemen resmi panitia apa adanya + kotak akurasi data Kab. Bandung.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Flag, RefreshCw } from 'lucide-react'
@@ -11,14 +10,14 @@ import type { BarisKlasemenPublik, KlasemenPublik } from '@/lib/jadwal-publik'
 import { JENIS, bandingKlasemen, klasemenDisesuaikan, type AngkaMedali } from '@/lib/klasemen-banding'
 
 const WARNA = { emas: '#ffd700', perak: '#c0c0c0', perunggu: '#cd7f32' } as const
-type Sementara = { potret: string | null; potret_at?: string; sumber?: string; baris: BarisKlasemenPublik[] }
+type Sementara = { potret: string | null; potret_at?: string; sumber?: string; langsung?: boolean; kab_bandung_sumber?: AngkaMedali | null; baris: BarisKlasemenPublik[] }
 const jamWIB = (iso?: string) => iso ? new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
 
 export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | null; q?: string }) {
   const [situs, setSitus] = useState<KlasemenPublik | null>(null)
   const [galat, setGalat] = useState<string | null>(null)
   const [memuat, setMemuat] = useState(false)
-  const [mode, setMode] = useState<'situs' | 'kita' | 'sementara'>('situs')
+  const [mode, setMode] = useState<'situs' | 'sementara'>('sementara')
   const [sementara, setSementara] = useState<Sementara | null>(null)
   const [semua, setSemua] = useState(false)
 
@@ -37,7 +36,7 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
 
   const angkaKita = kita ?? { emas: 0, perak: 0, perunggu: 0 }
   const banding = useMemo(() => situs ? bandingKlasemen(situs.baris, angkaKita) : null, [situs, angkaKita.emas, angkaKita.perak, angkaKita.perunggu]) // eslint-disable-line react-hooks/exhaustive-deps
-  const baris = useMemo(() => mode === 'sementara' ? klasemenDisesuaikan(sementara?.baris ?? [], angkaKita) : !situs ? [] : mode === 'situs' ? situs.baris : klasemenDisesuaikan(situs.baris, angkaKita),
+  const baris = useMemo(() => mode === 'sementara' ? klasemenDisesuaikan(sementara?.baris ?? [], angkaKita) : situs?.baris ?? [],
     [situs, sementara, mode, angkaKita.emas, angkaKita.perak, angkaKita.perunggu]) // eslint-disable-line react-hooks/exhaustive-deps
   const jamKini = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   const batas = 10
@@ -48,7 +47,7 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
 
   const tr = (b: (typeof baris)[number]) => (
     <tr key={b.nama} className={b.kita ? 'bg-sky-400/10' : ''} style={b.kita ? { boxShadow: 'inset 3px 0 0 #38bdf8' } : {}}>
-      <td className="py-1.5 pl-3 pr-1 text-center tabular-nums font-bold text-zinc-400">{b.total > 0 && !(b.kita && mode === 'kita' && banding?.peringkatKita == null) ? b.peringkat : '–'}</td>
+      <td className="py-1.5 pl-3 pr-1 text-center tabular-nums font-bold text-zinc-400">{b.total > 0 ? b.peringkat : '–'}</td>
       <td className={`py-1.5 px-1 ${b.kita ? 'font-black text-sky-200' : 'font-semibold text-white'}`}>
         {b.nama}{b.kita && mode !== 'situs' ? <span className="ml-1 text-[10px] font-bold text-sky-300">(data kita)</span> : ''}
       </td>
@@ -62,31 +61,34 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
       <div className="px-5 py-4 border-b flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: 'rgba(56,189,248,0.15)', background: 'linear-gradient(90deg, rgba(56,189,248,0.10), transparent)' }}>
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sky-400"><Flag size={12} /> Klasemen medali</div>
-          <h3 className="text-base font-black text-white mt-0.5">Klasemen KONI Jabar vs Data Kita</h3>
-          <p className="text-[11px] text-zinc-500 mt-0.5">
+          <h3 className="text-base font-black text-white mt-0.5">{mode === 'sementara' ? 'Rekap sementara perolehan medali' : 'Klasemen resmi situs KONI Jabar'}</h3>
+          {mode === 'sementara' ? <p className="text-[11px] text-zinc-500 mt-0.5">Kontingen lain: situs KONI Kota Bandung · Kab. Bandung: data kita yang disahkan</p> : <p className="text-[11px] text-zinc-500 mt-0.5">
             Sumber: porprov.konijabar.or.id{situs?.diperbarui ? ` · ${situs.diperbarui}` : ''}
             {situs?.selesai != null && situs.nomor ? ` · panitia: ${situs.selesai.toLocaleString('id-ID')} dari ${situs.nomor.toLocaleString('id-ID')} nomor terverifikasi` : ''}
-          </p>
+          </p>}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden border border-white/10 text-[11px] font-bold">
-            <button onClick={() => setMode('situs')} aria-pressed={mode === 'situs'} className={`px-3 py-1.5 ${mode === 'situs' ? 'bg-sky-400 text-slate-950' : 'text-zinc-300'}`}>Menurut situs</button>
-            <button onClick={() => setMode('kita')} aria-pressed={mode === 'kita'} className={`px-3 py-1.5 ${mode === 'kita' ? 'bg-sky-400 text-slate-950' : 'text-zinc-300'}`}>Disesuaikan data kita</button>
-            {sementara?.potret && <button onClick={() => setMode('sementara')} aria-pressed={mode === 'sementara'} className={`px-3 py-1.5 ${mode === 'sementara' ? 'bg-amber-300 text-slate-950' : 'text-amber-200'}`}>Rekap sementara</button>}
+            <button onClick={() => setMode('sementara')} aria-pressed={mode === 'sementara'} className={`px-3 py-1.5 ${mode === 'sementara' ? 'bg-amber-300 text-slate-950' : 'text-amber-200'}`}>Rekap sementara</button>
+            <button onClick={() => setMode('situs')} aria-pressed={mode === 'situs'} className={`px-3 py-1.5 ${mode === 'situs' ? 'bg-sky-400 text-slate-950' : 'text-zinc-300'}`}>Situs KONI Jabar</button>
           </div>
           <button onClick={muat} disabled={memuat} title="Baca ulang situs" className="rounded-lg border border-white/10 p-1.5 text-zinc-300 disabled:opacity-40"><RefreshCw size={13} className={memuat ? 'animate-spin' : ''} /></button>
         </div>
       </div>
 
-      {galat && <p className="mx-5 mt-4 rounded-lg bg-red-500/10 border border-red-400/30 px-3 py-2 text-xs font-bold text-red-300">{galat}</p>}
+      {galat && mode === 'situs' && <p className="mx-5 mt-4 rounded-lg bg-red-500/10 border border-red-400/30 px-3 py-2 text-xs font-bold text-red-300">{galat}</p>}
 
-      {(banding || (mode === 'sementara' && sementara)) && (
+      {((mode === 'situs' && banding) || (mode === 'sementara' && sementara?.potret)) && (
         <div className="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
           <div className="rounded-2xl border border-white/10 bg-black/30 overflow-x-auto">
             {mode === 'sementara' && sementara && (
               <div className="border-b border-amber-300/20 bg-amber-300/5 px-3 py-2 text-[11px] leading-snug text-amber-100">
-                <b>Rekap sementara</b> · kontingen lain: {sementara.sumber}{sementara.potret_at ? ` · ${jamWIB(sementara.potret_at)} WIB` : ''}.
-                <div className="mt-0.5 font-bold text-sky-200">Kab. Bandung: data kita yang sudah disahkan KONIDA, per {jamKini} WIB.</div>
+                <b>Rekap sementara</b> · kontingen lain: {sementara.sumber}{sementara.potret_at ? ` · ${sementara.langsung ? 'dibaca ' : ''}${jamWIB(sementara.potret_at)} WIB` : ''}.
+                <div className="mt-0.5 font-bold text-sky-200">Kab. Bandung: data kita yang sudah disahkan KONIDA, per {jamKini} WIB ({angkaKita.emas}/{angkaKita.perak}/{angkaKita.perunggu}).</div>
+                {sementara.kab_bandung_sumber && JENIS.some(j => sementara.kab_bandung_sumber![j] !== angkaKita[j]) && (
+                  <div className="mt-0.5 text-amber-200">Situs KONI Kota Bandung mencatat Kab. Bandung {sementara.kab_bandung_sumber.emas}/{sementara.kab_bandung_sumber.perak}/{sementara.kab_bandung_sumber.perunggu}
+                    {JENIS.some(j => sementara.kab_bandung_sumber![j] > angkaKita[j]) ? ' — ada medali di sana yang belum ada di data kita, cek Antrean.' : ' — data kita lebih baru.'}</div>
+                )}
                 <div className="mt-0.5 text-amber-100/70">Hanya tampil di dalam aplikasi; halaman publik tetap mengikuti situs KONI Jabar.</div>
               </div>
             )}
@@ -111,7 +113,7 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
             )}
           </div>
 
-          {banding && <div className="rounded-2xl border p-4 md:w-72" style={{ borderColor: `${warnaAkurasi}55`, background: `${warnaAkurasi}0d` }}>
+          {mode === 'situs' && banding && <div className="rounded-2xl border p-4 md:w-72" style={{ borderColor: `${warnaAkurasi}55`, background: `${warnaAkurasi}0d` }}>
             <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Akurasi data Kab. Bandung</div>
             <div className="text-3xl font-black mt-1" style={{ color: warnaAkurasi }}>{banding.akurasi == null ? '—' : `${banding.akurasi}%`}</div>
             <div className="text-[11px] text-zinc-400">{banding.cocok} medali sama-sama tercatat</div>
@@ -138,7 +140,8 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
           </div>}
         </div>
       )}
-      {!banding && !galat && mode !== 'sementara' && <p className="px-5 py-6 text-sm text-zinc-500">Membaca klasemen situs KONI Jabar…</p>}
+      {!banding && !galat && mode === 'situs' && <p className="px-5 py-6 text-sm text-zinc-500">Membaca klasemen situs KONI Jabar…</p>}
+      {mode === 'sementara' && !sementara?.potret && <p className="px-5 py-6 text-sm text-zinc-500">{sementara ? 'Rekap sementara belum tersedia.' : 'Membaca rekap sementara…'}</p>}
     </div>
   )
 }
