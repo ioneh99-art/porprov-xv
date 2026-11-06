@@ -110,7 +110,7 @@ async function hitungAlarm(kontingenId: number, hasil: HasilLuarBanding[]): Prom
   if (!hasil.length) return []
   const db = dbLapor()
   const [laporan, partai] = await Promise.all([
-    ambilSemua<LaporanBanding>((d, s) => db.from('laporan_hasil').select('id,cabor_id,partai_id,tanggal,lawan,hasil,nilai_teks,status,pelapor_nama,ref_luar')
+    ambilSemua<LaporanBanding>((d, s) => db.from('laporan_hasil').select('id,cabor_id,partai_id,tanggal,lawan,hasil,nilai_teks,status,pelapor_nama,ref_luar,nomor_teks')
       .eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).neq('status', 'ditolak').order('id').range(d, s)),
     ambilSemua<{ id: number; lawan: string | null }>((d, s) => db.from('jadwal_partai').select('id,lawan').eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
   ])

@@ -69,7 +69,8 @@ cek('kode KO F tanpa teks babak = final', tebakHasil(null, 'KO F', 'menang').has
 cek('perebutan juara 3 menang = perunggu', tebakHasil('Perebutan juara 3', 'KO B3', 'menang').hasil, 'perunggu')
 cek('perebutan juara 3 kalah = peringkat 4', tebakHasil('Perebutan juara 3', 'KO B3', 'kalah'), { hasil: 'peringkat', peringkat: 4, catatan: null })
 cek('babak gugur awal (KO R1) menang = lolos', tebakHasil('Babak 1', 'KO R1-2', 'menang').hasil, 'lolos')
-cek('seri diberi catatan', tebakHasil('Penyisihan', 'B1', 'seri').catatan !== null, true)
+cek('seri di pool = Seri, tanpa catatan', [tebakHasil('Penyisihan', 'B1', 'seri').hasil, tebakHasil('Penyisihan', 'B1', 'seri').catatan], ['seri', null])
+cek('seri di babak gugur tetap diberi catatan', tebakHasil('Semifinal', 'SF1', 'seri').catatan !== null, true)
 
 // --- pencocokan nama ---
 cek('nomor: Beregu Putra = Beregu Putra (Pa)', nomorSama('Beregu Putra', 'Beregu Putra (Pa)'), true)
@@ -127,6 +128,9 @@ cek('banding: skor ditulis terbalik tetap sama', bandingkan(LB({ nilai_teks: '5-
 cek('banding: skor beda', bandingkan(LB({ nilai_teks: '3-4' }), H()), { status: 'beda', alasan: 'skor kita 3–4, situs 3–5' })
 cek('banding: arah beda', bandingkan(LB({ hasil: 'menang', nilai_teks: null }), H()), { status: 'beda', alasan: 'laporan kita menang, situs kalah' })
 cek('banding: situs seri, kita menang', bandingkan(LB({ hasil: 'menang', nilai_teks: '2-2' }), H({ skor_kita: 2, skor_lawan: 2, akhir: 'seri' })).status, 'beda')
+cek('arah: seri = seri', arahHasil('seri'), 'seri')
+cek('banding: kita seri, situs seri → sama', bandingkan(LB({ hasil: 'seri', nilai_teks: '1-1' }), H({ skor_kita: 1, skor_lawan: 1, akhir: 'seri' })).status, 'sama')
+cek('banding: kita seri, situs menang → beda', bandingkan(LB({ hasil: 'seri', nilai_teks: null }), H({ akhir: 'menang' })).status, 'beda')
 cek('banding: perunggu tanpa skor = tak bisa', bandingkan(LB({ hasil: 'perunggu', nilai_teks: null }), H()).status, 'tak_bisa')
 cek('banding: voli set beda', bandingkan(LB({ nilai_teks: '1-2 (17-21, 21-18, 13-15)' }), H({ skor_kita: 0, skor_lawan: 2 })).status, 'beda')
 
@@ -143,6 +147,16 @@ cek('alarm: laporan dari situs itu sendiri, situs lalu diubah → alarm + "berub
 const k = kunciBanding(H(), LB({ nilai_teks: '3-4' }))
 cek('alarm: sudah dicek → dicek=true', cariAlarm([H({ dicek_kunci: k })], [LB({ nilai_teks: '3-4' })], lp)[0].dicek, true)
 cek('alarm: sudah dicek tapi skor situs berubah lagi → aktif lagi', cariAlarm([H({ dicek_kunci: k, skor_kita: 2 })], [LB({ nilai_teks: '3-4' })], lp)[0].dicek, false)
+
+// Jurus Tunggal Pa & Pi, hari sama, lawan sama (Kota Bogor) — tidak boleh saling dibandingkan.
+const HPa = H({ ref: '1379', partai_id: null, lawan: 'Kota Bogor', nomor_teks: 'Jurus - Tunggal Putra', skor_kita: 9900, skor_lawan: 9800, akhir: 'menang' })
+const HPi = H({ ref: '1414', partai_id: null, lawan: 'Kota Bogor', nomor_teks: 'Jurus - Tunggal Putri', skor_kita: 9905, skor_lawan: 9945, akhir: 'kalah' })
+const LPa = LB({ id: 227, partai_id: null, lawan: 'Kota Bogor', nomor_teks: 'Jurus - Tunggal (Pa)', hasil: 'lolos', nilai_teks: '9900-9800' })
+const LPi = LB({ id: 228, partai_id: null, lawan: 'Kota Bogor', nomor_teks: 'Jurus - Tunggal (Pi)', hasil: 'gugur', nilai_teks: '9905-9945' })
+cek('alarm: putra & putri lawan sama hari sama tidak saling silang', cariAlarm([HPa, HPi], [LPa, LPi], lp), [])
+cek('alarm: nomor sama tetap dibandingkan', cariAlarm([HPa], [LB({ ...LPa, hasil: 'gugur' })], lp).length, 1)
+cek('alarm: ada laporan senomor → laporan nomor lain diabaikan', cariAlarm([H({ nomor_teks: 'Kelas 55 kg Putra' })],
+  [LB({ id: 1, nomor_teks: 'Kelas 55 kg (Pa)' }), LB({ id: 2, nomor_teks: 'Kelas 60 kg (Pa)', hasil: 'menang', nilai_teks: '1-0' })], lp), [])
 cek('alarm: belum dicek di depan', cariAlarm([H({ ref: '1', dicek_kunci: kunciBanding(H({ ref: '1' }), LB({ nilai_teks: '3-4' })) }), H({ ref: '2' })], [LB({ nilai_teks: '3-4' })], lp).map(a => a.ref), ['2', '1'])
 
 

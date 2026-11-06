@@ -142,7 +142,7 @@ function BarisPartai({ p }: { p: PartaiPublik }) {
 const GAYA_HASIL: Record<HasilPartai['jenis'], { warna: string; ikon: string }> = {
   emas: { warna: '#facc15', ikon: '🥇' }, perak: { warna: '#e2e8f0', ikon: '🥈' }, perunggu: { warna: '#e0a060', ikon: '🥉' },
   lolos: { warna: '#34d399', ikon: '✓' }, gugur: { warna: '#94a3b8', ikon: '' }, peringkat: { warna: '#38bdf8', ikon: '' },
-  menang: { warna: '#34d399', ikon: '✓' }, kalah: { warna: '#94a3b8', ikon: '' },
+  menang: { warna: '#34d399', ikon: '✓' }, kalah: { warna: '#94a3b8', ikon: '' }, seri: { warna: '#a5b4fc', ikon: '=' },
 }
 
 /** Skor + hasil resmi (sudah disahkan KONIDA) di bawah nama lawan. */

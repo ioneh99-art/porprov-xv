@@ -155,6 +155,8 @@ export function tebakHasil(babak: string | null, kode: string | null, akhir: 'me
   if (/semi|perempat|quarter|\b(8|16|32|64) besar\b|\brepechage\b|\bko (qf|sf)\d*\b/.test(b)) return { hasil: menang ? 'lolos' : 'gugur', peringkat: null, catatan: seri }
   if (/(^|\s)(grand )?final(\s|$)|\bko f\b/.test(b)) return { hasil: menang ? 'emas' : 'perak', peringkat: null, catatan: seri }
   if (/gugur|knock|play ?off|\bko\b/.test(b)) return { hasil: menang ? 'lolos' : 'gugur', peringkat: null, catatan: seri }
+  // Pool/penyisihan: seri memang hasil yang sah.
+  if (akhir === 'seri') return { hasil: 'seri', peringkat: null, catatan: null }
   return { hasil: menang ? 'menang' : 'kalah', peringkat: null, catatan: seri }
 }
 
@@ -248,10 +250,12 @@ export interface HasilLuarBanding {
   ref: string; tanggal: string | null; cabor_id: number | null; partai_id: number | null; laporan_id: number | null
   lawan: string | null; skor_kita: number | null; skor_lawan: number | null; akhir: 'menang' | 'kalah' | 'seri' | null
   babak?: string | null; skor_sebelum?: string | null; berubah_at?: string | null; dicek_kunci?: string | null
+  nomor_teks?: string | null
 }
 export interface LaporanBanding {
   id: number; cabor_id: number; partai_id?: number | null; tanggal: string; lawan: string | null
   hasil: Hasil; nilai_teks: string | null; status: 'menunggu' | 'disahkan' | 'ditolak'; pelapor_nama: string; ref_luar?: string | null
+  nomor_teks?: string | null
 }
 export interface AlarmBeda {
   kunci: string; ref: string; url: string; tanggal: string | null; cabor_id: number | null; partai_id: number | null
@@ -260,7 +264,8 @@ export interface AlarmBeda {
 }
 
 /** Arah hasil laporan kita: menang/kalah, atau null bila tidak bisa dibandingkan per laga (mis. perunggu, peringkat). */
-export function arahHasil(h: Hasil): 'menang' | 'kalah' | null {
+export function arahHasil(h: Hasil): 'menang' | 'kalah' | 'seri' | null {
+  if (h === 'seri') return 'seri'
   if (h === 'menang' || h === 'lolos' || h === 'emas') return 'menang'
   if (h === 'kalah' || h === 'gugur' || h === 'perak') return 'kalah'
   return null
@@ -285,11 +290,10 @@ export function bandingkan(l: Pick<LaporanBanding, 'hasil' | 'nilai_teks'>, h: P
   const alasan: string[] = []
   let dibanding = false
   const arah = arahHasil(l.hasil)
-  if (arah && (h.akhir === 'menang' || h.akhir === 'kalah')) {
+  if (arah && h.akhir) {
     dibanding = true
     if (arah !== h.akhir) alasan.push(`laporan kita ${arah}, situs ${h.akhir}`)
   }
-  if (arah && h.akhir === 'seri') { dibanding = true; alasan.push(`laporan kita ${arah}, situs seri`) }
   const s = skorUtama(l.nilai_teks)
   if (s && h.skor_kita != null && h.skor_lawan != null) {
     dibanding = true
@@ -315,14 +319,23 @@ export function cariAlarm(hasil: HasilLuarBanding[], laporan: LaporanBanding[], 
   const keluar: AlarmBeda[] = []
   for (const h of hasil) {
     if (!h.akhir) continue
-    const terkait = laporan.filter(l => {
-      if (l.status === 'ditolak') return false
-      if (l.ref_luar) return l.ref_luar === h.ref
+    const langsung = laporan.filter(l => l.status !== 'ditolak' && l.ref_luar === h.ref)
+    let lain = laporan.filter(l => {
+      if (l.status === 'ditolak' || l.ref_luar) return false
       const lawanL = l.lawan ?? (l.partai_id != null ? lawanPartai.get(l.partai_id) ?? null : null)
       if (!h.lawan || !lawanSama(h.lawan, lawanL)) return false
+      // Putra dan putri tidak pernah satu laga (mis. Jurus Tunggal Pa & Pi vs Kota Bogor di hari yang sama).
+      const gh = kelamin(h.nomor_teks), gl = kelamin(l.nomor_teks)
+      if (gh && gl && gh !== gl) return false
       if (h.partai_id != null && l.partai_id != null) return h.partai_id === l.partai_id
       return l.cabor_id === h.cabor_id && l.tanggal === h.tanggal
     })
+    // Bila ada laporan yang nomornya cocok, hanya itu yang dibandingkan.
+    if (h.nomor_teks) {
+      const senomor = lain.filter(l => nomorSama(h.nomor_teks!, l.nomor_teks))
+      if (senomor.length) lain = senomor
+    }
+    const terkait = [...langsung, ...lain]
     const dicek = new Set((h.dicek_kunci ?? '').split('\n').filter(Boolean))
     for (const l of terkait) {
       const b = bandingkan(l, h)

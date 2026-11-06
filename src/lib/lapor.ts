@@ -2,7 +2,7 @@
 // Aturan laporan hasil lapangan — murni hitungan, tanpa database, supaya bisa diuji
 // (npm run uji:lapor) dan dipakai sama persis oleh form HP maupun rute server.
 
-export const HASIL = ['emas', 'perak', 'perunggu', 'peringkat', 'menang', 'kalah', 'lolos', 'gugur'] as const
+export const HASIL = ['emas', 'perak', 'perunggu', 'peringkat', 'menang', 'kalah', 'seri', 'lolos', 'gugur'] as const
 export type Hasil = typeof HASIL[number]
 export const STATUS = ['menunggu', 'disahkan', 'ditolak'] as const
 export type Status = typeof STATUS[number]
@@ -10,15 +10,15 @@ export type Status = typeof STATUS[number]
 export const LABEL_HASIL: Record<Hasil, string> = {
   emas: 'Emas', perak: 'Perak', perunggu: 'Perunggu',
   peringkat: 'Peringkat', lolos: 'Lolos babak berikutnya', gugur: 'Gugur',
-  menang: 'Menang (pool)', kalah: 'Kalah – masih bertanding',
+  menang: 'Menang (pool)', kalah: 'Kalah – masih bertanding', seri: 'Seri (pool)',
 }
 
 export const adalahMedali = (h: string) => h === 'emas' || h === 'perak' || h === 'perunggu'
 /**
- * Hasil yang belum menutup nomornya: 'lolos' (ke babak berikutnya), serta 'menang'/'kalah'
+ * Hasil yang belum menutup nomornya: 'lolos' (ke babak berikutnya), serta 'menang'/'kalah'/'seri'
  * di babak pool/penyisihan setengah kompetisi — kalah pun tim masih bertanding.
  */
-export const BELUM_FINAL = ['lolos', 'menang', 'kalah']
+export const BELUM_FINAL = ['lolos', 'menang', 'kalah', 'seri']
 export const adalahFinal = (h: string) => !BELUM_FINAL.includes(h)
 
 // ── Kode lapor ───────────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ export interface LaporanSah { atlet_ids: number[]; hasil: string; peringkat: num
 export type StatusTarget = 'tercapai' | 'belum_emas' | 'belum_turun'
 export interface CapaianTarget extends TargetAtlet { status: StatusTarget; terbaik: string | null; nomor: string | null }
 
-const URUTAN_HASIL: Record<string, number> = { emas: 0, perak: 1, perunggu: 2, peringkat: 3, lolos: 4, menang: 5, kalah: 6, gugur: 7 }
+const URUTAN_HASIL: Record<string, number> = { emas: 0, perak: 1, perunggu: 2, peringkat: 3, lolos: 4, menang: 5, seri: 6, kalah: 7, gugur: 8 }
 
 /**
  * Tiap atlet bertarget emas dicocokkan dengan laporan yang sudah disahkan.

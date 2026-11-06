@@ -90,6 +90,7 @@ const lap = [
 cek('rekap', rekapMedali(lap), { emas: 1, perak: 1, perunggu: 1, total: 3, laga: 5 })
 cek('lolos belum final', adalahFinal('lolos'), false)
 cek('gugur sudah final', adalahFinal('gugur'), true)
+cek('seri pool belum final', adalahFinal('seri'), false)
 cek('menang/kalah pool belum final', [adalahFinal('menang'), adalahFinal('kalah')], [false, false])
 cek('menang/kalah pool tidak menambah laga selesai', rekapMedali([{ hasil: 'menang', status: 'disahkan' }, { hasil: 'kalah', status: 'disahkan' }]).laga, 0)
 cek('hanya lolos = belum ada nomor selesai', rekapMedali([{ hasil: 'lolos', status: 'disahkan' }]).laga, 0)

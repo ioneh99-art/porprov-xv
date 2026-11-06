@@ -30,14 +30,14 @@ export interface PartaiPublik {
 }
 
 /** Hasil satu partai untuk publik — hanya skor dan jenis hasil, tanpa keterangan bebas. */
-export interface HasilPartai { jenis: 'emas' | 'perak' | 'perunggu' | 'peringkat' | 'lolos' | 'gugur' | 'menang' | 'kalah'; label: string; skor: string | null }
+export interface HasilPartai { jenis: 'emas' | 'perak' | 'perunggu' | 'peringkat' | 'lolos' | 'gugur' | 'menang' | 'kalah' | 'seri'; label: string; skor: string | null }
 
 /** Laporan disahkan seperlunya untuk mencocokkan ke partai. */
 export interface LaporanSah { id: number; partai_id: number | null; cabor_id: number; tanggal: string; lawan: string | null; hasil: string; peringkat: number | null; nilai_teks: string | null }
 
 const LABEL_HASIL_PUBLIK: Record<string, string> = {
   emas: 'Emas', perak: 'Perak', perunggu: 'Perunggu', lolos: 'Lolos', gugur: 'Gugur',
-  menang: 'Menang', kalah: 'Kalah · masih bertanding',
+  menang: 'Menang', kalah: 'Kalah · masih bertanding', seri: 'Seri',
 }
 const bakuLawan = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
 

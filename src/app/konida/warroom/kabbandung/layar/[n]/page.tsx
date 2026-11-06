@@ -27,7 +27,7 @@ import PerburuanEmas from '@/components/konida/warroom/PerburuanEmas'
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 const K_ID = 4, NAMA = 'KAB. BANDUNG', Q = `?kontingen_id=${K_ID}`
 const ACCENT = '#38bdf8', EMAS = '#ffd700', PERAK = '#e2e8f0', PERUNGGU = '#e0a060'
-const WARNA_HASIL: Record<string, string> = { emas: EMAS, perak: PERAK, perunggu: PERUNGGU, menang: '#22d3ee', lolos: '#34d399', kalah: '#fb923c', gugur: '#94a3b8', peringkat: ACCENT }
+const WARNA_HASIL: Record<string, string> = { emas: EMAS, perak: PERAK, perunggu: PERUNGGU, menang: '#22d3ee', lolos: '#34d399', kalah: '#fb923c', seri: '#a5b4fc', gugur: '#94a3b8', peringkat: ACCENT }
 
 interface ModeCC { mode_kunjungan: boolean; sambutan: string }
 type BarisK = { nama: string; emas: number; perak: number; perunggu: number; total: number }
