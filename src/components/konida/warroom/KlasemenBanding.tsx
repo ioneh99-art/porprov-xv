@@ -47,12 +47,12 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
 
   const tr = (b: (typeof baris)[number]) => (
     <tr key={b.nama} className={b.kita ? 'bg-sky-400/10' : ''} style={b.kita ? { boxShadow: 'inset 3px 0 0 #38bdf8' } : {}}>
-      <td className="py-1.5 pl-3 pr-1 text-center tabular-nums font-bold text-zinc-400">{b.total > 0 ? b.peringkat : '–'}</td>
+      <td className="py-1.5 pl-2 sm:pl-3 pr-1 text-center tabular-nums font-bold text-zinc-400">{b.total > 0 ? b.peringkat : '–'}</td>
       <td className={`py-1.5 px-1 ${b.kita ? 'font-black text-sky-200' : 'font-semibold text-white'}`}>
-        {b.nama}{b.kita && mode !== 'situs' ? <span className="ml-1 text-[10px] font-bold text-sky-300">(data kita)</span> : ''}
+        {b.nama}{b.kita && mode !== 'situs' ? <span className="block sm:inline sm:ml-1 text-[10px] font-bold text-sky-300">(data kita)</span> : ''}
       </td>
-      {JENIS.map(j => <td key={j} className="py-1.5 px-1 text-right tabular-nums font-bold" style={{ color: WARNA[j] }}>{b[j]}</td>)}
-      <td className="py-1.5 pl-1 pr-3 text-right tabular-nums font-black text-white">{b.total}</td>
+      {JENIS.map(j => <td key={j} className="py-1.5 px-0.5 sm:px-1 text-right tabular-nums font-bold" style={{ color: WARNA[j] }}>{b[j]}</td>)}
+      <td className="py-1.5 pl-1 pr-2 sm:pr-3 text-right tabular-nums font-black text-white">{b.total}</td>
     </tr>
   )
 
@@ -79,7 +79,7 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
       {galat && mode === 'situs' && <p className="mx-5 mt-4 rounded-lg bg-red-500/10 border border-red-400/30 px-3 py-2 text-xs font-bold text-red-300">{galat}</p>}
 
       {((mode === 'situs' && banding) || (mode === 'sementara' && sementara?.potret)) && (
-        <div className="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 p-3 md:p-5 md:grid-cols-[1fr_auto]">
           <div className="rounded-2xl border border-white/10 bg-black/30 overflow-x-auto">
             {mode === 'sementara' && sementara && (
               <div className="border-b border-amber-300/20 bg-amber-300/5 px-3 py-2 text-[11px] leading-snug text-amber-100">
@@ -89,18 +89,18 @@ export default function KlasemenBanding({ kita, q = '' }: { kita: AngkaMedali | 
                   <div className="mt-0.5 text-amber-200">Situs KONI Kota Bandung mencatat Kab. Bandung {sementara.kab_bandung_sumber.emas}/{sementara.kab_bandung_sumber.perak}/{sementara.kab_bandung_sumber.perunggu}
                     {JENIS.some(j => sementara.kab_bandung_sumber![j] > angkaKita[j]) ? ' — ada medali di sana yang belum ada di data kita, cek Antrean.' : ' — data kita lebih baru.'}</div>
                 )}
-                <div className="mt-0.5 text-amber-100/70">Hanya tampil di dalam aplikasi; halaman publik tetap mengikuti situs KONI Jabar.</div>
+                <div className="mt-0.5 text-amber-100/70">Rekap yang sama tampil di halaman publik (tombol Rekap sementara); tabel resmi panitia ada di tombol Situs KONI Jabar.</div>
               </div>
             )}
-            <table className="w-full text-[12px] min-w-[300px]">
+            <table className="w-full text-[12px]">
               <thead>
                 <tr className="text-[10px] text-zinc-500 border-b border-white/10">
-                  <th className="py-1.5 pl-3 pr-1 w-8">#</th>
+                  <th className="py-1.5 pl-2 sm:pl-3 pr-1 w-7">#</th>
                   <th className="py-1.5 px-1 text-left">Kontingen</th>
-                  <th className="py-1.5 px-1 w-8 text-right" aria-label="Emas">🥇</th>
-                  <th className="py-1.5 px-1 w-8 text-right" aria-label="Perak">🥈</th>
-                  <th className="py-1.5 px-1 w-8 text-right" aria-label="Perunggu">🥉</th>
-                  <th className="py-1.5 pl-1 pr-3 w-10 text-right">Total</th>
+                  <th className="py-1.5 px-0.5 sm:px-1 w-7 text-right" aria-label="Emas">🥇</th>
+                  <th className="py-1.5 px-0.5 sm:px-1 w-7 text-right" aria-label="Perak">🥈</th>
+                  <th className="py-1.5 px-0.5 sm:px-1 w-7 text-right" aria-label="Perunggu">🥉</th>
+                  <th className="py-1.5 pl-1 pr-2 sm:pr-3 w-9 text-right">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">

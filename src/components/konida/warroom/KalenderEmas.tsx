@@ -48,10 +48,12 @@ function KartuTarget({ c, onLawan }: { c: CalonEmas; onLawan: () => void }) {
   const tampil = (orang.length ? orang : [{ nama: cadangan, foto: null, atlet_id: null }]).slice(0, 3)
   // Peraih sebenarnya beda dari nama di proyeksi → tetap tampilkan nama proyeksi sebagai keterangan.
   const beda = !!c.peraih?.length && c.atlet && !c.peraih.some(p => c.wajah.some(w => w.atlet_id != null && w.atlet_id === p.atlet_id))
+  const gayaLabel = { color: emas ? '#1a1200' : warna, background: emas ? EMAS : `${warna}18`, border: `1px solid ${warna}66` }
+  const teksLabel = `${c.status === 'berjalan' ? '● ' : ''}${c.status === 'medali_lain' && c.hasil ? judul(c.hasil) : s.teks}`
   return (
     <div data-kartu-emas role="button" tabIndex={0} onClick={onLawan} onKeyDown={e => { if (e.key === 'Enter') onLawan() }}
       title="Lihat head-to-head lawannya"
-      className="relative rounded-2xl overflow-hidden flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:brightness-125"
+      className="relative rounded-2xl overflow-hidden flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-2.5 cursor-pointer hover:brightness-125"
       style={{
         background: emas ? 'linear-gradient(150deg, rgba(255,215,0,0.22), rgba(184,134,11,0.10) 60%, rgba(2,10,20,0.7))' : 'rgba(255,255,255,0.03)',
         border: `1px solid ${emas ? EMAS : c.status === 'berjalan' ? HIJAU : `${warna}33`}`,
@@ -62,15 +64,16 @@ function KartuTarget({ c, onLawan }: { c: CalonEmas; onLawan: () => void }) {
         {tampil.map((w, i) => <Foto key={i} w={w} warna={warna} px={tampil.length > 1 ? 36 : 48} />)}
       </div>
       <div className="min-w-0 flex-1 relative">
-        <div className="text-sm font-black text-white truncate" title={orang.map(o => o.nama).join(', ')}>{namaRingkas(orang, cadangan)}</div>
-        <div className="text-[11px] truncate"><b className="uppercase tracking-wide text-sky-300">{c.cabor}</b> <span className="text-zinc-400">· {c.nomor ?? '—'}{c.kota ? ` · ${c.kota}` : ''}</span></div>
+        {/* Di HP label status di atas nama (lebar kartu dipakai penuh untuk tulisan); layar lebar tetap di kanan. */}
+        <span className="sm:hidden inline-block mb-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full whitespace-nowrap" style={gayaLabel}>{teksLabel}</span>
+        <div className="text-sm font-black text-white line-clamp-2 sm:line-clamp-none sm:truncate" title={orang.map(o => o.nama).join(', ')}>{namaRingkas(orang, cadangan)}</div>
+        <div className="text-[11px] line-clamp-2 sm:line-clamp-none sm:truncate"><b className="uppercase tracking-wide text-sky-300">{c.cabor}</b> <span className="text-zinc-400">· {c.nomor ?? '—'}{c.kota ? ` · ${c.kota}` : ''}</span></div>
         {beda && <div className="text-[10px] text-zinc-500 truncate">Proyeksi KONI: {judul(c.atlet!)}</div>}
         {c.keterangan && <div className="text-[11px] leading-snug text-amber-100/90 my-0.5">📝 {c.keterangan}</div>}
         <div className="text-[10px] font-bold text-red-300">⚔ Lihat lawan</div>
       </div>
-      <span className="relative shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap"
-        style={{ color: emas ? '#1a1200' : warna, background: emas ? EMAS : `${warna}18`, border: `1px solid ${warna}66` }}>
-        {c.status === 'berjalan' && '● '}{c.status === 'medali_lain' && c.hasil ? judul(c.hasil) : s.teks}
+      <span className="relative hidden sm:inline-block shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap" style={gayaLabel}>
+        {teksLabel}
       </span>
     </div>
   )
@@ -83,8 +86,8 @@ function KartuKejutan({ e }: { e: EmasKejutan }) {
       style={{ background: 'linear-gradient(150deg, rgba(34,211,238,0.14), rgba(255,215,0,0.12) 70%)', border: `1px solid ${SIAN}88` }}>
       <div className="flex -space-x-3 shrink-0">{tampil.map((w, i) => <Foto key={i} w={w} warna={EMAS} px={tampil.length > 1 ? 36 : 48} />)}</div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-black text-white truncate">{namaRingkas(e.peraih, e.cabor)}</div>
-        <div className="text-[11px] truncate"><b className="uppercase tracking-wide text-sky-300">{e.cabor}</b> <span className="text-zinc-400">· {e.nomor}</span></div>
+        <div className="text-sm font-black text-white line-clamp-2 sm:line-clamp-none sm:truncate">{namaRingkas(e.peraih, e.cabor)}</div>
+        <div className="text-[11px] line-clamp-2 sm:line-clamp-none sm:truncate"><b className="uppercase tracking-wide text-sky-300">{e.cabor}</b> <span className="text-zinc-400">· {e.nomor}</span></div>
       </div>
       <span className="shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap" style={{ color: '#1a1200', background: EMAS }}>★ Emas kejutan</span>
     </div>

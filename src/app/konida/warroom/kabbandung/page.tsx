@@ -225,47 +225,48 @@ export default function PageWarRoom() {
         backgroundSize:'60px 60px' }}/>
 
       {/* ═════════ HEADER ═════════ */}
-      <header className="sticky top-0 z-40 px-6 py-4 backdrop-blur-xl border-b shadow-lg"
+      {/* Di HP kepala tidak ikut turun saat digulir (terlalu tinggi, menutupi separuh layar); di layar lebar tetap menempel. */}
+      <header className="md:sticky md:top-0 z-40 px-4 py-3 md:px-6 md:py-4 backdrop-blur-xl border-b shadow-lg"
         style={{ background:'rgba(2,10,20,0.85)', borderColor:`${ACCENT}15` }}>
         <div className="max-w-[1600px] mx-auto flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center"
+            <div className="hidden sm:flex w-11 h-11 rounded-xl items-center justify-center"
               style={{ background:`${ACCENT}15`, border:`1px solid ${ACCENT}40` }}>
               <Monitor size={18} style={{color:ACCENT}}/>
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-3 flex-wrap">
+              <h1 className="text-lg md:text-xl font-black text-white tracking-tight flex items-center gap-2 md:gap-3 flex-wrap">
                 WAR ROOM — KAB. BANDUNG
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20">
                   <div className={`w-1.5 h-1.5 rounded-full bg-red-400 transition-opacity ${pulse?'opacity-100':'opacity-30'}`}/>
                   <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">LIVE · {LAGA_LIVE.length} Laga</span>
                 </span>
               </h1>
-              <p className="text-[11px] font-mono uppercase tracking-widest mt-1" style={{ color:`${ACCENT}90` }}>
+              <p className="hidden sm:block text-[11px] font-mono uppercase tracking-widest mt-1" style={{ color:`${ACCENT}90` }}>
                 Strategic Intelligence · PORPROV XV 2026
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/30 border border-white/5">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl bg-black/30 border border-white/5">
               <Clock size={14} style={{ color:ACCENT }}/><LiveClock/>
             </div>
             <button onClick={() => setPanelCC(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl text-xs font-bold transition-colors border"
               style={{ background:'rgba(250,204,21,0.12)', borderColor:'rgba(250,204,21,0.45)', color:'#fde047' }}>
               <Monitor size={11}/> Command Center
             </button>
             <button onClick={() => setLayar(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors border"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl text-xs font-bold transition-colors border"
               style={{ background:`${ACCENT}18`, borderColor:`${ACCENT}50`, color:ACCENT }}>
               <Monitor size={11}/> Mode Layar
             </button>
             <button onClick={() => setInputKlasemen(true)} title="Cadangan bila klasemen resmi dari situs KONI Jabar tidak terbaca"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
+              className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
               <Pencil size={11}/> Klasemen manual
             </button>
             <button onClick={() => window.location.reload()}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
+              className="flex items-center gap-1.5 px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl text-xs font-bold hover:bg-white/10 transition-colors border border-white/10 bg-white/5 text-zinc-300">
               <RefreshCw size={11}/> Refresh
             </button>
           </div>

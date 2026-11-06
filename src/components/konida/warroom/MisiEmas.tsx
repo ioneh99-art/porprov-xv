@@ -59,8 +59,8 @@ export default function MisiEmas({ data, accent = '#38bdf8' }: { data: DataWarRo
                 style={{ color: x.status === 'emas' ? '#1a1200' : g.warna, background: x.status === 'emas' ? g.warna : `${g.warna}1f`, border: `1px solid ${g.warna}66` }}>{g.ikon}</span>
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: accent }}>{x.cabor}{x.kota ? <span className="text-zinc-500 normal-case font-normal"> · {x.kota}</span> : null}</div>
-                <div className="text-sm font-bold text-white truncate">{x.nomor ?? '—'}</div>
-                {x.atlet && <div className="text-[11px] text-zinc-400 truncate">{x.atlet}</div>}
+                <div className="text-sm font-bold text-white line-clamp-2 sm:line-clamp-none sm:truncate">{x.nomor ?? '—'}</div>
+                {x.atlet && <div className="text-[11px] text-zinc-400 line-clamp-2 sm:line-clamp-none sm:truncate">{x.atlet}</div>}
                 {x.keterangan && <div className="text-[11px] leading-snug text-amber-100/90 mt-0.5">📝 {x.keterangan}</div>}
               </div>
               <span className="shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: g.warna, background: `${g.warna}14`, border: `1px solid ${g.warna}40` }}>
