@@ -4,7 +4,7 @@
 // hasil yang disahkan. Klik tanggal mana pun → daftar calon/peraih emas hari itu
 // (foto, cabor, nomor, status), plus emas kejutan di luar target.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Flame } from 'lucide-react'
 import type { DataWarRoom } from '@/lib/warroom-klien'
@@ -120,6 +120,19 @@ export default function KalenderEmas({ data }: { data: DataWarRoom | null }) {
     setPilih(ada(hariIni) ? hariIni : (data.misi.tanggal ?? hari.find(ada) ?? null))
   }, [data, pilih, perTgl, kejutan, hariIni, hari])
 
+  // Di layar sempit (HP) deretan tanggal bisa digeser; sekali saat data datang, geser supaya "hari ini" (atau tanggal terpilih) di tengah.
+  const geserRef = useRef<HTMLDivElement>(null)
+  const sudahGeser = useRef(false)
+  useEffect(() => {
+    const el = geserRef.current
+    if (!el || sudahGeser.current || !hari.length || el.scrollWidth <= el.clientWidth) return
+    const sasaran = el.querySelector<HTMLElement>(`[data-tgl="${hariIni}"]`) ?? (pilih ? el.querySelector<HTMLElement>(`[data-tgl="${pilih}"]`) : null)
+    if (!sasaran) return
+    sudahGeser.current = true
+    const r = sasaran.getBoundingClientRect(), k = el.getBoundingClientRect()
+    el.scrollLeft = Math.max(0, el.scrollLeft + (r.left - k.left) - (el.clientWidth - r.width) / 2)
+  }, [hari, hariIni, pilih])
+
   const daftar = pilih ? [...(perTgl.get(pilih) ?? [])].sort((a, b) => URUT_KOIN[a.status] - URUT_KOIN[b.status] || a.urutan - b.urutan) : []
   const kejutanPilih = kejutan.filter(e => e.tanggal === pilih)
   const jadi = target.filter(c => c.status === 'emas').length
@@ -150,7 +163,7 @@ export default function KalenderEmas({ data }: { data: DataWarRoom | null }) {
       </div>
 
       {hari.length === 0 ? <div className="text-sm text-zinc-500 py-6 text-center">Belum ada jadwal.</div> : (
-        <div className="overflow-x-auto pb-2">
+        <div ref={geserRef} className="overflow-x-auto pb-2">
           <div className="flex items-end gap-1 min-w-full">
             {hari.map(t => {
               const isi = [...(perTgl.get(t) ?? [])].sort((a, b) => URUT_KOIN[a.status] - URUT_KOIN[b.status])
@@ -161,7 +174,7 @@ export default function KalenderEmas({ data }: { data: DataWarRoom | null }) {
               const keg = kegiatan.get(t) ?? 0
               const kosong = !isi.length && !kj.length
               return (
-                <button key={t} type="button" onClick={() => setPilih(t)} disabled={kosong}
+                <button key={t} type="button" onClick={() => setPilih(t)} disabled={kosong} data-tgl={t}
                   title={`${tglPanjangWR(t)} · ${isi.length} target emas · ${keg} kegiatan cabor kita`}
                   className={`flex-1 min-w-[40px] flex flex-col items-center rounded-xl pt-1 pb-1 transition ${kosong ? 'cursor-default' : 'hover:bg-white/5'}`}
                   style={{ opacity: lalu && !dipilih ? 0.7 : 1, background: dipilih ? 'rgba(56,189,248,0.10)' : undefined, outline: dipilih ? '1px solid rgba(56,189,248,0.6)' : undefined }}>
