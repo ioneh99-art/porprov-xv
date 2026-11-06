@@ -21,7 +21,7 @@ const PITA: Record<StatusMisi, { teks: string; warna: string }> = {
   berjalan:    { teks: 'Sedang bertanding',  warna: HIJAU },
   emas:        { teks: 'EMAS ✓',             warna: EMAS },
   medali_lain: { teks: 'Medali',             warna: PERAK },
-  meleset:     { teks: 'Tanpa medali',       warna: MERAH },
+  meleset:     { teks: 'Meleset emas',       warna: MERAH },
 }
 
 /** Gaya koin per status — dipakai Layar 4 dan Kalender Panas War Room. */
@@ -205,7 +205,7 @@ export default function PerburuanEmas({ data, kunjungan }: { data: DataWarRoom |
           <span className="flex gap-[2vw]">
             <span style={{ color: HIJAU }}>● {main} bertanding</span>
             <span style={{ color: PERAK }}>{lain} medali lain</span>
-            {!kunjungan && <span style={{ color: MERAH }}>{lewat} tanpa medali</span>}
+            {!kunjungan && <span style={{ color: MERAH }}>{lewat} meleset emas</span>}
             <span className="text-white">{sisa} masih diburu</span>
           </span>
         </div>
