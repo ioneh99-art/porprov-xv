@@ -235,13 +235,60 @@ export function cocokCabor(nama: string, cabor: { id: number; nama: string }[]):
 /** Skor untuk kolom "catatan angka", dari sisi kontingen kita: "3-5". */
 export const skorTeks = (lk: LagaKita) => lk.skorKita != null && lk.skorLawan != null ? `${lk.skorKita}-${lk.skorLawan}` : null
 
-/** Keterangan laporan otomatis — menyebut sumber dan tautan laga supaya mudah dicek. */
-export function keteranganLaporan(lk: LagaKita, catatan: string | null): string {
+/** Ujung kalimat menurut hasil: apa artinya laga ini bagi kita. */
+const AKIBAT: Partial<Record<Hasil, string>> = { emas: 'EMAS', perak: 'PERAK', perunggu: 'PERUNGGU', lolos: 'lolos', gugur: 'tersingkir' }
+const ARAH_KATA: Partial<Record<Hasil, 'menang' | 'kalah' | 'seri'>> = {
+  emas: 'menang', perunggu: 'menang', lolos: 'menang', menang: 'menang',
+  perak: 'kalah', gugur: 'kalah', kalah: 'kalah', peringkat: 'kalah', seri: 'seri',
+}
+
+/**
+ * Kalimat hasil satu laga yang mudah dibaca, mis. "Semifinal: kalah 0-33 dari Kota Bandung → tersingkir".
+ * Dipakai keterangan laporan otomatis (baru) dan perapian keterangan lama.
+ */
+export function kalimatHasil(x: { babak?: string | null; hasil: Hasil | string; peringkat?: number | null; skor?: string | null; lawan?: string | null }): string {
+  const h = x.hasil as Hasil
+  // Perunggu dari semifinal (cabor tanpa perebutan juara 3) = kalah di semifinal.
+  const arah = h === 'perunggu' && /semi|\bsf\d*\b/i.test(x.babak ?? '') ? 'kalah' : ARAH_KATA[h]
+  const sambung = arah === 'menang' ? 'atas' : arah === 'kalah' ? 'dari' : 'dengan'
+  // Skor yang bertentangan dengan hasil (mis. "menang 2-4": dicatat dari sisi lawan / aturan cabor) tidak ditulis di kalimat.
+  const s = x.skor ? skorUtama(x.skor) : null
+  const skorCocok = !s || (arah === 'menang' ? s[0] > s[1] : arah === 'kalah' ? s[0] < s[1] : arah === 'seri' ? s[0] === s[1] : true)
+  const inti = [arah, skorCocok ? x.skor?.trim() : null, x.lawan?.trim() ? `${sambung} ${x.lawan.trim()}` : null].filter(Boolean).join(' ')
+  const akibat = h === 'peringkat' ? (x.peringkat ? `peringkat ${x.peringkat}, tanpa medali` : 'tanpa medali') : AKIBAT[h]
+  const babak = x.babak?.trim() ? x.babak.trim().replace(/^./, c => c.toUpperCase()) : null
+  const isi = [inti, akibat ? `→ ${akibat}` : null].filter(Boolean).join(' ')
+  return babak ? (isi ? `${babak}: ${isi}` : babak) : (isi.replace(/^./, c => c.toUpperCase()) || '')
+}
+
+/** Susun keterangan otomatis: kalimat hasil · rincian (disiplin/kode/tempat/catatan) · sumber · tautan. */
+export function susunKeterangan(kalimat: string, rincian: (string | null | undefined)[], url: string | null): string {
+  const isi = [kalimat, ...rincian.map(s => s?.trim()).filter(Boolean), `Sumber: ${NAMA_SUMBER_KONIJABAR}`].filter(Boolean).join(' · ')
+  return (url ? `${isi} · ${url}` : isi).slice(0, 480)
+}
+
+/** Keterangan laporan otomatis — kalimat hasil yang jelas, lalu sumber dan tautan laga supaya mudah dicek. */
+export function keteranganLaporan(lk: LagaKita, tebak: { hasil: Hasil; peringkat: number | null; catatan: string | null }): string {
   const l = lk.laga
-  return [
-    `${NAMA_SUMBER_KONIJABAR}: ${[l.disiplin, l.babak, l.kode].filter(Boolean).join(' · ')}`.trim(),
-    l.venue, catatan, urlLaga(l.ref),
-  ].filter(Boolean).join(' · ').slice(0, 480)
+  const kalimat = kalimatHasil({ babak: l.babak, hasil: tebak.hasil, peringkat: tebak.peringkat, skor: skorTeks(lk), lawan: lk.lawan })
+  return susunKeterangan(kalimat, [l.disiplin, l.kode, l.venue, tebak.catatan], urlLaga(l.ref))
+}
+
+const POLA_BABAK = /final|semi|perempat|quarter|penyisihan|pool|grup|group|perebutan|juara 3|repechage|\b\d+ besar\b|babak|heat|kualifikasi|play ?off/i
+/**
+ * Rapikan keterangan otomatis format lama ("Situs KONI Jabar: Semifinal · P38 · Tempat · tautan")
+ * menjadi format baru. Keterangan lain (tulisan PIC/KONIDA) → null, tidak disentuh.
+ */
+export function rapikanKeteranganLama(ket: string | null | undefined, l: { hasil: string; peringkat?: number | null; nilai_teks?: string | null; lawan?: string | null }): string | null {
+  const awal = `${NAMA_SUMBER_KONIJABAR}: `
+  if (!ket?.startsWith(awal)) return null
+  const bagian = ket.slice(awal.length).split(' · ').map(s => s.trim()).filter(Boolean)
+  const url = bagian.length && /^https?:\/\//.test(bagian[bagian.length - 1]) ? bagian.pop()! : null
+  if (bagian.some(s => /^https?:\/\//.test(s))) return null
+  const iBabak = bagian.findIndex(s => POLA_BABAK.test(s))
+  const babak = iBabak >= 0 ? bagian[iBabak] : null
+  const rincian = bagian.filter((_, i) => i !== iBabak)
+  return susunKeterangan(kalimatHasil({ babak, hasil: l.hasil, peringkat: l.peringkat, skor: l.nilai_teks, lawan: l.lawan }), rincian, url)
 }
 
 /* ---------- Alarm beda data: laporan kita vs situs panitia ---------- */

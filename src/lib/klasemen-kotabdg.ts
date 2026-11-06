@@ -48,3 +48,36 @@ export async function ambilKlasemenKotaBdg(): Promise<BarisKotaBdg[] | null> {
     return baris.length >= 20 ? baris : null
   } catch { return null }
 }
+
+export interface RekapSumber {
+  baris: { nama: string; emas: number; perak: number; perunggu: number }[]
+  sumber: string; waktu: string | null; langsung: boolean
+  /** Angka Kab. Bandung menurut sumber (sebelum diganti data kita). */
+  kab_bandung_sumber: { emas: number; perak: number; perunggu: number } | null
+}
+
+/**
+ * Bahan rekap sementara (War Room & halaman publik): situs KONI Kota Bandung langsung;
+ * bila tidak terbaca, potret terakhir tabel klasemen_sementara. Tidak ada keduanya → null.
+ * `db` = klien Supabase server (kunci layanan).
+ */
+export async function ambilRekapSumber(db: any, kontingenKita: (nama: string) => boolean): Promise<RekapSumber | null> {
+  const situs = await ambilKlasemenKotaBdg()
+  if (situs) {
+    const kb = situs.find(b => kontingenKita(b.nama))
+    return {
+      baris: situs.map(b => ({ nama: b.nama, emas: b.emas, perak: b.perak, perunggu: b.perunggu })),
+      sumber: 'situs KONI Kota Bandung (koni-kotabandung.or.id/klasemen)', waktu: new Date().toISOString(), langsung: true,
+      kab_bandung_sumber: kb ? { emas: kb.emas, perak: kb.perak, perunggu: kb.perunggu } : null,
+    }
+  }
+  const { data: akhir, error } = await db.from('klasemen_sementara').select('potret,potret_at,sumber').order('potret_at', { ascending: false }).limit(1).maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!akhir) return null
+  const { data: baris, error: e2 } = await db.from('klasemen_sementara').select('kontingen,emas,perak,perunggu').eq('potret', akhir.potret)
+  if (e2) throw new Error(e2.message)
+  return {
+    baris: (baris ?? []).map((r: any) => ({ nama: r.kontingen, emas: r.emas, perak: r.perak, perunggu: r.perunggu })),
+    sumber: `${akhir.sumber} (situs KONI Kota Bandung sedang tidak terbaca)`, waktu: akhir.potret_at, langsung: false, kab_bandung_sumber: null,
+  }
+}

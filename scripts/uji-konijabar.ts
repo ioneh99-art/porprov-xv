@@ -1,7 +1,7 @@
 // scripts/uji-konijabar.ts — mengunci cara membaca situs panitia (porprov.konijabar.or.id)
 // dan menerjemahkannya ke laporan kita. Dijalankan: npm run uji:konijabar
 import {
-  bacaJadwalHarian, bacaLaga, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, nomorSama,
+  bacaJadwalHarian, bacaLaga, cocokCabor, cocokPartai, kalimatHasil, keteranganLaporan, rapikanKeteranganLama, lagaKita, lawanSama, nomorSama,
   pilihNomorResmi, skorTeks, tebakHasil, type PartaiCocok,
   arahHasil, bacaKlasemen, bandingkan, cariAlarm, kunciBanding, skorUtama, type HasilLuarBanding, type LaporanBanding,
 } from '../src/lib/konijabar'
@@ -111,7 +111,19 @@ cek('jadwal harian: nomor laga, tim, status', bacaJadwalHarian(jadwal), [
   { ref: '164', tim: ['Kota Bandung', 'Kota Bekasi'], selesai: true },
 ])
 
-cek('keterangan menyebut sumber dan tautan', keteranganLaporan(K1, null), 'Situs KONI Jabar: Penyisihan · PA-06 · GOR Bang Yan Bulu Tangkis, Kota Bekasi · https://porprov.konijabar.or.id/laga/95')
+cek('keterangan: kalimat hasil, rincian, sumber, tautan', keteranganLaporan(K1, { hasil: 'kalah', peringkat: null, catatan: null }),
+  `Penyisihan: kalah ${skorTeks(K1)} dari ${K1.lawan} · PA-06 · GOR Bang Yan Bulu Tangkis, Kota Bekasi · Sumber: Situs KONI Jabar · https://porprov.konijabar.or.id/laga/95`)
+cek('kalimat: kalah final = perak', kalimatHasil({ babak: 'Final', hasil: 'perak', skor: '4-8', lawan: 'Kota Bekasi' }), 'Final: kalah 4-8 dari Kota Bekasi → PERAK')
+cek('kalimat: menang perebutan perunggu', kalimatHasil({ babak: 'perebutan juara 3', hasil: 'perunggu', skor: '6-2', lawan: 'Kab. Bogor' }), 'Perebutan juara 3: menang 6-2 atas Kab. Bogor → PERUNGGU')
+cek('kalimat: peringkat 4 tanpa medali', kalimatHasil({ babak: 'Perebutan juara 3', hasil: 'peringkat', peringkat: 4, skor: '0-6', lawan: 'Kota Bekasi' }), 'Perebutan juara 3: kalah 0-6 dari Kota Bekasi → peringkat 4, tanpa medali')
+cek('kalimat: tanpa skor/babak', kalimatHasil({ hasil: 'lolos', lawan: 'Kab. Subang' }), 'Menang atas Kab. Subang → lolos')
+cek('rapikan lama: babak dikenali, rincian tetap', rapikanKeteranganLama('Situs KONI Jabar: Perempat final · P76 · Komplek Gor Padjajaran Indoor A Kota Bogor · https://porprov.konijabar.or.id/laga/1604', { hasil: 'gugur', nilai_teks: '0-33', lawan: 'Kota Bandung' }),
+  'Perempat final: kalah 0-33 dari Kota Bandung → tersingkir · P76 · Komplek Gor Padjajaran Indoor A Kota Bogor · Sumber: Situs KONI Jabar · https://porprov.konijabar.or.id/laga/1604')
+cek('rapikan lama: disiplin di depan babak', rapikanKeteranganLama('Situs KONI Jabar: Bola Basket 5x5 · Perempat final · KO QF4 · Gor Depok, Kota Depok · https://porprov.konijabar.or.id/laga/1630', { hasil: 'gugur', nilai_teks: '39-54', lawan: 'Kota Depok' }),
+  'Perempat final: kalah 39-54 dari Kota Depok → tersingkir · Bola Basket 5x5 · KO QF4 · Gor Depok, Kota Depok · Sumber: Situs KONI Jabar · https://porprov.konijabar.or.id/laga/1630')
+cek('kalimat: skor bertentangan tidak ditulis', kalimatHasil({ babak: 'Penyisihan', hasil: 'menang', skor: '2-4', lawan: 'Kab. Purwakarta' }), 'Penyisihan: menang atas Kab. Purwakarta')
+cek('kalimat: perunggu dari semifinal = kalah', kalimatHasil({ babak: 'Semifinal', hasil: 'perunggu', skor: '28-29', lawan: 'Kab. Bogor' }), 'Semifinal: kalah 28-29 dari Kab. Bogor → PERUNGGU')
+cek('rapikan lama: tulisan PIC tidak disentuh', rapikanKeteranganLama('Kalah tipis, wasit kontroversial', { hasil: 'gugur' }), null)
 
 
 // --- alarm beda data ---

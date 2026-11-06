@@ -217,7 +217,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
       let catatan: string | null = null
       if (ada?.ref_luar && berubah && ada.status === 'menunggu') {
         // Laporan dari situs yang belum diputus ikut diperbarui; yang sudah disahkan TIDAK diubah — alarm yang memberi tahu.
-        await db.from('laporan_hasil').update({ hasil: tebak.hasil, peringkat: tebak.peringkat, nilai_teks: skorTeks(lk), keterangan: keteranganLaporan(lk, tebak.catatan), updated_at: new Date().toISOString() })
+        await db.from('laporan_hasil').update({ hasil: tebak.hasil, peringkat: tebak.peringkat, nilai_teks: skorTeks(lk), keterangan: keteranganLaporan(lk, tebak), updated_at: new Date().toISOString() })
           .eq('id', ada.id).eq('status', 'menunggu')
       }
       if (ada && !ada.ref_luar) { r.sudah_dilaporkan++; catatan = `Sudah dilaporkan lewat jalur PIC/KONIDA (laporan #${ada.id}).` }
@@ -231,7 +231,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
           // Bertaut ke jadwal → atlet jadwal kita (sama dengan alur PIC); tidak bertaut → nama dari situs yang dikenali.
           atlet_ids: p?.atlet_ids?.length ? p.atlet_ids : atletIds,
           hasil: tebak.hasil, peringkat: tebak.peringkat, nilai_teks: skorTeks(lk),
-          keterangan: keteranganLaporan(lk, tebak.catatan), tanggal: laga.tanggal, jam: laga.jam, lawan: lk.lawan,
+          keterangan: keteranganLaporan(lk, tebak), tanggal: laga.tanggal, jam: laga.jam, lawan: lk.lawan,
           pelapor_nama: PELAPOR_KONIJABAR, status: 'menunggu', sumber_luar: 'konijabar', ref_luar: ref,
         }).select('id').single()
         if (error) { if (error.code !== '23505') r.galat.push(`Simpan laga ${ref}: ${error.message}`) }

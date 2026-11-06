@@ -338,6 +338,11 @@ export function namaAtletPartai(tersambung: string[], belumTersambung: string[])
 
 export interface BarisKlasemenPublik { nama: string; emas: number; perak: number; perunggu: number; total: number; peringkat: number; kita: boolean }
 export interface KlasemenPublik { baris: BarisKlasemenPublik[]; diperbarui: string | null; selesai: number | null; nomor: number | null; dimulai: boolean }
+/** Rekap sementara untuk publik: kontingen lain dari situs KONI Kota Bandung, Kab. Bandung = medali yang sudah disahkan. */
+export interface RekapSementaraPublik {
+  baris: BarisKlasemenPublik[]; sumber: string; waktu: string | null; langsung: boolean
+  kab_bandung_sumber: { emas: number; perak: number; perunggu: number } | null
+}
 
 /** Kab. Bandung saja — "Kab. Bandung Barat" & "Kota Bandung" bukan kita. */
 export const kontingenKita = (nama: string) => /^kab(upaten|\.)?\s*bandung$/i.test(nama.replace(/\s+/g, ' ').trim())

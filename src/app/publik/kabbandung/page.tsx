@@ -4,14 +4,18 @@
 // tampil_publik — dikelola admin di Kelola Jadwal. Kolom internal
 // (akomodasi, kontak panitia, catatan) sengaja tidak dibaca.
 // Perolehan medali: hanya laporan lapangan yang sudah disahkan KONIDA.
-// Klasemen: tabel resmi panitia (porprov.konijabar.or.id/data/tally.json), apa adanya.
+// Klasemen, dua pilihan (sama dengan War Room): "Rekap sementara" (dibuka pertama) = kontingen lain
+// dari situs KONI Kota Bandung, Kab. Bandung = medali yang sudah disahkan KONI Kab. Bandung;
+// "Situs KONI Jabar" = tabel resmi panitia (porprov.konijabar.or.id/data/tally.json), apa adanya.
 
 import type { Metadata } from 'next'
 import { Barlow_Condensed } from 'next/font/google'
 import { createClient } from '@supabase/supabase-js'
 import { tanggalWIB } from '@/lib/lapor'
-import { adalahMedali } from '@/lib/jadwal-publik'
+import { adalahMedali, kontingenKita, rekapPublik, type RekapSementaraPublik } from '@/lib/jadwal-publik'
 import { ambilKlasemenSitus } from '@/lib/klasemen-situs'
+import { ambilRekapSumber } from '@/lib/klasemen-kotabdg'
+import { klasemenDisesuaikan } from '@/lib/klasemen-banding'
 import { namaAtletPartai, pasangHasil, pilihKabarLolos, type KabarLolos, type LaporanSah, type BarisPublik, type MedaliPublik, type PartaiPublik } from '@/lib/jadwal-publik'
 import { ambilSemua } from '@/lib/lapor-sesi'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -107,6 +111,17 @@ async function ambilMedali(): Promise<MedaliPublik[]> {
 /** Klasemen medali resmi panitia, apa adanya (angka Kab. Bandung tidak diubah). Gagal dibaca → null. */
 const ambilKlasemen = () => ambilKlasemenSitus()
 
+/** Rekap sementara: kontingen lain dari situs KONI Kota Bandung, Kab. Bandung = medali yang sudah disahkan. Gagal → null. */
+async function ambilRekap(medali: MedaliPublik[]): Promise<RekapSementaraPublik | null> {
+  try {
+    const r = await ambilRekapSumber(sb(), kontingenKita)
+    if (!r || !r.baris.length) return null
+    const kita = rekapPublik(medali)
+    return { baris: klasemenDisesuaikan(r.baris, kita), langsung: r.langsung, waktu: r.waktu,
+      sumber: r.langsung ? 'koni-kotabandung.or.id' : r.sumber, kab_bandung_sumber: r.kab_bandung_sumber }
+  } catch { return null }
+}
+
 async function ambilJadwal(): Promise<{ jadwal: BarisPublik[]; diperbarui: string | null; galat: boolean }> {
   try {
     const db = sb()
@@ -127,9 +142,10 @@ async function ambilJadwal(): Promise<{ jadwal: BarisPublik[]; diperbarui: strin
 
 export default async function HalamanPublikKabBandung() {
   const [{ jadwal, diperbarui, galat }, { partai, kabar }, medali, klasemen] = await Promise.all([ambilJadwal(), ambilPartai(), ambilMedali(), ambilKlasemen()])
+  const rekap = await ambilRekap(medali)
   return (
     <div className={hurufTampil.variable}>
-      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} partai={partai} medali={medali} kabar={kabar} klasemen={klasemen} />
+      <JadwalPublik jadwal={jadwal} diperbarui={diperbarui} hariIniServer={tanggalWIB()} galat={galat} partai={partai} medali={medali} kabar={kabar} klasemen={klasemen} rekap={rekap} />
     </div>
   )
 }

@@ -10,7 +10,7 @@ import { hitungMundur } from '@/lib/layar'
 import {
   LABEL_STATUS, cocokCari, deretTanggal, hariKe, ikonCabor, kegiatanPada, namaHari, rentangSingkat, ringkasWilayah,
   segeraMulai, statusKegiatan, tanggalAwal, tglPanjang, urutDaftar, type BarisPublik, type PartaiPublik, type StatusKegiatan,
-  medaliPerCabor, rekapPublik, urutMedali, kabarLolosAktif, type KlasemenPublik, type JenisMedali, type MedaliPublik, type HasilPartai, type KabarLolos,
+  medaliPerCabor, rekapPublik, urutMedali, kabarLolosAktif, type KlasemenPublik, type RekapSementaraPublik, type BarisKlasemenPublik, type JenisMedali, type MedaliPublik, type HasilPartai, type KabarLolos,
 } from '@/lib/jadwal-publik'
 import { LABEL_STATUS_PARTAI, WARNA_STATUS_PARTAI } from '@/lib/jadwal-partai'
 import { ALAMAT_RESMI_KABBANDUNG } from '@/lib/alamat'
@@ -328,22 +328,42 @@ function KabarMedali({ medali, klasemen, hariIni }: { medali: MedaliPublik[]; kl
   )
 }
 
-/** Klasemen medali resmi panitia (porprov.konijabar.or.id) — angka apa adanya, Kab. Bandung disorot. */
-function KlasemenResmi({ klasemen, medali }: { klasemen: KlasemenPublik | null; medali: MedaliPublik[] }) {
+const jamWIBTeks = (iso: string) => new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+/**
+ * Klasemen medali, dua pilihan (sama dengan War Room):
+ *  • "Rekap sementara" (dibuka pertama) — kontingen lain dari situs KONI Kota Bandung,
+ *    Kab. Bandung = medali yang sudah disahkan KONI Kab. Bandung (daftar medali di halaman ini).
+ *  • "Situs KONI Jabar" — tabel resmi panitia, angka apa adanya.
+ * Bila salah satu sumber tidak terbaca, yang ada saja yang tampil (tanpa tombol).
+ */
+function KlasemenResmi({ klasemen, rekap, medali }: { klasemen: KlasemenPublik | null; rekap: RekapSementaraPublik | null; medali: MedaliPublik[] }) {
   const [semua, setSemua] = useState(false)
-  if (!klasemen) return null
-  const sumber = (
+  const [mode, setMode] = useState<'sementara' | 'situs'>(rekap ? 'sementara' : 'situs')
+  if (!klasemen && !rekap) return null
+  const m = mode === 'sementara' && rekap ? 'sementara' : klasemen ? 'situs' : 'sementara'
+  const daftar = m === 'sementara' ? rekap!.baris : klasemen!.baris
+  const kitaAngka = rekapPublik(medali)
+  const sumber = m === 'sementara' ? (
+    <div className="mt-2 text-[11px] text-slate-500">
+      Rekap sementara · kontingen lain: {rekap!.langsung
+        ? <a href="https://koni-kotabandung.or.id/klasemen" target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-slate-300">koni-kotabandung.or.id</a>
+        : rekap!.sumber}
+      {rekap!.waktu ? ` · dibaca ${jamWIBTeks(rekap!.waktu)} WIB` : ''}
+      {' '}· Kab. Bandung: {kitaAngka.total} medali yang sudah disahkan KONI Kab. Bandung. Bukan klasemen resmi panitia.
+    </div>
+  ) : (
     <div className="mt-2 text-[11px] text-slate-500">
       Sumber: <a href="https://porprov.konijabar.or.id" target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-slate-300">porprov.konijabar.or.id</a> (panitia PORPROV XV)
-      {klasemen.diperbarui ? ` · ${klasemen.diperbarui}` : ''}
-      {klasemen.selesai != null && klasemen.nomor ? ` · ${angkaID(klasemen.selesai)} dari ${angkaID(klasemen.nomor)} nomor selesai` : ''}
+      {klasemen!.diperbarui ? ` · ${klasemen!.diperbarui}` : ''}
+      {klasemen!.selesai != null && klasemen!.nomor ? ` · ${angkaID(klasemen!.selesai)} dari ${angkaID(klasemen!.nomor)} nomor selesai` : ''}
     </div>
   )
   const batas = 10
-  const kita = klasemen.baris.find(b => b.kita)
-  const tampil = semua ? klasemen.baris : klasemen.baris.slice(0, batas)
+  const kita = daftar.find(b => b.kita)
+  const tampil = semua ? daftar : daftar.slice(0, batas)
   const kitaDiLuar = !semua && kita && !tampil.includes(kita)
-  const baris = (b: KlasemenPublik['baris'][number]) => (
+  const baris = (b: BarisKlasemenPublik) => (
     <tr key={b.nama} className={b.kita ? 'bg-amber-300/15' : ''} style={b.kita ? { boxShadow: 'inset 3px 0 0 #facc15' } : {}}>
       <td className="py-2 pl-3 pr-1 text-center tabular-nums font-bold text-slate-400">{b.total > 0 ? b.peringkat : '–'}</td>
       <td className={`py-2 px-1 ${b.kita ? 'font-extrabold text-amber-200' : 'font-semibold text-white'}`}>{b.nama}{b.kita ? ' ★' : ''}</td>
@@ -355,7 +375,15 @@ function KlasemenResmi({ klasemen, medali }: { klasemen: KlasemenPublik | null; 
   )
   return (
     <section id="klasemen" className="pt-8 scroll-mt-4">
-      <JudulBagian ikon={<Flag size={12} />} kecil="Klasemen resmi panitia" besar="Klasemen Medali PORPROV XV" />
+      <JudulBagian ikon={<Flag size={12} />} kecil={m === 'sementara' ? 'Rekap sementara' : 'Klasemen resmi panitia'} besar="Klasemen Medali PORPROV XV" />
+      {rekap && klasemen && (
+        <div className="mb-3 inline-flex rounded-full border border-white/[0.12] p-0.5 text-[12px] font-bold" role="group" aria-label="Pilih klasemen">
+          <button onClick={() => { setMode('sementara'); setSemua(false) }} aria-pressed={m === 'sementara'}
+            className={`rounded-full px-3 py-1.5 ${m === 'sementara' ? 'bg-amber-300 text-slate-950' : 'text-amber-200'}`}>Rekap sementara</button>
+          <button onClick={() => { setMode('situs'); setSemua(false) }} aria-pressed={m === 'situs'}
+            className={`rounded-full px-3 py-1.5 ${m === 'situs' ? 'bg-sky-300 text-slate-950' : 'text-sky-200'}`}>Situs KONI Jabar</button>
+        </div>
+      )}
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden lg:max-w-3xl">
         <table className="w-full text-[13px]">
           <thead>
@@ -377,14 +405,14 @@ function KlasemenResmi({ klasemen, medali }: { klasemen: KlasemenPublik | null; 
           </tbody>
         </table>
       </div>
-      {!klasemen.dimulai && (
+      {m === 'situs' && !klasemen!.dimulai && (
         <p className="mt-2 text-[12px] text-slate-400">Panitia belum mengumumkan medali yang sudah diverifikasi — semua kontingen masih 0, sama seperti di situs resmi.</p>
       )}
-      {kita && kita.total < medali.length && (
+      {m === 'situs' && kita && kita.total < medali.length && (
         <p className="mt-2 text-[12px] text-amber-200/80">{medali.length} medali Kab. Bandung di halaman ini sudah disahkan KONI Kab. Bandung; klasemen ini mengikuti situs panitia dan menunggu verifikasi panitia.</p>
       )}
-      {klasemen.baris.length > batas && (
-        <button onClick={() => setSemua(x => !x)} className="mt-2 text-sm font-bold text-sky-300">{semua ? 'Tampilkan 10 teratas' : `Lihat semua ${klasemen.baris.length} kontingen →`}</button>
+      {daftar.length > batas && (
+        <button onClick={() => setSemua(x => !x)} className="mt-2 text-sm font-bold text-sky-300">{semua ? 'Tampilkan 10 teratas' : `Lihat semua ${daftar.length} kontingen →`}</button>
       )}
       {sumber}
     </section>
@@ -400,8 +428,8 @@ function JudulBagian({ ikon, kecil, besar }: { ikon: React.ReactNode; kecil: str
   )
 }
 
-export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, partai = [], medali = [], kabar = [], klasemen = null }: {
-  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; partai?: PartaiPublik[]; medali?: MedaliPublik[]; kabar?: KabarLolos[]; klasemen?: KlasemenPublik | null
+export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat, partai = [], medali = [], kabar = [], klasemen = null, rekap = null }: {
+  jadwal: BarisPublik[]; diperbarui: string | null; hariIniServer: string; galat: boolean; partai?: PartaiPublik[]; medali?: MedaliPublik[]; kabar?: KabarLolos[]; klasemen?: KlasemenPublik | null; rekap?: RekapSementaraPublik | null
 }) {
   const [hariIni, setHariIni] = useState(hariIniServer)
   const [masuk, setMasuk] = useState(false)
@@ -646,7 +674,7 @@ export default function JadwalPublik({ jadwal, diperbarui, hariIniServer, galat,
       <main className="max-w-3xl lg:max-w-6xl mx-auto px-4 lg:px-8 pb-12">
         {/* ══ PEROLEHAN MEDALI ══ */}
         <PerolehanMedali medali={medali} />
-        <KlasemenResmi klasemen={klasemen} medali={medali} />
+        <KlasemenResmi klasemen={klasemen} rekap={rekap} medali={medali} />
 
         {galat ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-6 text-center text-sm text-red-300">
