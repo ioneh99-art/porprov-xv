@@ -162,9 +162,21 @@ export interface BarisMedali {
   dobel: number[]
 }
 
-/** Kunci "medali yang sama": cabor + nomor (tanpa beda huruf/spasi) + jenis medali. */
+/**
+ * Nama nomor yang dibakukan untuk dibandingkan: awalan disiplin ("DAYUNG CANOEING · …") dibuang,
+ * Putri/Putra = Pi/Pa, tanda baca & spasi diabaikan — "Kelas 52-57 Kg Putri" = "Kelas 52-57 Kg (Pi)".
+ */
+export function bakuNomorMedali(s: string | null | undefined): string {
+  let t = (s ?? '').toLowerCase()
+  const titik = t.lastIndexOf('·')
+  if (titik >= 0) t = t.slice(titik + 1)
+  t = t.replace(/\b(putri|wanita)\b/g, 'pi').replace(/\b(putra|pria)\b/g, 'pa')
+  return t.replace(/[^a-z0-9]+/g, '')
+}
+
+/** Kunci "medali yang sama": cabor + nomor (dibakukan) + jenis medali. */
 export const kunciMedali = (l: { cabor: string; nomor_teks: string; hasil: string }) =>
-  [l.cabor, l.nomor_teks, l.hasil].map(x => (x ?? '').toLowerCase().replace(/\s+/g, ' ').trim()).join('|')
+  [(l.cabor ?? '').toLowerCase().replace(/\s+/g, ' ').trim(), bakuNomorMedali(l.nomor_teks), (l.hasil ?? '').toLowerCase().trim()].join('|')
 export interface RincianMedali {
   /** Per jenis medali: siapa, cabor apa, nomor apa — terbaru di atas. */
   daftar: Record<JenisMedali, BarisMedali[]>

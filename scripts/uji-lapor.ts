@@ -205,6 +205,13 @@ const RD = rincianMedali([
 ])
 cek('medali sama tercatat dua kali ditandai dobel', RD.daftar.perunggu.map(b => `${b.id}:${b.dobel.join(',')}`).sort(), ['180:196', '196:180', '197:'])
 cek('kunci medali abaikan spasi & huruf besar', kunciMedali({ cabor: 'Gulat', nomor_teks: ' 67  kg ', hasil: 'emas' }), kunciMedali({ cabor: 'gulat', nomor_teks: '67 kg', hasil: 'emas' }))
+const km = (n: string, h = 'perunggu') => kunciMedali({ cabor: 'Judo', nomor_teks: n, hasil: h })
+cek('kunci medali: Putri = (Pi)', km('Kelas 52-57 Kg Putri'), km('Kelas 52-57 Kg (Pi)'))
+cek('kunci medali: Putra = (Pa)', km('Kelas 60 Kg Putra'), km('Kelas 60 Kg (Pa)'))
+cek('kunci medali: Pa ≠ Pi', km('Kelas 52-57 Kg (Pa)') === km('Kelas 52-57 Kg (Pi)'), false)
+cek('kunci medali: awalan disiplin dibuang', kunciMedali({ cabor: 'Dayung', nomor_teks: 'DAYUNG CANOEING · Canoeing - K - 1 1000 M (Pa)', hasil: 'emas' }), kunciMedali({ cabor: 'Dayung', nomor_teks: 'Canoeing - K - 1 1000 M (Pa)', hasil: 'emas' }))
+cek('kunci medali: K-1 ≠ K-2', kunciMedali({ cabor: 'Dayung', nomor_teks: 'Canoeing - K - 1 1000 M (Pa)', hasil: 'emas' }) === kunciMedali({ cabor: 'Dayung', nomor_teks: 'Canoeing - K - 2 1000 M (Pa)', hasil: 'emas' }), false)
+cek('kunci medali: emas ≠ perak', km('60 kg', 'emas') === km('60 kg', 'perak'), false)
 cek('per cabor urut seperti klasemen', RM.cabor.map(c => `${c.cabor}:${c.emas}/${c.perak}/${c.perunggu}`), ['Gulat:1/1/0', 'Muaythai:0/0/1', 'Panahan:0/0/1'])
 
 console.log(`\n${lulus} lulus, ${gagal} gagal`)
