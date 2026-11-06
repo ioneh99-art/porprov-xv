@@ -11,7 +11,7 @@ import type { StatusMisi } from '@/lib/warroom'
 export const GAYA_MISI: Record<StatusMisi, { label: string; warna: string; ikon: string }> = {
   emas:        { label: 'Emas',          warna: '#facc15', ikon: '✓' },
   medali_lain: { label: 'Medali lain',   warna: '#cbd5e1', ikon: '◐' },
-  meleset:     { label: 'Meleset',       warna: '#f87171', ikon: '✕' },
+  meleset:     { label: 'Tanpa medali',  warna: '#f87171', ikon: '✕' },
   berjalan:    { label: 'Berjalan',      warna: '#34d399', ikon: '●' },
   belum:       { label: 'Belum main',    warna: '#64748b', ikon: '○' },
 }

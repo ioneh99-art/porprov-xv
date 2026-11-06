@@ -23,7 +23,7 @@ const STATUS: Record<StatusMisi, { teks: string; warna: string }> = {
   berjalan:    { teks: 'Sedang bertanding', warna: HIJAU },
   emas:        { teks: 'EMAS ✓',            warna: EMAS },
   medali_lain: { teks: 'Medali',            warna: PERAK },
-  meleset:     { teks: 'Belum rezeki',      warna: MERAH },
+  meleset:     { teks: 'Tanpa medali',      warna: MERAH },
 }
 
 function Foto({ w, warna, px }: { w: { nama: string; foto: string | null }; warna: string; px: number }) {
