@@ -64,9 +64,19 @@ export function duelRival(k: BarisKlasemenWR[], nama: string, rival: string[]) {
 
 // ── Misi Emas Hari Ini: proyeksi KONI lawan hasil yang disahkan ──────────────
 export interface ProyeksiBaris { urutan: number; tanggal: string; cabor_id: number | null; cabor: string; nomor: string | null; atlet: string | null; kota: string | null }
-export interface HasilBaris { id: number; cabor_id: number; tanggal: string; hasil: string; nomor_teks: string }
+export interface HasilBaris { id: number; cabor_id: number; tanggal: string; hasil: string; nomor_teks: string; keterangan?: string | null }
 export type StatusMisi = 'emas' | 'medali_lain' | 'meleset' | 'berjalan' | 'belum'
-export interface Misi extends ProyeksiBaris { status: StatusMisi; hasil: string | null; laporan_id?: number | null }
+export interface Misi extends ProyeksiBaris {
+  status: StatusMisi; hasil: string | null; laporan_id?: number | null
+  /** Keterangan laporan, hanya untuk target yang tidak jadi emas (perak/perunggu/meleset) — mis. alasan meleset. */
+  keterangan?: string | null
+}
+
+/** Keterangan laporan untuk kartu target: tautan dibuang, tanda pemisah di ujung dirapikan. */
+export function keteranganKartu(s: string | null | undefined): string | null {
+  const t = (s ?? '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').replace(/[\s·,;:–—-]+$/, '').trim()
+  return t || null
+}
 
 const kataNomor = (s: string | null) => new Set(norm(s).split(' ').filter(w => w.length >= 2 && !['PA', 'PI', 'PUTRA', 'PUTRI', 'KELAS', 'NOMOR'].includes(w)))
 /** Kedua nomor menyebut angka (kelas/jarak) dan angkanya berbeda — "52 Kg" bukan "62 Kg". */
@@ -79,6 +89,10 @@ function miripNomor(a: string | null, b: string | null): number {
   x.forEach(w => { if (y.has(w)) sama++ })
   return sama / Math.min(x.size, y.size)
 }
+
+/** Hasil akhir didahulukan: satu nomor bisa punya banyak laporan (menang di pool, lalu perak di final). */
+const AKHIR: Record<string, number> = { emas: 0, perak: 1, perunggu: 2, peringkat: 3, gugur: 3 }
+const urutAkhir = (h: string) => AKHIR[h] ?? 9
 
 /**
  * Status tiap emas yang diproyeksikan KONI. Satu laporan disahkan hanya boleh
@@ -96,7 +110,7 @@ export function statusMisi(proyeksi: ProyeksiBaris[], laporan: HasilBaris[], cab
   // 1. lewat nama nomor
   for (const p of urut) {
     const calon = (lapPer.get(kunci(p.tanggal, p.cabor_id)) ?? []).filter(l => !dipakai.has(l.id) && !angkaBeda(p.nomor, l.nomor_teks))
-      .map(l => ({ l, s: miripNomor(p.nomor, l.nomor_teks) })).filter(x => x.s >= 0.6).sort((a, b) => b.s - a.s || (a.l.hasil === 'emas' ? -1 : 1))
+      .map(l => ({ l, s: miripNomor(p.nomor, l.nomor_teks) })).filter(x => x.s >= 0.6).sort((a, b) => b.s - a.s || urutAkhir(a.l.hasil) - urutAkhir(b.l.hasil) || b.l.id - a.l.id)
     if (calon[0]) { dipakai.add(calon[0].l.id); hasilRow.set(p.urutan, calon[0].l) }
   }
   // 1b. jadwal bergeser (±2 hari, sama dengan Mesin Emas): nomor harus cocok ketat
@@ -117,7 +131,8 @@ export function statusMisi(proyeksi: ProyeksiBaris[], laporan: HasilBaris[], cab
     let status: StatusMisi = 'belum'
     if (h) status = h.hasil === 'emas' ? 'emas' : h.hasil === 'perak' || h.hasil === 'perunggu' ? 'medali_lain' : h.hasil === 'lolos' || h.hasil === 'menang' || h.hasil === 'kalah' || h.hasil === 'seri' ? 'berjalan' : 'meleset'
     if (status === 'belum' && p.cabor_id != null && caborLive.has(p.cabor_id)) status = 'berjalan'
-    return { ...p, status, hasil: h?.hasil ?? null, laporan_id: h?.id ?? null }
+    const ket = status === 'medali_lain' || status === 'meleset' ? keteranganKartu(h?.keterangan) : null
+    return { ...p, status, hasil: h?.hasil ?? null, laporan_id: h?.id ?? null, ...(ket ? { keterangan: ket } : {}) }
   })
 }
 

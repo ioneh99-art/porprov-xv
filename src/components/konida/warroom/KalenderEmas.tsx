@@ -65,6 +65,7 @@ function KartuTarget({ c, onLawan }: { c: CalonEmas; onLawan: () => void }) {
         <div className="text-sm font-black text-white truncate" title={orang.map(o => o.nama).join(', ')}>{namaRingkas(orang, cadangan)}</div>
         <div className="text-[11px] truncate"><b className="uppercase tracking-wide text-sky-300">{c.cabor}</b> <span className="text-zinc-400">· {c.nomor ?? '—'}{c.kota ? ` · ${c.kota}` : ''}</span></div>
         {beda && <div className="text-[10px] text-zinc-500 truncate">Proyeksi KONI: {judul(c.atlet!)}</div>}
+        {c.keterangan && <div className="text-[11px] leading-snug text-amber-100/90 my-0.5">📝 {c.keterangan}</div>}
         <div className="text-[10px] font-bold text-red-300">⚔ Lihat lawan</div>
       </div>
       <span className="relative shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap"

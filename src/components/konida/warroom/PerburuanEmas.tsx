@@ -99,6 +99,7 @@ function KartuCalon({ c, besar }: { c: CalonEmas; besar: boolean }) {
       <div className="min-w-0 flex-1 relative">
         <div className="font-black text-white leading-tight truncate" style={{ fontSize: '1.15vw' }} title={namaTampil}>{namaTampil}</div>
         <div className="truncate leading-snug" style={{ fontSize: '0.75vw' }}><b className="uppercase tracking-wide" style={{ color: '#7dd3fc' }}>{c.cabor}</b> <span className="text-slate-300">· {c.nomor ?? '—'}</span></div>
+        {c.keterangan && <div className="leading-snug text-amber-100/90 line-clamp-2" style={{ fontSize: '0.7vw' }} title={c.keterangan}>📝 {c.keterangan}</div>}
         <div className="mt-[0.4vh]">{pita('0.72vw')}</div>
       </div>
     </div>
@@ -111,6 +112,7 @@ function KartuCalon({ c, besar }: { c: CalonEmas; besar: boolean }) {
       <div className="font-black text-white leading-tight mt-[1.2vh] line-clamp-2" style={{ fontSize: '1.9vw' }}>{namaTampil}</div>
       <div className="font-bold uppercase tracking-wider mt-[0.5vh] truncate max-w-full" style={{ fontSize: '1.05vw', color: '#7dd3fc' }}>{c.cabor}</div>
       <div className="text-slate-300 truncate max-w-full" style={{ fontSize: '1vw' }}>{c.nomor ?? '—'}{c.kota ? ` · ${c.kota}` : ''}</div>
+      {c.keterangan && <div className="leading-snug text-amber-100/90 line-clamp-3 mt-[0.6vh]" style={{ fontSize: '0.85vw' }} title={c.keterangan}>📝 {c.keterangan}</div>}
       <div className="mt-auto pt-[1vh]">{pita('1.05vw')}</div>
       {emas && <div className="absolute top-[1vh] right-[0.8vw] font-black rotate-12 rounded-[0.4vw] px-[0.6vw]" style={{ fontSize: '1.3vw', color: '#1a1200', background: EMAS, boxShadow: `0 0 1vw ${EMAS}` }}>EMAS</div>}
     </div>

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     ;[proyeksiMentah, laporan, daftar] = await Promise.all([
       ambilSemua((d, s) => db.from('proyeksi_medali').select('urutan,tanggal,cabor_id,cabor_teks,nomor_teks,atlet_teks,kota')
         .eq('kontingen_id', k).eq('medali', 'emas').order('urutan').range(d, s)),
-      ambilSemua((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,hasil,peringkat,nomor_teks,nilai_teks,lawan,atlet_ids,status,diputus_at,created_at')
+      ambilSemua((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,hasil,peringkat,nomor_teks,nilai_teks,lawan,keterangan,atlet_ids,status,diputus_at,created_at')
         .eq('kontingen_id', k).neq('status', 'ditolak').order('id').range(d, s)),
       ambilSemua<{ cabor_id: number; atlet_id: number | null }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id,atlet_id').eq('kontingen_id', k).order('id').range(d, s)),
     ])

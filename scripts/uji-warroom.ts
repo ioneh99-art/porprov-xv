@@ -1,6 +1,6 @@
 // scripts/uji-warroom.ts — War Room tanpa data contoh: peringkat, klasemen kosong, laga live.
 // Dijalankan: npm run uji:warroom
-import { cariAtletProyeksi, namaCocok, pecahNamaProyeksi, duelRival, kalenderPanas, klasemenDimulai, koordinatKota, lagaLive, menitLagi, partaiBerikut, peringkatKontingen, statusMisi, tetangga, type PartaiWR, type ProyeksiBaris } from '../src/lib/warroom'
+import { keteranganKartu, cariAtletProyeksi, namaCocok, pecahNamaProyeksi, duelRival, kalenderPanas, klasemenDimulai, koordinatKota, lagaLive, menitLagi, partaiBerikut, peringkatKontingen, statusMisi, tetangga, type PartaiWR, type ProyeksiBaris } from '../src/lib/warroom'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -102,5 +102,15 @@ cek('cari: cadangan seluruh kontingen (≥ 2 kata)', cariAtletProyeksi('HERLIN A
 cek('cari: cadangan tidak untuk 1 kata', cariAtletProyeksi('HERLIN', pool, semua), null)
 cek('misi: laporan pengisi ikut dicatat', statusMisi([{ urutan: 1, tanggal: '2026-11-05', cabor_id: 7, cabor: 'Gulat', nomor: 'Bebas 65 kg', atlet: 'X', kota: null }],
   [{ id: 55, cabor_id: 7, tanggal: '2026-11-05', hasil: 'emas', nomor_teks: 'Gaya Bebas 65 kg' }], new Set())[0].laporan_id, 55)
+const PK = { urutan: 4, tanggal: '2026-11-05', cabor_id: 25, cabor: 'Gulat', nomor: 'Bebas - Kelas s/d 52 Kg', atlet: 'ABDUL LATIF', kota: 'KOTA BEKASI' }
+const KET = 'TARGET EMAS — HASIL PERAK, kalah 4-8 di final. Sumber: situs KONI Jabar · https://porprov.konijabar.or.id/laga/1533'
+cek('kartu: keterangan perak ikut tampil tanpa tautan', statusMisi([PK], [{ id: 234, cabor_id: 25, tanggal: '2026-11-05', hasil: 'perak', nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pa)', keterangan: KET }], new Set())[0].keterangan, 'TARGET EMAS — HASIL PERAK, kalah 4-8 di final. Sumber: situs KONI Jabar')
+cek('kartu: target emas tanpa keterangan', statusMisi([PK], [{ id: 5, cabor_id: 25, tanggal: '2026-11-05', hasil: 'emas', nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pa)', keterangan: 'juara' }], new Set())[0].keterangan, undefined)
+cek('misi: banyak laporan senomor → hasil akhir (perak) yang dipakai, bukan menang di pool', statusMisi([PK], [
+  { id: 218, cabor_id: 25, tanggal: '2026-11-05', hasil: 'menang', nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pa)' },
+  { id: 223, cabor_id: 25, tanggal: '2026-11-05', hasil: 'menang', nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pa)' },
+  { id: 234, cabor_id: 25, tanggal: '2026-11-05', hasil: 'perak', nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pa)' },
+], new Set()).map(m => [m.status, m.laporan_id]), [['medali_lain', 234]])
+cek('kartu: keterangan isi tautan saja = kosong', keteranganKartu('https://x.y/z'), null)
 console.log(`uji-warroom: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
