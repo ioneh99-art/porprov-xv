@@ -9,6 +9,7 @@ import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
 import { writeAudit, reqMeta } from '@/lib/audit'
 import { segarkanPublik } from '@/lib/partai-server'
 import { ALASAN_KEMBAR, pasangKembar, rencanaSahkan, type LaporKembar } from '@/lib/lapor-kembar'
+import { alasanBentrok } from '@/lib/jalur-cepat'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
   let laporan: any[]
   try {
     laporan = await ambilSemua((dari, sampai) => db.from('laporan_hasil')
-      .select('id,cabor_id,nomor_id,partai_id,nomor_teks,disiplin,atlet_ids,hasil,peringkat,nilai_teks,keterangan,lawan,jam,foto_path,tanggal,pelapor_nama,pelapor_wa,pengisi_nama,pengisi_jabatan,status,diputus_oleh,diputus_at,alasan_tolak,created_at,sumber_luar,ref_luar')
+      .select('id,cabor_id,nomor_id,partai_id,nomor_teks,disiplin,atlet_ids,hasil,peringkat,nilai_teks,keterangan,lawan,jam,foto_path,tanggal,pelapor_nama,pelapor_wa,pengisi_nama,pengisi_jabatan,status,diputus_oleh,diputus_at,alasan_tolak,created_at,sumber_luar,ref_luar,validasi,validasi_laporan_id,validasi_oleh,validasi_at,memvalidasi_id')
       .eq('kontingen_id', a.kontingen_id).order('created_at', { ascending: false }).order('id', { ascending: false }).range(dari, sampai))
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -41,6 +42,13 @@ export async function GET(req: NextRequest) {
   }
 
   const kembar = pasangKembar(laporan as LaporKembar[])
+  // Jalur cepat yang bentrok: laporan PIC-nya diberi tahu medali mana yang dicatat Superadministrator.
+  const bentrok = new Map<number, { id: number; hasil: string; alasan: string }>()
+  for (const c of laporan) {
+    if (c.validasi !== 'bentrok' || c.validasi_laporan_id == null) continue
+    const pic = laporan.find((l: any) => l.id === c.validasi_laporan_id)
+    if (pic) bentrok.set(pic.id, { id: c.id, hasil: c.hasil, alasan: alasanBentrok(c, pic) })
+  }
   return NextResponse.json({
     // Alamat berkas foto tidak dikirim ke peramban — cukup tanda ada/tidaknya.
     laporan: laporan.map(({ foto_path, ...l }: any) => ({
@@ -49,6 +57,7 @@ export async function GET(req: NextRequest) {
       cabor: namaCabor[l.cabor_id] ?? `Cabor ${l.cabor_id}`,
       atlet: (l.atlet_ids as number[]).map(id => namaAtlet[id] ?? `Atlet ${id}`),
       kembar: kembar.get(l.id) ?? null,
+      bentrok_cepat: bentrok.get(l.id) ?? null,
     })),
   })
 }
@@ -85,13 +94,20 @@ async function putuskanLaporan(req: NextRequest) {
 
   const db = dbLapor()
   const { data: lama } = await db.from('laporan_hasil')
-    .select('id,status,hasil,peringkat,nilai_teks,nomor_teks,tanggal,lawan,jam,cabor_id,partai_id,ref_luar,pelapor_nama').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
+    .select('id,status,hasil,peringkat,nilai_teks,nomor_teks,tanggal,lawan,jam,cabor_id,partai_id,ref_luar,pelapor_nama,validasi,validasi_laporan_id,memvalidasi_id').eq('id', id).eq('kontingen_id', a.kontingen_id).maybeSingle()
   if (!lama) return NextResponse.json({ error: 'Laporan tidak ditemukan.' }, { status: 404 })
 
   const kini = new Date().toISOString()
+  // Medali jalur cepat yang bentrok dengan laporan ini (bila laporan ini laporan PIC).
+  const { data: cepatBentrok } = await db.from('laporan_hasil').select('id,hasil')
+    .eq('kontingen_id', a.kontingen_id).eq('validasi', 'bentrok').eq('validasi_laporan_id', id).maybeSingle()
+  if (['pakai_pic', 'pakai_cepat', 'sahkan_keduanya'].includes(aksi))
+    return putuskanBentrok(req, a, lama, cepatBentrok, aksi as 'pakai_pic' | 'pakai_cepat' | 'sahkan_keduanya', kini)
+
   let ubah: Record<string, any>
   if (aksi === 'sahkan') {
     if (lama.status !== 'menunggu') return NextResponse.json({ error: 'Laporan ini sudah diputus. Muat ulang halaman.' }, { status: 409 })
+    if (cepatBentrok) return NextResponse.json({ error: `Laporan ini bentrok dengan medali jalur cepat #${cepatBentrok.id}. Pilih "Pakai data PIC", "Pakai data Superadministrator", atau "Dua-duanya benar".` }, { status: 409 })
     return sahkanDenganKembar(req, a, lama as LaporKembar, kini)
   } else if (aksi === 'tolak') {
     const alasan = typeof b?.alasan === 'string' ? b.alasan.trim().slice(0, 200) : ''
@@ -131,6 +147,28 @@ async function putuskanLaporan(req: NextRequest) {
     }
   } else {
     return NextResponse.json({ error: 'Aksi tidak dikenali.' }, { status: 400 })
+  }
+
+  // Jalur cepat: medali yang dibatalkan/ditolak melepas validasinya, laporan PIC yang menjadi
+  // validasinya kembali ke Antrean (supaya medalinya tidak hilang diam-diam).
+  if (aksi === 'kembalikan' || aksi === 'tolak') {
+    if (lama.validasi) {
+      Object.assign(ubah, { validasi: null, validasi_laporan_id: null, validasi_oleh: null, validasi_at: null })
+      const { data: pengikut } = await db.from('laporan_hasil').update({ status: 'menunggu', diputus_oleh: null, diputus_at: null, alasan_tolak: null, memvalidasi_id: null, updated_at: kini })
+        .eq('kontingen_id', a.kontingen_id).eq('memvalidasi_id', id).select('id')
+      if (pengikut?.length) segarkanPublik()
+    }
+    // Laporan PIC yang tadinya menjadi validasi dibuka lagi: medali jalur cepatnya kembali "menunggu PIC".
+    if (lama.memvalidasi_id) {
+      ubah.memvalidasi_id = null
+      await db.from('laporan_hasil').update({ validasi: 'menunggu_pic', validasi_laporan_id: null, validasi_oleh: null, validasi_at: null, updated_at: kini })
+        .eq('id', lama.memvalidasi_id).eq('kontingen_id', a.kontingen_id).eq('validasi', 'tervalidasi')
+    }
+    // Laporan PIC yang bentrok ditolak: medali jalur cepat tetap, kembali menunggu PIC.
+    if (cepatBentrok && aksi === 'tolak') {
+      await db.from('laporan_hasil').update({ validasi: 'menunggu_pic', validasi_laporan_id: null, validasi_oleh: null, validasi_at: null, updated_at: kini })
+        .eq('id', cepatBentrok.id).eq('kontingen_id', a.kontingen_id)
+    }
   }
 
   const { error } = await db.from('laporan_hasil').update({ ...ubah, updated_at: kini }).eq('id', id).eq('kontingen_id', a.kontingen_id)
@@ -183,4 +221,39 @@ async function sahkanDenganKembar(req: NextRequest, a: { kontingen_id: number; n
   }
   segarkanPublik()
   return NextResponse.json({ ok: true, disahkan: rencana.sahkan, ditutup: rencana.tutup })
+}
+
+/**
+ * Putusan KONIDA untuk laporan PIC yang bentrok dengan medali jalur cepat:
+ *   pakai_pic       — laporan PIC disahkan, medali jalur cepat ditutup (tidak dihitung lagi)
+ *   pakai_cepat     — medali jalur cepat dipakai & dianggap tervalidasi, laporan PIC ditutup
+ *   sahkan_keduanya — keduanya benar (mis. dua atlet sama-sama perunggu): PIC disahkan,
+ *                     medali jalur cepat kembali menunggu PIC-nya sendiri
+ */
+async function putuskanBentrok(req: NextRequest, a: { kontingen_id: number; nama: string; sesi: any }, pic: any,
+  cepat: { id: number; hasil: string } | null, aksi: 'pakai_pic' | 'pakai_cepat' | 'sahkan_keduanya', kini: string) {
+  if (!cepat) return NextResponse.json({ error: 'Laporan ini tidak sedang bentrok dengan medali jalur cepat. Muat ulang halaman.' }, { status: 409 })
+  if (pic.status !== 'menunggu') return NextResponse.json({ error: 'Laporan ini sudah diputus. Muat ulang halaman.' }, { status: 409 })
+  const db = dbLapor()
+  const k = a.kontingen_id
+  const lepas = { validasi_laporan_id: null, validasi_oleh: null, validasi_at: null }
+  const langkah: PromiseLike<{ error: any }>[] = []
+  if (aksi === 'pakai_pic') {
+    langkah.push(db.from('laporan_hasil').update({ status: 'disahkan', diputus_oleh: a.nama, diputus_at: kini, alasan_tolak: null, updated_at: kini }).eq('id', pic.id).eq('kontingen_id', k))
+    langkah.push(db.from('laporan_hasil').update({ status: 'ditolak', diputus_oleh: a.nama, diputus_at: kini, alasan_tolak: `Diganti laporan PIC #${pic.id} (putusan KONIDA)`, validasi: null, ...lepas, updated_at: kini }).eq('id', cepat.id).eq('kontingen_id', k))
+  } else if (aksi === 'pakai_cepat') {
+    langkah.push(db.from('laporan_hasil').update({ status: 'ditolak', diputus_oleh: a.nama, diputus_at: kini, alasan_tolak: `Bentrok — KONIDA memakai medali yang dicatat KONI Kab. Bandung (#${cepat.id})`, updated_at: kini }).eq('id', pic.id).eq('kontingen_id', k))
+    langkah.push(db.from('laporan_hasil').update({ validasi: 'tervalidasi', validasi_laporan_id: pic.id, validasi_oleh: `${a.nama} (putusan KONIDA)`, validasi_at: kini, updated_at: kini }).eq('id', cepat.id).eq('kontingen_id', k))
+  } else {
+    langkah.push(db.from('laporan_hasil').update({ status: 'disahkan', diputus_oleh: a.nama, diputus_at: kini, alasan_tolak: null, updated_at: kini }).eq('id', pic.id).eq('kontingen_id', k))
+    langkah.push(db.from('laporan_hasil').update({ validasi: 'menunggu_pic', ...lepas, updated_at: kini }).eq('id', cepat.id).eq('kontingen_id', k))
+  }
+  for (const l of langkah) { const { error } = await l; if (error) return NextResponse.json({ error: error.message }, { status: 500 }) }
+  await writeAudit({
+    action: `LAPOR_HASIL_BENTROK_${aksi.toUpperCase()}`, resource: 'laporan_hasil', resource_id: pic.id,
+    actor_id: a.sesi.id != null ? String(a.sesi.id) : null, actor_email: a.sesi.username ?? null,
+    actor_role: a.sesi.role ?? a.sesi.level ?? null, kontingen_id: k, payload: { jalur_cepat: cepat.id }, ...reqMeta(req),
+  })
+  segarkanPublik()
+  return NextResponse.json({ ok: true })
 }

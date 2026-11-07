@@ -32,6 +32,20 @@ export default function KesehatanOperasi({ data }: { data: DataWarRoom | null })
           </a>
         ))}
       </div>
+      {(o?.jalur_cepat?.length ?? 0) > 0 && (
+        <div className="mb-4 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.3)' }}>
+          <div className="text-[9px] font-black uppercase tracking-widest text-amber-300 mb-1.5">⚡ Medali jalur cepat belum divalidasi PIC · {o!.jalur_cepat!.length}</div>
+          <div className="divide-y divide-white/[0.05] max-h-48 overflow-y-auto">
+            {o!.jalur_cepat!.map(m => (
+              <a key={m.id} href="/konida/lappertandingan/kabbandung" className="flex items-center gap-2 py-1.5 text-[12px] hover:brightness-125">
+                <span className="w-16 shrink-0 font-black capitalize" style={{ color: m.hasil === 'emas' ? '#facc15' : m.hasil === 'perak' ? '#cbd5e1' : '#d08a4a' }}>{m.hasil}</span>
+                <span className="flex-1 min-w-0 text-white"><b>{m.cabor}</b> <span className="text-zinc-400">· {m.nomor}</span></span>
+                <span className="shrink-0 text-[10px] font-bold" style={{ color: m.validasi === 'bentrok' ? '#f87171' : '#fbbf24' }}>{m.validasi === 'bentrok' ? '⚠ bentrok' : '⏳ tagih PIC'}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1.5">Cabor bertanding hari ini</div>
       {o && o.cabor_hari_ini.length === 0 && <div className="text-[12px] text-zinc-500 py-3">Tidak ada cabor kita yang bertanding hari ini.</div>}
       <div className="divide-y divide-white/[0.05] max-h-64 overflow-y-auto">

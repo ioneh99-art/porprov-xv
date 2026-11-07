@@ -5,6 +5,7 @@
 // diberi awalan sebelum ditandatangani. Tanpa awalan, cookie PIC yang sah bisa
 // disalin menjadi porprov_session + porprov_sig dan lolos sebagai sesi admin.
 
+import { bolehJalurCepat } from './jalur-cepat'
 import { randomUUID } from 'crypto'
 import { cookies } from 'next/headers'
 import type { NextRequest } from 'next/server'
@@ -51,7 +52,8 @@ function samaPersis(a: string, b: string): boolean {
  * masih berlaku untuk kontingen itu: logout dari dashboard = pintu ini ikut
  * tertutup. Nama pelapornya diambil dari sesi dashboard tersebut.
  */
-export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string; no_wa: string | null; jalur: Jalur; disiplin: string | null }) | null> {
+/** cepat = boleh memasukkan medali Jalur Cepat (hanya Superadministrator lewat jalur tanpa kode). */
+export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string; no_wa: string | null; jalur: Jalur; disiplin: string | null; cepat: boolean }) | null> {
   const c = cookies()
   const nilai = c.get(COOKIE_SESI)?.value
   const sig = c.get(COOKIE_SIG)?.value
@@ -68,10 +70,10 @@ export async function ambilSesiLapor(): Promise<(SesiLapor & { nama_pic: string;
     if (data.jalur === 'konida') {
       const admin = await getServerSession()
       if (!adminUntukKontingen(admin, data.kontingen_id)) return null
-      return { ...dasar, nama_pic: namaPelaporKonida(admin), no_wa: null, jalur: 'konida', disiplin: null }
+      return { ...dasar, nama_pic: bolehJalurCepat(admin) ? 'Superadministrator' : namaPelaporKonida(admin), no_wa: null, jalur: 'konida', disiplin: null, cepat: bolehJalurCepat(admin) }
     }
     // Kode per disiplin (mis. Akuatik · Polo Air): PIC hanya melihat & melapor disiplin itu.
-    return { ...dasar, nama_pic: data.nama_pic, no_wa: data.no_wa, jalur: 'pic', disiplin: data.disiplin ?? null }
+    return { ...dasar, nama_pic: data.nama_pic, no_wa: data.no_wa, jalur: 'pic', disiplin: data.disiplin ?? null, cepat: false }
   } catch {
     return null
   }

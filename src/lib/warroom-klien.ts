@@ -23,6 +23,8 @@ export interface DataWarRoom {
   operasi: {
     menunggu: number; catatan_baru: number; catatan_mendesak: number
     cabor_hari_ini: { cabor_id: number; cabor: string; pic: KeadaanPic; laporan_hari_ini: number; live: boolean }[]
+    /** Medali jalur cepat (Superadministrator) yang belum divalidasi PIC / bentrok — untuk ditagih ke PIC cabornya. */
+    jalur_cepat?: { id: number; cabor: string; nomor: string; hasil: string; tanggal: string; validasi: 'menunggu_pic' | 'bentrok' }[]
   }
   klasemen_diperbarui: string | null
   /** Target emas resmi = jumlah proyeksi emas KONI (74). */

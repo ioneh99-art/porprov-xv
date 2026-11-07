@@ -17,6 +17,7 @@ import { urutCaborLangsung, type KeadaanPic } from '@/lib/jalur-lapor'
 import { ringkasJejak, susunJejak, type PartaiJejak, type TahapJejak } from '@/lib/jejak-partai'
 import { NAMA_SUMBER_KONIJABAR, urlLaga, type AlarmBeda } from '@/lib/konijabar'
 import type { InfoKembar } from '@/lib/lapor-kembar'
+import { tandaValidasi, type Validasi } from '@/lib/jalur-cepat'
 import { MESIN_EMAS } from '@/lib/mesin-emas'
 import { judulDisiplin, teksPengisi } from '@/lib/pengisi'
 
@@ -32,6 +33,10 @@ interface Laporan {
   pengisi_nama?: string | null; pengisi_jabatan?: string | null
   /** Laga yang sama juga ada dari sumber lain (situs KONI Jabar ↔ PIC). */
   kembar?: InfoKembar | null
+  /** Jalur Cepat (Superadministrator): status validasi PIC dan tautannya. */
+  validasi?: Validasi | null; validasi_laporan_id?: number | null; validasi_oleh?: string | null; memvalidasi_id?: number | null
+  /** Laporan PIC ini bentrok dengan medali jalur cepat. */
+  bentrok_cepat?: { id: number; hasil: Hasil; alasan: string } | null
 }
 /** Laga yang dibaca dari situs panitia (porprov.konijabar.or.id). */
 interface HasilLuar {
@@ -293,7 +298,10 @@ export default function PageLapPertandingan() {
       const apa = l ? `${l.cabor} · ${l.nomor_teks}` : `Laporan #${id}`
       const teks = body.aksi === 'sahkan'
         ? (l && adalahMedali(l.hasil) ? `✓ Medali ${LABEL_HASIL[l.hasil].toLowerCase()} disahkan — ${apa}. Sudah tampil di halaman publik.` : `✓ Disahkan — ${apa}`)
-        : body.aksi === 'tolak' ? `Ditolak — ${apa}` : body.aksi === 'kembalikan' ? `Dikembalikan ke antrean — ${apa}` : `Perbaikan tersimpan — ${apa}`
+        : body.aksi === 'tolak' ? `Ditolak — ${apa}` : body.aksi === 'kembalikan' ? `Dikembalikan ke antrean — ${apa}`
+        : body.aksi === 'pakai_pic' ? `✓ Data PIC disahkan, medali jalur cepat ditutup — ${apa}`
+        : body.aksi === 'pakai_cepat' ? `✓ Medali jalur cepat dipakai, laporan PIC ditutup — ${apa}`
+        : body.aksi === 'sahkan_keduanya' ? `✓ Dua-duanya disahkan — ${apa}` : `Perbaikan tersimpan — ${apa}`
       setKabar({ id, ok: true, teks })
       await Promise.all([muatLaporan(), muatLuar()]); return true
     } finally { setSibuk(null) }
@@ -470,6 +478,10 @@ export default function PageLapPertandingan() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           {l.sumber_luar === 'konijabar' && <TandaLuar ref_luar={l.ref_luar} />}
+          {l.validasi && l.status === 'disahkan' && (() => { const t = tandaValidasi(l.validasi, l.validasi_oleh)!; return (
+            <span className="inline-block mb-1 rounded-full px-2 py-0.5 text-[11px] font-black" style={{ color: t.warna, background: `${t.warna}1a`, border: `1px solid ${t.warna}66` }}>
+              ⚡ Jalur cepat · {t.teks}
+            </span>) })()}
           <div className="text-xs font-bold uppercase tracking-wider" style={{ color: ACCENT }}>{l.cabor}</div>
           <div className="text-base font-bold text-white mt-0.5">{l.nomor_teks}</div>
           <div className="text-sm text-slate-300 mt-1">{l.atlet.join(', ')}</div>
@@ -496,7 +508,20 @@ export default function PageLapPertandingan() {
         Pertandingan {tglTampil(l.tanggal)} · diisi <b className="text-slate-300">{teksPengisi(l)}</b>{l.pelapor_wa ? ` (WA pemilik kode: ${l.pelapor_wa})` : ''} pada {tglLaporTampil(l.created_at)} pukul {jamTampil(l.created_at)}
         {l.status !== 'menunggu' && l.diputus_oleh ? ` · ${l.status} oleh ${l.diputus_oleh}` : ''}
       </div>
-      {l.status === 'ditolak' && l.alasan_tolak && <p className="text-xs text-red-300 mt-1">Alasan ditolak: {l.alasan_tolak}</p>}
+      {l.status === 'ditolak' && l.memvalidasi_id
+        ? <p className="text-xs text-emerald-300 mt-1 font-bold">✓ Laporan PIC ini menjadi validasi medali jalur cepat #{l.memvalidasi_id} — tidak dihitung dua kali.</p>
+        : l.status === 'ditolak' && l.alasan_tolak && <p className="text-xs text-red-300 mt-1">Alasan ditolak: {l.alasan_tolak}</p>}
+      {l.status === 'menunggu' && l.bentrok_cepat && (
+        <div className="mt-2 rounded-lg px-3 py-2" style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.5)' }}>
+          <p className="text-xs font-bold text-red-200">⚠ Bentrok dengan medali jalur cepat #{l.bentrok_cepat.id} ({LABEL_HASIL[l.bentrok_cepat.hasil]}): {l.bentrok_cepat.alasan}.
+            Sementara ini yang dihitung data Superadministrator. Pilih yang benar:</p>
+          <div className="mt-2 flex gap-2 flex-wrap">
+            <button onClick={() => putuskan(l.id, { aksi: 'pakai_pic' })} disabled={sibuk === l.id} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-950 disabled:opacity-40">Pakai data PIC</button>
+            <button onClick={() => putuskan(l.id, { aksi: 'pakai_cepat' })} disabled={sibuk === l.id} className="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 disabled:opacity-40">Pakai data Superadministrator</button>
+            <button onClick={() => { if (window.confirm('Dua-duanya benar? Laporan PIC ini ikut disahkan sebagai medali tersendiri.')) putuskan(l.id, { aksi: 'sahkan_keduanya' }) }} disabled={sibuk === l.id} className="rounded-lg border border-slate-500 px-3 py-1.5 text-xs font-bold text-slate-200 disabled:opacity-40">Dua-duanya benar</button>
+          </div>
+        </div>
+      )}
       {(alarmPerLaporan.get(l.id) ?? []).map(a => (
         <p key={a.kunci} className="text-xs mt-2 rounded-lg px-3 py-2 font-bold" style={{ color: '#fecaca', background: `${WARNA_ALARM}1a`, border: `1px solid ${WARNA_ALARM}66` }}>
           ⚠ Beda dengan situs KONI Jabar: {a.alasan}{a.berubah ? ` · panitia mengubah skor ${a.berubah}` : ''} · <a href={a.url} target="_blank" rel="noopener" className="underline underline-offset-2">cek di situs ↗</a>
@@ -555,7 +580,7 @@ export default function PageLapPertandingan() {
         <div className="mt-3 flex gap-2 flex-wrap">
           {l.status === 'menunggu' ? (
             <>
-              <button onClick={() => putuskan(l.id, { aksi: 'sahkan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"><CheckCircle size={15} /> {medaliTunggu ? `Sahkan medali ${LABEL_HASIL[l.hasil as Hasil].toLowerCase()}` : 'Sahkan'}</button>
+              {!l.bentrok_cepat && <button onClick={() => putuskan(l.id, { aksi: 'sahkan' })} disabled={sibuk === l.id} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"><CheckCircle size={15} /> {medaliTunggu ? `Sahkan medali ${LABEL_HASIL[l.hasil as Hasil].toLowerCase()}` : 'Sahkan'}</button>}
               <button onClick={() => { setMemperbaiki(l.id); setKoreksi({ nomor_teks: l.nomor_teks, hasil: l.hasil, peringkat: l.peringkat ? String(l.peringkat) : '', nilai_teks: l.nilai_teks ?? '', tanggal: l.tanggal, lawan: l.lawan ?? '', jam: l.jam ?? '' }) }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200"><Pencil size={14} /> Perbaiki</button>
               <button onClick={() => { setMenolak(l.id); setAlasan('') }} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300"><XCircle size={15} /> Tolak</button>
             </>

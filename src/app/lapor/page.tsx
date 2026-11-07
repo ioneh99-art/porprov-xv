@@ -26,9 +26,10 @@ interface Laporan {
   id: number; nomor_teks: string; atlet_ids: number[]; hasil: Hasil; peringkat: number | null
   nilai_teks: string | null; keterangan: string | null; tanggal: string; status: string
   alasan_tolak: string | null; created_at: string; ada_foto?: boolean
+  validasi?: 'menunggu_pic' | 'tervalidasi' | 'bentrok' | null; memvalidasi_id?: number | null
 }
 interface Bahan {
-  pic: { nama: string; jalur?: 'pic' | 'konida' }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[]
+  pic: { nama: string; jalur?: 'pic' | 'konida'; cepat?: boolean }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[]
   partai: PartaiSaya[]; kegiatan: { nama: string; mulai: string | null; selesai: string | null; venue: string | null }[]
 }
 
@@ -56,7 +57,9 @@ export default function HalamanLapor() {
   const [kode, setKode] = useState('')
   const [galat, setGalat] = useState('')
   const [sibuk, setSibuk] = useState(false)
-  const [terkirim, setTerkirim] = useState(false)
+  const [terkirim, setTerkirim] = useState<string | null>(null)
+  // Jalur Cepat (Superadministrator): medali langsung disahkan, menunggu validasi PIC.
+  const [cepat, setCepat] = useState(true)
 
   const [nomorTeks, setNomorTeks] = useState('')
   const [nomorPilih, setNomorPilih] = useState<Nomor | null>(null)
@@ -212,6 +215,7 @@ export default function HalamanLapor() {
         ...(nomorPilih?.disiplin ? { disiplin: nomorPilih.disiplin, nomor_resmi: nomorPilih.nama } : {}),
         peringkat: hasil === 'peringkat' ? Number(peringkat) : null, nilai_teks: nilai, keterangan, lawan, jam, partai_id: partaiId,
         ...peng.pengisi,
+        ...(bahan?.pic.cepat && cepat && hasil && ['emas', 'perak', 'perunggu'].includes(hasil) ? { jalur_cepat: true } : {}),
       })
       let r: Response
       if (foto) {
@@ -224,7 +228,9 @@ export default function HalamanLapor() {
       const j = await r.json().catch(() => ({}))
       if (r.status === 401) { setTahap('masuk'); setGalat(j.error ?? 'Sesi habis.'); return }
       if (!r.ok) { setGalat(j.error ?? 'Gagal mengirim.'); return }
-      kosongkan(); setTerkirim(true); setTimeout(() => setTerkirim(false), 4000)
+      kosongkan()
+      setTerkirim(j.jalur_cepat ? 'Medali tercatat lewat jalur cepat — langsung dihitung, menunggu validasi PIC cabor.' : (j.pesan ?? 'Laporan terkirim. Menunggu disahkan KONI.'))
+      setTimeout(() => setTerkirim(null), 6000)
       await muat(); window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch { setGalat('Tidak ada sambungan. Laporan BELUM terkirim, coba lagi.') } finally { setSibuk(false) }
   }
@@ -325,7 +331,7 @@ export default function HalamanLapor() {
             {mode === 'hasil' && <>
             {terkirim && (
               <div role="status" className="mt-4 rounded-xl bg-emerald-500/15 border border-emerald-400/40 px-4 py-3 text-sm font-bold text-emerald-300">
-                Laporan terkirim. Menunggu disahkan KONI.
+                {terkirim}
               </div>
             )}
 
@@ -504,11 +510,21 @@ export default function HalamanLapor() {
 
               <IsianPengisi pengisi={peng.pengisi} ubah={peng.ubah} pemilikKode={jalurKonida ? undefined : bahan.pic.nama} />
 
+              {bahan.pic.cepat && hasil && ['emas', 'perak', 'perunggu'].includes(hasil) && (
+                <label className="flex items-start gap-3 rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={cepat} onChange={e => setCepat(e.target.checked)} className="mt-1 h-5 w-5 accent-amber-400" />
+                  <span className="text-sm text-amber-100">
+                    <b className="text-amber-200">⚡ Medali jalur cepat</b> — langsung disahkan dan dihitung, bertanda <b>menunggu PIC</b>.
+                    Saat PIC cabor melaporkan medali yang sama, otomatis menjadi tervalidasi.
+                  </span>
+                </label>
+              )}
+
               {galat && <p role="alert" className="rounded-xl bg-red-500/15 border border-red-400/40 px-4 py-3 text-sm font-bold text-red-300">{galat}</p>}
 
               <button type="button" onClick={kirim} disabled={sibuk}
                 className="w-full rounded-xl bg-sky-500 py-4 text-lg font-black text-slate-950 disabled:opacity-40">
-                {sibuk ? 'Mengirim…' : 'Kirim Laporan'}
+                {sibuk ? 'Mengirim…' : bahan.pic.cepat && cepat && hasil && ['emas', 'perak', 'perunggu'].includes(hasil) ? '⚡ Catat medali (jalur cepat)' : 'Kirim Laporan'}
               </button>
             </section>
 
@@ -517,7 +533,11 @@ export default function HalamanLapor() {
               {bahan.laporan.length === 0 && <p className="text-sm text-slate-500">Belum ada laporan.</p>}
               <div className="space-y-2">
                 {bahan.laporan.map(l => {
-                  const st = STATUS_TAMPIL[l.status] ?? STATUS_TAMPIL.menunggu
+                  const st = l.memvalidasi_id ? { teks: '✓ Menjadi validasi medali KONI', warna: '#34d399' }
+                    : l.validasi === 'menunggu_pic' ? { teks: 'Disahkan · ⏳ menunggu PIC', warna: '#fbbf24' }
+                    : l.validasi === 'tervalidasi' ? { teks: 'Disahkan · ✓ tervalidasi PIC', warna: '#34d399' }
+                    : l.validasi === 'bentrok' ? { teks: 'Disahkan · ⚠ bentrok dengan PIC', warna: '#f87171' }
+                    : STATUS_TAMPIL[l.status] ?? STATUS_TAMPIL.menunggu
                   return (
                     <div key={l.id} className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
@@ -531,7 +551,7 @@ export default function HalamanLapor() {
                         <span className="font-bold" style={{ color: st.warna }}>{st.teks}</span>
                         <span className="text-slate-500">{l.tanggal}{l.nilai_teks ? ` · ${l.nilai_teks}` : ''}{l.ada_foto ? ' · ada foto' : ''}</span>
                       </div>
-                      {l.status === 'ditolak' && l.alasan_tolak && <p className="mt-2 text-xs text-red-300">Alasan: {l.alasan_tolak}</p>}
+                      {l.status === 'ditolak' && !l.memvalidasi_id && l.alasan_tolak && <p className="mt-2 text-xs text-red-300">Alasan: {l.alasan_tolak}</p>}
                     </div>
                   )
                 })}

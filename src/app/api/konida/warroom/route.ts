@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     ;[proyeksiMentah, laporan, daftar] = await Promise.all([
       ambilSemua((d, s) => db.from('proyeksi_medali').select('urutan,tanggal,cabor_id,cabor_teks,nomor_teks,atlet_teks,kota')
         .eq('kontingen_id', k).eq('medali', 'emas').order('urutan').range(d, s)),
-      ambilSemua((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,hasil,peringkat,nomor_teks,nilai_teks,lawan,keterangan,atlet_ids,status,diputus_at,created_at')
+      ambilSemua((d, s) => db.from('laporan_hasil').select('id,cabor_id,tanggal,hasil,peringkat,nomor_teks,nilai_teks,lawan,keterangan,atlet_ids,status,diputus_at,created_at,validasi')
         .eq('kontingen_id', k).neq('status', 'ditolak').order('id').range(d, s)),
       ambilSemua<{ cabor_id: number; atlet_id: number | null }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id,atlet_id').eq('kontingen_id', k).order('id').range(d, s)),
     ])
@@ -152,6 +152,9 @@ export async function GET(req: NextRequest) {
       laporan_hari_ini: laporan.filter(l => l.cabor_id === id && l.tanggal === hariIni).length,
       live: caborLive.has(id),
     })).sort((x, y) => x.laporan_hari_ini - y.laporan_hari_ini || x.cabor.localeCompare(y.cabor, 'id')),
+    jalur_cepat: sah.filter(l => l.validasi === 'menunggu_pic' || l.validasi === 'bentrok')
+      .map(l => ({ id: l.id, cabor: namaCabor.get(l.cabor_id) ?? 'Cabor', nomor: l.nomor_teks, hasil: l.hasil, tanggal: l.tanggal, validasi: l.validasi }))
+      .sort((x, y) => (x.validasi === 'bentrok' ? 0 : 1) - (y.validasi === 'bentrok' ? 0 : 1) || x.tanggal.localeCompare(y.tanggal) || x.id - y.id),
   }
 
   // ── Hasil terbaru (teks berjalan) & peraih medali terbaru (wajah atlet) — hanya yang disahkan ──

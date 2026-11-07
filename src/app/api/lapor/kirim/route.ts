@@ -1,9 +1,12 @@
 // src/app/api/lapor/kirim/route.ts
-// PIC mengirim satu laporan hasil, boleh disertai satu foto bukti. Selalu masuk
-// sebagai 'menunggu' — tidak ada jalan dari sini untuk langsung mengubah rekap medali.
+// PIC mengirim satu laporan hasil, boleh disertai satu foto bukti. Masuk sebagai 'menunggu'.
+// Dua pengecualian (Jalur Cepat, keputusan Bos 7 Nov 2026 — lihat src/lib/jalur-cepat.ts):
+//   • Superadministrator mencentang "Medali jalur cepat" → langsung disahkan, bertanda menunggu PIC.
+//   • Laporan PIC yang sama dengan medali jalur cepat → menjadi validasinya (tidak dihitung dua kali).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { adalahFinal, kunciKembar, periksaLaporan, tanggalWIB } from '@/lib/lapor'
+import { adalahFinal, adalahMedali, kunciKembar, periksaLaporan, tanggalWIB } from '@/lib/lapor'
+import { ALASAN_VALIDASI, cocokJalurCepat, laporanPicSudahAda, lengkapiDariPic, type BarisCepat } from '@/lib/jalur-cepat'
 import { rapikan, tulisNomorResmi } from '@/lib/pendaftaran'
 import { WADAH_BUKTI, ambilSesiLapor, atletCabor, bacaKiriman, dbLapor, keluargaCabor, pendaftaranCabor, simpanFotoBukti } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -76,10 +79,28 @@ export async function POST(req: NextRequest) {
   // jurnal hari pertandingan); laporan bebas memakai tanggal hari ini.
   const hariIni = tanggalWIB()
   const tanggal = tanggalPartai && tanggalPartai <= hariIni ? tanggalPartai : hariIni
-  const { data: sudahAda } = await db.from('laporan_hasil').select('nomor_teks,atlet_ids,tanggal,hasil')
-    .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).eq('tanggal', tanggal).neq('status', 'ditolak')
+
+  // Jalur Cepat: hanya Superadministrator (s.cepat), hanya untuk medali.
+  const mintaCepat = mentah?.jalur_cepat === true || mentah?.jalur_cepat === 'true'
+  if (mintaCepat && !s.cepat) return NextResponse.json({ error: 'Jalur cepat hanya untuk Superadministrator.' }, { status: 403 })
+  if (mintaCepat && !adalahMedali(isi.hasil)) return NextResponse.json({ error: 'Jalur cepat hanya untuk medali (emas/perak/perunggu).' }, { status: 422 })
+
+  // Laporan cabor ini di sekitar tanggalnya (±2 hari): untuk cek kembar dan jalur cepat.
+  const geser = (h: number) => new Date(Date.parse(tanggal + 'T00:00:00Z') + h * 86_400_000).toISOString().slice(0, 10)
+  const { data: sekitar } = await db.from('laporan_hasil')
+    .select('id,cabor_id,nomor_teks,atlet_ids,tanggal,hasil,status,validasi,ref_luar,pelapor_nama,foto_path,nilai_teks,lawan,jam,keterangan,partai_id')
+    .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).gte('tanggal', geser(-2)).lte('tanggal', geser(2))
+  const dekat = (sekitar ?? []) as any[]
+
+  if (mintaCepat) {
+    const pic = laporanPicSudahAda({ cabor_id: s.cabor_id, nomor_teks: isi.nomor_teks, tanggal }, dekat)
+    if (pic) return NextResponse.json({ error: `${pic.pelapor_nama ?? 'PIC'} sudah melaporkan hasil nomor ini (#${pic.id}). Tidak perlu jalur cepat — sahkan laporan itu di Antrean.` }, { status: 409 })
+  }
+  const cocok = mintaCepat ? null : cocokJalurCepat({ cabor_id: s.cabor_id, nomor_teks: isi.nomor_teks, hasil: isi.hasil, atlet_ids: isi.atlet_ids, tanggal }, dekat as BarisCepat[])
+
+  // Kembar: medali jalur cepat bukan "laporan kembar" bagi PIC — itu ditangani pencocokan di atas.
   const kunci = kunciKembar({ ...isi, tanggal })
-  if ((sudahAda ?? []).some((l: any) => adalahFinal(l.hasil) && kunciKembar(l) === kunci))
+  if (dekat.some((l: any) => l.tanggal === tanggal && l.status !== 'ditolak' && (mintaCepat || !l.validasi) && adalahFinal(l.hasil) && kunciKembar(l) === kunci))
     return NextResponse.json({ error: 'Hasil akhir nomor ini untuk atlet yang sama sudah dilaporkan untuk tanggal ini.' }, { status: 409 })
 
   let foto_path: string | null = null
@@ -89,19 +110,52 @@ export async function POST(req: NextRequest) {
     foto_path = unggah.path
   }
 
+  const kini = new Date().toISOString()
+  const keputusan = mintaCepat
+    ? { status: 'disahkan', diputus_oleh: 'Superadministrator', diputus_at: kini, validasi: 'menunggu_pic' }
+    : cocok?.jenis === 'cocok'
+      ? { status: 'ditolak', diputus_oleh: 'Sistem · validasi jalur cepat', diputus_at: kini, alasan_tolak: ALASAN_VALIDASI(cocok.id), memvalidasi_id: cocok.id }
+      : {}
   const { data: baru, error } = await db.from('laporan_hasil').insert({
     kontingen_id: s.kontingen_id, cabor_id: s.cabor_id,
     ...isi, disiplin, tanggal, foto_path, partai_id,
     akses_id: s.akses_id, pelapor_nama: s.nama_pic, pelapor_wa: s.no_wa,
     pengisi_nama: pengisi.nama, pengisi_jabatan: pengisi.jabatan,
+    ...keputusan,
   }).select('id').single()
   if (error) {
     if (foto_path) await db.storage.from(WADAH_BUKTI).remove([foto_path])   // jangan tinggalkan foto yatim
     return NextResponse.json({ error: 'Gagal menyimpan. Coba lagi.' }, { status: 500 })
   }
 
+  // Laporan PIC ↔ medali jalur cepat.
+  let pesan: string | null = null
+  if (cocok) {
+    const cepat = dekat.find((l: any) => l.id === cocok.id)
+    const ubah = cocok.jenis === 'cocok'
+      ? { validasi: 'tervalidasi', validasi_laporan_id: baru.id, validasi_oleh: s.nama_pic, validasi_at: kini,
+          ...lengkapiDariPic(cepat ?? {}, { foto_path, nilai_teks: isi.nilai_teks, lawan: isi.lawan, jam: isi.jam, keterangan: isi.keterangan, partai_id }) }
+      : { validasi: 'bentrok', validasi_laporan_id: baru.id, validasi_oleh: s.nama_pic, validasi_at: kini }
+    const { data: kena } = await db.from('laporan_hasil').update({ ...ubah, updated_at: kini })
+      .eq('id', cocok.id).eq('kontingen_id', s.kontingen_id).eq('validasi', 'menunggu_pic').select('id')
+    if (!kena?.length && cocok.jenis === 'cocok') {
+      // Sudah divalidasi laporan lain di saat bersamaan: laporan ini masuk Antrean seperti biasa.
+      await db.from('laporan_hasil').update({ status: 'menunggu', diputus_oleh: null, diputus_at: null, alasan_tolak: null, memvalidasi_id: null }).eq('id', baru.id)
+    } else if (kena?.length) {
+      pesan = cocok.jenis === 'cocok'
+        ? 'Terima kasih — laporan Anda memvalidasi medali yang sudah dicatat KONI Kab. Bandung. ✓'
+        : 'Laporan Anda berbeda dengan medali yang sudah dicatat KONI Kab. Bandung. KONIDA akan memeriksanya.'
+      await writeAudit({
+        action: cocok.jenis === 'cocok' ? 'LAPOR_HASIL_VALIDASI_CEPAT' : 'LAPOR_HASIL_BENTROK_CEPAT', resource: 'laporan_hasil', resource_id: cocok.id,
+        actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic, actor_role: 'pic_lapangan', kontingen_id: s.kontingen_id,
+        payload: { laporan_pic: baru.id, ...(cocok.jenis === 'bentrok' ? { alasan: cocok.alasan } : {}) }, ...reqMeta(req),
+      })
+    }
+  }
+  if (mintaCepat || cocok?.jenis === 'cocok') segarkanPublik()
+
   await writeAudit({
-    action: 'LAPOR_HASIL_KIRIM', resource: 'laporan_hasil', resource_id: baru.id,
+    action: mintaCepat ? 'LAPOR_HASIL_JALUR_CEPAT' : 'LAPOR_HASIL_KIRIM', resource: 'laporan_hasil', resource_id: baru.id,
     actor_id: `lapor_akses:${s.akses_id}`, actor_email: s.nama_pic, actor_role: s.jalur === 'konida' ? 'konida_langsung' : 'pic_lapangan',
     kontingen_id: s.kontingen_id, payload: { cabor_id: s.cabor_id, hasil: isi.hasil, nomor: isi.nomor_teks, foto: !!foto_path, partai_id, pengisi },
     ...reqMeta(req),
@@ -111,5 +165,5 @@ export async function POST(req: NextRequest) {
     await db.from('jadwal_partai').update({ status: 'selesai', diubah_oleh: s.nama_pic, updated_at: new Date().toISOString() }).eq('id', partai_id)
     segarkanPublik()
   }
-  return NextResponse.json({ ok: true, id: baru.id })
+  return NextResponse.json({ ok: true, id: baru.id, ...(mintaCepat ? { jalur_cepat: true } : {}), ...(pesan ? { pesan } : {}) })
 }

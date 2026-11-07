@@ -33,7 +33,8 @@
     "uji:grup-medali": "npx tsx scripts/uji-grup-medali.ts",
     "uji:mesin-emas": "npx tsx scripts/uji-mesin-emas.ts",
     "uji:klasemen-banding": "npx tsx scripts/uji-klasemen-banding.ts",
-    "uji": "npm run uji:perubahan && npm run uji:gateway && npm run uji:pencocokan && npm run uji:jadwal && npm run uji:papan && npm run uji:lapor && npm run uji:pendaftaran && npm run uji:matriks && npm run uji:catatan && npm run uji:laporan-cabor && npm run uji:proyeksi && npm run uji:layar && npm run uji:sesi && npm run uji:jadwal-publik && npm run uji:jadwal-partai && npm run uji:jejak-partai && npm run uji:jalur-lapor && npm run uji:warroom && npm run uji:konijabar && npm run uji:command-center && npm run uji:kartu-bpjs && npm run uji:lapor-kembar && npm run uji:pengisi && npm run uji:head-to-head && npm run uji:grup-medali && npm run uji:mesin-emas && npm run uji:klasemen-banding"
+    "uji:jalur-cepat": "npx tsx scripts/uji-jalur-cepat.ts",
+    "uji": "npm run uji:perubahan && npm run uji:gateway && npm run uji:pencocokan && npm run uji:jadwal && npm run uji:papan && npm run uji:lapor && npm run uji:pendaftaran && npm run uji:matriks && npm run uji:catatan && npm run uji:laporan-cabor && npm run uji:proyeksi && npm run uji:layar && npm run uji:sesi && npm run uji:jadwal-publik && npm run uji:jadwal-partai && npm run uji:jejak-partai && npm run uji:jalur-lapor && npm run uji:warroom && npm run uji:konijabar && npm run uji:command-center && npm run uji:kartu-bpjs && npm run uji:lapor-kembar && npm run uji:pengisi && npm run uji:head-to-head && npm run uji:grup-medali && npm run uji:mesin-emas && npm run uji:klasemen-banding && npm run uji:jalur-cepat"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",
