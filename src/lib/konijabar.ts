@@ -3,7 +3,7 @@
 // dan menerjemahkannya ke bentuk laporan hasil kita. Murni hitungan (tanpa
 // database/jaringan) supaya bisa diuji: npm run uji.
 //
-// Yang dibaca hanya halaman publik biasa: /jadwal?tgl=… dan /laga/<nomor>.
+// Yang dibaca hanya halaman publik biasa: /jadwal?tgl=…, /laga/<nomor>, /bagan, dan /kontingen/<slug>.
 // Jalur yang dilarang robots.txt situs itu (/api/, /peserta/, /layar, /cek) tidak disentuh.
 
 import type { Hasil } from './lapor'
@@ -16,10 +16,18 @@ export const NAMA_KONTINGEN_SITUS: Record<number, string> = { 4: 'Kab. Bandung' 
 /** Hari pertama ada laga (pra-PORPROV) — dipakai saat membaca pertama kali. */
 export const MULAI_LAGA = '2026-10-28'
 
-/** Halaman sumber satu laporan situs: laga biasa → /laga/<ref>; medali grup ("grup-<bagan>-<peringkat>") → bagannya. */
+/**
+ * Halaman sumber satu laporan situs: laga biasa → /laga/<ref>; medali grup ("grup-<bagan>-<peringkat>") → bagannya;
+ * medali dari daftar resmi ("medali-<laga>-<jenis>" / "medali-<cabor-nomor>-<jenis>") → laganya, atau halaman kontingen.
+ */
 export const urlLaga = (ref: string) => {
   const g = ref.match(/^grup-(\d+)/)
-  return g ? `${SITUS_KONIJABAR}/bagan?nomor=${g[1]}` : `${SITUS_KONIJABAR}/laga/${ref}`
+  if (g) return `${SITUS_KONIJABAR}/bagan?nomor=${g[1]}`
+  if (ref.startsWith('medali-')) {
+    const n = ref.match(/^medali-(\d+)-[a-z]+$/)
+    return n ? `${SITUS_KONIJABAR}/laga/${n[1]}` : `${SITUS_KONIJABAR}/kontingen/kab-bandung`
+  }
+  return `${SITUS_KONIJABAR}/laga/${ref}`
 }
 
 export const baku = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -142,16 +150,27 @@ export function lagaKita(laga: LagaLuar, namaKontingen: string): LagaKita | null
 }
 
 /**
+ * Cabor yang tidak memakai perebutan juara 3: kedua atlet yang kalah di semifinal sama-sama
+ * mendapat perunggu. Gulat, judo, karate TIDAK termasuk — perunggunya dari repechage/laga
+ * perunggu (yang terlewat ditangkap pembanding daftar medali resmi, lib/medali-resmi.ts).
+ */
+const CABOR_SEMIFINAL_PERUNGGU = ['anggar', 'muaythai', 'muay thai', 'tinju', 'pencak silat', 'taekwondo', 'wushu', 'kickboxing']
+export const semifinalPerunggu = (cabor: string | null | undefined) => CABOR_SEMIFINAL_PERUNGGU.includes(baku(cabor))
+
+/**
  * Terjemahkan menang/kalah ke pilihan hasil kita menurut babaknya:
  * pool/penyisihan → Menang (pool)/Kalah – masih bertanding; babak gugur → Lolos/Gugur;
  * final → Emas/Perak; perebutan juara 3 → Perunggu/peringkat 4. KONIDA tetap bisa memperbaiki.
  */
-export function tebakHasil(babak: string | null, kode: string | null, akhir: 'menang' | 'kalah' | 'seri'):
+export function tebakHasil(babak: string | null, kode: string | null, akhir: 'menang' | 'kalah' | 'seri', cabor?: string | null):
   { hasil: Hasil; peringkat: number | null; catatan: string | null } {
   const b = baku(`${babak ?? ''} ${kode ?? ''}`)
   const seri = akhir === 'seri' ? 'Hasil SERI — sesuaikan sebelum mengesahkan.' : null
   const menang = akhir === 'menang'
   if (/perebutan|juara 3|tempat 3|perunggu|\bko b3\b/.test(b)) return menang ? { hasil: 'perunggu', peringkat: null, catatan: seri } : { hasil: 'peringkat', peringkat: 4, catatan: seri }
+  // Cabor tanpa perebutan juara 3 (mis. anggar): kalah di semifinal = perunggu.
+  if (akhir === 'kalah' && semifinalPerunggu(cabor) && /\bsemi|\bko sf\d*\b/.test(b))
+    return { hasil: 'perunggu', peringkat: null, catatan: null }
   if (/semi|perempat|quarter|\b(8|16|32|64) besar\b|\brepechage\b|\bko (qf|sf)\d*\b/.test(b)) return { hasil: menang ? 'lolos' : 'gugur', peringkat: null, catatan: seri }
   if (/(^|\s)(grand )?final(\s|$)|\bko f\b/.test(b)) return { hasil: menang ? 'emas' : 'perak', peringkat: null, catatan: seri }
   if (/gugur|knock|play ?off|\bko\b/.test(b)) return { hasil: menang ? 'lolos' : 'gugur', peringkat: null, catatan: seri }

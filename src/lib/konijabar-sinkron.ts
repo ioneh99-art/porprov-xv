@@ -16,11 +16,12 @@ const genderSejalan = (a: string | null | undefined, b: string | null | undefine
 import { writeAudit } from './audit'
 import { babakGrup, bacaGrupMurni, medaliGrup, refGrup, urlBaganGrup } from './grup-medali'
 import { ALASAN_KEMBAR } from './lapor-kembar'
+import { bacaMedaliKontingen, keteranganMedaliResmi, medaliTerlewat, refMedaliResmi, urlKontingen } from './medali-resmi'
 import { MEDALI, MESIN_EMAS, rencanaMesinEmas, type LaporMesin, type TargetEmas } from './mesin-emas'
 import { segarkanPublik } from './partai-server'
 import {
   MULAI_LAGA, NAMA_KONTINGEN_SITUS, PELAPOR_KONIJABAR, SITUS_KONIJABAR, baku, bacaJadwalHarian, bacaKlasemen, bacaLaga,
-  cariAlarm, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, pilihNomorResmi, skorTeks, tebakHasil, urlLaga,
+  cariAlarm, cocokCabor, cocokPartai, keteranganLaporan, lagaKita, lawanSama, nomorSama, pilihNomorResmi, skorTeks, tebakHasil, urlLaga,
   type AlarmBeda, type HasilLuarBanding, type LaporanBanding,
 } from './konijabar'
 
@@ -44,6 +45,8 @@ export interface RingkasSinkron {
   grup?: Record<string, { laporan: number; tuntas: boolean }>
   /** Laporan medali baru dari klasemen grup murni (setengah kompetisi). */
   medali_grup?: number
+  /** Pembanding daftar medali resmi: medali panitia yang belum ada di data kita → Antrean. */
+  medali_resmi?: { situs: number; baru: number; tak_dikenal: string[] }
   /** Mesin Emas: target emas yang hasilnya disahkan otomatis / ditahan untuk KONIDA. */
   mesin_emas?: { disahkan: { id: number; urutan: number; hasil: string; nomor: string | null; atlet: string | null }[]; ditahan: { urutan: number; laporan: number; alasan: string; nomor: string | null; atlet: string | null }[] }
   galat: string[]
@@ -203,7 +206,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
       const ada = laporan.find(l => l.ref_luar === ref)
         ?? laporan.find(l => l.status !== 'ditolak' && !l.ref_luar && (
           (p && l.partai_id === p.id) || (l.cabor_id === caborId && l.tanggal === laga!.tanggal && lawanSama(lk.lawan, l.lawan) && genderSejalan(laga!.nomor, l.nomor_teks))))
-      const tebak = tebakHasil(laga.babak, laga.kode, lk.akhir)
+      const tebak = tebakHasil(laga.babak, laga.kode, lk.akhir, laga.cabor)
       const daftarCabor = daftar.filter(d => d.cabor_id === caborId)
       const nomorResmi = p?.nomor_teks ?? pilihNomorResmi(laga, daftarCabor)
       const atletIds = Array.from(new Set(lk.atlet.map(n => idAtlet.get(baku(n))).filter((x): x is number => x != null)))
@@ -259,6 +262,9 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
 
   // 4) Kelas sistem grup murni: medali dari klasemen grup yang sudah selesai.
   try { await periksaGrup(kontingenId, namaKita, r) } catch (e: any) { r.galat.push(`Klasemen grup: ${e?.message ?? e}`) }
+
+  // 4b) Daftar medali resmi panitia: medali yang laga penentunya tidak terbaca (mis. repechage).
+  try { await periksaMedaliResmi(kontingenId, namaKita, r) } catch (e: any) { r.galat.push(`Medali resmi: ${e?.message ?? e}`) }
 
   // 5) Mesin Emas: target emas yang hasilnya final di situs → disahkan otomatis.
   try { await jalankanMesinEmas(kontingenId, r) } catch (e: any) { r.galat.push(`Mesin Emas: ${e?.message ?? e}`) }
@@ -334,6 +340,63 @@ async function periksaGrup(kontingenId: number, namaKita: string, r: RingkasSink
   // Catatan tidak membengkak: buang yang sudah tuntas bila terlalu banyak.
   const semua = Object.entries(r.grup ?? {})
   if (semua.length > 300) r.grup = Object.fromEntries(semua.filter(([, g]) => !g.tuntas))
+}
+
+/**
+ * Bandingkan daftar medali di halaman kontingen situs panitia dengan laporan kita. Medali resmi
+ * yang belum ada (di cabor itu, jenis medali sama, nomor atau atlet sama) masuk Antrean sebagai
+ * laporan 'menunggu' — KONIDA yang mengesahkan. Satu halaman dibuka per sinkron.
+ */
+async function periksaMedaliResmi(kontingenId: number, namaKita: string, r: RingkasSinkron) {
+  const db = dbLapor()
+  const url = urlKontingen(namaKita)
+  const situs = bacaMedaliKontingen(await ambilHalaman(url))
+  r.medali_resmi = { situs: situs.length, baru: 0, tak_dikenal: [] }
+  if (!situs.length) return
+
+  const [cabor, laporan, atlet, daftar] = await Promise.all([
+    ambilSemua<{ id: number; nama: string }>((d, s) => db.from('cabang_olahraga').select('id,nama').order('id').range(d, s)),
+    ambilSemua<any>((d, s) => db.from('laporan_hasil').select('id,cabor_id,hasil,status,nomor_teks,ref_luar,atlet_ids,tanggal')
+      .eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
+    ambilSemua<{ id: number; nama_lengkap: string }>((d, s) => db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', kontingenId).order('id').range(d, s)),
+    ambilSemua<{ cabor_id: number; disiplin: string | null; nomor: string }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id,disiplin,nomor').eq('kontingen_id', kontingenId).order('id').range(d, s)),
+  ])
+  const namaAtlet = new Map(atlet.map(a => [a.id, a.nama_lengkap]))
+  const idAtlet = new Map<string, number>()
+  for (const a of atlet) if (!idAtlet.has(baku(a.nama_lengkap))) idAtlet.set(baku(a.nama_lengkap), a.id)
+  const caborId = (nama: string) => cocokCabor(nama, cabor)
+  const kita = laporan.map(l => ({ ...l, atlet: ((l.atlet_ids ?? []) as number[]).map(id => namaAtlet.get(id)).filter((x): x is string => !!x) }))
+
+  const terlewat = medaliTerlewat(situs, kita, caborId)
+  if (!terlewat.length) return
+  const refLaga = terlewat.map(m => m.laga).filter((x): x is string => !!x)
+  const { data: lagaLuar } = refLaga.length
+    ? await db.from('hasil_luar').select('ref,tanggal').eq('sumber', 'konijabar').eq('kontingen_id', kontingenId).in('ref', refLaga)
+    : { data: [] as any[] }
+  const tglLaga = new Map((lagaLuar ?? []).map((x: any) => [x.ref, x.tanggal as string]))
+
+  for (const m of terlewat) {
+    const cid = caborId(m.cabor)
+    const atlet_ids = Array.from(new Set(m.atlet.map(n => idAtlet.get(baku(n))).filter((x): x is number => x != null)))
+    if (cid == null || !atlet_ids.length) { r.medali_resmi.tak_dikenal.push(`${m.cabor} · ${m.nomor} (${m.jenis})`); continue }
+    const daftarCabor = daftar.filter(d => d.cabor_id === cid)
+    const resmi = daftarCabor.filter(d => nomorSama(m.nomor, d.nomor))
+    const nomor = resmi.length === 1 ? resmi[0] : null
+    // Tanggal: laga penentunya; bila tak ada, laga terakhir atlet itu di cabor ini; bila tak ada, hari ini.
+    const terakhir = kita.filter(l => l.cabor_id === cid && ((l.atlet_ids ?? []) as number[]).some(id => atlet_ids.includes(id)))
+      .map(l => l.tanggal as string).sort().pop()
+    const tanggal = (m.laga && tglLaga.get(m.laga)) || terakhir || hariIniWIB()
+    const ref = refMedaliResmi(m)
+    const { error } = await db.from('laporan_hasil').insert({
+      kontingen_id: kontingenId, cabor_id: cid, partai_id: null,
+      nomor_teks: nomor?.nomor ?? m.nomor, disiplin: nomor?.disiplin ?? null, atlet_ids,
+      hasil: m.jenis, peringkat: null, nilai_teks: null,
+      keterangan: keteranganMedaliResmi(m, url), tanggal, jam: null, lawan: null,
+      pelapor_nama: PELAPOR_KONIJABAR, status: 'menunggu', sumber_luar: 'konijabar', ref_luar: ref,
+    })
+    if (error) { if (error.code !== '23505') r.galat.push(`Medali resmi ${m.nomor}: ${error.message}`); continue }
+    r.laporan_baru++; r.medali_resmi.baru++
+  }
 }
 
 /** Aksi KONIDA yang membuat mesin tidak lagi menyentuh sebuah laporan. */
