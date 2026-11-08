@@ -7,7 +7,7 @@
 // Semua data lewat rute server — tidak ada yang disimpan di peramban.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CalendarClock, CheckCircle, ChevronDown, ClipboardList, ListChecks, Copy, Download, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle, ChevronDown, ClipboardList, ListChecks, Copy, Download, Eye, EyeOff, FileText, KeyRound, Pencil, PenLine, Printer, RefreshCw, RotateCcw, Trophy, XCircle } from 'lucide-react'
 import { LABEL_JENIS, LABEL_STATUS_CATATAN, tautanWA, urutCatatan, type JenisCatatan, type StatusCatatan } from '@/lib/catatan'
 import { HASIL, LABEL_HASIL, kodePicKembar, urutAntrean, adalahMedali, PORPROV_HARI, PORPROV_MULAI, hariPorprov, rekapMedali, rincianMedali, kunciMedali, tulisHasil, type Hasil, type JenisMedali } from '@/lib/lapor'
 import { htmlLaporanCabor, type BahanLaporanCabor } from '@/lib/laporan-cabor'
@@ -51,7 +51,7 @@ interface RingkasLuar { terakhir: string; dilewati?: boolean; laga_kita: number;
 const WARNA_LUAR = '#c084fc'
 const WARNA_ALARM = '#f87171'
 const AKHIR_TAMPIL: Record<string, string> = { menang: 'menang', kalah: 'kalah', seri: 'seri' }
-interface Akses { id: number; cabor: string; cabor_id: number; disiplin?: string | null; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null; jumlah_laporan: number }
+interface Akses { id: number; cabor: string; cabor_id: number; disiplin?: string | null; kode_ujung: string; nama_pic: string; no_wa: string | null; aktif: boolean; terakhir_dipakai: string | null; jumlah_laporan: number; kode_tersimpan?: boolean }
 interface Cabor { id: number; nama: string; atlet: number }
 interface Catatan {
   id: number; cabor: string; cabor_id: number; jenis: JenisCatatan; mendesak: boolean; tanggal: string; jam: string | null
@@ -132,6 +132,12 @@ export default function PageLapPertandingan() {
   const [disiplinCabor, setDisiplinCabor] = useState<Record<number, string[]>>({})
   const [kodeBaru, setKodeBaru] = useState<{ kode: string; cabor: string; nama: string; wa: string } | null>(null)
   const [tersalin, setTersalin] = useState(false)
+  // Kode PIC yang sedang dibuka admin (id akses → kode). Hilang saat halaman dimuat ulang.
+  const [kodeTerbuka, setKodeTerbuka] = useState<Record<number, string>>({})
+  const [salinanKode, setSalinanKode] = useState<string | null>(null)
+  const [teksPulih, setTeksPulih] = useState('')
+  const [sibukPulih, setSibukPulih] = useState(false)
+  const [pesanPulih, setPesanPulih] = useState('')
   const [mengubahPic, setMengubahPic] = useState<number | null>(null)
   const [luar, setLuar] = useState<{ terakhir: string | null; ringkas: RingkasLuar | null; hasil: HasilLuar[]; alarm: AlarmBeda[] }>({ terakhir: null, ringkas: null, hasil: [], alarm: [] })
   const [lihatDicek, setLihatDicek] = useState(false)
@@ -394,9 +400,33 @@ export default function PageLapPertandingan() {
     await muatAkses()
   }
 
-  const pesanWA = kodeBaru
-    ? `Yth. ${kodeBaru.nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${kodeBaru.cabor}.\n\nTautan: ${ALAMAT_RESMI_KABBANDUNG}/lapor#${kodeBaru.kode}\nKode: ${kodeBaru.kode}\n\nIsi jadwal tanding (jam, lawan, lapangan) di tab "Jadwal" — langsung tampil di ${DOMAIN_RESMI_KABBANDUNG}. Laporkan setiap nomor segera setelah selesai. Kejadian penting (tidak sesuai aturan, masalah teknis, akomodasi/transportasi) laporkan di tab "Catatan Lapangan". Mohon kode ini tidak dibagikan ke orang lain.`
-    : ''
+  const pesanUntuk = (nama: string, caborNama: string, kode: string) =>
+    `Yth. ${nama},\nBerikut akses lapor hasil pertandingan PORPROV XV untuk cabor ${caborNama}.\n\nTautan: ${ALAMAT_RESMI_KABBANDUNG}/lapor#${kode}\nKode: ${kode}\n\nIsi jadwal tanding (jam, lawan, lapangan) di tab "Jadwal" — langsung tampil di ${DOMAIN_RESMI_KABBANDUNG}. Laporkan setiap nomor segera setelah selesai. Kejadian penting (tidak sesuai aturan, masalah teknis, akomodasi/transportasi) laporkan di tab "Catatan Lapangan". Mohon kode ini tidak dibagikan ke orang lain.`
+  const pesanWA = kodeBaru ? pesanUntuk(kodeBaru.nama, kodeBaru.cabor, kodeBaru.kode) : ''
+
+  async function lihatKode(id: number) {
+    setGalat('')
+    if (kodeTerbuka[id]) { setKodeTerbuka(({ [id]: _, ...sisa }) => sisa); return }
+    const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'lihat', id }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) { setGalat(j.error ?? 'Gagal membuka kode.'); return }
+    setKodeTerbuka(k => ({ ...k, [id]: j.kode }))
+  }
+  async function salin(teks: string, tanda: string) {
+    try { await navigator.clipboard.writeText(teks); setSalinanKode(tanda); setTimeout(() => setSalinanKode(t => t === tanda ? null : t), 2500) }
+    catch { setGalat('Peramban menolak menyalin. Tandai kodenya lalu salin manual.') }
+  }
+  async function pulihkanKode() {
+    setGalat(''); setPesanPulih(''); setSibukPulih(true)
+    try {
+      const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'pulihkan', teks: teksPulih }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setGalat(j.error ?? 'Gagal memulihkan kode.'); return }
+      setPesanPulih(`${j.pulih} kode dipulihkan${j.sudah_ada ? ` · ${j.sudah_ada} sudah tersimpan sebelumnya` : ''}${j.tak_cocok ? ` · ${j.tak_cocok} tidak cocok dengan kode mana pun (salah ketik atau bukan kode kontingen ini)` : ''}.`)
+      if (j.pulih) setTeksPulih('')
+      await muatAkses()
+    } catch { setGalat('Tidak ada sambungan. Coba lagi.') } finally { setSibukPulih(false) }
+  }
 
   // ── Jurnal dalam format "Matrix Jadwal Harian" KONI ──
   async function ambilMatriks(semua: boolean): Promise<{ kontingen: string; dari: string; sampai: string; baris: BarisMatriks[] } | null> {
@@ -1167,13 +1197,26 @@ export default function PageLapPertandingan() {
 
               {kodeBaru && (
                 <div className="mt-5 rounded-lg border border-amber-400/40 bg-amber-500/10 p-4">
-                  <p className="text-xs font-bold text-amber-300">Kode ini hanya tampil sekali. Salin sekarang.</p>
+                  <p className="text-xs font-bold text-amber-300">Kode tersimpan — bisa dilihat & disalin lagi kapan saja lewat tombol Lihat di daftar.</p>
                   <div className="text-2xl font-mono font-black text-white tracking-widest mt-2">{kodeBaru.kode}</div>
                   <pre className="mt-3 whitespace-pre-wrap text-xs text-slate-300 font-sans">{pesanWA}</pre>
                   <div className="mt-3 flex gap-2 flex-wrap">
                     <button onClick={async () => { await navigator.clipboard.writeText(pesanWA); setTersalin(true) }} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white"><Copy size={13} /> {tersalin ? 'Tersalin' : 'Salin pesan'}</button>
-                    <button onClick={() => setKodeBaru(null)} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Sudah saya simpan</button>
+                    <button onClick={() => setKodeBaru(null)} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Tutup</button>
                   </div>
+                </div>
+              )}
+
+              {akses.some(a => !a.kode_tersimpan) && (
+                <div className="mt-6 border-t border-slate-800 pt-5">
+                  <h2 className="text-sm font-black text-white">Pulihkan kode lama</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {akses.filter(a => !a.kode_tersimpan).length} kode dibuat sebelum fitur simpan kode, jadi belum bisa dilihat.
+                    Tempel kodenya di sini — boleh seluruh isi berkas daftar kode atau pesan WA lama sekaligus. Kode yang cocok langsung tersimpan; kodenya tidak berubah.
+                  </p>
+                  <textarea value={teksPulih} onChange={e => setTeksPulih(e.target.value)} rows={4} placeholder="Tempel kode (ABCD-EFGH) atau isi berkas daftar kode" aria-label="Kode lama" className={`${kotak} mt-3 font-mono text-xs`} />
+                  <button onClick={pulihkanKode} disabled={!teksPulih.trim() || sibukPulih} className="mt-2 w-full rounded-lg border border-sky-500/60 py-2 text-sm font-bold text-sky-300 disabled:opacity-40">{sibukPulih ? 'Mencocokkan…' : 'Pulihkan'}</button>
+                  {pesanPulih && <p className="text-xs text-emerald-300 mt-2">{pesanPulih}</p>}
                 </div>
               )}
             </div>
@@ -1211,7 +1254,23 @@ export default function PageLapPertandingan() {
                     <tr key={a.id} className={`border-b border-slate-800/60 ${a.aktif ? '' : 'opacity-50'}`}>
                       <td className="px-4 py-3 font-bold text-white">{a.cabor}{a.disiplin && <div className="text-xs font-bold text-sky-300">{judulDisiplin(a.disiplin)}</div>}</td>
                       <td className="px-4 py-3">{a.nama_pic}<div className="text-xs text-slate-500">{a.no_wa ?? 'tanpa nomor WA'}</div></td>
-                      <td className="px-4 py-3 font-mono text-slate-400">••••-{a.kode_ujung}</td>
+                      <td className="px-4 py-3">
+                        {kodeTerbuka[a.id] ? (
+                          <div>
+                            <div className="font-mono font-black text-white tracking-wider select-all">{kodeTerbuka[a.id]}</div>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              <button onClick={() => salin(kodeTerbuka[a.id], `k${a.id}`)} className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-bold text-white"><Copy size={11} /> {salinanKode === `k${a.id}` ? 'Tersalin' : 'Salin kode'}</button>
+                              <button onClick={() => salin(`${ALAMAT_RESMI_KABBANDUNG}/lapor#${kodeTerbuka[a.id]}`, `t${a.id}`)} className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[11px] font-bold text-white"><Copy size={11} /> {salinanKode === `t${a.id}` ? 'Tersalin' : 'Salin tautan'}</button>
+                              <button onClick={() => salin(pesanUntuk(a.nama_pic, `${a.cabor}${a.disiplin ? ` · ${judulDisiplin(a.disiplin)}` : ''}`, kodeTerbuka[a.id]), `p${a.id}`)} className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-emerald-600/80 px-2 py-1 text-[11px] font-bold text-white"><Copy size={11} /> {salinanKode === `p${a.id}` ? 'Tersalin' : 'Salin pesan WA'}</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="font-mono text-slate-400">••••-{a.kode_ujung}</div>
+                        )}
+                        {a.kode_tersimpan
+                          ? <button onClick={() => lihatKode(a.id)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-sky-300">{kodeTerbuka[a.id] ? <><EyeOff size={11} /> Sembunyikan</> : <><Eye size={11} /> Lihat & salin</>}</button>
+                          : <div className="mt-1 text-[11px] text-slate-500">belum tersimpan — pulihkan di kiri</div>}
+                      </td>
                       <td className="px-4 py-3 text-xs text-slate-400">{a.terakhir_dipakai ? new Date(a.terakhir_dipakai).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }) : 'Belum pernah'}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <button onClick={() => { setMengubahPic(a.id); setFormPic({ nama_pic: a.nama_pic, no_wa: a.no_wa ?? '', cabor_id: String(a.cabor_id) }) }} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300">Ubah</button>

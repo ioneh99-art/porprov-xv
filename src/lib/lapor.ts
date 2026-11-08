@@ -43,6 +43,24 @@ export function bakukanKode(masukan: unknown): string {
   return s
 }
 
+/** Bentuk tampil kode baku: ABCDEFGH → ABCD-EFGH. */
+export const tampilKode = (baku: string) => `${baku.slice(0, 4)}-${baku.slice(4)}`
+
+/**
+ * Semua calon kode PIC (bentuk baku, unik) di sebuah teks tempelan — mis. isi berkas daftar
+ * kode atau pesan WA lama. Calon yang bukan kode akan gugur sendiri saat dicocokkan ke sidiknya.
+ */
+export function kodeDalamTeks(teks: unknown, batas = 500): string[] {
+  if (typeof teks !== 'string') return []
+  const hasil = new Set<string>()
+  for (const m of Array.from(teks.toUpperCase().matchAll(/(?<![A-Z0-9])([A-Z0-9]{4})-?([A-Z0-9]{4})(?![A-Z0-9])/g))) {
+    const baku = bakukanKode(m[1] + m[2])
+    if (baku) hasil.add(baku)
+    if (hasil.size >= batas) break
+  }
+  return Array.from(hasil)
+}
+
 // ── Tanggal ──────────────────────────────────────────────────────────────────
 // Server Vercel berjalan di UTC; laporan pukul 01.00 WIB harus tercatat di hari WIB-nya.
 export function tanggalWIB(kini: Date = new Date()): string {

@@ -1,9 +1,12 @@
 // src/app/api/konida/lapor-akses/route.ts
-// Kode lapor PIC cabor. Kode hanya tampil SEKALI saat dibuat — yang disimpan
-// cuma sidiknya, jadi kebocoran tabel ini tidak membuka pintu lapor.
+// Kode lapor PIC cabor. Pencocokan kode memakai sidiknya (kode_hash). Sejak 8 Nov 2026
+// kode juga disimpan tersandi (kode_sandi, lib/kode-sandi.ts) supaya admin bisa melihat &
+// menyalinnya lagi — tiap kali dibuka tercatat di audit. Kode lama (sebelum 8 Nov) hanya
+// bisa dipulihkan dengan menempelkan kodenya; server mencocokkannya ke sidik dulu.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { bakukanKode, buatKode, kodePicKembar, pesanKodeKembar } from '@/lib/lapor'
+import { bakukanKode, buatKode, kodeDalamTeks, kodePicKembar, pesanKodeKembar, tampilKode } from '@/lib/lapor'
+import { bukaSandiKode, sandikanKode } from '@/lib/kode-sandi'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor, sidikKode } from '@/lib/lapor-sesi'
 import { writeAudit, reqMeta } from '@/lib/audit'
@@ -28,7 +31,7 @@ export async function GET(req: NextRequest) {
   const db = dbLapor()
 
   const [{ data: akses }, atlet] = await Promise.all([
-    db.from('lapor_akses').select('id,cabor_id,disiplin,kode_ujung,nama_pic,no_wa,aktif,created_at,terakhir_dipakai')
+    db.from('lapor_akses').select('id,cabor_id,disiplin,kode_ujung,nama_pic,no_wa,aktif,created_at,terakhir_dipakai,kode_sandi')
       .eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').order('created_at', { ascending: false }),
     ambilSemua<{ cabor_id: number }>((dari, sampai) =>
       db.from('atlet').select('cabor_id').eq('kontingen_id', a.kontingen_id).not('cabor_id', 'is', null).order('id').range(dari, sampai)),
@@ -56,7 +59,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     disiplin,
     cabor: (cabor ?? []).map((c: any) => ({ id: c.id, nama: c.nama, atlet: jumlah[c.id] ?? 0 })),
-    akses: (akses ?? []).map((x: any) => ({ ...x, cabor: nama.get(x.cabor_id) ?? `Cabor ${x.cabor_id}`, jumlah_laporan: jumlahLaporan[x.id] ?? 0 })),
+    // Kodenya sendiri tidak ikut daftar — hanya tanda tersimpan atau belum (dibuka lewat aksi 'lihat').
+    akses: (akses ?? []).map(({ kode_sandi, ...x }: any) => ({ ...x, kode_tersimpan: !!kode_sandi, cabor: nama.get(x.cabor_id) ?? `Cabor ${x.cabor_id}`, jumlah_laporan: jumlahLaporan[x.id] ?? 0 })),
   })
 }
 
@@ -94,7 +98,7 @@ export async function POST(req: NextRequest) {
     const baku = bakukanKode(kode)
     const { data, error } = await db.from('lapor_akses').insert({
       kontingen_id: a.kontingen_id, cabor_id, disiplin, nama_pic, no_wa: no_wa || null,
-      kode_hash: await sidikKode(baku), kode_ujung: baku.slice(-4), dibuat_oleh: a.nama,
+      kode_hash: await sidikKode(baku), kode_sandi: await sandikanKode(kode), kode_ujung: baku.slice(-4), dibuat_oleh: a.nama,
     }).select('id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -171,6 +175,44 @@ export async function POST(req: NextRequest) {
       payload: { sebelum: { nama_pic: lama.nama_pic, no_wa: lama.no_wa, cabor_id: lama.cabor_id }, sesudah: { cabor_id: lama.cabor_id, ...ubah } }, ...reqMeta(req),
     })
     return NextResponse.json({ ok: true })
+  }
+
+  const aktor = {
+    actor_id: a.sesi.id != null ? String(a.sesi.id) : null, actor_email: a.sesi.username ?? null,
+    actor_role: a.sesi.role ?? a.sesi.level ?? null, kontingen_id: a.kontingen_id,
+  }
+
+  if (aksi === 'lihat') {
+    const id = Number(b?.id)
+    if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: 'Kode tidak dikenali.' }, { status: 400 })
+    const { data: k } = await db.from('lapor_akses').select('id,kode_sandi').eq('id', id).eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic').maybeSingle()
+    if (!k) return NextResponse.json({ error: 'Kode tidak ditemukan.' }, { status: 404 })
+    if (!k.kode_sandi) return NextResponse.json({ error: 'Kode ini dibuat sebelum fitur simpan kode, jadi belum tersimpan. Tempel kodenya sekali di kotak "Pulihkan kode lama" — setelah itu bisa dilihat & disalin.' }, { status: 404 })
+    const kode = await bukaSandiKode(k.kode_sandi)
+    if (!kode) return NextResponse.json({ error: 'Kode tersimpan tidak bisa dibuka. Tempel ulang kodenya di "Pulihkan kode lama".' }, { status: 500 })
+    await writeAudit({ action: 'LAPOR_AKSES_LIHAT', resource: 'lapor_akses', resource_id: id, ...aktor, ...reqMeta(req) })
+    return NextResponse.json({ ok: true, kode })
+  }
+
+  if (aksi === 'pulihkan') {
+    // Admin menempelkan kode lama (atau seluruh isi berkas daftar kode / pesan WA).
+    // Hanya kode yang sidiknya cocok dengan kode PIC kontingen ini yang disimpan.
+    const calon = kodeDalamTeks(b?.teks)
+    if (!calon.length) return NextResponse.json({ error: 'Tidak ada kode berbentuk XXXX-XXXX di teks itu.' }, { status: 422 })
+    const { data: baris } = await db.from('lapor_akses').select('id,kode_hash,kode_sandi')
+      .eq('kontingen_id', a.kontingen_id).eq('jalur', 'pic')
+    const perSidik = new Map((baris ?? []).map((r: any) => [r.kode_hash, r]))
+    const pulih: number[] = []
+    let sudahAda = 0
+    for (const baku of calon) {
+      const r: any = perSidik.get(await sidikKode(baku))
+      if (!r) continue
+      if (r.kode_sandi) { sudahAda++; continue }
+      const { error } = await db.from('lapor_akses').update({ kode_sandi: await sandikanKode(tampilKode(baku)) }).eq('id', r.id).is('kode_sandi', null)
+      if (!error) { pulih.push(r.id); r.kode_sandi = 'baru' }
+    }
+    if (pulih.length) await writeAudit({ action: 'LAPOR_AKSES_PULIHKAN', resource: 'lapor_akses', resource_id: null, ...aktor, payload: { akses_id: pulih }, ...reqMeta(req) })
+    return NextResponse.json({ ok: true, dicoba: calon.length, pulih: pulih.length, sudah_ada: sudahAda, tak_cocok: calon.length - pulih.length - sudahAda })
   }
 
   return NextResponse.json({ error: 'Aksi tidak dikenali.' }, { status: 400 })
