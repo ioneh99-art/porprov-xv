@@ -412,18 +412,26 @@ export default function PageLapPertandingan() {
     if (!r.ok) { setGalat(j.error ?? 'Gagal membuka kode.'); return }
     setKodeTerbuka(k => ({ ...k, [id]: j.kode }))
   }
+  /** Berkas daftar kode (.txt, boleh beberapa sekaligus) dibaca di peramban lalu dicocokkan server. */
+  async function pulihkanDariBerkas(daftar: FileList | null) {
+    if (!daftar?.length) return
+    const besar = Array.from(daftar).find(f => f.size > 2_000_000)
+    if (besar) { setGalat(`Berkas ${besar.name} terlalu besar — pilih berkas daftar kode (.txt).`); return }
+    const isi = await Promise.all(Array.from(daftar).map(f => f.text().catch(() => '')))
+    await pulihkanKode(isi.join('\n'))
+  }
   async function salin(teks: string, tanda: string) {
     try { await navigator.clipboard.writeText(teks); setSalinanKode(tanda); setTimeout(() => setSalinanKode(t => t === tanda ? null : t), 2500) }
     catch { setGalat('Peramban menolak menyalin. Tandai kodenya lalu salin manual.') }
   }
-  async function pulihkanKode() {
+  async function pulihkanKode(teksBerkas?: string) {
     setGalat(''); setPesanPulih(''); setSibukPulih(true)
     try {
-      const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'pulihkan', teks: teksPulih }) })
+      const r = await fetch(`/api/konida/lapor-akses${Q}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aksi: 'pulihkan', teks: teksBerkas ?? teksPulih }) })
       const j = await r.json().catch(() => ({}))
       if (!r.ok) { setGalat(j.error ?? 'Gagal memulihkan kode.'); return }
       setPesanPulih(`${j.pulih} kode dipulihkan${j.sudah_ada ? ` · ${j.sudah_ada} sudah tersimpan sebelumnya` : ''}${j.tak_cocok ? ` · ${j.tak_cocok} tidak cocok dengan kode mana pun (salah ketik atau bukan kode kontingen ini)` : ''}.`)
-      if (j.pulih) setTeksPulih('')
+      if (j.pulih && teksBerkas == null) setTeksPulih('')
       await muatAkses()
     } catch { setGalat('Tidak ada sambungan. Coba lagi.') } finally { setSibukPulih(false) }
   }
@@ -1212,10 +1220,16 @@ export default function PageLapPertandingan() {
                   <h2 className="text-sm font-black text-white">Pulihkan kode lama</h2>
                   <p className="text-xs text-slate-400 mt-1">
                     {akses.filter(a => !a.kode_tersimpan).length} kode dibuat sebelum fitur simpan kode, jadi belum bisa dilihat.
-                    Tempel kodenya di sini — boleh seluruh isi berkas daftar kode atau pesan WA lama sekaligus. Kode yang cocok langsung tersimpan; kodenya tidak berubah.
+                    Pilih berkas daftar kode (.txt) — atau tempel kode / pesan WA lama di kotak. Kode yang cocok langsung tersimpan; kodenya tidak berubah.
                   </p>
+                  <label className={`mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-sky-500 py-2.5 text-sm font-black text-slate-950 ${sibukPulih ? 'pointer-events-none opacity-40' : ''}`}>
+                    <FileText size={15} /> {sibukPulih ? 'Mencocokkan…' : 'Pilih berkas daftar kode'}
+                    <input type="file" multiple accept=".txt,text/plain" className="hidden" disabled={sibukPulih}
+                      onChange={e => { const f = e.target.files; pulihkanDariBerkas(f).finally(() => { e.target.value = '' }) }} />
+                  </label>
+                  <p className="text-[11px] text-slate-500 mt-1 text-center">Boleh pilih beberapa berkas sekaligus (tahan Cmd / Ctrl).</p>
                   <textarea value={teksPulih} onChange={e => setTeksPulih(e.target.value)} rows={4} placeholder="Tempel kode (ABCD-EFGH) atau isi berkas daftar kode" aria-label="Kode lama" className={`${kotak} mt-3 font-mono text-xs`} />
-                  <button onClick={pulihkanKode} disabled={!teksPulih.trim() || sibukPulih} className="mt-2 w-full rounded-lg border border-sky-500/60 py-2 text-sm font-bold text-sky-300 disabled:opacity-40">{sibukPulih ? 'Mencocokkan…' : 'Pulihkan'}</button>
+                  <button onClick={() => pulihkanKode()} disabled={!teksPulih.trim() || sibukPulih} className="mt-2 w-full rounded-lg border border-sky-500/60 py-2 text-sm font-bold text-sky-300 disabled:opacity-40">Pulihkan dari teks tempelan</button>
                   {pesanPulih && <p className="text-xs text-emerald-300 mt-2">{pesanPulih}</p>}
                 </div>
               )}
