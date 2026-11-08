@@ -8,6 +8,7 @@ import { HASIL, LABEL_HASIL, tulisHasil, type Hasil } from '@/lib/lapor'
 import FormCatatan, { type CatatanSaya } from './FormCatatan'
 import IsianPengisi, { usePengisi } from './IsianPengisi'
 import FormJadwal, { type PartaiSaya } from './FormJadwal'
+import KonfirmasiMedali, { type MedaliKonfirmasi } from './KonfirmasiMedali'
 import { partaiUntukLapor } from '@/lib/jadwal-partai'
 import { tanggalWIB } from '@/lib/lapor'
 import { kecilkanFoto } from './foto'
@@ -30,6 +31,7 @@ interface Laporan {
 }
 interface Bahan {
   pic: { nama: string; jalur?: 'pic' | 'konida'; cepat?: boolean }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[]
+  konfirmasi?: MedaliKonfirmasi[]
   partai: PartaiSaya[]; kegiatan: { nama: string; mulai: string | null; selesai: string | null; venue: string | null }[]
 }
 
@@ -181,6 +183,17 @@ export default function HalamanLapor() {
     const p = partaiId && !partaiLapor.some(x => x.id === partaiId) ? bahan?.partai.find(x => x.id === partaiId) : undefined
     return p ? [p, ...partaiLapor] : partaiLapor
   }, [partaiId, partaiLapor, bahan])
+
+  /** "Ada yang salah" pada medali yang sudah dicatat: formulir diisi nomor & atletnya, PIC memilih hasil yang benar. */
+  const perbaikiMedali = (m: MedaliKonfirmasi) => {
+    kosongkan()
+    const nama = m.nomor_teks.split(' · ').pop() ?? m.nomor_teks
+    const n = bahan?.nomor.find(x => (!m.disiplin || !x.disiplin || x.disiplin === m.disiplin) && (x.nama === nama || labelNomor(x) === m.nomor_teks))
+    if (n) pilihNomor(n); else { setNomorPilih(null); setNomorTeks(m.nomor_teks) }
+    setPilihan(m.atlet_ids.filter(id => (bahan?.atlet ?? []).some(a => a.id === id)))
+    setGalat(`Tercatat ${m.hasil.toUpperCase()} untuk nomor ini. Pilih hasil yang benar di bawah lalu kirim — KONIDA akan memeriksa perbedaannya.`)
+    setTimeout(() => document.getElementById('pilih-hasil')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  }
 
   const ubahPilihan = (id: number) => setPilihan(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
 
@@ -335,6 +348,17 @@ export default function HalamanLapor() {
               </div>
             )}
 
+            {!jalurKonida && (
+              <KonfirmasiMedali
+                daftar={bahan.konfirmasi ?? []}
+                pengisi={peng.pengisi as unknown as Record<string, string>}
+                kurangPengisi={peng.kurang}
+                muat={muat}
+                sesiHabis={pesan => { setTahap('masuk'); setGalat(pesan) }}
+                adaSalah={perbaikiMedali}
+              />
+            )}
+
             {partaiTampil.length > 0 && (
               <div className="mt-5 rounded-2xl border border-sky-400/30 bg-sky-500/10 p-3">
                 <div className="text-xs font-bold uppercase tracking-wider text-sky-200 mb-2">Isi cepat dari jadwal</div>
@@ -444,7 +468,7 @@ export default function HalamanLapor() {
                 </p>
               </div>
 
-              <div>
+              <div id="pilih-hasil">
                 <div className={judulIsian}>3 · Hasil</div>
                 <div className="grid grid-cols-3 gap-2">
                   {HASIL.map(h => {
@@ -508,7 +532,7 @@ export default function HalamanLapor() {
                 )}
               </div>
 
-              <IsianPengisi pengisi={peng.pengisi} ubah={peng.ubah} pemilikKode={jalurKonida ? undefined : bahan.pic.nama} />
+              <div id="isian-pengisi"><IsianPengisi pengisi={peng.pengisi} ubah={peng.ubah} pemilikKode={jalurKonida ? undefined : bahan.pic.nama} /></div>
 
               {bahan.pic.cepat && hasil && ['emas', 'perak', 'perunggu'].includes(hasil) && (
                 <label className="flex items-start gap-3 rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-3 cursor-pointer">

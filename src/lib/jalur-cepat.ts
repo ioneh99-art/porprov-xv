@@ -8,6 +8,10 @@
 //   3. Bila PIC melapor hal yang BERBEDA untuk nomor itu (medali lain / atlet lain / tanpa
 //      medali) → "bentrok": data Superadministrator tetap dipakai dan ditandai merah, KONIDA
 //      yang memutuskan di Antrean.
+//   4. (8 Nov) Medali sah yang BUKAN dari laporan PIC — dibaca dari situs KONI Jabar, Input
+//      Langsung KONIDA, atau dimasukkan tanpa kode — juga menunggu PIC dengan cara yang sama.
+//      Dulu laporan PIC untuk medali seperti itu ditolak "sudah dilaporkan", jadi PIC tidak bisa
+//      mengirim bukti. PIC juga bisa langsung menekan "Benar" di daftar konfirmasi di HP-nya.
 // Fungsi di sini murni (npm run uji:jalur-cepat).
 
 import { LABEL_HASIL, adalahFinal, adalahMedali, bakuNomorMedali, type Hasil } from './lapor'
@@ -23,6 +27,8 @@ export const bolehJalurCepat = (sesi: any) => sesi?.role === PERAN_JALUR_CEPAT |
 export interface BarisCepat {
   id: number; cabor_id: number; nomor_teks: string; hasil: string; atlet_ids: number[]; tanggal: string
   status: string; validasi: Validasi | null
+  /** Baris ini bukan laporan kode PIC (situs, Input Langsung KONIDA, tanpa kode). */
+  bukan_pic?: boolean
 }
 export interface LaporanPic { cabor_id: number; nomor_teks: string; hasil: string; atlet_ids: number[]; tanggal: string }
 
@@ -37,10 +43,18 @@ const label = (h: string) => LABEL_HASIL[h as Hasil] ?? h
 /** Atlet dianggap sama bila salah satu kosong (mis. beregu tanpa nama) atau ada nama yang sama. */
 export const atletSejalan = (a: number[], b: number[]) => !a.length || !b.length || a.some(x => b.includes(x))
 
-/** Medali jalur cepat untuk nomor yang sama (cabor sama, nomor sama dibakukan, tanggal ±2 hari). */
+/** Laporan dari mana pun selain kode PIC: data situs (ref_luar), tanpa kode, atau kode jalur KONIDA. */
+export const bukanDariPic = (l: { ref_luar?: string | null; akses_id?: number | null }, aksesKonida: Set<number>) =>
+  !!l.ref_luar || l.akses_id == null || aksesKonida.has(l.akses_id)
+
+/** Medali sah yang masih menunggu bukti PIC: jalur cepat yang belum divalidasi, atau medali bukan-PIC yang belum pernah dicek PIC. */
+export const menungguPic = (c: Pick<BarisCepat, 'status' | 'hasil' | 'validasi' | 'bukan_pic'>) =>
+  c.status === 'disahkan' && adalahMedali(c.hasil) && (c.validasi === 'menunggu_pic' || (c.validasi == null && c.bukan_pic === true))
+
+/** Medali menunggu PIC untuk nomor yang sama (cabor sama, nomor sama dibakukan, tanggal ±2 hari). */
 function calonSama(pic: LaporanPic, cepat: BarisCepat[]): BarisCepat[] {
   const n = bakuNomorMedali(pic.nomor_teks)
-  return cepat.filter(c => c.status === 'disahkan' && c.validasi === 'menunggu_pic' && c.cabor_id === pic.cabor_id
+  return cepat.filter(c => menungguPic(c) && c.cabor_id === pic.cabor_id
     && bakuNomorMedali(c.nomor_teks) === n && selisihHari(c.tanggal, pic.tanggal) <= SELISIH_HARI_CEPAT)
 }
 

@@ -3,10 +3,12 @@
 // Dua pengecualian (Jalur Cepat, keputusan Bos 7 Nov 2026 — lihat src/lib/jalur-cepat.ts):
 //   • Superadministrator mencentang "Medali jalur cepat" → langsung disahkan, bertanda menunggu PIC.
 //   • Laporan PIC yang sama dengan medali jalur cepat → menjadi validasinya (tidak dihitung dua kali).
+//     Sejak 8 Nov berlaku juga untuk medali sah dari situs KONI Jabar / Input Langsung KONIDA.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { adalahFinal, adalahMedali, kunciKembar, periksaLaporan, tanggalWIB } from '@/lib/lapor'
-import { ALASAN_VALIDASI, cocokJalurCepat, laporanPicSudahAda, lengkapiDariPic, type BarisCepat } from '@/lib/jalur-cepat'
+import { ALASAN_VALIDASI, bukanDariPic, cocokJalurCepat, laporanPicSudahAda, lengkapiDariPic, menungguPic, type BarisCepat } from '@/lib/jalur-cepat'
+import { aksesKonida } from '@/lib/konfirmasi-pic'
 import { rapikan, tulisNomorResmi } from '@/lib/pendaftaran'
 import { WADAH_BUKTI, ambilSesiLapor, atletCabor, bacaKiriman, dbLapor, keluargaCabor, pendaftaranCabor, simpanFotoBukti } from '@/lib/lapor-sesi'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -88,9 +90,10 @@ export async function POST(req: NextRequest) {
   // Laporan cabor ini di sekitar tanggalnya (±2 hari): untuk cek kembar dan jalur cepat.
   const geser = (h: number) => new Date(Date.parse(tanggal + 'T00:00:00Z') + h * 86_400_000).toISOString().slice(0, 10)
   const { data: sekitar } = await db.from('laporan_hasil')
-    .select('id,cabor_id,nomor_teks,atlet_ids,tanggal,hasil,status,validasi,ref_luar,pelapor_nama,foto_path,nilai_teks,lawan,jam,keterangan,partai_id')
+    .select('id,cabor_id,nomor_teks,atlet_ids,tanggal,hasil,status,validasi,ref_luar,akses_id,pelapor_nama,foto_path,nilai_teks,lawan,jam,keterangan,partai_id')
     .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).gte('tanggal', geser(-2)).lte('tanggal', geser(2))
-  const dekat = (sekitar ?? []) as any[]
+  const konida = await aksesKonida(db, s.kontingen_id)
+  const dekat = (sekitar ?? []).map((l: any) => ({ ...l, bukan_pic: bukanDariPic(l, konida) })) as any[]
 
   if (mintaCepat) {
     const pic = laporanPicSudahAda({ cabor_id: s.cabor_id, nomor_teks: isi.nomor_teks, tanggal }, dekat)
@@ -98,9 +101,10 @@ export async function POST(req: NextRequest) {
   }
   const cocok = mintaCepat ? null : cocokJalurCepat({ cabor_id: s.cabor_id, nomor_teks: isi.nomor_teks, hasil: isi.hasil, atlet_ids: isi.atlet_ids, tanggal }, dekat as BarisCepat[])
 
-  // Kembar: medali jalur cepat bukan "laporan kembar" bagi PIC — itu ditangani pencocokan di atas.
+  // Kembar: medali yang menunggu bukti PIC (jalur cepat, situs, Input Langsung) bukan "laporan
+  // kembar" bagi PIC — itu ditangani pencocokan di atas.
   const kunci = kunciKembar({ ...isi, tanggal })
-  if (dekat.some((l: any) => l.tanggal === tanggal && l.status !== 'ditolak' && (mintaCepat || !l.validasi) && adalahFinal(l.hasil) && kunciKembar(l) === kunci))
+  if (dekat.some((l: any) => l.tanggal === tanggal && l.status !== 'ditolak' && (mintaCepat || (!l.validasi && !menungguPic(l))) && adalahFinal(l.hasil) && kunciKembar(l) === kunci))
     return NextResponse.json({ error: 'Hasil akhir nomor ini untuk atlet yang sama sudah dilaporkan untuk tanggal ini.' }, { status: 409 })
 
   let foto_path: string | null = null
@@ -137,7 +141,7 @@ export async function POST(req: NextRequest) {
           ...lengkapiDariPic(cepat ?? {}, { foto_path, nilai_teks: isi.nilai_teks, lawan: isi.lawan, jam: isi.jam, keterangan: isi.keterangan, partai_id }) }
       : { validasi: 'bentrok', validasi_laporan_id: baru.id, validasi_oleh: s.nama_pic, validasi_at: kini }
     const { data: kena } = await db.from('laporan_hasil').update({ ...ubah, updated_at: kini })
-      .eq('id', cocok.id).eq('kontingen_id', s.kontingen_id).eq('validasi', 'menunggu_pic').select('id')
+      .eq('id', cocok.id).eq('kontingen_id', s.kontingen_id).or('validasi.eq.menunggu_pic,validasi.is.null').select('id')
     if (!kena?.length && cocok.jenis === 'cocok') {
       // Sudah divalidasi laporan lain di saat bersamaan: laporan ini masuk Antrean seperti biasa.
       await db.from('laporan_hasil').update({ status: 'menunggu', diputus_oleh: null, diputus_at: null, alasan_tolak: null, memvalidasi_id: null }).eq('id', baru.id)

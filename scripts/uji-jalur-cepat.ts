@@ -1,6 +1,6 @@
 // scripts/uji-jalur-cepat.ts — Jalur Cepat medali (Superadministrator) ↔ validasi PIC. Dijalankan: npm run uji:jalur-cepat
 import {
-  ALASAN_VALIDASI, atletSejalan, bolehJalurCepat, cocokJalurCepat, laporanPicSudahAda, lengkapiDariPic, tandaValidasi,
+  ALASAN_VALIDASI, atletSejalan, bolehJalurCepat, bukanDariPic, cocokJalurCepat, menungguPic, laporanPicSudahAda, lengkapiDariPic, tandaValidasi,
   type BarisCepat,
 } from '../src/lib/jalur-cepat'
 
@@ -72,6 +72,21 @@ cek('alasan validasi', ALASAN_VALIDASI(12), 'Menjadi validasi medali jalur cepat
 cek('tanda: menunggu', tandaValidasi('menunggu_pic')?.teks, '⏳ Menunggu PIC')
 cek('tanda: tervalidasi dengan nama', tandaValidasi('tervalidasi', 'PIC Gulat')?.teks, '✓ Tervalidasi · PIC Gulat')
 cek('tanda: laporan biasa', tandaValidasi(null), null)
+
+// --- medali bukan-PIC (situs, Input Langsung, tanpa kode) juga menunggu PIC (8 Nov) ---
+const konida = new Set([900])
+cek('bukan PIC: data situs', bukanDariPic({ ref_luar: 'medali-1-emas', akses_id: null }, konida), true)
+cek('bukan PIC: tanpa kode', bukanDariPic({ ref_luar: null, akses_id: null }, konida), true)
+cek('bukan PIC: Input Langsung KONIDA', bukanDariPic({ ref_luar: null, akses_id: 900 }, konida), true)
+cek('laporan kode PIC = dari PIC', bukanDariPic({ ref_luar: null, akses_id: 105 }, konida), false)
+cek('menunggu PIC: situs sah belum dicek', menungguPic({ status: 'disahkan', hasil: 'perak', validasi: null, bukan_pic: true }), true)
+cek('menunggu PIC: laporan PIC biasa → tidak', menungguPic({ status: 'disahkan', hasil: 'perak', validasi: null, bukan_pic: false }), false)
+cek('menunggu PIC: situs belum disahkan → tidak', menungguPic({ status: 'menunggu', hasil: 'perak', validasi: null, bukan_pic: true }), false)
+cek('menunggu PIC: bukan medali → tidak', menungguPic({ status: 'disahkan', hasil: 'gugur', validasi: null, bukan_pic: true }), false)
+cek('menunggu PIC: sudah tervalidasi → tidak', menungguPic({ status: 'disahkan', hasil: 'emas', validasi: 'tervalidasi', bukan_pic: true }), false)
+cek('cocok: medali situs divalidasi laporan PIC', cocokJalurCepat(P({ hasil: 'perak' }), [C({ id: 7, hasil: 'perak', validasi: null, bukan_pic: true })]), { jenis: 'cocok', id: 7 })
+cek('bentrok: situs perak, PIC lapor emas', cocokJalurCepat(P(), [C({ id: 7, hasil: 'perak', validasi: null, bukan_pic: true })])?.jenis, 'bentrok')
+cek('laporan PIC lain tidak jadi calon', cocokJalurCepat(P(), [C({ id: 8, validasi: null, bukan_pic: false })]), null)
 
 console.log(`uji-jalur-cepat: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

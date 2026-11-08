@@ -7,6 +7,7 @@ import { buangNomorKembar, tanggalWIB } from '@/lib/lapor'
 import { urutPartai } from '@/lib/jadwal-partai'
 import { kelompokkanNomor } from '@/lib/pendaftaran'
 import { ambilSesiLapor, atletCabor, dbLapor, keluargaCabor, pendaftaranCabor } from '@/lib/lapor-sesi'
+import { medaliMenungguPic, pencatatMedali } from '@/lib/konfirmasi-pic'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -78,7 +79,20 @@ export async function GET(req: NextRequest) {
     }))).map(n => ({ ...n, kunci: `katalog-${n.id}`, disiplin: null, atlet_ids: [], belum_ada: 0 }))
   }
 
+  // Medali cabor ini yang dicatat pihak lain dan menunggu bukti PIC (bukan untuk jalur KONIDA).
+  const idAtlet = new Set(atlet.map(a => a.id))
+  const namaAtlet = new Map(atlet.map(a => [a.id, a.nama_lengkap]))
+  const konfirmasi = s.jalur === 'pic'
+    ? (await medaliMenungguPic(db, s.kontingen_id, s.cabor_id, s.disiplin))
+      .filter(l => !s.disiplin || l.disiplin || (l.atlet_ids ?? []).some((id: number) => idAtlet.has(id)))
+    : []
+
   return NextResponse.json({
+    konfirmasi: konfirmasi.map(l => ({
+      id: l.id, nomor_teks: l.nomor_teks, disiplin: l.disiplin, hasil: l.hasil, tanggal: l.tanggal, nilai_teks: l.nilai_teks, atlet_ids: l.atlet_ids ?? [],
+      atlet: (l.atlet_ids ?? []).map((id: number) => namaAtlet.get(id) ?? `Atlet #${id}`),
+      oleh: pencatatMedali(l), ada_foto: !!l.foto_path,
+    })),
     pic: { nama: s.nama_pic, jalur: s.jalur, disiplin: s.disiplin, cepat: s.cepat },
     kontingen: kontingen?.nama ?? '',
     cabor: namaCabor,
