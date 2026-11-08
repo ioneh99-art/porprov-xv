@@ -101,9 +101,12 @@ export function partaiTampil<T extends Pick<Partai, 'tanggal' | 'jam' | 'nomor_t
 }
 
 /** Partai yang bisa dipakai mengisi formulir lapor hasil: kemarin dan hari ini, belum selesai/batal. */
-export function partaiUntukLapor<T extends Pick<Partai, 'tanggal' | 'jam' | 'nomor_teks' | 'id' | 'status'>>(daftar: T[], hariIni: string): T[] {
+export function partaiUntukLapor<T extends Pick<Partai, 'tanggal' | 'jam' | 'nomor_teks' | 'id' | 'status'>>(daftar: T[], hariIni: string, sudahDilaporkan?: Set<number>): T[] {
   const kemarin = new Date(Date.parse(hariIni + 'T00:00:00Z') - 86_400_000).toISOString().slice(0, 10)
-  return urutPartai(daftar.filter(p => (p.tanggal === hariIni || p.tanggal === kemarin) && p.status !== 'selesai' && p.status !== 'batal'))
+  // Partai yang ditandai selesai oleh pihak lain (situs KONI Jabar, KONIDA, Superadministrator) tetap
+  // ditawarkan selama PIC ini belum melaporkannya — dulu hilang dan PIC harus mengetik dari nol.
+  const selesaiTapiBelum = (p: T) => p.status === 'selesai' && !!sudahDilaporkan && !sudahDilaporkan.has(p.id)
+  return urutPartai(daftar.filter(p => (p.tanggal === hariIni || p.tanggal === kemarin) && p.status !== 'batal' && (p.status !== 'selesai' || selesaiTapiBelum(p))))
 }
 
 /** "Futsal Putra vs Kota Cirebon" bila lawan diketahui. */

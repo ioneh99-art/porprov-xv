@@ -27,7 +27,7 @@ interface Laporan {
   id: number; nomor_teks: string; atlet_ids: number[]; hasil: Hasil; peringkat: number | null
   nilai_teks: string | null; keterangan: string | null; tanggal: string; status: string
   alasan_tolak: string | null; created_at: string; ada_foto?: boolean
-  validasi?: 'menunggu_pic' | 'tervalidasi' | 'bentrok' | null; memvalidasi_id?: number | null
+  validasi?: 'menunggu_pic' | 'tervalidasi' | 'bentrok' | null; memvalidasi_id?: number | null; partai_id?: number | null
 }
 interface Bahan {
   pic: { nama: string; jalur?: 'pic' | 'konida'; cepat?: boolean }; kontingen: string; cabor: string; atlet: Atlet[]; nomor_resmi: boolean; nomor: Nomor[]; laporan: Laporan[]; catatan: CatatanSaya[]
@@ -160,7 +160,8 @@ export default function HalamanLapor() {
   }
 
   const namaAtlet = useMemo(() => new Map((bahan?.atlet ?? []).map(a => [a.id, a.nama])), [bahan])
-  const partaiLapor = useMemo(() => partaiUntukLapor(bahan?.partai ?? [], tanggalWIB()), [bahan])
+  const partaiLapor = useMemo(() => partaiUntukLapor(bahan?.partai ?? [], tanggalWIB(),
+    new Set((bahan?.laporan ?? []).filter(l => l.partai_id != null).map(l => l.partai_id as number))), [bahan])
   /** Mengisi formulir dari partai terjadwal: nomor, atlet, lawan, jam, babak. */
   const isiDariPartai = (p: PartaiSaya) => {
     const n = p.disiplin ? bahan?.nomor.find(x => x.disiplin === p.disiplin && x.nama === p.nomor_resmi) : undefined

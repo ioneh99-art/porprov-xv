@@ -102,9 +102,10 @@ export async function POST(req: NextRequest) {
   const cocok = mintaCepat ? null : cocokJalurCepat({ cabor_id: s.cabor_id, nomor_teks: isi.nomor_teks, hasil: isi.hasil, atlet_ids: isi.atlet_ids, tanggal }, dekat as BarisCepat[])
 
   // Kembar: medali yang menunggu bukti PIC (jalur cepat, situs, Input Langsung) bukan "laporan
-  // kembar" bagi PIC — itu ditangani pencocokan di atas.
+  // kembar" bagi PIC — itu ditangani pencocokan di atas. Hasil bacaan situs juga tidak menghalangi
+  // PIC: laporannya masuk Antrean dan KONIDA memilih (seperti "Kembar — digantikan laporan PIC").
   const kunci = kunciKembar({ ...isi, tanggal })
-  if (dekat.some((l: any) => l.tanggal === tanggal && l.status !== 'ditolak' && (mintaCepat || (!l.validasi && !menungguPic(l))) && adalahFinal(l.hasil) && kunciKembar(l) === kunci))
+  if (dekat.some((l: any) => l.tanggal === tanggal && l.status !== 'ditolak' && (mintaCepat || (!l.validasi && !menungguPic(l) && !l.ref_luar)) && adalahFinal(l.hasil) && kunciKembar(l) === kunci))
     return NextResponse.json({ error: 'Hasil akhir nomor ini untuk atlet yang sama sudah dilaporkan untuk tanggal ini.' }, { status: 409 })
 
   let foto_path: string | null = null

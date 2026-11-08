@@ -44,6 +44,8 @@ cek('tampil: hari kosong → berikutnya, batal dilewati', partaiTampil(D, '2026-
 cek('tampil: semua lewat → null', partaiTampil(D, '2026-12-01'), null)
 const L = [p('2026-11-07', '10:00', 'X'), p('2026-11-08', '09:00', 'Y'), p('2026-11-08', '10:00', 'Z', 'selesai'), p('2026-11-06', '09:00', 'W')]
 cek('untuk lapor: kemarin + hari ini, belum selesai', partaiUntukLapor(L, '2026-11-08').map(x => x.nomor_teks), ['X', 'Y'])
+cek('untuk lapor: selesai oleh pihak lain tetap muncul bila PIC belum melapor', partaiUntukLapor(L, '2026-11-08', new Set()).map(x => x.nomor_teks), ['X', 'Y', 'Z'])
+cek('untuk lapor: selesai & sudah dilaporkan PIC → hilang', partaiUntukLapor(L, '2026-11-08', new Set([L[2].id])).map(x => x.nomor_teks), ['X', 'Y'])
 cek('tulis laga', [tulisLaga({ nomor_teks: 'Futsal Putra', lawan: 'Kota Cirebon' }), tulisLaga({ nomor_teks: 'Final', lawan: null })], ['Futsal Putra vs Kota Cirebon', 'Final'])
 
 console.log(`uji-jadwal-partai: ${lulus} lulus, ${gagal} gagal`)

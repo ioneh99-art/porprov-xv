@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     db.from('kontingen').select('nama').eq('id', s.kontingen_id).maybeSingle(),
     atletCabor(s.kontingen_id, s.cabor_id, daftar, !!s.disiplin),
     db.from('laporan_hasil')
-      .select('id,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,keterangan,foto_path,tanggal,status,alasan_tolak,created_at,validasi,memvalidasi_id')
+      .select('id,nomor_teks,atlet_ids,hasil,peringkat,nilai_teks,keterangan,foto_path,tanggal,status,alasan_tolak,created_at,validasi,memvalidasi_id,partai_id')
       .eq('akses_id', s.akses_id).order('created_at', { ascending: false }).limit(100),
     db.from('catatan_lapangan')
       .select('id,jenis,mendesak,tanggal,jam,nomor_teks,isi,foto_path,status,tanggapan,created_at')

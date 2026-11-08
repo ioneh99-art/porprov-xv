@@ -167,6 +167,13 @@ export function tebakHasil(babak: string | null, kode: string | null, akhir: 'me
   const b = baku(`${babak ?? ''} ${kode ?? ''}`)
   const seri = akhir === 'seri' ? 'Hasil SERI — sesuaikan sebelum mengesahkan.' : null
   const menang = akhir === 'menang'
+  // Perebutan tempat 5/6, 7/8, … (polo air dkk) BUKAN perebutan perunggu: menang = peringkat 5, kalah = 6.
+  // (8 Nov 2026: "M9. PEREBUTAN 5/6" sempat terbaca perunggu.)
+  const urutan = b.match(/\b(?:perebutan|tempat|peringkat|posisi|klasifikasi)\s+(?:tempat\s+|juara\s+|peringkat\s+)?(\d+)\s+(?:dan\s+)?(\d+)\b/)
+  if (urutan && Number(urutan[1]) >= 5) {
+    const atas = Math.min(Number(urutan[1]), Number(urutan[2])), bawah = Math.max(Number(urutan[1]), Number(urutan[2]))
+    return { hasil: 'peringkat', peringkat: menang ? atas : bawah, catatan: seri }
+  }
   if (/perebutan|juara 3|tempat 3|perunggu|\bko b3\b/.test(b)) return menang ? { hasil: 'perunggu', peringkat: null, catatan: seri } : { hasil: 'peringkat', peringkat: 4, catatan: seri }
   // Cabor tanpa perebutan juara 3 (mis. anggar): kalah di semifinal = perunggu.
   if (akhir === 'kalah' && semifinalPerunggu(cabor) && /\bsemi|\bko sf\d*\b/.test(b))
