@@ -19,6 +19,12 @@ import { LABEL_HASIL, adalahFinal, adalahMedali, bakuNomorMedali, type Hasil } f
 export type Validasi = 'menunggu_pic' | 'tervalidasi' | 'bentrok'
 /** Batas selisih tanggal laporan PIC dan medali jalur cepat (PIC sering melapor belakangan / tanggal partai). */
 export const SELISIH_HARI_CEPAT = 2
+/**
+ * Laporan MEDALI dicocokkan tanpa batas tanggal (seluruh PORPROV): satu atlet tidak mungkin
+ * meraih medali dua kali di nomor yang sama. (8 Nov 2026: PIC Renang melapor ulang perunggu final
+ * 5 Nov dengan tanggal 8 Nov → sempat terhitung dua kali.)
+ */
+const batasHari = (hasil: string) => adalahMedali(hasil) ? Infinity : SELISIH_HARI_CEPAT
 /** Hanya akun dengan peran ini yang boleh memakai jalur cepat (keputusan Bos: Superadministrator saja). */
 export const PERAN_JALUR_CEPAT = 'superadmin'
 
@@ -55,7 +61,25 @@ export const menungguPic = (c: Pick<BarisCepat, 'status' | 'hasil' | 'validasi' 
 function calonSama(pic: LaporanPic, cepat: BarisCepat[]): BarisCepat[] {
   const n = bakuNomorMedali(pic.nomor_teks)
   return cepat.filter(c => menungguPic(c) && c.cabor_id === pic.cabor_id
-    && bakuNomorMedali(c.nomor_teks) === n && selisihHari(c.tanggal, pic.tanggal) <= SELISIH_HARI_CEPAT)
+    && bakuNomorMedali(c.nomor_teks) === n
+    && selisihHari(c.tanggal, pic.tanggal) <= (adalahMedali(pic.hasil) && adalahMedali(c.hasil) ? Infinity : SELISIH_HARI_CEPAT))
+}
+
+export interface LaporanAdaMedali extends BarisCepat { memvalidasi_id?: number | null }
+
+/**
+ * Laporan medali PIC yang sudah pernah tercatat (tanggal berapa pun): medali sama, cabor & nomor
+ * sama, atlet sejalan, dan bukan medali yang menunggu bukti PIC (itu ditangani cocokJalurCepat).
+ * Hanya laporan kode PIC atau medali yang sudah tervalidasi — data situs / Input Langsung yang belum
+ * disahkan tidak menghalangi PIC.
+ * Mengembalikan laporan lama itu — kiriman baru ditolak supaya medali tidak terhitung dua kali.
+ */
+export function medaliSudahTercatat(pic: LaporanPic, ada: LaporanAdaMedali[]): LaporanAdaMedali | null {
+  if (!adalahMedali(pic.hasil)) return null
+  const n = bakuNomorMedali(pic.nomor_teks)
+  return ada.find(l => l.status !== 'ditolak' && !l.memvalidasi_id && !menungguPic(l) && (!l.bukan_pic || !!l.validasi) && l.hasil === pic.hasil
+    && l.cabor_id === pic.cabor_id && bakuNomorMedali(l.nomor_teks) === n && atletSejalan(l.atlet_ids, pic.atlet_ids)
+    && selisihHari(l.tanggal, pic.tanggal) <= batasHari(pic.hasil)) ?? null
 }
 
 /**

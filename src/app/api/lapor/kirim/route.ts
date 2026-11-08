@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { adalahFinal, adalahMedali, kunciKembar, periksaLaporan, tanggalWIB } from '@/lib/lapor'
-import { ALASAN_VALIDASI, bukanDariPic, cocokJalurCepat, laporanPicSudahAda, lengkapiDariPic, menungguPic, type BarisCepat } from '@/lib/jalur-cepat'
+import { ALASAN_VALIDASI, bukanDariPic, cocokJalurCepat, laporanPicSudahAda, lengkapiDariPic, medaliSudahTercatat, menungguPic, type BarisCepat } from '@/lib/jalur-cepat'
 import { aksesKonida } from '@/lib/konfirmasi-pic'
 import { rapikan, tulisNomorResmi } from '@/lib/pendaftaran'
 import { WADAH_BUKTI, ambilSesiLapor, atletCabor, bacaKiriman, dbLapor, keluargaCabor, pendaftaranCabor, simpanFotoBukti } from '@/lib/lapor-sesi'
@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
   if (mintaCepat && !s.cepat) return NextResponse.json({ error: 'Jalur cepat hanya untuk Superadministrator.' }, { status: 403 })
   if (mintaCepat && !adalahMedali(isi.hasil)) return NextResponse.json({ error: 'Jalur cepat hanya untuk medali (emas/perak/perunggu).' }, { status: 422 })
 
-  // Laporan cabor ini di sekitar tanggalnya (±2 hari): untuk cek kembar dan jalur cepat.
-  const geser = (h: number) => new Date(Date.parse(tanggal + 'T00:00:00Z') + h * 86_400_000).toISOString().slice(0, 10)
+  // Laporan cabor ini: ±2 hari untuk cek kembar & hasil non-medali, seluruh PORPROV untuk medali
+  // (medali yang sama tidak mungkin diraih dua kali — lihat medaliSudahTercatat).
   const { data: sekitar } = await db.from('laporan_hasil')
-    .select('id,cabor_id,nomor_teks,atlet_ids,tanggal,hasil,status,validasi,ref_luar,akses_id,pelapor_nama,foto_path,nilai_teks,lawan,jam,keterangan,partai_id')
-    .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).gte('tanggal', geser(-2)).lte('tanggal', geser(2))
+    .select('id,cabor_id,nomor_teks,atlet_ids,tanggal,hasil,status,validasi,ref_luar,akses_id,pelapor_nama,foto_path,nilai_teks,lawan,jam,keterangan,partai_id,memvalidasi_id')
+    .eq('kontingen_id', s.kontingen_id).eq('cabor_id', s.cabor_id).order('id', { ascending: false }).limit(1000)
   const konida = await aksesKonida(db, s.kontingen_id)
   const dekat = (sekitar ?? []).map((l: any) => ({ ...l, bukan_pic: bukanDariPic(l, konida) })) as any[]
 
@@ -100,6 +100,12 @@ export async function POST(req: NextRequest) {
     if (pic) return NextResponse.json({ error: `${pic.pelapor_nama ?? 'PIC'} sudah melaporkan hasil nomor ini (#${pic.id}). Tidak perlu jalur cepat — sahkan laporan itu di Antrean.` }, { status: 409 })
   }
   const cocok = mintaCepat ? null : cocokJalurCepat({ cabor_id: s.cabor_id, nomor_teks: isi.nomor_teks, hasil: isi.hasil, atlet_ids: isi.atlet_ids, tanggal }, dekat as BarisCepat[])
+
+  // Medali sama yang sudah tercatat di tanggal lain (mis. melapor ulang medali kemarin dengan tanggal hari ini).
+  if (!mintaCepat && !cocok) {
+    const lama = medaliSudahTercatat({ cabor_id: s.cabor_id, nomor_teks: isi.nomor_teks, hasil: isi.hasil, atlet_ids: isi.atlet_ids, tanggal }, dekat as any[])
+    if (lama) return NextResponse.json({ error: `Medali ini sudah tercatat (#${lama.id}, tanggal ${lama.tanggal.split('-').reverse().join('-')}${lama.status === 'menunggu' ? ', menunggu disahkan' : ''}). Tidak perlu dilaporkan lagi — lihat "Laporan saya" atau tanya KONIDA.` }, { status: 409 })
+  }
 
   // Kembar: medali yang menunggu bukti PIC (jalur cepat, situs, Input Langsung) bukan "laporan
   // kembar" bagi PIC — itu ditangani pencocokan di atas. Hasil bacaan situs juga tidak menghalangi

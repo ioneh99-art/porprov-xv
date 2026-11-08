@@ -1,6 +1,6 @@
 // scripts/uji-jalur-cepat.ts — Jalur Cepat medali (Superadministrator) ↔ validasi PIC. Dijalankan: npm run uji:jalur-cepat
 import {
-  ALASAN_VALIDASI, atletSejalan, bolehJalurCepat, bukanDariPic, cocokJalurCepat, menungguPic, laporanPicSudahAda, lengkapiDariPic, tandaValidasi,
+  ALASAN_VALIDASI, atletSejalan, bolehJalurCepat, bukanDariPic, cocokJalurCepat, medaliSudahTercatat, menungguPic, laporanPicSudahAda, lengkapiDariPic, tandaValidasi,
   type BarisCepat,
 } from '../src/lib/jalur-cepat'
 
@@ -37,7 +37,7 @@ cek('tidak ada jalur cepat', cocokJalurCepat(P(), []), null)
 cek('nomor lain', cocokJalurCepat(P({ nomor_teks: 'Bebas - Kelas s/d 62 Kg (Pa)' }), [C({ id: 1 })]), null)
 cek('putri ≠ putra', cocokJalurCepat(P({ nomor_teks: 'Bebas - Kelas s/d 52 Kg (Pi)' }), [C({ id: 1 })]), null)
 cek('cabor lain', cocokJalurCepat(P({ cabor_id: 999 }), [C({ id: 1 })]), null)
-cek('tanggal terlalu jauh (3 hari)', cocokJalurCepat(P({ tanggal: '2026-11-10' }), [C({ id: 1 })]), null)
+cek('medali: tanggal jauh (3 hari) tetap cocok — medali tak mungkin diraih dua kali', cocokJalurCepat(P({ tanggal: '2026-11-10' }), [C({ id: 1 })]), { jenis: 'cocok', id: 1 })
 cek('hasil belum final (lolos) tidak dicocokkan', cocokJalurCepat(P({ hasil: 'lolos' }), [C({ id: 1 })]), null)
 cek('jalur cepat yang sudah tervalidasi tidak dipakai lagi', cocokJalurCepat(P(), [C({ id: 1, validasi: 'tervalidasi' })]), null)
 cek('baris biasa (bukan jalur cepat) diabaikan', cocokJalurCepat(P(), [C({ id: 1, validasi: null })]), null)
@@ -87,6 +87,19 @@ cek('menunggu PIC: sudah tervalidasi → tidak', menungguPic({ status: 'disahkan
 cek('cocok: medali situs divalidasi laporan PIC', cocokJalurCepat(P({ hasil: 'perak' }), [C({ id: 7, hasil: 'perak', validasi: null, bukan_pic: true })]), { jenis: 'cocok', id: 7 })
 cek('bentrok: situs perak, PIC lapor emas', cocokJalurCepat(P(), [C({ id: 7, hasil: 'perak', validasi: null, bukan_pic: true })])?.jenis, 'bentrok')
 cek('laporan PIC lain tidak jadi calon', cocokJalurCepat(P(), [C({ id: 8, validasi: null, bukan_pic: false })]), null)
+
+// --- medali dicocokkan sepanjang PORPROV (8 Nov: perunggu renang final 5 Nov dilapor ulang 8 Nov) ---
+cek('cocok: medali menunggu PIC tanggal jauh tetap cocok', cocokJalurCepat(P({ hasil: 'perunggu', tanggal: '2026-11-08' }), [C({ id: 226, hasil: 'perunggu', tanggal: '2026-11-05', validasi: null, bukan_pic: true })]), { jenis: 'cocok', id: 226 })
+cek('non-medali tetap ±2 hari', cocokJalurCepat(P({ hasil: 'gugur', tanggal: '2026-11-08' }), [C({ id: 1, tanggal: '2026-11-03' })]), null)
+const PIC_LAMA = { ...C({ id: 226, hasil: 'perunggu', tanggal: '2026-11-05', validasi: null, bukan_pic: false }) }
+cek('medali PIC tercatat 5 Nov, dilapor ulang 8 Nov → ditolak', medaliSudahTercatat(P({ hasil: 'perunggu', tanggal: '2026-11-08' }), [PIC_LAMA])?.id, 226)
+cek('medali lain di nomor sama → bukan ulang', medaliSudahTercatat(P({ hasil: 'perak', tanggal: '2026-11-08' }), [PIC_LAMA]), null)
+cek('atlet lain → bukan ulang', medaliSudahTercatat(P({ hasil: 'perunggu', atlet_ids: [99] }), [PIC_LAMA]), null)
+cek('laporan lama ditolak → boleh lapor', medaliSudahTercatat(P({ hasil: 'perunggu' }), [{ ...PIC_LAMA, status: 'ditolak' }]), null)
+cek('bukti validasi tidak dihitung', medaliSudahTercatat(P({ hasil: 'perunggu' }), [{ ...PIC_LAMA, memvalidasi_id: 5 }]), null)
+cek('data situs belum disahkan tidak menghalangi', medaliSudahTercatat(P({ hasil: 'perunggu' }), [{ ...PIC_LAMA, status: 'menunggu', bukan_pic: true }]), null)
+cek('medali sudah tervalidasi → ulang ditolak', medaliSudahTercatat(P({ hasil: 'perunggu' }), [{ ...PIC_LAMA, bukan_pic: true, validasi: 'tervalidasi' }])?.id, 226)
+cek('hasil bukan medali → tidak dicek', medaliSudahTercatat(P({ hasil: 'gugur' }), [PIC_LAMA]), null)
 
 console.log(`uji-jalur-cepat: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
