@@ -32,13 +32,13 @@ export const urlLaga = (ref: string) => {
 
 export const baku = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
-function teks(html: string): string {
+export function teks(html: string): string {
   return html.replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'")
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim()
 }
-const rata = (html: string) => html.replace(/\s+/g, ' ')
+export const rata = (html: string) => html.replace(/\s+/g, ' ')
 
 /* ---------- Halaman jadwal harian ---------- */
 

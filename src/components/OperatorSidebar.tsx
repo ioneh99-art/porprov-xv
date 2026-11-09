@@ -10,7 +10,7 @@ import {
   Edit3, Users, Medal, Settings, Calendar,
   Activity, Award, Database, Lock,
   Layers, Building2, Zap,
-  ShieldCheck,
+  ShieldCheck, Waves, Timer,
 } from 'lucide-react'
 import UpgradeModal from '@/components/UpgradeModal'
 import type { SubscriptionTier } from '@/lib/subscription-tier'
@@ -90,7 +90,16 @@ const TIER_TO_SUB: Record<TierBadge, SubscriptionTier> = {
 // Menu khusus Operator Dayung (cabor-aware) — diganti ke ini bila cabor = Dayung.
 const DAYUNG_GROUPS: MenuGroup[] = [
   {
-    label: 'DAYUNG — DATA',
+    // PODSI Jabar: semua atlet & hasil Dayung se-Jawa Barat (dari situs panitia PORPROV XV).
+    label: 'DAYUNG JAWA BARAT',
+    items: [
+      { label: 'Atlet & Medali Se-Jabar', href: '/operator/dayung/jabar', icon: Waves, tier: 'BASIC' },
+      { label: 'Hasil Resmi per Laga',    href: '/operator/dayung/hasil', icon: Timer, tier: 'BASIC' },
+    ],
+  },
+  {
+    // Modul data per kontingen — contoh memakai data Kab. Bandung.
+    label: 'DATA KONTINGEN · KAB. BANDUNG',
     items: [
       { label: 'Dashboard',          href: '/operator/dayung',           icon: Layers,    tier: 'BASIC' },
       { label: 'Data Atlet',         href: '/operator/dayung/atlet',     icon: Users,     tier: 'BASIC' },
