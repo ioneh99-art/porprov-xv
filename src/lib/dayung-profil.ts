@@ -126,7 +126,7 @@ export interface ButirKelengkapan { kunci: string; label: string; lapis: Lapis; 
 
 export interface DataKelengkapan {
   tanggalLahir?: boolean; terverifikasi?: boolean
-  hasilLomba?: boolean; tesFisik?: boolean; postur?: boolean
+  hasilLomba?: boolean; tesFisik?: boolean; postur?: boolean; tesKhusus?: boolean
   bpjs?: boolean; riwayat?: boolean; perlengkapan?: boolean; dokumen?: boolean
 }
 
@@ -136,6 +136,7 @@ export const BUTIR: { kunci: keyof DataKelengkapan; label: string; lapis: Lapis 
   { kunci: 'hasilLomba', label: 'Hasil lomba', lapis: 'Performa' },
   { kunci: 'tesFisik', label: 'Tes fisik', lapis: 'Performa' },
   { kunci: 'postur', label: 'Tinggi & berat', lapis: 'Performa' },
+  { kunci: 'tesKhusus', label: 'Tes khusus dayung', lapis: 'Performa' },
   { kunci: 'bpjs', label: 'BPJS', lapis: 'Manajemen' },
   { kunci: 'riwayat', label: 'Riwayat prestasi', lapis: 'Manajemen' },
   { kunci: 'perlengkapan', label: 'Ukuran perlengkapan', lapis: 'Manajemen' },

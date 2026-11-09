@@ -63,7 +63,7 @@ cek('kelompok umur', [18, 19, 23, 24, null].map(kelompokUmur), ['U-18', 'U-23', 
 
 // Kelengkapan
 const K = kelengkapan({ tanggalLahir: true, hasilLomba: true, bpjs: true })
-cek('kelengkapan: 3 dari 9 = 33%', [K.ada, K.total, K.persen], [3, 9, 33])
+cek('kelengkapan: 3 dari 10 = 30%', [K.ada, K.total, K.persen], [3, 10, 30])
 cek('kelengkapan: lapis', Array.from(new Set(K.butir.map(b => b.lapis))), ['Identitas', 'Performa', 'Manajemen'])
 cek('kelengkapan kosong', kelengkapan({}).persen, 0)
 

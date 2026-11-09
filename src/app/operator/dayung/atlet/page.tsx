@@ -130,6 +130,8 @@ export default function PageAtletKabBandung() {
   const [filterKesiapan, setFilterKesiapan] = useState<'semua'|'belum_tes'|'perlu_perhatian'|'siap_tanding'>('semua')
   const [expandedCabor,setExpandedCabor]= useState<string|null>(null)
   const [selectedAtlet,setSelectedAtlet]= useState<Atlet|null>(null)
+  // atlet lokal → id atlet di daftar Dayung se-Jabar (Profil Atlet PODSI)
+  const [situsPerAtlet, setSitusPerAtlet] = useState<Record<number, number>>({})
   const [modalTab,     setModalTab]     = useState<'profil'|'fisik'>('profil')
   const [rejectNote,   setRejectNote]   = useState('')
   const [isUpdating,   setIsUpdating]   = useState(false)
@@ -141,6 +143,10 @@ export default function PageAtletKabBandung() {
   const [filterCaborStat, setFilterCaborStat] = useState<'all'|CaborStatus>('all')
 
   useEffect(()=>{ const t=setTimeout(()=>setAnimIn(true),80); return()=>clearTimeout(t) },[])
+  useEffect(()=>{
+    sb.from('dayung_jabar_atlet').select('atlet_id,situs_id').not('atlet_id','is',null)
+      .then(({ data }) => setSitusPerAtlet(Object.fromEntries((data ?? []).map((r: any) => [r.atlet_id, r.situs_id]))))
+  },[])
 
   // ── Fetch — filter by kontingen_id + parallel fetch tes fisik ──
   useEffect(()=>{
@@ -1028,6 +1034,9 @@ export default function PageAtletKabBandung() {
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-xl font-black text-white leading-tight truncate">{selectedAtlet.nama_lengkap}</h2>
+                  {situsPerAtlet[selectedAtlet.id] && (
+                    <a href={`/operator/dayung/profil/${situsPerAtlet[selectedAtlet.id]}`} className="inline-block mt-0.5 text-[11px] font-bold text-sky-400 hover:underline">Profil PODSI · hasil lomba & perkembangan →</a>
+                  )}
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-xs text-zinc-400">{selectedAtlet.cabor_nama_raw}</span>
                     <span className="text-zinc-600">·</span>

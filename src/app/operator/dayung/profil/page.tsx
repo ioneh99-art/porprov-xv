@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Contact, Search, RefreshCw } from 'lucide-react'
 import { muatJabar, labelDisiplin, WARNA_DISIPLIN, type JabarData } from '@/lib/sport-plugins/dayung/jabar-data'
 import { BUTIR, kelengkapan, lagaAtlet, ringkasPerforma } from '@/lib/dayung-profil'
+import { ITEM_KHUSUS, gabungDataAwal } from '@/lib/dayung-data-awal'
 
 const ACCENT = '#38bdf8'
 const kartu = { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }
@@ -25,6 +26,7 @@ function Batang({ p }: { p: number }) {
 export default function DayungProfilIndeks() {
   const [data, setData] = useState<JabarData | null>(null)
   const [lokal, setLokal] = useState<Record<number, any>>({})
+  const [awal, setAwal] = useState<{ isian: Record<number, any>; pengukuran: Record<number, any[]>; lokal: Record<number, any> }>({ isian: {}, pengukuran: {}, lokal: {} })
   const [loading, setLoading] = useState(true)
   const [cari, setCari] = useState('')
   const [fKontingen, setFKontingen] = useState('')
@@ -35,10 +37,12 @@ export default function DayungProfilIndeks() {
     const d = await muatJabar()
     setData(d)
     const ids = d.atlet.map(a => a.atlet_id).filter(Boolean)
-    if (ids.length) {
-      const r = await fetch(`/api/dayung/profil?ids=${ids.join(',')}`).then(x => x.json()).catch(() => ({}))
-      setLokal(r.atlet ?? {})
-    }
+    const [r, w] = await Promise.all([
+      ids.length ? fetch(`/api/dayung/profil?ids=${ids.join(',')}`).then(x => x.json()).catch(() => ({})) : Promise.resolve({}),
+      fetch(`/api/dayung/data-awal?situs=${d.atlet.map(a => a.situs_id).join(',')}`).then(x => x.json()).catch(() => ({})),
+    ])
+    setLokal((r as any).atlet ?? {})
+    setAwal({ isian: (w as any).isian ?? {}, pengukuran: (w as any).pengukuran ?? {}, lokal: (w as any).lokal ?? {} })
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -47,13 +51,15 @@ export default function DayungProfilIndeks() {
     const rows = lagaAtlet(a.situs_id, data!.laga, data!.peserta)
     const perf = ringkasPerforma(rows)
     const l = a.atlet_id ? lokal[a.atlet_id] : null
+    const g = gabungDataAwal({ tglLahirLokal: l?.tgl_lahir, tglLahirIsian: awal.isian[a.situs_id]?.tgl_lahir, tesFisik: l?.tes, pengukuran: awal.pengukuran[a.situs_id] })
     const k = kelengkapan({
-      tanggalLahir: !!l?.tgl_lahir, terverifikasi: !!l?.terverifikasi,
-      hasilLomba: rows.some(r => r.waktuDetik != null), tesFisik: !!l?.tes, postur: !!(l?.tes?.tinggi && l?.tes?.berat),
+      tanggalLahir: !!g.tglLahir, terverifikasi: !!l?.terverifikasi,
+      hasilLomba: rows.some(r => r.waktuDetik != null), tesFisik: !!l?.tes, postur: !!(g.terkini.tinggi_badan && g.terkini.berat_badan),
+      tesKhusus: ITEM_KHUSUS.some(i => g.terkini[i]),
       bpjs: !!l?.bpjs, riwayat: (l?.jumlah_riwayat ?? 0) > 0, perlengkapan: !!l?.ada_perlengkapan, dokumen: (l?.jumlah_dokumen ?? 0) > 0,
     })
     return { a, perf, k }
-  }), [data, lokal])
+  }), [data, lokal, awal])
 
   const perKontingen = useMemo(() => {
     const peta = new Map<string, typeof baris>()
@@ -98,13 +104,13 @@ export default function DayungProfilIndeks() {
       {/* Kelengkapan per kontingen */}
       <div className="rounded-2xl p-5 mb-5" style={kartu}>
         <h3 className="text-sm font-bold text-white mb-1">Kelengkapan Data per Kontingen</h3>
-        <div className="text-[11px] text-slate-500 mb-3">Persen atlet yang datanya sudah ada. Hasil lomba otomatis dari situs panitia; data lain diisi kontingen. Klik kontingen untuk menyaring daftar.</div>
+        <div className="text-[11px] text-slate-500 mb-3">Persen atlet yang datanya sudah ada. Hasil lomba otomatis dari situs panitia; tanggal lahir, postur, dan tes khusus diisi lewat Data Gateway → Data Awal Se-Jabar (tombol Lengkapi). Klik baris untuk menyaring daftar.</div>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead><tr className="text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/5">
               <th className="text-left py-2">Kontingen</th><th className="text-center">Atlet</th>
               {BUTIR.map(b => <th key={b.kunci} className="text-center px-1 font-semibold">{b.label}</th>)}
-              <th className="text-left w-36 pl-2">Rata-rata</th>
+              <th className="text-left w-36 pl-2">Rata-rata</th><th></th>
             </tr></thead>
             <tbody>
               {perKontingen.map(k => (
@@ -117,6 +123,7 @@ export default function DayungProfilIndeks() {
                     return <td key={b.kunci} className="text-center tabular-nums font-bold" style={{ color: v === 0 ? '#334155' : warnaPersen(v) }}>{v === 0 ? '·' : `${v}%`}</td>
                   })}
                   <td className="pl-2"><Batang p={k.rata} /></td>
+                  <td className="pl-2"><Link href={`/operator/dayung/data-gateway?tab=data-awal&kontingen=${encodeURIComponent(k.kontingen)}`} onClick={e => e.stopPropagation()} className="text-[10px] font-bold text-sky-400 hover:underline whitespace-nowrap">Lengkapi →</Link></td>
                 </tr>
               ))}
             </tbody>

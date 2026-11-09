@@ -96,6 +96,7 @@ const DAYUNG_GROUPS: MenuGroup[] = [
       { label: 'Atlet & Medali Se-Jabar', href: '/operator/dayung/jabar', icon: Waves, tier: 'BASIC' },
       { label: 'Hasil Resmi per Laga',    href: '/operator/dayung/hasil', icon: Timer, tier: 'BASIC' },
       { label: 'Profil Atlet',            href: '/operator/dayung/profil', icon: Contact, tier: 'BASIC' },
+      { label: 'Isi Data Awal',           href: '/operator/dayung/data-gateway?tab=data-awal', icon: Edit3, tier: 'BASIC' },
     ],
   },
   {

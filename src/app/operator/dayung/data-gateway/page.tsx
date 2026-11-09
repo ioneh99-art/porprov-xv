@@ -1,6 +1,6 @@
 'use client'
 // Data Gateway — Multi-module CRUD hub for PORPROV XV global database
-// Tab: Import Atlet (khusus atlet Dayung Kab. Bandung)
+// Tab: Import Atlet (contoh kontingen Kab. Bandung) · Data Awal Se-Jabar (PODSI Jabar)
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -14,6 +14,7 @@ import {
   Save, X,
 } from 'lucide-react'
 import { lengkapiPii } from '@/lib/atlet-pii-klien'
+import DataAwalTab from '@/components/dayung/DataAwalTab'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +27,7 @@ const ACCENT       = '#38bdf8'
 
 // Klasemen Medali & Master Cabor sengaja tidak ada di sini: itu data semua
 // cabor/kontingen, bukan urusan operator Dayung (tetap ada di admin KONIDA).
-type Tab = 'import'
+type Tab = 'import' | 'data-awal'
 
 // ── Validasi import atlet ─────────────────────────────────
 const REQUIRED_COLS = ['nama_lengkap','no_ktp','tgl_lahir','gender','cabor_nama_raw']
@@ -536,6 +537,16 @@ export default function DataGatewayPage() {
   const [tab,           setTab]           = useState<Tab>('import')
   const [atletCount,    setAtletCount]    = useState(0)
   const [animIn,        setAnimIn]        = useState(false)
+  const [awal,          setAwal]          = useState<{ kontingen?: string; atlet?: number }>({})
+
+  // Tautan dari Profil Atlet: ?tab=data-awal&kontingen=…&atlet=<situs_id>
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    if (q.get('tab') === 'data-awal') {
+      setTab('data-awal')
+      setAwal({ kontingen: q.get('kontingen') ?? undefined, atlet: Number(q.get('atlet')) || undefined })
+    }
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setAnimIn(true), 60)
@@ -545,7 +556,8 @@ export default function DataGatewayPage() {
   }, [])
 
   const TABS: { id: Tab; label: string; icon: React.ElementType; desc: string }[] = [
-    { id:'import',   label:'Import Atlet',    icon:UploadCloud, desc:'Excel → DB' },
+    { id:'data-awal', label:'Data Awal Se-Jabar', icon:Layers,     desc:'PODSI · semua kontingen' },
+    { id:'import',    label:'Import Atlet',       icon:UploadCloud, desc:'contoh Kab. Bandung' },
   ]
 
   return (
@@ -565,7 +577,7 @@ export default function DataGatewayPage() {
             <div>
               <h1 className="text-xl font-black text-white tracking-tight">Data Gateway</h1>
               <p className="text-[11px] font-mono mt-0.5" style={{ color:'rgba(255,255,255,0.35)' }}>
-                Data Atlet Dayung · Kab. Bandung
+                Dayung · PODSI Jabar — data awal se-Jabar & import atlet kontingen
               </p>
             </div>
           </div>
@@ -602,6 +614,7 @@ export default function DataGatewayPage() {
 
         {/* TAB CONTENT */}
         {tab === 'import'   && <ImportTab existingAtletCount={atletCount}/>}
+        {tab === 'data-awal' && <DataAwalTab kontingenAwal={awal.kontingen} sorotAwal={awal.atlet}/>}
       </main>
     </div>
   )

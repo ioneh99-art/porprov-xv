@@ -7,9 +7,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Timer, Activity, ClipboardList, CheckCircle2, Circle, Target, Medal, Gauge } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Timer, Activity, ClipboardList, CheckCircle2, Circle, Target, Medal, Gauge, Ruler, PencilLine, TrendingUp, TrendingDown } from 'lucide-react'
 import { muatJabar, labelDisiplin, WARNA_DISIPLIN, WARNA_MEDALI, SITUS_PANITIA, type JabarData } from '@/lib/sport-plugins/dayung/jabar-data'
 import { kelengkapan, kelompokUmur, lagaAtlet, ringkasPerforma, umurPada, type Lapis } from '@/lib/dayung-profil'
+import { ITEM_UKUR, ITEM_KHUSUS, gabungDataAwal, indeksRentang, pace500, perkembangan, tampilNilai } from '@/lib/dayung-data-awal'
 
 const ACCENT = '#38bdf8'
 const kartu = { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }
@@ -34,6 +35,7 @@ export default function DayungRaporAtlet() {
   const situsId = Number(id)
   const [data, setData] = useState<JabarData | null>(null)
   const [lokal, setLokal] = useState<any>(null)
+  const [awal, setAwal] = useState<{ isian?: any; pengukuran?: any[]; lokal?: any }>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -42,10 +44,12 @@ export default function DayungRaporAtlet() {
       const d = await muatJabar()
       setData(d)
       const a = d.atlet.find(x => x.situs_id === situsId)
-      if (a?.atlet_id) {
-        const r = await fetch(`/api/dayung/profil?ids=${a.atlet_id}&rinci=1`).then(x => x.json()).catch(() => ({}))
-        setLokal(r.atlet?.[a.atlet_id] ?? null)
-      }
+      const [r, w] = await Promise.all([
+        a?.atlet_id ? fetch(`/api/dayung/profil?ids=${a.atlet_id}&rinci=1`).then(x => x.json()).catch(() => ({})) : Promise.resolve({}),
+        fetch(`/api/dayung/data-awal?situs=${situsId}`).then(x => x.json()).catch(() => ({})),
+      ])
+      if (a?.atlet_id) setLokal((r as any).atlet?.[a.atlet_id] ?? null)
+      setAwal({ isian: (w as any).isian?.[situsId], pengukuran: (w as any).pengukuran?.[situsId] ?? [], lokal: (w as any).lokal?.[situsId] })
       setLoading(false)
     })()
   }, [situsId])
@@ -53,10 +57,12 @@ export default function DayungRaporAtlet() {
   const a = data?.atlet.find(x => x.situs_id === situsId) ?? null
   const rows = useMemo(() => (data && a ? lagaAtlet(a.situs_id, data.laga, data.peserta) : []), [data, a])
   const perf = useMemo(() => ringkasPerforma(rows), [rows])
-  const umur = umurPada(lokal?.tgl_lahir)
+  const g = useMemo(() => gabungDataAwal({ tglLahirLokal: lokal?.tgl_lahir, tglLahirIsian: awal.isian?.tgl_lahir, tesFisik: lokal?.tes, pengukuran: awal.pengukuran }), [lokal, awal])
+  const umur = umurPada(g.tglLahir)
   const k = kelengkapan({
-    tanggalLahir: !!lokal?.tgl_lahir, terverifikasi: !!lokal?.terverifikasi,
-    hasilLomba: rows.some(r => r.waktuDetik != null), tesFisik: !!lokal?.tes, postur: !!(lokal?.tes?.tinggi && lokal?.tes?.berat),
+    tanggalLahir: !!g.tglLahir, terverifikasi: !!lokal?.terverifikasi,
+    hasilLomba: rows.some(r => r.waktuDetik != null), tesFisik: !!lokal?.tes, postur: !!(g.terkini.tinggi_badan && g.terkini.berat_badan),
+    tesKhusus: ITEM_KHUSUS.some(i => g.terkini[i]),
     bpjs: !!lokal?.bpjs, riwayat: (lokal?.jumlah_riwayat ?? 0) > 0, perlengkapan: !!lokal?.ada_perlengkapan, dokumen: (lokal?.jumlah_dokumen ?? 0) > 0,
   })
 
@@ -80,7 +86,7 @@ export default function DayungRaporAtlet() {
           <h1 className="text-2xl font-black text-white">{a?.nama ?? '…'}</h1>
           <div className="text-sm text-slate-400">{a?.kontingen}</div>
           <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap gap-x-4">
-            <span>Umur: {umur != null ? `${umur} th (per 7 Nov 2026)` : 'belum ada data'}</span>
+            <span>Umur: {umur != null ? `${umur} th (per 7 Nov 2026)${g.sumberTglLahir === 'Isian PODSI' ? ' · isian PODSI' : ''}` : 'belum ada data'}</span>
             <span>Status: {lokal ? (lokal.terverifikasi ? 'terverifikasi' : (lokal.status_registrasi ?? '—')) : 'belum ada data kontingen'}</span>
           </div>
           {a && <a href={`${SITUS_PANITIA}/atlet/${a.slug}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-[10px] text-sky-400 hover:underline mt-2">Halaman resmi di situs panitia <ExternalLink size={10} /></a>}
@@ -114,7 +120,7 @@ export default function DayungRaporAtlet() {
             </div>
           ))}
         </div>
-        {!a?.atlet_id && <div className="text-[11px] text-amber-300/80 mt-3">Data awal atlet ini belum diisi kontingennya. Yang terlihat baru hasil lomba dari situs panitia.</div>}
+        {k.persen < 100 && a && <Link href={`/operator/dayung/data-gateway?tab=data-awal&kontingen=${encodeURIComponent(a.kontingen)}&atlet=${a.situs_id}`} className="inline-flex items-center gap-1.5 mt-3 text-[11px] font-bold text-sky-400 hover:underline"><PencilLine size={12} /> Lengkapi data awal atlet ini</Link>}
       </div>
 
       {/* Performa */}
@@ -181,10 +187,52 @@ export default function DayungRaporAtlet() {
         )}
       </div>
 
+      {/* Postur & tes khusus dayung: titik nol → terkini */}
+      <div className="rounded-2xl p-5 mb-4" style={kartu}>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div className="flex items-center gap-2"><Ruler size={14} style={{ color: '#f59e0b' }} /><h3 className="text-sm font-bold text-white">Postur & Tes Khusus Dayung</h3></div>
+          {a && <Link href={`/operator/dayung/data-gateway?tab=data-awal&kontingen=${encodeURIComponent(a.kontingen)}&atlet=${a.situs_id}`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"><PencilLine size={12} /> Isi / perbarui</Link>}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-white/5">
+              <th className="text-left py-2">Ukuran</th><th className="text-right">Terkini</th><th className="text-left pl-3">Tanggal · sumber</th>
+              <th className="text-right">Titik nol</th><th className="text-right">Perubahan</th><th className="text-center">Ukur</th>
+            </tr></thead>
+            <tbody>
+              {ITEM_UKUR.map(i => {
+                const t = g.terkini[i.kunci]
+                const pk = perkembangan(i.kunci, g.riwayat[i.kunci] ?? [])
+                const pace = pace500(i.kunci, t?.nilai)
+                return (
+                  <tr key={i.kunci} className="border-b border-white/5">
+                    <td className="py-1.5 text-slate-300">{i.label} <span className="text-slate-600 text-[10px]">{i.waktu ? '' : i.satuan}</span></td>
+                    <td className="text-right font-mono font-bold text-white">{t ? tampilNilai(i.kunci, t.nilai) : <span className="text-slate-600 font-normal">—</span>}
+                      {pace != null && i.jarak !== 500 && <div className="text-[9px] text-slate-500 font-normal">{tampilNilai('ergo_500', pace)} /500 m</div>}</td>
+                    <td className="pl-3 text-[10px] text-slate-500">{t ? `${tgl(t.tanggal)} · ${t.sumber}` : ''}</td>
+                    <td className="text-right font-mono text-slate-400">{pk && pk.kali > 1 ? tampilNilai(i.kunci, pk.awal) : ''}</td>
+                    <td className="text-right">{pk && pk.kali > 1 && pk.selisih !== 0 && (
+                      <span className={`inline-flex items-center gap-0.5 font-mono font-bold ${pk.membaik === true ? 'text-emerald-400' : pk.membaik === false ? 'text-red-400' : 'text-slate-400'}`}>
+                        {pk.membaik === true ? <TrendingUp size={11} /> : pk.membaik === false ? <TrendingDown size={11} /> : null}
+                        {pk.selisih > 0 ? '+' : '−'}{i.waktu ? Math.abs(pk.selisih).toFixed(1) + ' dtk' : Math.abs(pk.selisih)}
+                      </span>)}</td>
+                    <td className="text-center tabular-nums text-slate-500">{pk?.kali ?? 0}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {indeksRentang(g.terkini.rentang_lengan?.nilai, g.terkini.tinggi_badan?.nilai) != null && (
+          <div className="mt-3 text-[11px] text-slate-400">Indeks rentang lengan: <b className="text-white">{indeksRentang(g.terkini.rentang_lengan?.nilai, g.terkini.tinggi_badan?.nilai)!.toFixed(2)}</b> <span className="text-slate-500">(rentang ÷ tinggi; di atas 1,00 = lengan lebih panjang dari tinggi badan, menguntungkan untuk dayung)</span></div>
+        )}
+        <div className="mt-2 text-[10px] text-slate-600">Titik nol = pengukuran paling awal. Hijau = membaik (waktu ergometer turun / kekuatan naik). Tinggi & berat dari Tes Biomotorik ikut dihitung.</div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Fisik */}
         <div className="rounded-2xl p-5" style={kartu}>
-          <Judul icon={Activity} teks="Tes Fisik & Postur" warna="#34d399" />
+          <Judul icon={Activity} teks="Tes Biomotorik Umum" warna="#34d399" />
           {!lokal?.tes ? <div className="text-xs text-slate-500 mb-3">Belum ada hasil tes fisik.</div> : (
             <>
               <div className="text-[11px] text-slate-500 mb-3">{tgl(lokal.tes.tanggal)} · {lokal.tes.lembaga ?? '—'}{lokal.tes.tahap ? ` · tahap ${lokal.tes.tahap}` : ''} · {lokal.tes.jumlah_tes}× tes</div>
@@ -206,10 +254,12 @@ export default function DayungRaporAtlet() {
               </div>
             </>
           )}
-          <div className="mt-4 pt-3 border-t border-white/5">
-            <div className="text-[10px] uppercase tracking-widest font-bold mb-1.5 text-amber-300">Saran tes khusus dayung (belum ada datanya)</div>
-            <ul className="text-[11px] text-slate-400 space-y-0.5 list-disc pl-4">{SARAN_TES.map(s => <li key={s}>{s}</li>)}</ul>
-          </div>
+          {!ITEM_KHUSUS.some(i => g.terkini[i]) && (
+            <div className="mt-4 pt-3 border-t border-white/5">
+              <div className="text-[10px] uppercase tracking-widest font-bold mb-1.5 text-amber-300">Saran tes khusus dayung (belum ada datanya)</div>
+              <ul className="text-[11px] text-slate-400 space-y-0.5 list-disc pl-4">{SARAN_TES.map(s => <li key={s}>{s}</li>)}</ul>
+            </div>
+          )}
         </div>
 
         {/* Manajemen */}
