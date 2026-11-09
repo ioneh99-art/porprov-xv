@@ -10,7 +10,7 @@ import {
   Edit3, Users, Medal, Settings, Calendar,
   Activity, Award, Database, Lock,
   Layers, Building2, Zap,
-  ShieldCheck, Waves, Timer,
+  ShieldCheck, Waves, Timer, Contact,
 } from 'lucide-react'
 import UpgradeModal from '@/components/UpgradeModal'
 import type { SubscriptionTier } from '@/lib/subscription-tier'
@@ -95,6 +95,7 @@ const DAYUNG_GROUPS: MenuGroup[] = [
     items: [
       { label: 'Atlet & Medali Se-Jabar', href: '/operator/dayung/jabar', icon: Waves, tier: 'BASIC' },
       { label: 'Hasil Resmi per Laga',    href: '/operator/dayung/hasil', icon: Timer, tier: 'BASIC' },
+      { label: 'Profil Atlet',            href: '/operator/dayung/profil', icon: Contact, tier: 'BASIC' },
     ],
   },
   {

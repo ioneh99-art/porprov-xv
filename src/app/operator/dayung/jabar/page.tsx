@@ -5,6 +5,7 @@
 // Sumber: situs panitia (dibaca scripts/tarik-dayung-jabar.ts ke tabel dayung_jabar_*).
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Waves, Users, Trophy, Flag, RefreshCw, Search, ExternalLink, ChevronDown, ChevronRight, Medal } from 'lucide-react'
 import {
   muatJabar, labelDisiplin, klasemenKontingen, waktuDibaca, WARNA_DISIPLIN, WARNA_MEDALI, SITUS_PANITIA,
@@ -195,7 +196,7 @@ export default function DayungJabarPage() {
                   <Fragment key={a.situs_id}>
                     <tr onClick={() => setBuka(b => b === a.situs_id ? null : a.situs_id)} className="border-b border-white/5 hover:bg-white/[0.03] cursor-pointer">
                       <td className="py-2 text-slate-600">{refs.length ? (buka === a.situs_id ? <ChevronDown size={12} /> : <ChevronRight size={12} />) : null}</td>
-                      <td className="text-slate-200 font-medium">{a.nama}</td>
+                      <td className="font-medium"><Link href={`/operator/dayung/profil/${a.situs_id}`} onClick={e => e.stopPropagation()} className="text-sky-300 hover:underline">{a.nama}</Link></td>
                       <td className="text-slate-400">{a.kontingen}</td>
                       <td><span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: `${WARNA_DISIPLIN[d] ?? '#64748b'}20`, color: WARNA_DISIPLIN[d] ?? '#94a3b8' }}>{d}</span></td>
                       <td className="text-slate-400">{gLabel(a.gender)}</td>

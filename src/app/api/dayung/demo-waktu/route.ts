@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getServerSession } from '@/lib/guard'
+import { sesiDayung } from '@/lib/dayung-akses'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,13 +14,7 @@ export const dynamic = 'force-dynamic'
 const sb = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
 const STATUS = ['ok', 'DNS', 'DNF', 'DSQ']
 
-async function bolehTulis() {
-  const s: any = await getServerSession()
-  if (!s) return null
-  const admin = ['superadmin', 'admin', 'koni_jabar'].includes(s.role) || ['superadmin', 'koni_jabar'].includes(s.level)
-  const opDayung = s.role === 'operator_cabor' && (/dayung/i.test(s.cabor_nama ?? '') || /dayung/i.test(s.username ?? '') || Number(s.cabor_id) === 147)
-  return admin || opDayung ? s : null
-}
+const bolehTulis = sesiDayung
 
 export async function POST(req: NextRequest) {
   const s = await bolehTulis()
