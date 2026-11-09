@@ -15,7 +15,7 @@ import { genderNomor } from './lawan-luar'
 const genderSejalan = (a: string | null | undefined, b: string | null | undefined) => { const x = genderNomor(a), y = genderNomor(b); return !x || !y || x === y }
 import { writeAudit } from './audit'
 import { babakGrup, bacaGrupMurni, medaliGrup, refGrup, urlBaganGrup } from './grup-medali'
-import { ALASAN_KEMBAR } from './lapor-kembar'
+import { ALASAN_KEMBAR, medaliSamaDicatat } from './lapor-kembar'
 import { bacaMedaliKontingen, keteranganMedaliResmi, medaliTerlewat, refMedaliResmi, urlKontingen } from './medali-resmi'
 import { MEDALI, MESIN_EMAS, rencanaMesinEmas, type LaporMesin, type TargetEmas } from './mesin-emas'
 import { segarkanPublik } from './partai-server'
@@ -182,7 +182,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
     const [cabor, partaiMentah, laporan, atlet, daftar] = await Promise.all([
       ambilSemua<{ id: number; nama: string }>((d, s) => db.from('cabang_olahraga').select('id,nama').order('id').range(d, s)),
       ambilSemua<any>((d, s) => db.from('jadwal_partai').select('id,cabor_id,tanggal,jam,nomor_teks,disiplin,lawan,atlet_ids,status').eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
-      ambilSemua<any>((d, s) => db.from('laporan_hasil').select('id,cabor_id,partai_id,tanggal,lawan,status,ref_luar,hasil,nilai_teks,nomor_teks').eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
+      ambilSemua<any>((d, s) => db.from('laporan_hasil').select('id,cabor_id,partai_id,tanggal,lawan,status,ref_luar,hasil,nilai_teks,nomor_teks,atlet_ids').eq('kontingen_id', kontingenId).gte('tanggal', MULAI_LAGA).order('id').range(d, s)),
       ambilSemua<{ id: number; nama_lengkap: string }>((d, s) => db.from('atlet').select('id,nama_lengkap').eq('kontingen_id', kontingenId).order('id').range(d, s)),
       ambilSemua<{ cabor_id: number; disiplin: string | null; nomor: string }>((d, s) => db.from('pendaftaran_nomor').select('cabor_id,disiplin,nomor').eq('kontingen_id', kontingenId).order('id').range(d, s)),
     ])
@@ -203,13 +203,16 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
 
       const caborId = cocokCabor(laga.cabor, cabor)
       const p = cocokPartai(lk, caborId, partai)
-      const ada = laporan.find(l => l.ref_luar === ref)
-        ?? laporan.find(l => l.status !== 'ditolak' && !l.ref_luar && (
-          (p && l.partai_id === p.id) || (l.cabor_id === caborId && l.tanggal === laga!.tanggal && lawanSama(lk.lawan, l.lawan) && genderSejalan(laga!.nomor, l.nomor_teks))))
       const tebak = tebakHasil(laga.babak, laga.kode, lk.akhir, laga.cabor)
       const daftarCabor = daftar.filter(d => d.cabor_id === caborId)
       const nomorResmi = p?.nomor_teks ?? pilihNomorResmi(laga, daftarCabor)
       const atletIds = Array.from(new Set(lk.atlet.map(n => idAtlet.get(baku(n))).filter((x): x is number => x != null)))
+      const ada = laporan.find(l => l.ref_luar === ref)
+        ?? laporan.find(l => l.status !== 'ditolak' && !l.ref_luar && (
+          (p && l.partai_id === p.id) || (l.cabor_id === caborId && l.tanggal === laga!.tanggal && lawanSama(lk.lawan, l.lawan) && genderSejalan(laga!.nomor, l.nomor_teks))))
+        // Medali yang sudah dicatat PIC/KONIDA tanpa lawan & tanpa tautan jadwal (mis. Input Langsung):
+        // cocok bila cabor & medali sama dan nomornya atau atletnya sama — jangan dibuat baris kedua.
+        ?? laporan.find(l => medaliSamaDicatat(l, caborId, tebak.hasil, laga!.nomor, atletIds))
 
       // Koreksi panitia: skor/akhir berbeda dari pembacaan sebelumnya.
       const sblm = lama.get(ref)

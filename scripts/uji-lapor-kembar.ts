@@ -1,5 +1,5 @@
 // scripts/uji-lapor-kembar.ts — laporan kembar situs KONI Jabar ↔ PIC. Dijalankan: npm run uji:lapor-kembar
-import { lagaSama, pasangKembar, rencanaSahkan, ALASAN_KEMBAR, type LaporKembar } from '../src/lib/lapor-kembar'
+import { lagaSama, medaliSamaDicatat, pasangKembar, rencanaSahkan, ALASAN_KEMBAR, type LaporKembar } from '../src/lib/lapor-kembar'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -23,6 +23,24 @@ cek('dua laporan PIC bukan kembar situs', lagaSama(L({ id: 1 }), L({ id: 2 })), 
 cek('laga sama: "Kab. Garut" vs "Garut"', lagaSama(L({ id: 1, ref_luar: 'x', lawan: 'Kab. Garut', nomor_teks: 'Beregu Putri (Pi)' }), L({ id: 2, lawan: 'Garut', nomor_teks: 'HOCKEY INDOOR · Beregu Putri (Pi)' })), true)
 cek('laga beda: putra ≠ putri walau lawan sama', lagaSama(L({ id: 1, ref_luar: 'x', lawan: 'Kab. Garut', nomor_teks: 'Beregu Putra (Pa)' }), L({ id: 2, lawan: 'Garut', nomor_teks: 'Beregu Putri (Pi)' })), false)
 cek('lawan kosong tidak dianggap sama', lagaSama(L({ id: 1, ref_luar: 'x', lawan: null }), L({ id: 2, lawan: null })), false)
+
+// Kasus nyata 9 Nov: Panjat Tebing Speed WR — KONIDA catat tanpa lawan (#531), situs buat #542.
+const k531 = { cabor_id: 69, hasil: 'emas', status: 'disahkan', ref_luar: null, nomor_teks: 'Individu - Speed WR (Pi)', atlet_ids: [7] }
+cek('medali sama: nomor beda tulisan', medaliSamaDicatat(k531, 69, 'emas', 'Individu - Speed WR Putri', [7]), true)
+cek('medali sama: nomor sama walau atlet tak terbaca', medaliSamaDicatat(k531, 69, 'emas', 'Individu - Speed WR Putri', []), true)
+cek('medali beda: putra ≠ putri', medaliSamaDicatat(k531, 69, 'emas', 'Individu - Speed WR Putra', [7]), false)
+cek('medali beda: jenis beda', medaliSamaDicatat(k531, 69, 'perak', 'Individu - Speed WR Putri', [7]), false)
+cek('medali beda: cabor beda', medaliSamaDicatat(k531, 70, 'emas', 'Individu - Speed WR Putri', [7]), false)
+cek('bukan medali tidak dicocokkan', medaliSamaDicatat({ ...k531, hasil: 'menang' }, 69, 'menang', 'Individu - Speed WR Putri', [7]), false)
+cek('yang ditolak tidak dihitung', medaliSamaDicatat({ ...k531, status: 'ditolak' }, 69, 'emas', 'Individu - Speed WR Putri', [7]), false)
+cek('laporan situs lain bukan pembanding', medaliSamaDicatat({ ...k531, ref_luar: '1' }, 69, 'emas', 'Individu - Speed WR Putri', [7]), false)
+// Angel Manarisip: atlet sama, nomor beda → bukan kembar.
+const angel = { cabor_id: 204, hasil: 'emas', status: 'disahkan', ref_luar: null, nomor_teks: 'Kelas C Sprint 1.100 M (Terbuka)', atlet_ids: [2963] }
+cek('atlet sama, nomor beda → bukan kembar', medaliSamaDicatat(angel, 204, 'emas', 'Kelas A/B Sprint 1.300 M', [2963]), false)
+cek('nomor kosong → atlet yang menentukan', medaliSamaDicatat({ ...angel, nomor_teks: null }, 204, 'emas', 'Kelas A/B Sprint 1.300 M', [2963]), true)
+cek('lagaSama: medali Input Langsung tanpa lawan = kembar situs',
+  lagaSama(L({ id: 542, cabor_id: 69, ref_luar: '5058', hasil: 'emas', lawan: 'Kota Bogor', tanggal: '2026-11-09', nomor_teks: 'Individu - Speed WR Putri' }),
+    L({ id: 531, cabor_id: 69, hasil: 'emas', lawan: null, tanggal: '2026-11-09', status: 'disahkan', nomor_teks: 'Individu - Speed WR (Pi)' })), true)
 
 const k = pasangKembar([s135, p138])
 cek('pasangan situs → PIC', k.get(135), { id: 138, sumber: 'pic', status: 'disahkan', pelapor_nama: 'PIC Hockey', hasil_sama: true })
