@@ -201,7 +201,7 @@ export async function sinkronKonijabar(kontingenId: number, opsi: { paksa?: bool
       if (!laga || !lk || !lk.akhir || !laga.tanggal) { r.tak_terbaca++; continue }
       r.dibaca++
 
-      const caborId = cocokCabor(laga.cabor, cabor)
+      const caborId = cocokCabor(laga.cabor, cabor, `${laga.disiplin ?? ''} ${laga.nomor}`)
       const p = cocokPartai(lk, caborId, partai)
       const tebak = tebakHasil(laga.babak, laga.kode, lk.akhir, laga.cabor)
       const daftarCabor = daftar.filter(d => d.cabor_id === caborId)
@@ -367,7 +367,7 @@ async function periksaMedaliResmi(kontingenId: number, namaKita: string, r: Ring
   const namaAtlet = new Map(atlet.map(a => [a.id, a.nama_lengkap]))
   const idAtlet = new Map<string, number>()
   for (const a of atlet) if (!idAtlet.has(baku(a.nama_lengkap))) idAtlet.set(baku(a.nama_lengkap), a.id)
-  const caborId = (nama: string) => cocokCabor(nama, cabor)
+  const caborId = (nama: string, nomor?: string) => cocokCabor(nama, cabor, nomor)
   const kita = laporan.map(l => ({ ...l, atlet: ((l.atlet_ids ?? []) as number[]).map(id => namaAtlet.get(id)).filter((x): x is string => !!x) }))
 
   const terlewat = medaliTerlewat(situs, kita, caborId)
@@ -379,7 +379,7 @@ async function periksaMedaliResmi(kontingenId: number, namaKita: string, r: Ring
   const tglLaga = new Map((lagaLuar ?? []).map((x: any) => [x.ref, x.tanggal as string]))
 
   for (const m of terlewat) {
-    const cid = caborId(m.cabor)
+    const cid = caborId(m.cabor, m.nomor)
     const atlet_ids = Array.from(new Set(m.atlet.map(n => idAtlet.get(baku(n))).filter((x): x is number => x != null)))
     if (cid == null || !atlet_ids.length) { r.medali_resmi.tak_dikenal.push(`${m.cabor} · ${m.nomor} (${m.jenis})`); continue }
     const daftarCabor = daftar.filter(d => d.cabor_id === cid)

@@ -63,11 +63,11 @@ export interface MedaliKita {
  * di situs kadang beda tulisan). Medali yang laporannya pernah dibuat dari daftar ini tidak
  * dibuat lagi walau sudah ditolak KONIDA.
  */
-export function medaliTerlewat(situs: MedaliSitus[], kita: MedaliKita[], caborId: (nama: string) => number | null): MedaliSitus[] {
+export function medaliTerlewat(situs: MedaliSitus[], kita: MedaliKita[], caborId: (nama: string, nomor?: string) => number | null): MedaliSitus[] {
   return situs.filter(m => {
     const ref = refMedaliResmi(m)
     if (kita.some(l => l.ref_luar === ref)) return false
-    const cid = caborId(m.cabor)
+    const cid = caborId(m.cabor, m.nomor)
     const nama = new Set(m.atlet.map(baku))
     return !kita.some(l => l.status !== 'ditolak' && l.hasil === m.jenis && (cid == null || l.cabor_id === cid)
       && (nomorSama(m.nomor, l.nomor_teks) || l.atlet.some(a => nama.has(baku(a)))))

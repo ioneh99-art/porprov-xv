@@ -251,10 +251,13 @@ export function pilihNomorResmi(laga: LagaLuar, daftar: { disiplin: string | nul
 }
 
 /** Cabor kita (cabang_olahraga) dari nama cabor di situs. */
-export function cocokCabor(nama: string, cabor: { id: number; nama: string }[]): number | null {
+export function cocokCabor(nama: string, cabor: { id: number; nama: string }[], petunjuk?: string | null): number | null {
   const n = baku(nama)
   const SINONIM: Record<string, string> = { gimnastik: 'senam', berkuda: 'equestrian', dansa: 'dancesport' }
-  const cari = SINONIM[n] ?? n
+  // Situs menulis Equestrian dan Pacuan sama-sama "Berkuda". Nomor pacuan berjarak meter
+  // ("Kelas F 1.000 M", "Sprint"); 12 Nov 2026 perunggu Pacuan Kelas F terhitung dua kali karena ini.
+  const pacuan = n === 'berkuda' && /pacu|sprint|\d[.,]?\d{3}\s*m\b/i.test(petunjuk ?? '')
+  const cari = pacuan ? 'pacuan' : SINONIM[n] ?? n
   return cabor.find(c => baku(c.nama) === cari)?.id ?? null
 }
 

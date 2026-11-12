@@ -89,6 +89,12 @@ cek('lawan: Kota Bekasi ≠ Kab. Bekasi', lawanSama('Kota Bekasi', 'Kab. Bekasi'
 cek('lawan: Kota Tasikmalaya ≠ Kabupaten Tasikmalaya', lawanSama('Kota Tasikmalaya', 'Kabupaten Tasikmalaya'), false)
 cek('lawan: Garut ≠ Kab. Bogor', lawanSama('Garut', 'Kab. Bogor'), false)
 cek('cabor: nama sama', cocokCabor('Bola Basket', [{ id: 151, nama: 'Bola Basket' }, { id: 165, nama: 'Futsal' }]), 151)
+const KUDA = [{ id: 169, nama: 'Equestrian' }, { id: 204, nama: 'Pacuan' }]
+cek('cabor: Berkuda + Kelas F 1.000 M = Pacuan', cocokCabor('Berkuda', KUDA, 'Kelas F 1.000 M Terbuka'), 204)
+cek('cabor: Berkuda Pacuan (disiplin) = Pacuan', cocokCabor('Berkuda', KUDA, 'Berkuda Pacuan Kelas Terbuka'), 204)
+cek('cabor: Berkuda + Sprint = Pacuan', cocokCabor('Berkuda', KUDA, 'Kelas A/B Sprint 1.300 M Terbuka'), 204)
+cek('cabor: Berkuda + Lompat Rintangan 100 cm = Equestrian', cocokCabor('Berkuda', KUDA, 'Lompat Rintangan - Beregu Kelas 100 cm (Terbuka)'), 169)
+cek('cabor: Berkuda tanpa petunjuk = Equestrian', cocokCabor('Berkuda', KUDA), 169)
 cek('cabor: tak dikenal = null', cocokCabor('Kriket', [{ id: 151, nama: 'Bola Basket' }]), null)
 cek('nomor resmi: pilih yang cocok', pilihNomorResmi(L1, [{ disiplin: 'FUTSAL', nomor: 'Beregu (Pa)' }, { disiplin: 'FUTSAL', nomor: 'Beregu (Pi)' }]), 'Beregu (Pa)')
 
