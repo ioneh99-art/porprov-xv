@@ -65,5 +65,16 @@ cek('sahkan PIC, situs beda & sudah disahkan → ditolak dgn pesan', 'galat' in 
 cek('tanpa kembar → sahkan biasa', rencanaSahkan(pMenunggu, undefined), { sahkan: 140, tutup: null })
 cek('alasan kembar', ALASAN_KEMBAR(138), 'Kembar — digantikan laporan PIC #138')
 
+// Kasus nyata 12 Nov: perak Hockey Outdoor — situs (grup, tanggal 10/11 Nov) vs PIC (12 Nov), plus perak Indoor Putri yang lain.
+const hPa = L({ id: 706, hasil: 'perak', status: 'disahkan', tanggal: '2026-11-12', lawan: null, nomor_teks: 'HOCKEY OUTDOOR · Beregu Putra (Pa)' })
+const hPi = L({ id: 695, hasil: 'perak', status: 'disahkan', tanggal: '2026-11-12', lawan: null, nomor_teks: 'HOCKEY OUTDOOR · Beregu Putri (Pi)' })
+const hIn = L({ id: 383, hasil: 'perak', status: 'disahkan', tanggal: '2026-11-07', lawan: null, nomor_teks: 'HOCKEY INDOOR · Beregu Putri (Pi)' })
+const sPa = L({ id: 707, hasil: 'perak', tanggal: '2026-11-11', ref_luar: 'grup-558-2', lawan: 'Seluruh peserta grup', nomor_teks: 'Hockey Outdoor · Beregu Putra' })
+const sPi = L({ id: 708, hasil: 'perak', tanggal: '2026-11-10', ref_luar: 'grup-559-2', lawan: 'Seluruh peserta grup', nomor_teks: 'Hockey Outdoor · Beregu Putri' })
+const hk = pasangKembar([hPa, hPi, hIn, sPa, sPi])
+cek('hockey: perak outdoor putra situs ↔ PIC beda tanggal', hk.get(707)?.id, 706)
+cek('hockey: perak outdoor putri situs ↔ PIC (bukan indoor)', hk.get(708)?.id, 695)
+cek('hockey: sahkan situs outdoor putra → tutup, PIC sudah sah', rencanaSahkan(sPa, hk.get(707)), { sahkan: null, tutup: 707 })
+
 console.log(`uji-lapor-kembar: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)

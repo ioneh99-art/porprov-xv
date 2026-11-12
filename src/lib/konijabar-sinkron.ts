@@ -308,13 +308,15 @@ async function periksaGrup(kontingenId: number, namaKita: string, r: RingkasSink
     const { data: dasar } = await db.from('laporan_hasil').select('cabor_id,nomor_teks,disiplin,atlet_ids,tanggal')
       .eq('id', g.laporan).eq('kontingen_id', kontingenId).maybeSingle()
     if (!dasar) { r.galat.push(`Klasemen grup ${bagan}: laporan dasar #${g.laporan} tidak ditemukan`); continue }
-    const { data: sejenis } = await db.from('laporan_hasil').select('id,hasil,status,ref_luar,nomor_teks')
+    const { data: sejenis } = await db.from('laporan_hasil').select('id,cabor_id,hasil,status,ref_luar,nomor_teks,atlet_ids')
       .eq('kontingen_id', kontingenId).eq('cabor_id', dasar.cabor_id)
 
     for (const m of medali) {
       const ref = refGrup(Number(bagan), m.peserta.peringkat)
       if ((sejenis ?? []).some((l: any) => l.ref_luar === ref)) continue
       if ((sejenis ?? []).some((l: any) => l.status !== 'ditolak' && l.hasil === m.hasil && kunciNomor(l.nomor_teks) === kunciNomor(dasar.nomor_teks))) continue
+      // Tulisan nomor PIC beda sedikit ("… Beregu Putra (Pa)") — 12 Nov 2026 dua perak Hockey Outdoor terhitung dua kali.
+      if ((sejenis ?? []).some((l: any) => medaliSamaDicatat(l, dasar.cabor_id, m.hasil, dasar.nomor_teks, dasar.atlet_ids ?? []))) continue
 
       // Atlet: perorangan → cari nama di data kita; beregu/tak ketemu → atlet laporan dasar.
       let atlet_ids: number[] = dasar.atlet_ids ?? []
