@@ -5,13 +5,23 @@ import { createClient } from '@supabase/supabase-js'
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-const sb = () => createClient(
+// Satu klien per instans (dulu dibuat ulang 3–5× per permintaan).
+let klien: ReturnType<typeof createClient> | null = null
+const sb = () => (klien ??= createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+))
+
+// Hasil yang sama dipakai ulang 60 dtk per instans: banyak tab/halaman KONIDA menanyakan angka
+// yang sama, dan badge ini tidak perlu detik-an. (Tetap segar: paling basi 1 menit.)
+const SIMPAN_MS = 60_000
+const simpanan = new Map<string, { kapan: number; isi: Record<string, number> }>()
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
+  const kunci = searchParams.toString()
+  const ada = simpanan.get(kunci)
+  if (ada && Date.now() - ada.kapan < SIMPAN_MS) return NextResponse.json(ada.isi)
   const role = searchParams.get('role')
   const kontingen_id = searchParams.get('kontingen_id')
   const cabor_id = searchParams.get('cabor_id')
@@ -108,6 +118,8 @@ export async function GET(req: NextRequest) {
       counts.total = (atletPending ?? 0) + (kejuaraanPending ?? 0) + (kualifikasiPending ?? 0)
     }
 
+    if (simpanan.size > 200) simpanan.clear()
+    simpanan.set(kunci, { kapan: Date.now(), isi: counts })
     return NextResponse.json(counts)
   } catch (e: any) {
     return NextResponse.json({ total: 0 })

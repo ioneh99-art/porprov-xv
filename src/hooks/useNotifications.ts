@@ -19,8 +19,8 @@ export function useNotifications(user: any) {
 
   useEffect(() => {
     fetchCounts()
-    // Refresh setiap 30 detik
-    const interval = setInterval(fetchCounts, 30000)
+    // Refresh tiap 5 menit & hanya saat tab dilihat (hemat CPU server)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchCounts() }, 5 * 60_000)
     return () => clearInterval(interval)
   }, [user])
 

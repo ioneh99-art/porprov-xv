@@ -184,6 +184,9 @@ function LockedNavItem({ label, icon: Icon, plan }: { label: string; icon: any; 
   )
 }
 
+/** Badge notifikasi menu: jeda penyegaran (detik, kelipatan 30). */
+const JEDA_BADGE_DETIK = 300
+
 /** Di HP (< md) menu tersembunyi dan digeser masuk lewat tombol ☰ di KonidaLayoutShell; di layar lebar selalu tampil. */
 export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: boolean; tutup?: () => void } = {}) {
   const pathname = usePathname()
@@ -236,12 +239,16 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
       })
       .catch(() => {})
 
+    // Cookie dicek tiap 30 dtk (murah, di peramban). Angka badge cukup tiap 5 menit dan hanya
+    // saat tab dilihat — dulu tiap 30 dtk di semua tab = pemakai CPU server terbesar (±30%).
+    let detik = 0
     const iv = setInterval(() => {
       const lvl = getCookieVal('user_level')
       const tid = getCookieVal('tenant_id')
       if (lvl) setUserLevel(lvl)
       if (tid) setTenantId(tid)
-      if (kontingenIdRef.current) {
+      detik += 30
+      if (detik % JEDA_BADGE_DETIK === 0 && document.visibilityState === 'visible' && kontingenIdRef.current) {
         fetch(`/api/notifications?role=konida&kontingen_id=${kontingenIdRef.current}`)
           .then(r => r.json()).then(setCounts).catch(() => {})
       }

@@ -19,7 +19,8 @@ export default function Sidebar() {
 
   useEffect(() => {
     fetchCounts()
-    const interval = setInterval(fetchCounts, 30000)
+    // Badge cukup tiap 5 menit & hanya saat tab dilihat (hemat CPU server).
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchCounts() }, 5 * 60_000)
     return () => clearInterval(interval)
   }, [])
 

@@ -203,8 +203,13 @@ export default function PageLapPertandingan() {
     Promise.all([muatLaporan(), muatAkses(), muatCatatan(), muatPartai()]).finally(() => setMemuat(false))
     tarikLuar(false)
     // Antrean dan catatan disegarkan sendiri supaya yang baru muncul tanpa menekan apa pun.
-    const iv = setInterval(() => { if (document.visibilityState === 'visible') { muatLaporan(); muatCatatan(); muatPartai(); muatLuar() } }, 20_000)
-    return () => clearInterval(iv)
+    // Hemat CPU server: antrean & jadwal partai tiap 20 dtk (yang dipantau admin), catatan tiap
+    // 1 menit, status situs KONI Jabar + alarm tiap 2 menit (situsnya sendiri dibaca server ≥15 menit sekali).
+    const lihat = () => document.visibilityState === 'visible'
+    const iv = setInterval(() => { if (lihat()) { muatLaporan(); muatPartai() } }, 20_000)
+    const ivCatatan = setInterval(() => { if (lihat()) muatCatatan() }, 60_000)
+    const ivLuar = setInterval(() => { if (lihat()) muatLuar() }, 120_000)
+    return () => { clearInterval(iv); clearInterval(ivCatatan); clearInterval(ivLuar) }
   }, [muatLaporan, muatAkses, muatCatatan, muatPartai, tarikLuar, muatLuar])
 
   const menunggu = useMemo(() => laporan.filter(l => l.status === 'menunggu'), [laporan])
