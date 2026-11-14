@@ -188,6 +188,9 @@ const baris = (nama: string, e: number, p: number, g: number, nol = false) => `<
   <td class="col-bar" aria-hidden="true"> </td> <td class="col-num col-emas${nol ? ' is-zero' : ''}">${e}</td> <td class="col-num col-perak">${p}</td> <td class="col-num col-perunggu">${g}</td> <td class="col-num col-total">${e + p + g}</td> </tr>`
 cek('klasemen: baca baris', bacaKlasemen(baris('Kota Bandung', 30, 21, 18) + '\n' + baris('Kab. Bandung', 0, 0, 0, true)), [
   { nama: 'Kota Bandung', emas: 30, perak: 21, perunggu: 18 }, { nama: 'Kab. Bandung', emas: 0, perak: 0, perunggu: 0 }])
+cek('klasemen: baris podium (juara 1–3) ikut terbaca', bacaKlasemen(baris('Kota Bekasi', 127, 89, 88).replace('class="tally-row"', 'class="tally-row is-podium is-rank-1"') + '\n' + baris('Kab. Bandung', 38, 42, 58)), [
+  { nama: 'Kota Bekasi', emas: 127, perak: 89, perunggu: 88 }, { nama: 'Kab. Bandung', emas: 38, perak: 42, perunggu: 58 }])
+cek('klasemen: kelas lain berawalan sama tidak ikut', bacaKlasemen(baris('X', 1, 1, 1).replace('class="tally-row"', 'class="tally-rowheader"')), [])
 cek('klasemen: baris rusak dilewati', bacaKlasemen(baris('Kota Bogor', 1, 2, 3).replace('>1<', '>?<')), [])
 cek('klasemen: kosong', bacaKlasemen(''), [])
 

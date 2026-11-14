@@ -437,7 +437,8 @@ export interface BarisKlasemenLuar { nama: string; emas: number; perak: number; 
 export function bacaKlasemen(rowsHtml: string): BarisKlasemenLuar[] {
   const h = rata(rowsHtml)
   const keluar: BarisKlasemenLuar[] = []
-  for (const m of Array.from(h.matchAll(/<tr class="tally-row"[^>]*>(.*?)<\/tr>/g))) {
+  // Baris juara 1–3 berkelas tambahan ("tally-row is-podium is-rank-1") — harus ikut terbaca.
+  for (const m of Array.from(h.matchAll(/<tr class="tally-row(?:\s[^"]*)?"[^>]*>(.*?)<\/tr>/g))) {
     const nama = m[1].match(/<span class="name">(.*?)<\/span>/)?.[1]
     const sel = (k: string) => Number(teks(m[1].match(new RegExp(`<td class="col-num col-${k}[^"]*">(.*?)</td>`))?.[1] ?? 'x'))
     const e = sel('emas'), p = sel('perak'), g = sel('perunggu')
