@@ -14,6 +14,7 @@ import { labelTanggal, type RincianEmas, type RingkasProyeksi } from '@/lib/proy
 const HARIAN = '#16a34a'
 const KUMUL = '#a3e635'
 const PROY = '#94a3b8'
+const PROY_HARIAN = '#f59e0b'
 const EMAS = '#fbbf24'
 const TEKS = { utama: '#f4f4f5', kedua: '#a1a1aa', redup: '#71717a' }
 const KARTU = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }
@@ -24,33 +25,24 @@ type Data = ({ ada: false } | ({ ada: true; sumber: string[]; rincian?: RincianE
 const hariDari = (iso: string) => NAMA_HARI[new Date(`${iso}T00:00:00Z`).getUTCDay()]
 
 // ── Grafik bulatan (SVG sendiri: angka di dalam bulatan seperti grafik KONI) ──
-// Dipakai dua kali: tema gelap di War Room (bisa diklik), tema terang untuk gambar
-// di berkas Excel (cetak=true: judul + keterangan ikut di dalam gambar, tanpa animasi).
-type Tema = { latar: string | null; teks: string; teks2: string; redup: string; grid: string; sumbu: string; harian: string; kumul: string; teksKumul: string; proy: string; tepi: string; sorot: string }
-const GELAP: Tema = { latar: null, teks: TEKS.utama, teks2: TEKS.kedua, redup: TEKS.redup, grid: 'rgba(255,255,255,0.05)', sumbu: 'rgba(255,255,255,0.15)', harian: HARIAN, kumul: KUMUL, teksKumul: '#1a2e05', proy: PROY, tepi: '#07111c', sorot: EMAS }
-const TERANG: Tema = { latar: '#ffffff', teks: '#333333', teks2: '#444444', redup: '#888888', grid: '#ececec', sumbu: '#333333', harian: '#2e7d32', kumul: '#9ccc65', teksKumul: '#33521a', proy: '#9e9e9e', tepi: '#ffffff', sorot: '#b45309' }
+// GrafikHarian = gambar Excel ke-1; GrafikBanding = War Room (tema gelap, bisa diklik)
+// dan gambar Excel ke-2 (tema terang, cetak: judul + keterangan ikut, tanpa animasi).
+type Tema = { latar: string | null; teks: string; teks2: string; redup: string; grid: string; sumbu: string; harian: string; kumul: string; teksKumul: string; proy: string; proyHarian: string; tepi: string; sorot: string; kurang: string; unggul: string }
+const GELAP: Tema = { latar: null, teks: TEKS.utama, teks2: TEKS.kedua, redup: TEKS.redup, grid: 'rgba(255,255,255,0.05)', sumbu: 'rgba(255,255,255,0.15)', harian: HARIAN, kumul: KUMUL, teksKumul: '#1a2e05', proy: PROY, proyHarian: PROY_HARIAN, tepi: '#07111c', sorot: EMAS, kurang: '#ef4444', unggul: '#22c55e' }
+const TERANG: Tema = { latar: '#ffffff', teks: '#333333', teks2: '#444444', redup: '#888888', grid: '#ececec', sumbu: '#333333', harian: '#2e7d32', kumul: '#9ccc65', teksKumul: '#33521a', proy: '#9e9e9e', proyHarian: '#ef6c00', tepi: '#ffffff', sorot: '#b45309', kurang: '#d32f2f', unggul: '#2e7d32' }
 
-function GrafikBulatan({ data, pilih = null, setPilih, tema = GELAP, proyeksi = true, cetak, judul }: {
-  data: Extract<Data, { ada: true }>; pilih?: string | null; setPilih?: (t: string | null) => void
-  tema?: Tema; proyeksi?: boolean; cetak?: boolean; judul?: [string, string]
+type DataAda = Extract<Data, { ada: true }>
+const garis = (pts: [number, number][]) => pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+const F = 'Arial, Helvetica, sans-serif'
+
+/** Kerangka bersama: latar, judul+keterangan (cetak), kolom hari yang bisa diklik, label tanggal, sumber. */
+function Kerangka({ data, hari, W, H, KIRI, KANAN, ATAS, BAWAH, t, cetak, judul, legenda, pilih, setPilih, children }: {
+  data: DataAda; hari: DataAda['hari']; W: number; H: number; KIRI: number; KANAN: number; ATAS: number; BAWAH: number
+  t: Tema; cetak?: boolean; judul?: [string, string]; legenda: React.ReactNode
+  pilih: string | null; setPilih?: (t: string | null) => void; children: React.ReactNode
 }) {
-  // Gambar cetak: hanya sampai hari terakhir bila proyeksi tidak ikut digambar.
-  const hari = proyeksi ? data.hari : data.hari.filter(h => h.kum_realisasi != null)
-  const F = 'Arial, Helvetica, sans-serif'
-  const W = 1000, H = cetak ? 470 : 380, KIRI = 24, KANAN = 24, ATAS = cetak ? 120 : 30, BAWAH = cetak ? 64 : 44
   const lebar = (W - KIRI - KANAN) / Math.max(1, hari.length)
-  const maks = Math.max(1, proyeksi ? data.total_proyeksi : 0, ...hari.map(h => h.kum_realisasi ?? 0)) * 1.08
   const x = (i: number) => KIRI + lebar * (i + 0.5)
-  const R = Math.min(cetak ? 17 : 15, lebar * 0.36)
-  // Nilai 0 tetap di atas label tanggal (bulatan tidak menimpa sumbu).
-  const y = (v: number) => ATAS + (H - ATAS - BAWAH - R - 6) * (1 - v / maks)
-  const real = hari.map((h, i) => ({ h, i })).filter(p => p.h.kum_realisasi != null)
-  // Bulatan kumulatif digeser naik bila menimpa bulatan harian (hari-hari awal).
-  const yKum = (v: number, harian: number) => Math.min(y(v), y(harian) - R * 2.1)
-  const akhir = real[real.length - 1]
-  const garis = (pts: [number, number][]) => pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
-  const t = tema
-
   const svg = (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} width={cetak ? W : undefined} height={cetak ? H : undefined}
       className={cetak ? undefined : 'w-full min-w-[720px] select-none'} fontFamily={cetak ? F : undefined} role="img"
@@ -60,19 +52,9 @@ function GrafikBulatan({ data, pilih = null, setPilih, tema = GELAP, proyeksi = 
         <g>
           <text x={W / 2} y={34} textAnchor="middle" fontSize={22} fontWeight={700} fill={t.teks}>{judul[0]}</text>
           <text x={W / 2} y={60} textAnchor="middle" fontSize={15} fill={t.teks2}>{judul[1]}</text>
-          <g fontSize={13} fill={t.teks2}>
-            <circle cx={KIRI + 10} cy={86} r={7} fill={t.harian} /><text x={KIRI + 24} y={91}>Emas per hari</text>
-            <circle cx={KIRI + 150} cy={86} r={7} fill={t.kumul} /><text x={KIRI + 164} y={91}>Jumlah emas (kumulatif)</text>
-            {proyeksi && <><line x1={KIRI + 345} x2={KIRI + 371} y1={86} y2={86} stroke={t.proy} strokeWidth={2.5} strokeDasharray="6 4" /><text x={KIRI + 378} y={91}>Proyeksi KONI (target {data.total_proyeksi})</text></>}
-          </g>
+          <g fontSize={13} fill={t.teks2}>{legenda}</g>
         </g>
       )}
-      {[0.25, 0.5, 0.75, 1].map(f => (
-        <line key={f} x1={KIRI} x2={W - KANAN} y1={y(maks * f / 1.08)} y2={y(maks * f / 1.08)} stroke={t.grid} />
-      ))}
-      <line x1={KIRI} x2={W - KANAN} y1={H - BAWAH} y2={H - BAWAH} stroke={t.sumbu} strokeWidth={cetak ? 1.5 : 1} />
-
-      {/* kolom hari: bisa diklik */}
       {hari.map((h, i) => {
         const aktif = pilih === h.tanggal, kini = h.tanggal === data.batas
         return (
@@ -85,58 +67,155 @@ function GrafikBulatan({ data, pilih = null, setPilih, tema = GELAP, proyeksi = 
           </g>
         )
       })}
+      <line x1={KIRI} x2={W - KANAN} y1={H - BAWAH} y2={H - BAWAH} stroke={t.sumbu} strokeWidth={cetak ? 1.5 : 1} />
       {cetak && <text x={W - KANAN} y={H - 10} textAnchor="end" fontSize={11} fill={t.redup}>
         Sumber: laporan hasil disahkan KONIDA Kab. Bandung · total {data.total_realisasi} emas{data.batas ? ` per ${labelTanggal(data.batas)} 2026` : ''}
       </text>}
+      <g pointerEvents="none">{children}</g>
+    </svg>
+  )
+  return cetak ? svg : <div className="overflow-x-auto -mx-1 px-1">{svg}</div>
+}
 
-      {/* proyeksi KONI */}
-      {proyeksi && <path d={garis(hari.map((h, i) => [x(i), y(h.kum_proyeksi)]))} fill="none" stroke={t.proy} strokeWidth={2} strokeDasharray="6 5" opacity={0.8} />}
-      {proyeksi && hari.map((h, i) => {
-        const yp = y(h.kum_proyeksi)
+function Bulat({ cx, cy, r, isi, warna, teks, tepi, besar }: { cx: number; cy: number; r: number; isi: number; warna: string; teks: string; tepi: string; besar?: boolean }) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill={warna} stroke={tepi} strokeWidth={2} />
+      <text x={cx} y={cy + (besar ? 5 : 4.5)} textAnchor="middle" fontSize={besar ? 15 : 13} fontWeight={900} fill={teks}>{isi}</text>
+    </g>
+  )
+}
+
+function Denyut({ cx, cy, r, warna }: { cx: number; cy: number; r: number; warna: string }) {
+  return (
+    <circle cx={cx} cy={cy} r={r} fill="none" stroke={warna} strokeWidth={2}>
+      <animate attributeName="r" values={`${r};${r + 12}`} dur="1.8s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.8;0" dur="1.8s" repeatCount="indefinite" />
+    </circle>
+  )
+}
+
+// ── Grafik 1 (gaya grafik KONI): emas per hari + jumlah emas, tanpa proyeksi ──
+function GrafikHarian({ data, tema: t = TERANG, judul }: { data: DataAda; tema?: Tema; judul?: [string, string] }) {
+  const hari = data.hari.filter(h => h.kum_realisasi != null)
+  const W = 1000, H = 470, KIRI = 24, KANAN = 24, ATAS = 120, BAWAH = 64
+  const lebar = (W - KIRI - KANAN) / Math.max(1, hari.length)
+  const x = (i: number) => KIRI + lebar * (i + 0.5)
+  const R = Math.min(17, lebar * 0.36)
+  const maks = Math.max(1, ...hari.map(h => h.kum_realisasi ?? 0)) * 1.08
+  const y = (v: number) => ATAS + (H - ATAS - BAWAH - R - 6) * (1 - v / maks)
+  // Bulatan jumlah digeser naik bila menimpa bulatan harian (hari-hari awal) — seperti grafik KONI.
+  const yKum = (v: number, harian: number) => Math.min(y(v), y(harian) - R * 2.1)
+  const n = hari.length - 1
+  return (
+    <Kerangka data={data} hari={hari} W={W} H={H} KIRI={KIRI} KANAN={KANAN} ATAS={ATAS} BAWAH={BAWAH} t={t} cetak judul={judul} pilih={null}
+      legenda={<>
+        <circle cx={KIRI + 10} cy={86} r={7} fill={t.harian} /><text x={KIRI + 24} y={91}>Emas per hari</text>
+        <circle cx={KIRI + 150} cy={86} r={7} fill={t.kumul} /><text x={KIRI + 164} y={91}>Jumlah emas (kumulatif)</text>
+      </>}>
+      {[0.25, 0.5, 0.75, 1].map(f => <line key={f} x1={KIRI} x2={W - KANAN} y1={y(maks * f / 1.08)} y2={y(maks * f / 1.08)} stroke={t.grid} />)}
+      <path d={garis(hari.map((h, i) => [x(i), y(h.realisasi)]))} fill="none" stroke={t.harian} strokeWidth={3} />
+      <path d={garis(hari.map((h, i) => [x(i), yKum(h.kum_realisasi!, h.realisasi)]))} fill="none" stroke={t.kumul} strokeWidth={3} />
+      {hari.map((h, i) => <Bulat key={`h${i}`} cx={x(i)} cy={y(h.realisasi)} r={R} isi={h.realisasi} warna={t.harian} teks="#fff" tepi={t.tepi} />)}
+      {hari.map((h, i) => <Bulat key={`k${i}`} cx={x(i)} cy={yKum(h.kum_realisasi!, h.realisasi)} r={i === n ? R + 3 : R} besar={i === n}
+        isi={h.kum_realisasi!} warna={t.kumul} teks={t.teksKumul} tepi={t.tepi} />)}
+    </Kerangka>
+  )
+}
+
+// ── Grafik 2: realisasi vs proyeksi, dua panel bersumbu tanggal sama ──
+//    atas  = jumlah emas (kumulatif) vs proyeksi kumulatif, celah diwarnai
+//    bawah = emas per hari vs proyeksi per hari
+// Dipakai di War Room (tema gelap, bisa diklik) dan di Excel (tema terang, cetak).
+function GrafikBanding({ data, pilih = null, setPilih, tema: t = GELAP, cetak, judul }: {
+  data: DataAda; pilih?: string | null; setPilih?: (t: string | null) => void; tema?: Tema; cetak?: boolean; judul?: [string, string]
+}) {
+  const hari = data.hari
+  const W = 1000, KIRI = 24, KANAN = 24
+  const ATAS = cetak ? 150 : 40, BAWAH = cetak ? 64 : 44
+  const TINGGI_ATAS = 250, JEDA = 44, TINGGI_BAWAH = 150
+  const H = ATAS + TINGGI_ATAS + JEDA + TINGGI_BAWAH + BAWAH
+  const lebar = (W - KIRI - KANAN) / Math.max(1, hari.length)
+  const x = (i: number) => KIRI + lebar * (i + 0.5)
+  const R = Math.min(cetak ? 17 : 15, lebar * 0.34)
+  const maksK = Math.max(1, data.total_proyeksi, ...hari.map(h => h.kum_realisasi ?? 0)) * 1.06
+  const yK = (v: number) => ATAS + (TINGGI_ATAS - R) * (1 - v / maksK)
+  const atasB = ATAS + TINGGI_ATAS + JEDA
+  const maksH = Math.max(1, ...hari.map(h => Math.max(h.proyeksi, h.kum_realisasi != null ? h.realisasi : 0)))
+  const yH = (v: number) => atasB + R + (TINGGI_BAWAH - 2 * R) * (1 - v / maksH)
+  const real = hari.map((h, i) => ({ h, i })).filter(p => p.h.kum_realisasi != null)
+  const akhir = real[real.length - 1]
+  const dx = R * 0.95
+
+  return (
+    <Kerangka data={data} hari={hari} W={W} H={H} KIRI={KIRI} KANAN={KANAN} ATAS={ATAS} BAWAH={BAWAH} t={t} cetak={cetak} judul={judul}
+      pilih={pilih} setPilih={setPilih}
+      legenda={<>
+        <circle cx={KIRI + 10} cy={86} r={7} fill={t.kumul} /><text x={KIRI + 24} y={91}>Jumlah emas (kumulatif)</text>
+        <line x1={KIRI + 205} x2={KIRI + 231} y1={86} y2={86} stroke={t.proy} strokeWidth={2.5} strokeDasharray="6 4" /><text x={KIRI + 238} y={91}>Proyeksi kumulatif (target {data.total_proyeksi})</text>
+        <rect x={KIRI + 488} y={79} width={14} height={14} fill={t.kurang} opacity={0.3} /><text x={KIRI + 508} y={91}>Celah ke proyeksi</text>
+        <circle cx={KIRI + 650} cy={86} r={7} fill={t.harian} /><text x={KIRI + 664} y={91}>Emas per hari</text>
+        <circle cx={KIRI + 790} cy={86} r={7} fill="none" stroke={t.proyHarian} strokeWidth={2} strokeDasharray="3 2" /><text x={KIRI + 804} y={91}>Proyeksi per hari</text>
+      </>}>
+      {/* ── panel atas: kumulatif ── */}
+      <text x={KIRI} y={ATAS - 22} fontSize={12} fontWeight={800} fill={t.teks2}>JUMLAH EMAS vs PROYEKSI KUMULATIF</text>
+      {[0.25, 0.5, 0.75, 1].map(f => <line key={f} x1={KIRI} x2={W - KANAN} y1={yK(maksK * f / 1.06)} y2={yK(maksK * f / 1.06)} stroke={t.grid} />)}
+      {real.slice(1).map((p, k) => {
+        const q = real[k]
+        const s1 = q.h.kum_realisasi! - q.h.kum_proyeksi, s2 = p.h.kum_realisasi! - p.h.kum_proyeksi
+        if (!s1 && !s2) return null
+        const titik = [[x(q.i), yK(q.h.kum_realisasi!)], [x(p.i), yK(p.h.kum_realisasi!)], [x(p.i), yK(p.h.kum_proyeksi)], [x(q.i), yK(q.h.kum_proyeksi)]]
+          .map(v => v.map(n => n.toFixed(1)).join(',')).join(' ')
+        return <polygon key={`c${k}`} points={titik} fill={(s1 + s2) < 0 ? t.kurang : t.unggul} opacity={0.2} />
+      })}
+      <path d={garis(hari.map((h, i) => [x(i), yK(h.kum_proyeksi)]))} fill="none" stroke={t.proy} strokeWidth={2} strokeDasharray="6 5" />
+      {hari.map((h, i) => {
+        const yp = yK(h.kum_proyeksi)
         let yl = yp - 9
-        if (h.kum_realisasi != null) {
-          // Label proyeksi menjauh dari bulatan kumulatif bila berdekatan.
-          const yk = yKum(h.kum_realisasi, h.realisasi)
-          if (Math.abs(yp - yk) < R * 2 + 12) yl = h.kum_proyeksi >= h.kum_realisasi ? Math.min(yp, yk) - R - 7 : Math.max(yp, yk) + R + 14
-        }
+        if (h.kum_realisasi != null && Math.abs(yp - yK(h.kum_realisasi)) < R * 2 + 12)
+          yl = h.kum_proyeksi >= h.kum_realisasi ? Math.min(yp, yK(h.kum_realisasi)) - R - 6 : Math.max(yp, yK(h.kum_realisasi)) + R + 13
         return (
-          <g key={`p${h.tanggal}`} pointerEvents="none">
+          <g key={`p${i}`}>
             <circle cx={x(i)} cy={yp} r={3.5} fill={t.latar ?? '#07111c'} stroke={t.proy} strokeWidth={1.5} />
             <text x={x(i)} y={yl} textAnchor="middle" fontSize={cetak ? 12 : 10.5} fontWeight={800} fill={t.proy}>{h.kum_proyeksi}</text>
           </g>
         )
       })}
-
-      {/* emas per hari */}
-      <path d={garis(real.map(p => [x(p.i), y(p.h.realisasi)]))} fill="none" stroke={t.harian} strokeWidth={3} />
-      {/* kumulatif */}
-      <path d={garis(real.map(p => [x(p.i), yKum(p.h.kum_realisasi!, p.h.realisasi)]))} fill="none" stroke={t.kumul} strokeWidth={3} />
-
-      {real.map(p => (
-        <g key={`h${p.h.tanggal}`} pointerEvents="none">
-          <circle cx={x(p.i)} cy={y(p.h.realisasi)} r={R} fill={t.harian} stroke={t.tepi} strokeWidth={2} />
-          <text x={x(p.i)} y={y(p.h.realisasi) + 4.5} textAnchor="middle" fontSize={13} fontWeight={900} fill="#fff">{p.h.realisasi}</text>
-        </g>
-      ))}
-      {real.map(p => {
-        const cy = yKum(p.h.kum_realisasi!, p.h.realisasi)
-        const ujung = p === akhir
+      <path d={garis(real.map(p => [x(p.i), yK(p.h.kum_realisasi!)]))} fill="none" stroke={t.kumul} strokeWidth={3} />
+      {real.map(p => p === akhir && !cetak ? <Denyut key="d" cx={x(p.i)} cy={yK(p.h.kum_realisasi!)} r={R} warna={t.kumul} /> : null)}
+      {real.map(p => <Bulat key={`k${p.i}`} cx={x(p.i)} cy={yK(p.h.kum_realisasi!)} r={p === akhir ? R + 3 : R} besar={p === akhir}
+        isi={p.h.kum_realisasi!} warna={t.kumul} teks={t.teksKumul} tepi={t.tepi} />)}
+      {akhir && (() => {
+        const sel = akhir.h.kum_realisasi! - akhir.h.kum_proyeksi
+        const yk = yK(akhir.h.kum_realisasi!), yp = yK(akhir.h.kum_proyeksi)
+        const teks = sel < 0 ? `kurang ${-sel} dari proyeksi` : sel > 0 ? `unggul ${sel} dari proyeksi` : 'tepat sesuai proyeksi'
+        const warna = sel < 0 ? t.kurang : sel > 0 ? t.unggul : t.teks2
+        const lb = teks.length * 6.8 + 18
+        const bx = x(akhir.i) + R + 10 + lb < W - KANAN ? x(akhir.i) + R + 10 : x(akhir.i) - R - 10 - lb
+        const by = Math.max(ATAS, (yk + yp) / 2 - 11)
         return (
-          <g key={`k${p.h.tanggal}`} pointerEvents="none">
-            {ujung && !cetak && (
-              <circle cx={x(p.i)} cy={cy} r={R} fill="none" stroke={t.kumul} strokeWidth={2}>
-                <animate attributeName="r" values={`${R};${R + 12}`} dur="1.8s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.8;0" dur="1.8s" repeatCount="indefinite" />
-              </circle>
-            )}
-            <circle cx={x(p.i)} cy={cy} r={ujung ? R + 3 : R} fill={t.kumul} stroke={t.tepi} strokeWidth={2} />
-            <text x={x(p.i)} y={cy + 4.5} textAnchor="middle" fontSize={ujung ? 15 : 13} fontWeight={900} fill={t.teksKumul}>{p.h.kum_realisasi}</text>
+          <g>
+            {sel !== 0 && <line x1={x(akhir.i)} x2={x(akhir.i)} y1={yk} y2={yp} stroke={warna} strokeWidth={2} strokeDasharray="3 3" />}
+            <rect x={bx} y={by} width={lb} height={22} rx={11} fill={t.latar ?? '#07111c'} stroke={warna} strokeWidth={1.5} />
+            <text x={bx + lb / 2} y={by + 15} textAnchor="middle" fontSize={11.5} fontWeight={800} fill={warna}>{teks}</text>
           </g>
         )
-      })}
-    </svg>
+      })()}
+
+      {/* ── panel bawah: per hari ── */}
+      <line x1={KIRI} x2={W - KANAN} y1={atasB - 26} y2={atasB - 26} stroke={t.grid} />
+      <text x={KIRI} y={atasB - 8} fontSize={12} fontWeight={800} fill={t.teks2}>EMAS PER HARI vs PROYEKSI PER HARI</text>
+      <path d={garis(hari.map((h, i) => [x(i) + dx, yH(h.proyeksi)]))} fill="none" stroke={t.proyHarian} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+      <path d={garis(real.map(p => [x(p.i) - dx, yH(p.h.realisasi)]))} fill="none" stroke={t.harian} strokeWidth={3} />
+      {hari.map((h, i) => (
+        <g key={`ph${i}`}>
+          <circle cx={x(i) + dx} cy={yH(h.proyeksi)} r={R * 0.78} fill={t.latar ?? '#07111c'} stroke={t.proyHarian} strokeWidth={1.8} strokeDasharray="3 2" />
+          <text x={x(i) + dx} y={yH(h.proyeksi) + 4} textAnchor="middle" fontSize={11} fontWeight={800} fill={t.proyHarian}>{h.proyeksi}</text>
+        </g>
+      ))}
+      {real.map(p => <Bulat key={`h${p.i}`} cx={x(p.i) - dx} cy={yH(p.h.realisasi)} r={R * 0.9} isi={p.h.realisasi} warna={t.harian} teks="#fff" tepi={t.tepi} />)}
+    </Kerangka>
   )
-  return cetak ? svg : <div className="overflow-x-auto -mx-1 px-1">{svg}</div>
 }
 
 /** SVG → PNG (base64) lewat kanvas, 2× supaya tajam di Excel. */
@@ -158,12 +237,13 @@ async function unduhExcel(data: Extract<Data, { ada: true }>, rincian: RincianEm
   const [{ default: ExcelJS }, { renderToStaticMarkup }] = await Promise.all([import('exceljs'), import('react-dom/server')])
   const sampai = data.batas ? labelTanggal(data.batas) : ''
   const awal = data.hari[0] ? labelTanggal(data.hari[0].tanggal) : ''
-  const gambar = await Promise.all([
-    renderToStaticMarkup(<GrafikBulatan data={data} tema={TERANG} proyeksi={false} cetak
-      judul={['Raihan Emas Harian Kab. Bandung', `pada Porprov XV 2026 (${awal} – ${sampai})`]} />),
-    renderToStaticMarkup(<GrafikBulatan data={data} tema={TERANG} cetak
-      judul={['Emas Kumulatif: Realisasi vs Proyeksi', `Kab. Bandung · Porprov XV 2026 · target ${data.total_proyeksi} emas`]} />),
-  ].map(m => svgKePng(m, 1000, 470)))
+  const g1 = renderToStaticMarkup(<GrafikHarian data={data}
+    judul={['Raihan Emas Harian Kab. Bandung', `pada Porprov XV 2026 (${awal} – ${sampai})`]} />)
+  const g2 = renderToStaticMarkup(<GrafikBanding data={data} tema={TERANG} cetak
+    judul={['Realisasi vs Proyeksi Emas: per Hari & Kumulatif', `Kab. Bandung · Porprov XV 2026 · target ${data.total_proyeksi} emas — sudah terkejar atau belum`]} />)
+  const ukuran = (m: string) => Number(/viewBox="0 0 \d+ (\d+)"/.exec(m)?.[1] ?? 470)
+  const gambar = await Promise.all([g1, g2].map(m => svgKePng(m, 1000, ukuran(m))))
+  const tinggi = [g1, g2].map(m => Math.round(ukuran(m) * 0.9))
 
   const wb = new ExcelJS.Workbook()
   wb.creator = 'KONIDA Kab. Bandung'
@@ -206,10 +286,11 @@ async function unduhExcel(data: Extract<Data, { ada: true }>, rincian: RincianEm
     s1.getCell(`A${rt + 1}`).value = `Sisa proyeksi ${labelTanggal(sisa[0].tanggal)}–${labelTanggal(sisa[sisa.length - 1].tanggal)}: ${sisa.map(h => h.proyeksi).join(' + ')} = ${sisa.reduce((a, h) => a + h.proyeksi, 0)} emas (target akhir ${data.total_proyeksi}).`
     s1.getCell(`A${rt + 1}`).font = { italic: true, color: { argb: 'FF666666' } }
   }
-  const g1 = wb.addImage({ base64: gambar[0], extension: 'png' })
-  const g2 = wb.addImage({ base64: gambar[1], extension: 'png' })
-  s1.addImage(g1, { tl: { col: 0, row: rt + 2 }, ext: { width: 900, height: 423 } })
-  s1.addImage(g2, { tl: { col: 0, row: rt + 25 }, ext: { width: 900, height: 423 } })
+  const gb1 = wb.addImage({ base64: gambar[0], extension: 'png' })
+  const gb2 = wb.addImage({ base64: gambar[1], extension: 'png' })
+  s1.addImage(gb1, { tl: { col: 0, row: rt + 2 }, ext: { width: 900, height: tinggi[0] } })
+  // baris bawaan ±20 px: gambar kedua mulai di bawah gambar pertama
+  s1.addImage(gb2, { tl: { col: 0, row: rt + 4 + Math.ceil(tinggi[0] / 20) }, ext: { width: 900, height: tinggi[1] } })
 
   // 2. Rekap Emas — dikelompokkan per hari
   const s2 = wb.addWorksheet('Rekap Emas', { views: [{ state: 'frozen', ySplit: 3 }] })
@@ -323,7 +404,8 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
         <span className="ml-auto flex items-center gap-4 text-[11px] flex-wrap" style={{ color: TEKS.kedua }}>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full" style={{ background: HARIAN }} />Emas per hari</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full" style={{ background: KUMUL }} />Jumlah emas</span>
-          <span className="flex items-center gap-1.5"><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke={PROY} strokeWidth="2" strokeDasharray="5 3" /></svg>Proyeksi KONI</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full" style={{ border: `1.5px dashed ${PROY_HARIAN}` }} />Proyeksi per hari</span>
+          <span className="flex items-center gap-1.5"><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke={PROY} strokeWidth="2" strokeDasharray="5 3" /></svg>Proyeksi kumulatif</span>
           <button disabled={mengunduh} className="px-3 py-1.5 rounded-lg text-[11px] font-black disabled:opacity-60"
             onClick={async () => {
               setMengunduh(true)
@@ -374,7 +456,7 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
             <div className="text-xs font-bold" style={{ color: TEKS.kedua }}>Proyeksi raihan emas harian vs realisasi</div>
             <div className="text-[10px]" style={{ color: TEKS.redup }}>Klik tanggal untuk melihat emas hari itu</div>
           </div>
-          <GrafikBulatan data={data} pilih={pilih} setPilih={pilihHari} />
+          <GrafikBanding data={data} pilih={pilih} setPilih={pilihHari} />
         </div>
 
         {/* rekap per hari */}
