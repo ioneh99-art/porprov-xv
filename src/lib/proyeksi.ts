@@ -80,3 +80,32 @@ export function labelTanggal(iso: string): string {
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(iso)
   return m ? `${Number(m[2])} ${BLN[Number(m[1]) - 1]}` : iso
 }
+
+/** Satu medali emas yang sudah disahkan — untuk rekap per hari di War Room. */
+export interface RincianEmas {
+  id: number; tanggal: string; cabor: string; disiplin: string | null
+  nomor: string; atlet: string[]; nilai: string | null
+}
+
+/**
+ * Nomor pertandingan tanpa awalan disiplin ("DAYUNG CANOEING · Canoeing - K - 1 (Pa)"
+ * → "Canoeing - K - 1 (Pa)"); awalan itu sudah tampil sebagai disiplin.
+ */
+export function rapikanNomor(teks: string | null | undefined): string {
+  const t = (teks ?? '').trim()
+  const m = /^([A-Z0-9 /&-]+) · (.+)$/.exec(t)
+  return (m ? m[2] : t).trim() || '-'
+}
+
+/** Nama dari berkas pendaftaran yang ditulis kapital semua → huruf awal besar. */
+export function rapikanNama(n: string): string {
+  const t = n.trim().replace(/\s+/g, ' ')
+  return t && t === t.toUpperCase() && /[A-Z]/.test(t)
+    ? t.toLowerCase().replace(/(^|[\s.'-])([a-z])/g, (_, a, b) => a + b.toUpperCase())
+    : t
+}
+
+/** Urut tanggal, lalu cabor, lalu nomor — urutan baca rekap harian. */
+export function urutkanRincian(r: RincianEmas[]): RincianEmas[] {
+  return [...r].sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.cabor.localeCompare(b.cabor) || a.nomor.localeCompare(b.nomor) || a.id - b.id)
+}

@@ -1,6 +1,6 @@
 // scripts/uji-proyeksi.ts — mengunci hitungan proyeksi vs realisasi medali.
 // Dijalankan: npm run uji:proyeksi
-import { labelTanggal, susunProyeksi } from '../src/lib/proyeksi'
+import { labelTanggal, rapikanNama, rapikanNomor, susunProyeksi, urutkanRincian } from '../src/lib/proyeksi'
 
 let lulus = 0, gagal = 0
 const cek = (nama: string, dapat: any, harap: any) => {
@@ -53,6 +53,15 @@ const kosong = susunProyeksi([], [], '2026-11-03')
 cek('tanpa data apa pun', [kosong.hari.length, kosong.status, kosong.per_cabor.length], [0, 'belum_mulai', 0])
 
 cek('label tanggal', [labelTanggal('2026-11-03'), labelTanggal('2026-10-30'), labelTanggal('x')], ['3 Nov', '30 Okt', 'x'])
+
+// ── rekap emas per hari ──
+cek('nomor: awalan disiplin dibuang', rapikanNomor('DAYUNG CANOEING · Canoeing - K - 1 1000 M (Pa)'), 'Canoeing - K - 1 1000 M (Pa)')
+cek('nomor: tanpa awalan tetap', rapikanNomor('Kelas 45 Kg (Pa)'), 'Kelas 45 Kg (Pa)')
+cek('nomor: titik tengah di dalam nama tidak dipotong', rapikanNomor('Beregu · putaran 2'), 'Beregu · putaran 2')
+cek('nomor kosong', rapikanNomor(null), '-')
+cek('nama kapital dirapikan', [rapikanNama('AGUNG GUNAWAN'), rapikanNama('M. RAMDAN RUDIANA'), rapikanNama('Verlyta Joevanka W')], ['Agung Gunawan', 'M. Ramdan Rudiana', 'Verlyta Joevanka W'])
+const ri = (id: number, tanggal: string, cabor: string, nomor: string) => ({ id, tanggal, cabor, disiplin: null, nomor, atlet: [], nilai: null })
+cek('rincian urut tanggal → cabor → nomor', urutkanRincian([ri(3, '2026-11-04', 'Gulat', 'B'), ri(1, '2026-11-04', 'Dayung', 'Z'), ri(2, '2026-11-03', 'Wushu', 'A'), ri(4, '2026-11-04', 'Gulat', 'A')]).map(r => r.id), [2, 1, 4, 3])
 
 console.log(`\nuji-proyeksi: ${lulus} lulus, ${gagal} gagal`)
 if (gagal) process.exit(1)
