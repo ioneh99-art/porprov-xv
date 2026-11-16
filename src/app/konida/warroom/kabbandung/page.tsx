@@ -18,7 +18,6 @@ import {
   generateStrategicActions,
 } from '@/components/konida/WarRoomHelpers'
 import LayarMedali from '@/components/konida/LayarMedali'
-import GrafikProyeksiEmas from '@/components/konida/GrafikProyeksiEmas'
 import { PETA_WARROOM_KABBANDUNG_TAMPIL, STRATEGIC_ACTIONS_WARROOM_KABBANDUNG_TAMPIL } from '@/lib/saklar-menu'
 import { timpaKlasemen } from '@/lib/lapor'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
@@ -32,7 +31,6 @@ import KalenderEmas from '@/components/konida/warroom/KalenderEmas'
 import PetaPerjuangan from '@/components/konida/warroom/PetaPerjuangan'
 import KesehatanOperasi from '@/components/konida/warroom/KesehatanOperasi'
 import PanelCommandCenter from '@/components/konida/warroom/PanelCommandCenter'
-import KlasemenBanding from '@/components/konida/warroom/KlasemenBanding'
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -338,15 +336,7 @@ export default function PageWarRoom() {
           <ArenaLive data={wr} />
         </div>
 
-        {/* ════ 4b. KLASEMEN KONI JABAR vs DATA KITA ════ */}
-        <div {...ani(10)}>
-          <KlasemenBanding kita={lapangan?.rekap ?? null} q={Q} />
-        </div>
-
-        {/* ════ 5. SITUASI PEROLEHAN EMAS — proyeksi KONI vs realisasi ════ */}
-        <div {...ani(10)}>
-          <GrafikProyeksiEmas kontingenId={4} />
-        </div>
+        {/* Klasemen & Situasi Perolehan Emas pindah ke menu Perolehan Medali (16 Nov). */}
 
         {/* ════ 4. PETA KOMPETITOR — full width ════ */}
         {/* Disembunyikan sementara atas permintaan Bos (16 Okt); nyalakan lewat saklar-menu.ts. */}
