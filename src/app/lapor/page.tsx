@@ -134,7 +134,8 @@ export default function HalamanLapor() {
   const saranNomor = useMemo(() => {
     if (!bahan || nomorPilih) return []
     const q = nomorTeks.trim().toLowerCase()
-    if (q) return bahan.nomor.filter(n => labelNomor(n).toLowerCase().includes(q)).slice(0, 8)
+    // Batas dulu 8 → DBR (9 nomor) kepotong satu. Kotak saran bisa digulir, jadi longgarkan.
+    if (q) return bahan.nomor.filter(n => labelNomor(n).toLowerCase().includes(q)).slice(0, 30)
     return bukaDaftar ? bahan.nomor : []
   }, [bahan, nomorTeks, nomorPilih, bukaDaftar])
 
