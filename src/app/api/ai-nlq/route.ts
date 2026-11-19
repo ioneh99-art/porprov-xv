@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { checkRateLimitPengguna } from '@/lib/rate-limit'
 import { getServerSession } from '@/lib/guard'
 
 const sb = () => createClient(
@@ -102,7 +102,7 @@ async function callAI(systemPrompt: string, messages: any[]): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
-  const limited = checkRateLimit(req, { limit: 20, windowMs: 60_000, key: 'ai-nlq', scope: 'ip+user' })
+  const limited = await checkRateLimitPengguna(req, { limit: 20, windowMs: 60_000, key: 'ai-nlq' })
   if (limited) return limited
 
   const user = await getServerSession()

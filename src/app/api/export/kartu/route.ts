@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireRole } from '@/lib/guard'
+
+// Hanya pemakai /dashboard/laporan & /dashboard/kartu (rute ^/dashboard di middleware).
+const PERAN_EKSPOR = ['superadmin', 'koni_jabar']
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +11,9 @@ const sb = () => createClient(
 )
 
 export async function GET(req: NextRequest) {
+  // Ekspor berisi NIK/rekening/NPWP — wajib sesi terverifikasi HMAC (dulu terbuka untuk anonim).
+  const g = await requireRole(PERAN_EKSPOR)
+  if (g instanceof NextResponse) return g
   const { searchParams } = new URL(req.url)
   const kontingen_id = searchParams.get('kontingen_id')
   const atlet_id = searchParams.get('atlet_id')

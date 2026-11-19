@@ -3,6 +3,7 @@
 // Bersih secara otomatis setiap jam (lihat setInterval di bawah).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from './guard'
 
 interface Entry { count: number; windowStart: number }
 
@@ -20,23 +21,24 @@ export interface RateLimitConfig {
   limit: number
   /** Durasi window dalam milidetik (default: 60 detik) */
   windowMs?: number
-  /** Scope: 'ip' | 'user' | 'ip+user' (default: 'ip') */
-  scope?: 'ip' | 'user' | 'ip+user'
   /** Kunci tambahan untuk memisahkan endpoint berbeda */
   key?: string
+}
+
+export interface RateLimitPenggunaConfig extends RateLimitConfig {
+  /** Scope: 'user' | 'ip+user' (default: 'ip+user') */
+  scope?: 'user' | 'ip+user'
 }
 
 function getIp(req: NextRequest): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
 }
 
-function buildKey(req: NextRequest, cfg: RateLimitConfig): string {
-  const ip = getIp(req)
-  const session = req.cookies.get('porprov_session')?.value
-  const userId = session ? (() => { try { return JSON.parse(session).id } catch { return '' } })() : ''
-
+// userId HANYA dari sesi terverifikasi HMAC. Dulu dibaca dari cookie mentah → id palsu
+// yang diganti-ganti tiap request dapat kantong baru dan batas tak pernah tercapai.
+function buildKey(ip: string, cfg: RateLimitConfig, scope: 'ip' | 'user' | 'ip+user', userId: string): string {
   const prefix = cfg.key ?? 'rl'
-  switch (cfg.scope ?? 'ip') {
+  switch (scope) {
     case 'user':     return `${prefix}:u:${userId || ip}`
     case 'ip+user':  return `${prefix}:${ip}:${userId}`
     default:         return `${prefix}:${ip}`
@@ -54,8 +56,28 @@ export function checkRateLimit(
   req: NextRequest,
   cfg: RateLimitConfig
 ): NextResponse | null {
+  return hitung(buildKey(getIp(req), cfg, 'ip', ''), cfg)
+}
+
+/**
+ * Seperti checkRateLimit, tapi kantong dipisah per pengguna (sesi terverifikasi HMAC).
+ * Kuki palsu/tanpa sesi sah → userId kosong → satu kantong bersama per IP.
+ *
+ * @example
+ * const limited = await checkRateLimitPengguna(req, { limit: 20, key: 'sipa' })
+ * if (limited) return limited
+ */
+export async function checkRateLimitPengguna(
+  req: NextRequest,
+  cfg: RateLimitPenggunaConfig
+): Promise<NextResponse | null> {
+  const sesi   = await getServerSession()
+  const userId = sesi?.id != null ? String(sesi.id) : ''
+  return hitung(buildKey(getIp(req), cfg, cfg.scope ?? 'ip+user', userId), cfg)
+}
+
+function hitung(k: string, cfg: RateLimitConfig): NextResponse | null {
   const windowMs = cfg.windowMs ?? 60_000
-  const k        = buildKey(req, cfg)
   const now      = Date.now()
   const entry    = store.get(k)
 

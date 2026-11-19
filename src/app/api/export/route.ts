@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { requireRole } from '@/lib/guard'
+
+// Hanya pemakai /dashboard/laporan & /dashboard/kartu (rute ^/dashboard di middleware).
+const PERAN_EKSPOR = ['superadmin', 'koni_jabar']
+import { checkRateLimitPengguna } from '@/lib/rate-limit'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,8 +12,11 @@ const sb = () => createClient(
 )
 
 export async function GET(req: NextRequest) {
-  const limited = checkRateLimit(req, { limit: 15, windowMs: 60_000, key: 'export', scope: 'ip+user' })
+  const limited = await checkRateLimitPengguna(req, { limit: 15, windowMs: 60_000, key: 'export' })
   if (limited) return limited
+  // Ekspor berisi NIK/rekening/NPWP — wajib sesi terverifikasi HMAC (dulu terbuka untuk anonim).
+  const g = await requireRole(PERAN_EKSPOR)
+  if (g instanceof NextResponse) return g
 
   const { searchParams } = new URL(req.url)
   const kontingen_id = searchParams.get('kontingen_id')
