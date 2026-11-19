@@ -1,7 +1,7 @@
 'use client'
 // src/app/konida/warroom/kabbandung/layar/[n]/page.tsx
 // Command Center — monitor landscape, masing-masing membuka satu alamat:
-//   /konida/warroom/kabbandung/layar/1  Posisi kita (peringkat, medali, target 74, klasemen)
+//   /konida/warroom/kabbandung/layar/1  Posisi kita (peringkat, medali, target KONI 54, klasemen)
 //   /konida/warroom/kabbandung/layar/2  Hari ini, sekarang (sedang main, berikutnya, misi emas, hasil terbaru)
 //   /konida/warroom/kabbandung/layar/3  Sebaran dan wajah (peta kota, peraih medali, medali per cabor)
 //   /konida/warroom/kabbandung/layar/4  Perburuan emas (kalender panas, wajah calon peraih emas, hitungan target)

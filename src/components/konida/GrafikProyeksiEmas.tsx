@@ -7,6 +7,8 @@
 //  • per cabor realisasi vs proyeksi; tombol Unduh Excel (exceljs: tabel berwarna +
 //    2 gambar grafik bertema terang, rekap per hari, per cabor).
 // Realisasi = laporan lapangan yang sudah DISAHKAN; satu nomor = satu emas.
+// target_tetap (Kab. Bandung, 19 Nov): pembanding = target KONI 54 tanpa tanggal →
+// garis datar, tanpa proyeksi per hari; per cabor vs target KONI per cabor.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { labelTanggal, type RincianEmas, type RingkasProyeksi } from '@/lib/proyeksi'
@@ -145,20 +147,22 @@ function GrafikBanding({ data, pilih = null, setPilih, tema: t = GELAP, cetak, j
   const yH = (v: number) => atasB + R + (TINGGI_BAWAH - 2 * R) * (1 - v / maksH)
   const real = hari.map((h, i) => ({ h, i })).filter(p => p.h.kum_realisasi != null)
   const akhir = real[real.length - 1]
-  const dx = R * 0.95
+  const tetap = !!data.target_tetap
+  const dx = tetap ? 0 : R * 0.95
+  const kata = tetap ? 'target' : 'proyeksi'
 
   return (
     <Kerangka data={data} hari={hari} W={W} H={H} KIRI={KIRI} KANAN={KANAN} ATAS={ATAS} BAWAH={BAWAH} t={t} cetak={cetak} judul={judul}
       pilih={pilih} setPilih={setPilih}
       legenda={<>
         <circle cx={KIRI + 10} cy={86} r={7} fill={t.kumul} /><text x={KIRI + 24} y={91}>Jumlah emas (kumulatif)</text>
-        <line x1={KIRI + 205} x2={KIRI + 231} y1={86} y2={86} stroke={t.proy} strokeWidth={2.5} strokeDasharray="6 4" /><text x={KIRI + 238} y={91}>Proyeksi kumulatif (target {data.total_proyeksi})</text>
-        <rect x={KIRI + 488} y={79} width={14} height={14} fill={t.kurang} opacity={0.3} /><text x={KIRI + 508} y={91}>Celah ke proyeksi</text>
+        <line x1={KIRI + 205} x2={KIRI + 231} y1={86} y2={86} stroke={t.proy} strokeWidth={2.5} strokeDasharray="6 4" /><text x={KIRI + 238} y={91}>{tetap ? `Target KONI ${data.total_proyeksi} emas` : `Proyeksi kumulatif (target ${data.total_proyeksi})`}</text>
+        <rect x={KIRI + 488} y={79} width={14} height={14} fill={t.kurang} opacity={0.3} /><text x={KIRI + 508} y={91}>Celah ke {kata}</text>
         <circle cx={KIRI + 650} cy={86} r={7} fill={t.harian} /><text x={KIRI + 664} y={91}>Emas per hari</text>
-        <circle cx={KIRI + 790} cy={86} r={7} fill="none" stroke={t.proyHarian} strokeWidth={2} strokeDasharray="3 2" /><text x={KIRI + 804} y={91}>Proyeksi per hari</text>
+        {!tetap && <><circle cx={KIRI + 790} cy={86} r={7} fill="none" stroke={t.proyHarian} strokeWidth={2} strokeDasharray="3 2" /><text x={KIRI + 804} y={91}>Proyeksi per hari</text></>}
       </>}>
       {/* ── panel atas: kumulatif ── */}
-      <text x={KIRI} y={ATAS - 22} fontSize={12} fontWeight={800} fill={t.teks2}>JUMLAH EMAS vs PROYEKSI KUMULATIF</text>
+      <text x={KIRI} y={ATAS - 22} fontSize={12} fontWeight={800} fill={t.teks2}>{tetap ? `JUMLAH EMAS vs TARGET KONI ${data.total_proyeksi}` : 'JUMLAH EMAS vs PROYEKSI KUMULATIF'}</text>
       {[0.25, 0.5, 0.75, 1].map(f => <line key={f} x1={KIRI} x2={W - KANAN} y1={yK(maksK * f / 1.06)} y2={yK(maksK * f / 1.06)} stroke={t.grid} />)}
       {real.slice(1).map((p, k) => {
         const q = real[k]
@@ -169,7 +173,10 @@ function GrafikBanding({ data, pilih = null, setPilih, tema: t = GELAP, cetak, j
         return <polygon key={`c${k}`} points={titik} fill={(s1 + s2) < 0 ? t.kurang : t.unggul} opacity={0.2} />
       })}
       <path d={garis(hari.map((h, i) => [x(i), yK(h.kum_proyeksi)]))} fill="none" stroke={t.proy} strokeWidth={2} strokeDasharray="6 5" />
-      {hari.map((h, i) => {
+      {tetap && hari.length > 0 && (
+        <text x={x(0) - R} y={yK(data.total_proyeksi) - 8} fontSize={cetak ? 13 : 11.5} fontWeight={800} fill={t.proy}>Target KONI {data.total_proyeksi}</text>
+      )}
+      {!tetap && hari.map((h, i) => {
         const yp = yK(h.kum_proyeksi)
         let yl = yp - 9
         if (h.kum_realisasi != null && Math.abs(yp - yK(h.kum_realisasi)) < R * 2 + 12)
@@ -188,11 +195,17 @@ function GrafikBanding({ data, pilih = null, setPilih, tema: t = GELAP, cetak, j
       {akhir && (() => {
         const sel = akhir.h.kum_realisasi! - akhir.h.kum_proyeksi
         const yk = yK(akhir.h.kum_realisasi!), yp = yK(akhir.h.kum_proyeksi)
-        const teks = sel < 0 ? `kurang ${-sel} dari proyeksi` : sel > 0 ? `unggul ${sel} dari proyeksi` : 'tepat sesuai proyeksi'
+        const teks = sel < 0 ? `kurang ${-sel} dari ${kata}` : sel > 0 ? `unggul ${sel} dari ${kata}` : `tepat sesuai ${kata}`
         const warna = sel < 0 ? t.kurang : sel > 0 ? t.unggul : t.teks2
         const lb = teks.length * 6.8 + 18
         const bx = x(akhir.i) + R + 10 + lb < W - KANAN ? x(akhir.i) + R + 10 : x(akhir.i) - R - 10 - lb
-        const by = Math.max(ATAS, (yk + yp) / 2 - 11)
+        // Di tengah celah bila kosong; kalau menimpa bulatan hari lain, cari tempat
+        // kosong di bawahnya (pojok kanan bawah grafik kumulatif biasanya kosong).
+        const tabrak = (y: number) => real.some(p => p !== akhir && x(p.i) + R > bx && x(p.i) - R < bx + lb
+          && yK(p.h.kum_realisasi!) + R > y && yK(p.h.kum_realisasi!) - R < y + 22)
+        const calon = [Math.max(ATAS, (yk + yp) / 2 - 11)]
+        for (let y = Math.max(yk, yp) + R + 4; y <= ATAS + TINGGI_ATAS - 22; y += 8) calon.push(y)
+        const by = calon.find(y => !tabrak(y)) ?? calon[0]
         return (
           <g>
             {sel !== 0 && <line x1={x(akhir.i)} x2={x(akhir.i)} y1={yk} y2={yp} stroke={warna} strokeWidth={2} strokeDasharray="3 3" />}
@@ -204,10 +217,10 @@ function GrafikBanding({ data, pilih = null, setPilih, tema: t = GELAP, cetak, j
 
       {/* ── panel bawah: per hari ── */}
       <line x1={KIRI} x2={W - KANAN} y1={atasB - 26} y2={atasB - 26} stroke={t.grid} />
-      <text x={KIRI} y={atasB - 8} fontSize={12} fontWeight={800} fill={t.teks2}>EMAS PER HARI vs PROYEKSI PER HARI</text>
-      <path d={garis(hari.map((h, i) => [x(i) + dx, yH(h.proyeksi)]))} fill="none" stroke={t.proyHarian} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+      <text x={KIRI} y={atasB - 8} fontSize={12} fontWeight={800} fill={t.teks2}>{tetap ? 'EMAS PER HARI' : 'EMAS PER HARI vs PROYEKSI PER HARI'}</text>
+      {!tetap && <path d={garis(hari.map((h, i) => [x(i) + dx, yH(h.proyeksi)]))} fill="none" stroke={t.proyHarian} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />}
       <path d={garis(real.map(p => [x(p.i) - dx, yH(p.h.realisasi)]))} fill="none" stroke={t.harian} strokeWidth={3} />
-      {hari.map((h, i) => (
+      {!tetap && hari.map((h, i) => (
         <g key={`ph${i}`}>
           <circle cx={x(i) + dx} cy={yH(h.proyeksi)} r={R * 0.78} fill={t.latar ?? '#07111c'} stroke={t.proyHarian} strokeWidth={1.8} strokeDasharray="3 2" />
           <text x={x(i) + dx} y={yH(h.proyeksi) + 4} textAnchor="middle" fontSize={11} fontWeight={800} fill={t.proyHarian}>{h.proyeksi}</text>
@@ -240,7 +253,9 @@ async function unduhExcel(data: Extract<Data, { ada: true }>, rincian: RincianEm
   const g1 = renderToStaticMarkup(<GrafikHarian data={data}
     judul={['Raihan Emas Harian Kab. Bandung', `pada Porprov XV 2026 (${awal} – ${sampai})`]} />)
   const g2 = renderToStaticMarkup(<GrafikBanding data={data} tema={TERANG} cetak
-    judul={['Realisasi vs Proyeksi Emas: per Hari & Kumulatif', `Kab. Bandung · Porprov XV 2026 · target ${data.total_proyeksi} emas — sudah terkejar atau belum`]} />)
+    judul={data.target_tetap
+      ? ['Realisasi Emas vs Target KONI: per Hari & Kumulatif', `Kab. Bandung · Porprov XV 2026 · target KONI ${data.total_proyeksi} emas — sudah terkejar atau belum`]
+      : ['Realisasi vs Proyeksi Emas: per Hari & Kumulatif', `Kab. Bandung · Porprov XV 2026 · target ${data.total_proyeksi} emas — sudah terkejar atau belum`]} />)
   const ukuran = (m: string) => Number(/viewBox="0 0 \d+ (\d+)"/.exec(m)?.[1] ?? 470)
   const gambar = await Promise.all([g1, g2].map(m => svgKePng(m, 1000, ukuran(m))))
   const tinggi = [g1, g2].map(m => Math.round(ukuran(m) * 0.9))
@@ -268,21 +283,30 @@ async function unduhExcel(data: Extract<Data, { ada: true }>, rincian: RincianEm
   s1.getCell('A1').font = { bold: true, size: 14 }
   s1.getCell('A2').value = `Periode ${awal} – ${sampai} 2026 · hanya medali yang sudah disahkan KONIDA`
   s1.getCell('A2').font = { italic: true, color: { argb: 'FF666666' } }
-  kepala(s1, 4, ['Tanggal', 'Hari', 'Emas per hari', 'Kumulatif', 'Proyeksi per hari', 'Proyeksi kumulatif', 'Selisih kumulatif'])
+  const tetap = !!data.target_tetap
+  kepala(s1, 4, tetap
+    ? ['Tanggal', 'Hari', 'Emas per hari', 'Kumulatif', 'Target KONI', 'Selisih ke target']
+    : ['Tanggal', 'Hari', 'Emas per hari', 'Kumulatif', 'Proyeksi per hari', 'Proyeksi kumulatif', 'Selisih kumulatif'])
+  const kolSel = tetap ? 6 : 7
   real.forEach((h, i) => {
     const row = s1.getRow(5 + i)
     const sel = h.kum_realisasi! - h.kum_proyeksi
-    row.values = [tgl(h.tanggal), hariDari(h.tanggal), h.realisasi, h.kum_realisasi!, h.proyeksi, h.kum_proyeksi, sel]
+    row.values = tetap
+      ? [tgl(h.tanggal), hariDari(h.tanggal), h.realisasi, h.kum_realisasi!, h.kum_proyeksi, sel]
+      : [tgl(h.tanggal), hariDari(h.tanggal), h.realisasi, h.kum_realisasi!, h.proyeksi, h.kum_proyeksi, sel]
     row.eachCell((c: any) => { c.border = kotak; c.alignment = { horizontal: 'center' } })
-    if (sel < 0) row.getCell(7).font = { color: { argb: 'FFC62828' } }
+    if (sel < 0) row.getCell(kolSel).font = { color: { argb: 'FFC62828' } }
   })
   const rt = 5 + real.length
   const akhirR = real[real.length - 1]
   const tot = s1.getRow(rt)
-  tot.values = ['TOTAL', '', data.total_realisasi, akhirR?.kum_realisasi ?? 0, data.proyeksi_sd_batas, data.proyeksi_sd_batas, (akhirR?.kum_realisasi ?? 0) - data.proyeksi_sd_batas]
+  const selAkhir = (akhirR?.kum_realisasi ?? 0) - data.proyeksi_sd_batas
+  tot.values = tetap
+    ? ['TOTAL', '', data.total_realisasi, akhirR?.kum_realisasi ?? 0, data.total_proyeksi, selAkhir]
+    : ['TOTAL', '', data.total_realisasi, akhirR?.kum_realisasi ?? 0, data.proyeksi_sd_batas, data.proyeksi_sd_batas, selAkhir]
   tot.eachCell((c: any) => { c.border = kotak; c.font = { bold: true }; c.alignment = { horizontal: 'center' } })
   const sisa = data.hari.filter(h => h.kum_realisasi == null)
-  if (sisa.length) {
+  if (sisa.length && !tetap) {
     s1.getCell(`A${rt + 1}`).value = `Sisa proyeksi ${labelTanggal(sisa[0].tanggal)}–${labelTanggal(sisa[sisa.length - 1].tanggal)}: ${sisa.map(h => h.proyeksi).join(' + ')} = ${sisa.reduce((a, h) => a + h.proyeksi, 0)} emas (target akhir ${data.total_proyeksi}).`
     s1.getCell(`A${rt + 1}`).font = { italic: true, color: { argb: 'FF666666' } }
   }
@@ -327,7 +351,7 @@ async function unduhExcel(data: Extract<Data, { ada: true }>, rincian: RincianEm
   // 3. Per Cabor
   const s3 = wb.addWorksheet('Per Cabor')
   s3.columns = [22, 14, 14, 10, 40].map(width => ({ width }))
-  kepala(s3, 1, ['Cabang Olahraga', 'Realisasi emas', 'Proyeksi emas', 'Selisih', 'Tanggal emas'])
+  kepala(s3, 1, ['Cabang Olahraga', 'Realisasi emas', data.target_tetap ? 'Target KONI' : 'Proyeksi emas', 'Selisih', 'Tanggal emas'])
   const urut = [...data.per_cabor].sort((a, b) => b.realisasi - a.realisasi || a.cabor.localeCompare(b.cabor))
   urut.forEach((k, i) => {
     const tg = Array.from(new Set(rincian.filter(x => x.cabor === k.cabor).map(x => labelTanggal(x.tanggal)))).join(', ')
@@ -391,6 +415,8 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
   const cabor = semuaCabor ? data.per_cabor : data.per_cabor.slice(0, 10)
   const maksCabor = Math.max(1, ...data.per_cabor.map(c => Math.max(c.proyeksi, c.realisasi)))
   const pilihHari = (t: string | null) => { setDisentuh(true); setPilih(t) }
+  const tetap = !!data.target_tetap
+  const kata = tetap ? 'target' : 'proyeksi'
 
   return (
     <div className="rounded-3xl overflow-hidden" style={{ background: 'linear-gradient(160deg, rgba(20,83,45,0.22), rgba(2,10,20,0.75) 45%)', border: '1px solid rgba(163,230,53,0.15)' }}>
@@ -404,8 +430,8 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
         <span className="ml-auto flex items-center gap-4 text-[11px] flex-wrap" style={{ color: TEKS.kedua }}>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full" style={{ background: HARIAN }} />Emas per hari</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full" style={{ background: KUMUL }} />Jumlah emas</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full" style={{ border: `1.5px dashed ${PROY_HARIAN}` }} />Proyeksi per hari</span>
-          <span className="flex items-center gap-1.5"><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke={PROY} strokeWidth="2" strokeDasharray="5 3" /></svg>Proyeksi kumulatif</span>
+          {!tetap && <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full" style={{ border: `1.5px dashed ${PROY_HARIAN}` }} />Proyeksi per hari</span>}
+          <span className="flex items-center gap-1.5"><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke={PROY} strokeWidth="2" strokeDasharray="5 3" /></svg>{tetap ? `Target KONI ${data.total_proyeksi}` : 'Proyeksi kumulatif'}</span>
           <button disabled={mengunduh} className="px-3 py-1.5 rounded-lg text-[11px] font-black disabled:opacity-60"
             onClick={async () => {
               setMengunduh(true)
@@ -425,9 +451,9 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
             <div className="text-[11px]" style={{ color: TEKS.kedua }}>{data.batas ? `${labelTanggal(data.hari[0].tanggal)} – ${labelTanggal(data.batas)}` : 'belum ada yang disahkan'}</div>
           </div>
           <div className="rounded-2xl px-4 py-3" style={{ background: `${warnaSelisih}12`, border: `1px solid ${warnaSelisih}45` }}>
-            <div className="text-[10px] uppercase tracking-widest" style={{ color: TEKS.redup }}>Vs proyeksi s.d. {data.batas ? labelTanggal(data.batas) : 'hari ini'}</div>
+            <div className="text-[10px] uppercase tracking-widest" style={{ color: TEKS.redup }}>{tetap ? `Vs target KONI ${data.total_proyeksi}` : `Vs proyeksi s.d. ${data.batas ? labelTanggal(data.batas) : 'hari ini'}`}</div>
             <div className="text-3xl font-black leading-tight" style={{ color: warnaSelisih }}>{data.batas ? `${selisih > 0 ? '+' : ''}${selisih}` : '—'}</div>
-            <div className="text-[11px]" style={{ color: TEKS.kedua }}>{realSdBatas} dari proyeksi {data.proyeksi_sd_batas}</div>
+            <div className="text-[11px]" style={{ color: TEKS.kedua }}>{realSdBatas} dari {kata} {data.proyeksi_sd_batas}</div>
           </div>
           <div className="rounded-2xl px-4 py-3" style={KARTU}>
             <div className="text-[10px] uppercase tracking-widest" style={{ color: TEKS.redup }}>Hari terbaik</div>
@@ -438,7 +464,7 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
             <div className="text-[10px] uppercase tracking-widest" style={{ color: TEKS.redup }}>Menuju target {data.total_proyeksi}</div>
             <div className="text-3xl font-black leading-tight" style={{ color: TEKS.utama }}>{kurang ? <>{kurang} <span className="text-sm font-bold" style={{ color: TEKS.kedua }}>emas lagi</span></> : 'Tercapai 🎉'}</div>
             <div className="text-[11px]" style={{ color: TEKS.kedua }}>
-              {kurang && sisaHari ? `${sisaHari} hari tersisa · ±${Math.ceil(kurang / sisaHari)} emas/hari` : kurang ? 'jadwal proyeksi sudah habis' : 'target proyeksi terlampaui'}
+              {kurang && sisaHari ? `${sisaHari} hari tersisa · ±${Math.ceil(kurang / sisaHari)} emas/hari` : kurang ? (tetap ? 'Porprov sudah selesai' : 'jadwal proyeksi sudah habis') : (tetap ? 'target KONI terlampaui' : 'target proyeksi terlampaui')}
             </div>
           </div>
           <div className="rounded-2xl px-4 py-3" style={KARTU}>
@@ -453,7 +479,7 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
         {/* grafik */}
         <div className="rounded-2xl p-3" style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.05)' }}>
           <div className="flex items-center justify-between px-1 mb-1 flex-wrap gap-2">
-            <div className="text-xs font-bold" style={{ color: TEKS.kedua }}>Proyeksi raihan emas harian vs realisasi</div>
+            <div className="text-xs font-bold" style={{ color: TEKS.kedua }}>{tetap ? `Raihan emas harian vs target KONI ${data.total_proyeksi}` : 'Proyeksi raihan emas harian vs realisasi'}</div>
             <div className="text-[10px]" style={{ color: TEKS.redup }}>Klik tanggal untuk melihat emas hari itu</div>
           </div>
           <GrafikBanding data={data} pilih={pilih} setPilih={pilihHari} />
@@ -481,7 +507,7 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
             </div>
             <div className="text-[11px]" style={{ color: TEKS.kedua }}>
               {titikPilih
-                ? `${titikPilih.realisasi} emas (proyeksi ${titikPilih.proyeksi}) · total sampai hari itu ${titikPilih.kum_realisasi ?? '—'}`
+                ? `${titikPilih.realisasi} emas${tetap ? '' : ` (proyeksi ${titikPilih.proyeksi})`} · total sampai hari itu ${titikPilih.kum_realisasi ?? '—'}`
                 : `${rincian.length} emas · ${new Set(rincian.map(r => r.cabor)).size} cabor`}
             </div>
           </div>
@@ -513,7 +539,7 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
 
         {/* per cabor */}
         <div>
-          <div className="text-xs font-bold mb-2" style={{ color: TEKS.kedua }}>Per cabor <span className="font-normal" style={{ color: TEKS.redup }}>· realisasi vs proyeksi, yang paling tertinggal di atas</span></div>
+          <div className="text-xs font-bold mb-2" style={{ color: TEKS.kedua }}>Per cabor <span className="font-normal" style={{ color: TEKS.redup }}>· realisasi vs {tetap ? 'target KONI per cabor' : 'proyeksi'}, yang paling tertinggal di atas</span></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
             {cabor.map(c => (
               <div key={c.cabor} className="flex items-center gap-3 text-[11px]">
@@ -537,7 +563,7 @@ export default function GrafikProyeksiEmas({ kontingenId }: { kontingenId: numbe
         </div>
 
         <p className="text-[10px]" style={{ color: TEKS.redup }}>
-          Sumber proyeksi: {data.sumber.join(', ')}. Realisasi = laporan lapangan yang sudah disahkan KONIDA; satu nomor = satu emas. Disegarkan otomatis tiap 1 menit.
+          Sumber {kata}: {data.sumber.join(', ')}. Realisasi = laporan lapangan yang sudah disahkan KONIDA; satu nomor = satu emas. Disegarkan otomatis tiap 1 menit.
         </p>
       </div>
     </div>

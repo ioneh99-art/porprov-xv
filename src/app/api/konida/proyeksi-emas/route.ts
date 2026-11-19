@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tanggalWIB } from '@/lib/lapor'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
-import { rapikanNama, rapikanNomor, susunProyeksi, urutkanRincian, type RincianEmas } from '@/lib/proyeksi'
+import { pakaiTargetTetap, rapikanNama, rapikanNomor, susunProyeksi, urutkanRincian, type RincianEmas } from '@/lib/proyeksi'
+import { SUMBER_TARGET_KONI, TARGET_EMAS_KONI, TARGET_KONI_KONTINGEN } from '@/lib/target-emas-koni'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   }
   if (!proyeksi.length) return NextResponse.json({ ada: false })
 
-  const idCabor = Array.from(new Set([...proyeksi, ...sah].map(x => x.cabor_id).filter((x): x is number => x != null)))
+  const idCabor = Array.from(new Set([...proyeksi, ...sah, ...TARGET_EMAS_KONI].map(x => x.cabor_id).filter((x): x is number => x != null)))
   const { data: cabor } = idCabor.length ? await db.from('cabang_olahraga').select('id,nama').in('id', idCabor) : { data: [] as any[] }
   const nama = new Map((cabor ?? []).map((c: any) => [c.id, c.nama as string]))
 
@@ -47,10 +48,17 @@ export async function GET(req: NextRequest) {
     nilai: l.nilai_teks || null,
   })))
 
+  const realisasi = sah.map(l => ({ tanggal: l.tanggal, cabor: nama.get(l.cabor_id) ?? `Cabor ${l.cabor_id}` }))
   const ringkas = susunProyeksi(
     proyeksi.map(p => ({ tanggal: p.tanggal, cabor: nama.get(p.cabor_id) ?? p.cabor_teks })),
-    sah.map(l => ({ tanggal: l.tanggal, cabor: nama.get(l.cabor_id) ?? `Cabor ${l.cabor_id}` })),
+    realisasi,
     tanggalWIB(),
   )
+  // Kab. Bandung: pembanding = target KONI 54 per cabor (tanpa tanggal); proyeksi
+  // bertanggal hanya dipakai untuk rentang hari. Kontingen lain tetap proyeksi.
+  if (a.kontingen_id === TARGET_KONI_KONTINGEN) {
+    const target = TARGET_EMAS_KONI.map(t => ({ cabor: nama.get(t.cabor_id) ?? t.cabor, emas: t.emas }))
+    return NextResponse.json({ ada: true, sumber: [SUMBER_TARGET_KONI], ...pakaiTargetTetap(ringkas, target, realisasi), rincian })
+  }
   return NextResponse.json({ ada: true, sumber: Array.from(new Set(proyeksi.map(p => p.sumber))), ...ringkas, rincian })
 }

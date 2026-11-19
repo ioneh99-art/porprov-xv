@@ -1,6 +1,6 @@
 'use client'
 // Halaman Perolehan Medali (menu di bawah War Room): klasemen KONI Jabar vs data kita
-// dan situasi perolehan emas (proyeksi KONI vs realisasi). Dipindah dari War Room 16 Nov.
+// dan situasi perolehan emas (target KONI 54 vs realisasi, sejak 19 Nov). Dipindah dari War Room 16 Nov.
 
 import { useEffect, useState } from 'react'
 import { Medal, RefreshCw } from 'lucide-react'
@@ -30,7 +30,7 @@ export default function HalamanPerolehanMedali() {
           <div>
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-amber-300"><Medal size={14} /> Command Center</div>
             <h1 className="text-2xl font-black mt-1">Perolehan Medali — Kab. Bandung</h1>
-            <p className="text-sm text-zinc-400 mt-1">Klasemen resmi KONI Jabar dibanding data kita, dan situasi perolehan emas terhadap proyeksi KONI.</p>
+            <p className="text-sm text-zinc-400 mt-1">Klasemen resmi KONI Jabar dibanding data kita, dan situasi perolehan emas terhadap target KONI 54.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {r && r.laga > 0 && (

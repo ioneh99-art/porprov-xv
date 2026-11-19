@@ -24,6 +24,8 @@ export interface RingkasProyeksi {
   /** Proyeksi kumulatif sampai batas — pembanding yang adil untuk realisasi. */
   proyeksi_sd_batas: number
   status: StatusProyeksi
+  /** true = pembanding berupa target tetap tanpa tanggal (garis datar), bukan proyeksi per hari. */
+  target_tetap?: boolean
 }
 
 /**
@@ -72,6 +74,33 @@ export function susunProyeksi(
     .sort((a, b) => a.selisih - b.selisih || b.proyeksi - a.proyeksi || a.cabor.localeCompare(b.cabor))
 
   return { hari, per_cabor, total_proyeksi: proyeksi.length, total_realisasi: realisasi.length, batas, proyeksi_sd_batas, status }
+}
+
+/**
+ * Ganti pembanding proyeksi bertanggal dengan target tetap per cabor (tanpa tanggal).
+ * Rentang hari & batas tetap dari `dasar`; garis target = total di setiap hari
+ * (garis datar), proyeksi per hari = 0, per cabor dibandingkan dengan target cabor.
+ */
+export function pakaiTargetTetap(
+  dasar: RingkasProyeksi,
+  target: { cabor: string; emas: number }[],
+  realisasi: { cabor: string }[],
+): RingkasProyeksi {
+  const total = target.reduce((a, t) => a + t.emas, 0)
+  const hari = dasar.hari.map(h => ({ ...h, proyeksi: 0, kum_proyeksi: total }))
+  const titikBatas = dasar.batas ? hari.find(h => h.tanggal === dasar.batas) : undefined
+  const real = titikBatas?.kum_realisasi ?? 0
+  const status: StatusProyeksi = !dasar.batas ? 'belum_mulai' : real > total ? 'di_depan' : real === total ? 'sesuai' : 'di_belakang'
+
+  const peta = new Map<string, CaborProyeksi>()
+  const ambil = (c: string) => peta.get(c) ?? (peta.set(c, { cabor: c, proyeksi: 0, realisasi: 0, selisih: 0 }), peta.get(c)!)
+  for (const t of target) ambil(t.cabor).proyeksi += t.emas
+  for (const r of realisasi) ambil(r.cabor).realisasi++
+  const per_cabor = Array.from(peta.values())
+    .map(c => ({ ...c, selisih: c.realisasi - c.proyeksi }))
+    .sort((a, b) => a.selisih - b.selisih || b.proyeksi - a.proyeksi || a.cabor.localeCompare(b.cabor))
+
+  return { ...dasar, hari, per_cabor, total_proyeksi: total, proyeksi_sd_batas: dasar.batas ? total : 0, status, target_tetap: true }
 }
 
 /** "2026-11-03" → "3 Nov" untuk sumbu grafik. */

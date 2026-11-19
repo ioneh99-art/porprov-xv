@@ -163,7 +163,8 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
   // ── Turunan data ──
   const r = data?.rekap
   const t = data?.target
-  const persenKoni = t && t.emas_koni > 0 && r ? Math.min(100, Math.round((r.emas / t.emas_koni) * 100)) : 0
+  // Persen boleh lewat 100 (65 dari 54 = 120%); bilahnya saja yang dibatasi penuh.
+  const persenKoni = t && t.emas_koni > 0 && r ? Math.round((r.emas / t.emas_koni) * 100) : 0
   const caborMedali = (data?.per_cabor ?? []).filter(c => c.emas + c.perak + c.perunggu > 0).slice(0, 8)
   // Tanggal terbaru di atas: hasil hari ini langsung terbaca tanpa menunggu gulir.
   const perTanggal = useMemo(() => kelompokPerTanggal((data?.medali_semua ?? []) as MedaliLayar[]).reverse(), [data])
@@ -176,10 +177,10 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
   const klasemenMulai = klasemenDimulai(klasemen, namaKita)
   const peringkat = klasemenMulai ? klasemen.findIndex(k => k.nama.trim().toUpperCase() === namaKita) + 1 : 0
   const grafik = useMemo(() => {
-    if (proyeksi && proyeksi.ada) return { ada_proyeksi: true, hari: proyeksi.hari.map(h => ({ ...h, label: labelTanggal(h.tanggal) })), total_proyeksi: proyeksi.total_proyeksi }
+    if (proyeksi && proyeksi.ada) return { ada_proyeksi: true, target_tetap: !!proyeksi.target_tetap, hari: proyeksi.hari.map(h => ({ ...h, label: labelTanggal(h.tanggal) })), total_proyeksi: proyeksi.total_proyeksi }
     let kum = 0
     const hari = (data?.per_hari ?? []).map(h => { kum += h.emas; return { tanggal: h.tanggal, label: labelTanggal(h.tanggal), proyeksi: 0, realisasi: h.emas, kum_proyeksi: 0, kum_realisasi: kum } })
-    return { ada_proyeksi: false, hari, total_proyeksi: 0 }
+    return { ada_proyeksi: false, target_tetap: false, hari, total_proyeksi: 0 }
   }, [proyeksi, data])
   const idxAkhirReal = grafik.hari.reduce((j, h, i) => h.kum_realisasi != null ? i : j, -1)
 
@@ -263,7 +264,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
                   </div>
                 </div>
                 <div className="rounded-full overflow-hidden bg-white/10 mt-[0.6vw]" style={{ height: '1.1vw' }}>
-                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${persenKoni}%`, background: `linear-gradient(90deg, #b8860b, ${WARNA.emas})` }} />
+                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, persenKoni)}%`, background: `linear-gradient(90deg, #b8860b, ${WARNA.emas})` }} />
                 </div>
                 <div className="text-slate-400 mt-[0.5vw]" style={{ fontSize: '0.95vw' }}>{persenKoni}% tercapai</div>
               </div>
@@ -320,7 +321,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
             <div className="font-black leading-none tabular-nums" style={{ fontSize: '4vw', color: WARNA.emas }}>{r?.emas ?? 0}</div>
           </div>
           <div className={kotak} style={{ padding: '0.9vw 1.6vw' }}>
-            <div className={judulKecil} style={{ fontSize: '1vw' }}>{grafik.ada_proyeksi ? 'Proyeksi KONI' : 'Hari bertanding'}</div>
+            <div className={judulKecil} style={{ fontSize: '1vw' }}>{grafik.ada_proyeksi ? (grafik.target_tetap ? 'Target KONI' : 'Proyeksi KONI') : 'Hari bertanding'}</div>
             <div className="font-black leading-none tabular-nums" style={{ fontSize: '4vw' }}>{grafik.ada_proyeksi ? grafik.total_proyeksi : grafik.hari.length}</div>
           </div>
           <div className={kotak} style={{ padding: '0.9vw 1.6vw' }}>
@@ -334,7 +335,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
           </div>
         </div>
         <div className="flex items-center gap-[2vw] mt-[1vw] shrink-0" style={{ fontSize: '1.1vw' }}>
-          {grafik.ada_proyeksi && <span className="flex items-center gap-[0.6vw] text-slate-300"><svg width={vw * 2.4} height={vw * 0.4}><line x1="0" y1={vw * 0.2} x2={vw * 2.4} y2={vw * 0.2} stroke={PROY} strokeWidth={vw * 0.2} strokeDasharray={`${vw * 0.6} ${vw * 0.35}`} /></svg>Proyeksi KONI</span>}
+          {grafik.ada_proyeksi && <span className="flex items-center gap-[0.6vw] text-slate-300"><svg width={vw * 2.4} height={vw * 0.4}><line x1="0" y1={vw * 0.2} x2={vw * 2.4} y2={vw * 0.2} stroke={PROY} strokeWidth={vw * 0.2} strokeDasharray={`${vw * 0.6} ${vw * 0.35}`} /></svg>{grafik.target_tetap ? `Target KONI ${grafik.total_proyeksi} emas` : 'Proyeksi KONI'}</span>}
           <span className="flex items-center gap-[0.6vw] text-slate-300"><svg width={vw * 2.4} height={vw * 0.4}><line x1="0" y1={vw * 0.2} x2={vw * 2.4} y2={vw * 0.2} stroke={REAL} strokeWidth={vw * 0.2} /></svg>Emas diraih (disahkan)</span>
         </div>
         <div className="flex-1 min-h-0 grid gap-[1.6vw] mt-[0.8vw]" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
@@ -370,7 +371,7 @@ export default function LayarMedali({ kontingenId, onTutup }: { kontingenId: num
                     <XAxis dataKey="label" {...sumbu} interval="preserveStartEnd" minTickGap={vw} />
                     <YAxis {...sumbu} axisLine={false} allowDecimals={false} width={vw * 3} />
                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: '#0b1622', border: '1px solid rgba(255,255,255,0.15)', fontSize: huruf }} />
-                    {grafik.ada_proyeksi && <Bar dataKey="proyeksi" name="Proyeksi" fill={PROY} radius={[4, 4, 0, 0]} maxBarSize={vw * 1.1} isAnimationActive={false} />}
+                    {grafik.ada_proyeksi && !grafik.target_tetap && <Bar dataKey="proyeksi" name="Proyeksi" fill={PROY} radius={[4, 4, 0, 0]} maxBarSize={vw * 1.1} isAnimationActive={false} />}
                     <Bar dataKey="realisasi" name="Emas diraih" fill={REAL} radius={[4, 4, 0, 0]} maxBarSize={vw * 1.1} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>

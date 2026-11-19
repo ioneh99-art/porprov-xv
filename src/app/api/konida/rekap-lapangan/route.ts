@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adalahMedali, capaianTarget, hariPorprov, petaCabang, rekapMedali, tanggalWIB, tulisHasil } from '@/lib/lapor'
 import { ambilAdminLapor } from '@/lib/lapor-admin'
 import { ambilSemua, dbLapor } from '@/lib/lapor-sesi'
+import { TARGET_EMAS_KONI, TARGET_KONI_KONTINGEN } from '@/lib/target-emas-koni'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -112,7 +113,9 @@ export async function GET(req: NextRequest) {
     target: {
       ada: !!akhir || (proyeksiEmas ?? 0) > 0,
       // Proyeksi KONI dulu; angka berkas analisis (94) hanya cadangan bila proyeksi belum diimpor.
-      emas_koni: (proyeksiEmas ?? 0) > 0 ? proyeksiEmas! : targetKoni, emas_cabor: targetCaborTotal,
+      // Kab. Bandung: target KONI 54 (berkas Capaian Medali Emas, sejak 19 Nov) menggantikan proyeksi 74.
+      emas_koni: k === TARGET_KONI_KONTINGEN ? TARGET_EMAS_KONI.reduce((n, t) => n + t.emas, 0)
+        : (proyeksiEmas ?? 0) > 0 ? proyeksiEmas! : targetKoni, emas_cabor: targetCaborTotal,
       atlet_emas: capaian.length,
       tercapai: capaian.filter(c => c.status === 'tercapai').length,
       belum_emas: capaian.filter(c => c.status === 'belum_emas').length,

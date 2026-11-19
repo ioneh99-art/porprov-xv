@@ -12,6 +12,7 @@ import { KOLOM_PARTAI } from '@/lib/partai-server'
 import { jadwalPada } from '@/lib/layar'
 import type { BarisJadwal } from '@/lib/matriks'
 import { keadaanPic } from '@/lib/jalur-lapor'
+import { TARGET_EMAS_KONI, TARGET_KONI_KONTINGEN } from '@/lib/target-emas-koni'
 import { cariAtletProyeksi, kalenderPanas, koordinatKota, lagaLive, partaiBerikut, pecahNamaProyeksi, statusMisi, type AtletCalon, type CalonEmas, type EmasKejutan, type WajahCalon, type PartaiWR, type ProyeksiBaris } from '@/lib/warroom'
 
 export const runtime = 'nodejs'
@@ -178,7 +179,8 @@ export async function GET(req: NextRequest) {
   })
 
   return NextResponse.json({
-    target_emas: proyeksi.length,
+    // Kab. Bandung: target KONI 54 (sejak 19 Nov); misi/kalender tetap dari proyeksi bertanggal.
+    target_emas: k === TARGET_KONI_KONTINGEN ? TARGET_EMAS_KONI.reduce((n, t) => n + t.emas, 0) : proyeksi.length,
     hasil_terbaru: hasilTerbaru,
     sorotan,
     hari_ini: hariIni, jam_kini: jamKini, hari_ke: hariPorprov(hariIni), diperbarui: new Date().toISOString(),

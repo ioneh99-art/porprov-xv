@@ -1,7 +1,7 @@
 'use client'
 // src/app/konida/warroom/kabbandung/page.tsx — v4 (28 Okt 2026)
 // Khusus PORPROV XV, tanpa data contoh / POPDA. Urutan:
-//  1. Header + KPI (peringkat dari klasemen, target = proyeksi KONI, laga live)
+//  1. Header + KPI (peringkat dari klasemen, target = target KONI 54, laga live)
 //  2. Misi Emas Hari Ini  |  Arena (sedang main & berikutnya)
 //  3. Gap ke Puncak | Pertarungan Peringkat | Top Klasemen (+ input klasemen resmi)
 //  4. Pacuan proyeksi vs realisasi (grafik)
@@ -68,8 +68,9 @@ export default function PageWarRoom() {
   const [inputKlasemen, setInputKlasemen] = useState(false)
   const [panelCC, setPanelCC] = useState(false)
   const [versi, setVersi] = useState(0)   // naik setelah klasemen resmi disimpan → muat ulang klasemen
-  // Target emas = proyeksi KONI (berkas PPT Grafik Raihan Emas), sama dengan grafik di bawah.
+  // Target emas = target KONI 54 (berkas Capaian Medali Emas, sejak 19 Nov), sama dengan grafik Perolehan Medali.
   const [targetEmas, setTargetEmas] = useState<number | null>(null)
+  const [targetTetap, setTargetTetap] = useState(false)
 
   // Alamat ...?layar=1 langsung membuka mode layar — untuk komputer videotron.
   useEffect(() => { if (new URLSearchParams(window.location.search).get('layar') === '1') setLayar(true) }, [])
@@ -84,6 +85,7 @@ export default function PageWarRoom() {
       const r = await fetch(`/api/konida/proyeksi-emas${Q}`, { cache: 'no-store' })
       const j = r.ok ? await r.json().catch(() => null) : null
       setTargetEmas(j?.ada && j.total_proyeksi > 0 ? j.total_proyeksi : null)
+      setTargetTetap(!!j?.target_tetap)
     }
     async function muatMedali() {
       const lap = await ambilRekapLapangan(4)
@@ -304,7 +306,7 @@ export default function PageWarRoom() {
         <div {...ani(0)} className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
           {([
             { l:'Peringkat',    v: rankWR ? `#${rankWR}` : '—', c:'#ffd700', sub: rankWR ? `dari ${klasemen.length || 27} kontingen` : summary.total_medali ? 'menunggu klasemen resmi panitia' : 'klasemen belum mulai', icon:'👑' },
-            { l:'Medali Emas',  v:summary.emas,               c:'#ffd700', sub: targetEmas ? `/ ${targetEmas} proyeksi KONI` : 'emas',  icon:'🥇' },
+            { l:'Medali Emas',  v:summary.emas,               c:'#ffd700', sub: targetEmas ? `/ ${targetEmas} ${targetTetap ? 'target' : 'proyeksi'} KONI` : 'emas',  icon:'🥇' },
             { l:'Medali Perak', v:summary.perak,              c:'#c0c0c0', sub:'disahkan KONIDA',   icon:'🥈' },
             { l:'Perunggu',     v:summary.perunggu,           c:'#cd7f32', sub:'disahkan KONIDA',   icon:'🥉' },
             { l:'Total Medali', v:summary.total_medali,       c:'#3b82f6', sub:'semua jenis',       icon:'🏅' },
