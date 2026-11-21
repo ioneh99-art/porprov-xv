@@ -184,6 +184,20 @@ function LockedNavItem({ label, icon: Icon, plan }: { label: string; icon: any; 
   )
 }
 
+/** Menu fitur bersaklar yang sedang dikunci: tetap bisa diklik (halaman menjelaskan fiturnya). */
+function NavItemTerkunci({ label, href, icon: Icon }: { label: string; href: string; icon: any }) {
+  const pathname = usePathname()
+  const active   = pathname === href || pathname.startsWith(href + '/')
+  return (
+    <Link href={href} title="Fitur terkunci — dibuka oleh Superadministrator"
+      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${active ? 'bg-slate-800 text-slate-300' : 'text-slate-500 hover:bg-slate-800/60 hover:text-slate-300'}`}>
+      <Icon size={16}/>
+      <span className="flex-1">{label}</span>
+      <Lock size={11} className="text-amber-400/80"/>
+    </Link>
+  )
+}
+
 /** Badge notifikasi menu: jeda penyegaran (detik, kelipatan 30). */
 const JEDA_BADGE_DETIK = 300
 
@@ -206,6 +220,15 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
     return baru
   })
   const kontingenIdRef = useRef<number | null>(null)
+  // Saklar fitur Rapor Kontingen (dibuka/dikunci Superadministrator per kontingen).
+  const [rapor, setRapor] = useState<{ boleh: boolean } | null>(null)
+  useEffect(() => {
+    const muat = () => fetch('/api/porprov15/rapor-kontingen/akses', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null).then(j => setRapor(j ? { boleh: !!j.boleh } : null)).catch(() => {})
+    muat()
+    window.addEventListener('saklar-rapor-kontingen', muat)
+    return () => window.removeEventListener('saklar-rapor-kontingen', muat)
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -427,14 +450,17 @@ export default function KonidaSidebar({ terbuka = false, tutup }: { terbuka?: bo
 
             {/* ── 2. Premium ── */}
             <Kelompok judul="Premium" warna="rgba(245,197,24,0.75)" buka={kelompok.premium} onToggle={() => ubahKelompok('premium')}
-              aktif={dalam(['/konida/export/kabbandung', '/konida/atlet/kabbandung/idcard', '/konida/Premiumreport/kabbandung/tes-fisik', '/konida/Premiumreport/kabbandung/heatmap-cabor', '/konida/atlet/kabbandung/bpjs', '/konida/performance/kabbandung'])}
-              jumlah={6}>
+              aktif={dalam(['/konida/export/kabbandung', '/konida/atlet/kabbandung/idcard', '/konida/Premiumreport/kabbandung/tes-fisik', '/konida/Premiumreport/kabbandung/heatmap-cabor', '/konida/atlet/kabbandung/bpjs', '/konida/performance/kabbandung', '/konida/rapor-kontingen/kabbandung'])}
+              jumlah={7}>
               <NavItemPremium label="Data Gateway"   href="/konida/export/kabbandung"                          icon={Database}  tc={tc}/>
               <NavItemPremium label="Cetak ID Card"  href="/konida/atlet/kabbandung/idcard"                     icon={CreditCard} tc={tc}/>
               <NavItemPremium label="Tes Biomotorik" href="/konida/Premiumreport/kabbandung/tes-fisik"          icon={Activity}  tc={tc}/>
               <NavItemPremium label="Heatmap Cabor"  href="/konida/Premiumreport/kabbandung/heatmap-cabor"      icon={BarChart2} tc={tc}/>
               <NavItemVIP     label="Kartu BPJS"     href="/konida/atlet/kabbandung/bpjs"                       icon={ShieldCheck} />
               <NavItemVIP     label="Performance"    href="/konida/performance/kabbandung"                      icon={BarChart3} />
+              {rapor?.boleh
+                ? <NavItemVIP      label="Rapor Kontingen" href="/konida/rapor-kontingen/kabbandung" icon={Medal} />
+                : <NavItemTerkunci label="Rapor Kontingen" href="/konida/rapor-kontingen/kabbandung" icon={Medal} />}
             </Kelompok>
 
             {/* ── 3. Command Center ── */}

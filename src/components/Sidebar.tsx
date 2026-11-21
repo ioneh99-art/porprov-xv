@@ -49,6 +49,7 @@ export default function Sidebar() {
       notif: counts.kejuaraan ?? 0
     },
     { label: 'Kontingen', href: '/dashboard/kontingen', icon: UserSquare2 },
+    { label: 'Rapor Kontingen', href: '/dashboard/rapor-kontingen', icon: Medal },
     { label: 'Venue', href: '/dashboard/venue', icon: MapPin },
   ]
 
