@@ -78,7 +78,7 @@ export default function EditAtletPage() {
   // Data pribadi gagal dimuat → isiannya kosong; jangan dikirim supaya data lama tidak tertimpa.
   const isiKirim = () => {
     const set: Record<string, unknown> = { ...form, cabor_id: parseInt(form.cabor_id) }
-    if (!piiAda.current) for (const k of ['no_ktp', 'telepon', 'email', 'kecamatan']) delete set[k]
+    if (!piiAda.current) for (const k of ['no_ktp', 'no_kk', 'tempat_lahir', 'alamat', 'telepon', 'email', 'kecamatan']) delete set[k]
     return set
   }
 

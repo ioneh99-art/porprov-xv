@@ -38,7 +38,10 @@ async function ambilPeta(): Promise<Record<number, any>> {
 }
 
 /** Kolom pribadi yang ditempelkan dari rute bergerbang sesi. */
-const KOLOM_PII = ['no_ktp', 'no_rekening', 'nama_bank', 'no_hp', 'telepon', 'email', 'kecamatan'] as const
+const KOLOM_PII = [
+  'no_ktp', 'no_rekening', 'nama_bank', 'no_hp', 'telepon', 'email', 'kecamatan',
+  'no_kk', 'tempat_lahir', 'alamat', 'alamat_domisili', 'kelurahan', 'kode_pos', 'agama', 'gol_darah', 'no_hp_darurat', 'nama_kontak_darurat', 'nama_pemilik_rekening', 'cabang_bank', 'npwp', 'nama_npwp', 'no_bpjs_kesehatan', 'no_bpjs_ketenagakerjaan', 'faskes',
+] as const
 
 /** Tempelkan NIK, rekening, nama bank, dan kontak (HP/telepon/email/kecamatan) ke tiap baris. */
 export async function lengkapiPii<T extends PunyaId>(baris: T[]): Promise<T[]> {

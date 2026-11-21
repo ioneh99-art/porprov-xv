@@ -1,6 +1,7 @@
 // src/app/api/konida/atlet-pii/route.ts
-// Satu-satunya pintu ke data pribadi atlet: NIK, rekening, nama bank, dan kontak
-// (HP, telepon, email, kecamatan — ditutup dari kunci anon sejak migrasi 067).
+// Satu-satunya pintu ke data pribadi atlet: NIK, rekening, nama bank, kontak
+// (HP, telepon, email, kecamatan — ditutup dari kunci anon sejak migrasi 067), dan
+// No KK, tempat lahir, alamat, agama, golongan darah, kontak darurat, NPWP, BPJS (sejak 084).
 //
 // Sebelum ini, ketiganya ikut terbaca kunci anon lewat tabel atlet — kunci
 // yang tertanam di halaman web dan bisa diambil siapa pun dari sumber
@@ -19,6 +20,12 @@ const sb = () => createClient(
   process.env.SUPABASE_SERVICE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } },
 )
+/** Kolom pribadi di tabel atlet yang hanya boleh lewat rute ini (kunci anon dicabut, migrasi 067 & 084). */
+const KOLOM_ATLET = [
+  'no_hp', 'telepon', 'email', 'kecamatan',
+  'no_kk', 'tempat_lahir', 'alamat', 'alamat_domisili', 'kelurahan', 'kode_pos', 'agama', 'gol_darah', 'no_hp_darurat', 'nama_kontak_darurat', 'nama_pemilik_rekening', 'cabang_bank', 'npwp', 'nama_npwp', 'no_bpjs_kesehatan', 'no_bpjs_ketenagakerjaan', 'faskes',
+] as const
+
 const adminPusat = (s: any) =>
   ['superadmin', 'koni_jabar'].includes(s.role) || ['superadmin', 'koni_jabar'].includes(s.level)
 
@@ -65,13 +72,16 @@ export async function GET(req: NextRequest) {
     for (const r of (data ?? [])) {
       pii[r.atlet_id] = { no_ktp: r.no_ktp, no_rekening: r.no_rekening, nama_bank: r.nama_bank }
     }
-    // Kontak atlet dibaca dari tabel atlet dengan kunci layanan (kunci anon tidak boleh lagi).
+    // Kontak & data pribadi lain dibaca dari tabel atlet dengan kunci layanan
+    // (kunci anon tidak boleh lagi — kontak sejak migrasi 067, sisanya sejak 084).
     const { data: kontak, error: ek } = await db.from('atlet')
-      .select('id,no_hp,telepon,email,kecamatan')
+      .select(['id', ...KOLOM_ATLET].join(','))
       .in('id', milik.slice(i, i + 500))
     if (ek) return NextResponse.json({ error: ek.message }, { status: 500 })
     for (const r of (kontak ?? []) as any[]) {
-      pii[r.id] = { ...(pii[r.id] ?? {}), no_hp: r.no_hp, telepon: r.telepon, email: r.email, kecamatan: r.kecamatan }
+      const tempel: Record<string, unknown> = {}
+      for (const k of KOLOM_ATLET) tempel[k] = r[k]
+      pii[r.id] = { ...(pii[r.id] ?? {}), ...tempel }
     }
   }
   return NextResponse.json({ pii, jumlah: Object.keys(pii).length })
