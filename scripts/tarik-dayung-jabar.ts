@@ -1,4 +1,6 @@
 // scripts/tarik-dayung-jabar.ts — tarik data Dayung se-Jawa Barat dari situs panitia PORPROV XV.
+// USANG sejak 21 Nov 2026: situs sudah final; pakai scripts/salin-dayung-dari-porprov15.ts
+// (data lengkap dari arsip seluruh situs, scripts/arsip-konijabar.ts + olah-arsip-konijabar.ts).
 //
 //   npx tsx scripts/tarik-dayung-jabar.ts           → baca & ringkas saja, tidak menulis
 //   npx tsx scripts/tarik-dayung-jabar.ts --tulis   → simpan ke tabel dayung_jabar_*

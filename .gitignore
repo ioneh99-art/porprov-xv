@@ -22,3 +22,6 @@ _backup_*.json
 scripts/seed-angkatberat-2layer.mjs
 .env*
 tsconfig.tsbuildinfo
+
+# Arsip mentah situs panitia PORPROV (besar, bisa dibuat ulang)
+data/arsip-konijabar/

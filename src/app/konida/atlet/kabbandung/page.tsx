@@ -132,6 +132,10 @@ export default function PageAtletKabBandung() {
   const [filterTesFisik, setFilterTesFisik] = useState<'semua'|'sudah'|'belum'|'top'>('semua')
   // Grup ELITE: atlet prioritas emas menurut pengurus cabor.
   const [hanyaElite, setHanyaElite] = useState(false)
+  // PORPROV XV resmi (arsip situs panitia): atlet kita yang tercatat di daftar atlet panitia.
+  const [resmi, setResmi] = useState<Record<number, { situs_id: number; slug: string; laga: number; emas: number; perak: number; perunggu: number }>>({})
+  const [resmiTotal, setResmiTotal] = useState<number | null>(null)
+  const [filterResmi, setFilterResmi] = useState<'semua'|'tercatat'|'tidak'>('semua')
   // Kategori sifat pertandingan (Beladiri, Terukur, ...) — pemilahan pengurus.
   const [petaKategori, setPetaKategori] = useState<Record<string, any>>({})
   const [filterKategori, setFilterKategori] = useState<string>('all')
@@ -302,6 +306,27 @@ export default function PageAtletKabBandung() {
     return () => { hidup = false }
   }, [])
 
+  // Daftar atlet resmi panitia PORPROV XV (porprov15_atlet), hanya yang tertaut ke atlet kita.
+  useEffect(() => {
+    let hidup = true
+    ;(async () => {
+      const { data: k } = await sb.from('porprov15_kontingen').select('situs_id').eq('kontingen_id', KONTINGEN_ID).maybeSingle()
+      if (!k) return
+      const peta: Record<number, { situs_id: number; slug: string; laga: number; emas: number; perak: number; perunggu: number }> = {}
+      let total = 0
+      for (let p = 0; ; p++) {
+        const { data: rows, count } = await sb.from('porprov15_atlet')
+          .select('situs_id, slug, atlet_id, jumlah_laga, emas, perak, perunggu', { count: p === 0 ? 'exact' : undefined })
+          .eq('kontingen_situs_id', k.situs_id).order('situs_id').range(p * 1000, p * 1000 + 999)
+        if (p === 0) total = count ?? 0
+        for (const r of rows ?? []) if (r.atlet_id) peta[r.atlet_id] = { situs_id: r.situs_id, slug: r.slug, laga: r.jumlah_laga, emas: r.emas, perak: r.perak, perunggu: r.perunggu }
+        if (!rows || rows.length < 1000) break
+      }
+      if (hidup && total > 0) { setResmi(peta); setResmiTotal(total) }
+    })().catch(() => {})
+    return () => { hidup = false }
+  }, [])
+
   const kategoriDari = (nama: string) => petaKategori[nama]?.kategori ?? null
 
   const groupedCabors = useMemo(()=>{
@@ -310,6 +335,8 @@ export default function PageAtletKabBandung() {
       : data.filter(a=>a.status_registrasi===filterStatus)
 
     if (hanyaElite) filtered = filtered.filter(a => a.prioritas_emas)
+    if (filterResmi === 'tercatat') filtered = filtered.filter(a => resmi[a.id])
+    else if (filterResmi === 'tidak') filtered = filtered.filter(a => !resmi[a.id])
 
     if (filterTesFisik === 'sudah') filtered = filtered.filter(a => a.tes_fisik != null)
     else if (filterTesFisik === 'belum') filtered = filtered.filter(a => a.tes_fisik == null)
@@ -442,7 +469,7 @@ export default function PageAtletKabBandung() {
     })
 
     return list
-  },[data, searchCabor, searchNama, filterStatus, filterTesFisik, filterRating, filterKesiapan, filterCaborStat, sortMode, hanyaElite, filterKategori, petaKategori])
+  },[data, searchCabor, searchNama, filterStatus, filterTesFisik, filterRating, filterKesiapan, filterCaborStat, sortMode, hanyaElite, filterKategori, petaKategori, filterResmi, resmi])
 
   // ── Export CSV ────────────────────────────────────────────
   const handleExport = useCallback(()=>{
@@ -718,6 +745,28 @@ export default function PageAtletKabBandung() {
               : {background:'rgba(255,255,255,0.04)', color:'rgba(255,255,255,0.35)', border:'1px solid transparent'}}>
             ELITE ({data.filter(a=>a.prioritas_emas).length})
           </button>
+
+          {/* PORPROV XV resmi — dari arsip situs panitia (tautan nama di kontingen yang sama) */}
+          {resmiTotal != null && (
+            <div className="flex items-center gap-1 pl-3 ml-1 border-l border-white/5" title={`Daftar atlet resmi panitia PORPROV XV: ${resmiTotal} atlet Kab. Bandung. Dicocokkan lewat nama.`}>
+              <span className="text-[10px] font-bold mr-1" style={{color:'rgba(52,211,153,0.6)'}}>PORPROV resmi</span>
+              {([
+                {k:'semua',    l:`Semua (${summary.total})`, c:'#94a3b8'},
+                {k:'tercatat', l:`✓ Tercatat (${data.filter(a=>resmi[a.id]).length})`, c:'#34d399'},
+                {k:'tidak',    l:`✗ Tidak tercatat (${data.filter(a=>!resmi[a.id]).length})`, c:'#f87171'},
+              ] as const).map(f=>(
+                <button key={f.k} onClick={()=>setFilterResmi(f.k)}
+                  className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
+                  style={{
+                    background: filterResmi===f.k?`${f.c}20`:'rgba(255,255,255,0.04)',
+                    color:      filterResmi===f.k?f.c:'rgba(255,255,255,0.35)',
+                    border:     filterResmi===f.k?`1px solid ${f.c}40`:'1px solid transparent',
+                  }}>
+                  {f.l}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Filter Tes Fisik */}
           <div className="flex items-center gap-2 pl-3 ml-1 border-l border-white/5">
@@ -1004,6 +1053,11 @@ export default function PageAtletKabBandung() {
                                       <div className="text-sm font-bold text-zinc-200 flex items-center gap-1.5">
                                         {a.nama_lengkap}
                                         <BadgeElite prioritas={a.prioritas_emas} capaian={a.prioritas_capaian} ukuran="mini" />
+                                        {resmi[a.id] && (
+                                          <span title="Tercatat di daftar atlet resmi panitia PORPROV XV" className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 whitespace-nowrap">
+                                            PORPROV {resmi[a.id].laga} laga{resmi[a.id].emas + resmi[a.id].perak + resmi[a.id].perunggu > 0 ? ` · ${[resmi[a.id].emas && `${resmi[a.id].emas}E`, resmi[a.id].perak && `${resmi[a.id].perak}P`, resmi[a.id].perunggu && `${resmi[a.id].perunggu}Pr`].filter(Boolean).join(' ')}` : ''}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="text-[10px] font-mono mt-0.5" style={{color:'rgba(255,255,255,0.25)'}}>{a.no_ktp}</div>
                                     </td>

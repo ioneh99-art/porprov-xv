@@ -1,11 +1,13 @@
 'use client'
 // Halaman Perolehan Medali (menu di bawah War Room): klasemen KONI Jabar vs data kita
 // dan situasi perolehan emas (target KONI 54 vs realisasi, sejak 19 Nov). Dipindah dari War Room 16 Nov.
+// 20 Nov: + rekonsiliasi akhir medali kita vs podium resmi panitia (arsip situs setelah penutupan).
 
 import { useEffect, useState } from 'react'
 import { Medal, RefreshCw } from 'lucide-react'
 import KlasemenBanding from '@/components/konida/warroom/KlasemenBanding'
 import GrafikProyeksiEmas from '@/components/konida/GrafikProyeksiEmas'
+import RekonsiliasiPodiumResmi from '@/components/konida/warroom/RekonsiliasiPodiumResmi'
 import { ambilRekapLapangan, type RekapLapangan } from '@/lib/lapor-klien'
 
 // Hanya admin pusat yang perlu menyebut kontingen; KONIDA diambil dari sesinya.
@@ -45,6 +47,7 @@ export default function HalamanPerolehanMedali() {
           </div>
         </header>
 
+        <RekonsiliasiPodiumResmi q={Q} />
         <KlasemenBanding kita={r ?? null} q={Q} />
         <GrafikProyeksiEmas kontingenId={4} />
       </div>

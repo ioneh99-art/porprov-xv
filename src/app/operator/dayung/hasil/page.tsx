@@ -132,7 +132,7 @@ export default function DayungHasilPage() {
           </div>
         </div>
       ))}
-      <div className="text-[10px] text-slate-600">Laga Slalom, Rowing, dan DBR muncul di sini setelah panitia memasukkannya ke situs resmi.</div>
+      <div className="text-[10px] text-slate-600">Data final PORPROV XV — semua laga Dayung dari arsip situs panitia setelah penutupan (20 Nov 2026).</div>
     </div>
   )
 }

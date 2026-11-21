@@ -15,6 +15,7 @@ import {
 import { getCaborAccent, getCaborIcon, caborToSlug, slugToCaborName, hasBaselineData } from '@/lib/kejuaraan/cabor-accent-map'
 import { CareerTimeline, type PrestasiEvent } from '@/components/konida/kejuaraan/CareerTimeline'
 import { PrestasiInputForm } from '@/components/konida/kejuaraan/PrestasiInputForm'
+import { HasilResmiPorprov } from '@/components/konida/kejuaraan/HasilResmiPorprov'
 
 // Kejuaraan slug → Baseline slug (baseline punya naming berbeda untuk Akuatik)
 const BASELINE_SLUG_MAP: Record<string, string> = {
@@ -311,6 +312,9 @@ export default function KejuaraanAtletDossierPage() {
         </div>
       </div>
       
+      {/* ── Hasil resmi PORPROV XV (arsip situs panitia) ── */}
+      <HasilResmiPorprov atletId={atletId} accent={accent}/>
+
       {/* ── Row 1: Aggregate Stats + Level Breakdown ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         
