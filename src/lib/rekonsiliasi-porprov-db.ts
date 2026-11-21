@@ -3,7 +3,7 @@
 // untuk satu kontingen, lalu rekonsiliasi (src/lib/rekonsiliasi-porprov.ts).
 
 import { dbLapor } from './lapor-sesi'
-import { cocokCabor } from './konijabar'
+import { baku, cocokCabor } from './konijabar'
 import { rekonsiliasi, type MedaliKita, type MedaliResmi } from './rekonsiliasi-porprov'
 
 export interface BarisBeda {
@@ -25,6 +25,9 @@ export interface LaporanRekonsiliasi {
   atletBeda: BarisBeda[]
 }
 
+/** Situs memotong daftar awak di podium halaman nomor pada 8 nama (241 podium tepat 8, tak ada yang lebih). */
+const BATAS_NAMA_PODIUM = 8
+
 export async function muatRekonsiliasi(kontingenId: number): Promise<LaporanRekonsiliasi> {
   const db = dbLapor()
   const { data: kon } = await db.from('porprov15_kontingen').select('situs_id, nama, peringkat, emas, perak, perunggu').eq('kontingen_id', kontingenId).maybeSingle()
@@ -41,11 +44,33 @@ export async function muatRekonsiliasi(kontingenId: number): Promise<LaporanReko
     db.from('laporan_hasil').select('id, cabor_id, nomor_teks, hasil, atlet_ids').eq('kontingen_id', kontingenId)
       .in('status', ['disahkan', 'tervalidasi']).in('hasil', ['emas', 'perak', 'perunggu']),
   ])
+  // Halaman nomor di situs hanya menulis BATAS_NAMA_PODIUM nama awak pertama (urut abjad). Awak lengkap ada di
+  // halaman laga final: gabungkan nama peserta laga kontingen ini yang membawa medali yang sama —
+  // hanya bila kontingen punya satu podium untuk nomor & medali itu (supaya dua perunggu tidak tercampur).
+  const awak = new Map<string, string[]>()
+  const satuPodium = new Map<string, number>()
+  ;(med ?? []).forEach((m: any) => { const k = `${m.nomor_situs_id}|${m.medali}`; satuPodium.set(k, (satuPodium.get(k) ?? 0) + 1) })
+  for (let hal = 0; ; hal++) {
+    const { data } = await db.from('porprov15_laga_peserta').select('medali, atlet_nama, porprov15_laga!inner(nomor_situs_id)')
+      .eq('kontingen_situs_id', kon.situs_id).not('medali', 'is', null).range(hal * 1000, hal * 1000 + 999)
+    ;(data ?? []).forEach((p: any) => {
+      const k = `${p.porprov15_laga?.nomor_situs_id}|${p.medali}`
+      awak.set(k, [...(awak.get(k) ?? []), ...(p.atlet_nama ?? [])])
+    })
+    if (!data || data.length < 1000) break
+  }
+  const lengkap = (m: any): string[] => {
+    const k = `${m.nomor_situs_id}|${m.medali}`
+    const terpotong = (m.atlet_nama ?? []).length >= BATAS_NAMA_PODIUM
+    const semua = [...(m.atlet_nama ?? []), ...(terpotong && satuPodium.get(k) === 1 ? awak.get(k) ?? [] : [])]
+    const lihat = new Set<string>()
+    return semua.filter(x => { const b = baku(x); if (lihat.has(b)) return false; lihat.add(b); return true })
+  }
   const resmi: MedaliResmi[] = (med ?? []).map((m: any) => {
     const n = m.porprov15_nomor, c = n?.porprov15_cabor
     const awalan = n?.disiplin && n.disiplin !== c?.nama ? `${n.disiplin} · ` : ''
     return {
-      id: m.id, nomorSitusId: m.nomor_situs_id, cabor: c?.nama ?? '', jenis: m.medali, atlet: m.atlet_nama ?? [],
+      id: m.id, nomorSitusId: m.nomor_situs_id, cabor: c?.nama ?? '', jenis: m.medali, atlet: lengkap(m),
       // Situs menulis Equestrian & Pacuan sama-sama "Berkuda": cabor ditentukan per nomor.
       caborId: cocokCabor(c?.nama ?? '', caborKita ?? [], n?.nama) ?? c?.cabor_id ?? null,
       nomor: `${awalan}${n?.nama ?? ''}`,
