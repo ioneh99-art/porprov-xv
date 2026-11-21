@@ -43,7 +43,7 @@ const termuat = (a: string, b: string) => { const x = baku(a), y = baku(b); retu
   const KB = kon!.situs_id
   const [kita, resmi, cabor, daftar, lapor, bpjs, rek, p15cabor] = await Promise.all([
     semua<any>((a, b) => db.from('atlet').select('id, nama_lengkap, status_verifikasi, cabor_id, cabor_nama_raw, gender').eq('kontingen_id', 4).in('status_verifikasi', ['Verified', 'Posted']).order('id').range(a, b)),
-    semua<any>((a, b) => db.from('porprov15_atlet').select('situs_id, slug, nama, kontingen, kontingen_situs_id, cabor, cabor_situs_id, atlet_id').order('situs_id').range(a, b)),
+    semua<any>((a, b) => db.from('porprov15_atlet').select('situs_id, slug, nama, kontingen, kontingen_situs_id, cabor, cabor_situs_id, atlet_id, emas, perak, perunggu').order('situs_id').range(a, b)),
     semua<any>((a, b) => db.from('cabang_olahraga').select('id, nama').range(a, b)),
     semua<any>((a, b) => db.from('pendaftaran_nomor').select('atlet_id, nomor, cabor_berkas').eq('kontingen_id', 4).not('atlet_id', 'is', null).range(a, b)),
     semua<any>((a, b) => db.from('laporan_hasil').select('id, hasil, nomor_teks, atlet_ids, status').eq('kontingen_id', 4).in('status', ['disahkan', 'tervalidasi']).range(a, b)),
