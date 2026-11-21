@@ -8,3 +8,9 @@ Membuat ulang draf laporan dari data terbaru (hanya membaca database):
 
 Pustaka `docx` (npm) dan `matplotlib` sengaja tidak dipasang di repo — pasang di folder kerja terpisah.
 Draf pertama dibuat 21 Nov 2026 → `~/Downloads/Laporan_Akhir_PORPROV_XV_KabBandung_DRAF.docx`.
+
+## Versi KONI Jabar (netral, tanpa umur)
+1. `npx tsx scripts/data-laporan-akhir-konijabar.ts <folder>/data-konijabar.json`
+2. `grafik-konijabar.py` → `grafik-kj/*.png`
+3. `node buat-docx-konijabar.js Laporan_KONIJabar.docx`
+Draf pertama 21 Nov 2026 → `~/Downloads/Laporan_Akhir_PORPROV_XV_KONIJabar_DRAF.docx`.
