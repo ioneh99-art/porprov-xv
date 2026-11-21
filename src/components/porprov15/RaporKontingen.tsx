@@ -4,9 +4,10 @@
 // aplikasi KONI Kab. Bandung. Data dari /api/porprov15/rapor-kontingen (gudang arsip situs panitia).
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { BarChart3, Grid3x3, Trophy, AlertTriangle, ChevronDown, ChevronRight, RefreshCw, Sprout, Swords } from 'lucide-react'
+import { BarChart3, Grid3x3, Trophy, AlertTriangle, ChevronDown, ChevronRight, RefreshCw, Sprout, Swords, CalendarDays } from 'lucide-react'
 import BibitAtlet from './BibitAtlet'
 import TabPersaingan from './Persaingan'
+import BahanPorprov from './BahanPorprov'
 import type { Rapor, RaporKontingen as RK, RingkasCabor, Persaingan } from '@/lib/rapor-kontingen'
 
 const WARNA = { emas: '#F5C518', perak: '#cbd5e1', perunggu: '#d97706' }
@@ -15,7 +16,7 @@ const kartu = { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(2
 const persen = (x: number | null, d = 0) => (x == null ? '—' : `${(x * 100).toFixed(d)}%`)
 const angka = (x: number | null) => (x == null ? '—' : x.toLocaleString('id-ID', { maximumFractionDigits: 1 }))
 
-type Tab = 'rapor' | 'peta' | 'cabor' | 'bibit' | 'persaingan'
+type Tab = 'rapor' | 'peta' | 'cabor' | 'bibit' | 'persaingan' | 'bahan'
 type Urut = 'peringkat' | 'efisiensi' | 'emas100' | 'menang'
 
 function Medali({ e, p, g, kecil }: { e: number; p: number; g: number; kecil?: boolean }) {
@@ -117,6 +118,7 @@ export default function RaporKontingen({ sorotKontingenId, aksen = '#38bdf8' }: 
         {tombolTab('cabor', 'Cabor & Penguasa', BarChart3)}
         {tombolTab('bibit', 'Bibit Atlet', Sprout)}
         {tombolTab('persaingan', 'Persaingan', Swords)}
+        {tombolTab('bahan', 'Jadwal & Venue', CalendarDays)}
         <button onClick={muat} className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-white/10 text-slate-400 hover:bg-white/5">
           <RefreshCw size={12} className={memuat ? 'animate-spin' : ''} /> Muat ulang
         </button>
@@ -264,6 +266,12 @@ export default function RaporKontingen({ sorotKontingenId, aksen = '#38bdf8' }: 
       )}
 
       {tab === 'bibit' && <BibitAtlet sorotKontingen={sorotKontingenId != null} aksen={aksen} />}
+
+      {tab === 'bahan' && (
+        <BahanPorprov aksen={aksen} namaCabor={g.namaCabor}
+          namaKontingen={new Map(data.kontingen.map(k => [k.situsId, k.nama]))}
+          sorotSitusId={data.kontingen.find(k => sorotKontingenId != null && k.kontingenId === sorotKontingenId)?.situsId ?? null} />
+      )}
 
       {tab === 'persaingan' && (
         <TabPersaingan aksen={aksen} namaCabor={g.namaCabor}
