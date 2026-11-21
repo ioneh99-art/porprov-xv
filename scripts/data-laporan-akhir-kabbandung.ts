@@ -162,7 +162,7 @@ for (const b of readFileSync('.env.local', 'utf8').split('\n')) { const m = b.ma
     persaingan: { total: jumlahRekor(milik), lawan, duelCabor, duelBerulang },
     bibit: { kb: bibitKB.slice(0, 60), mudaJumlah: bibitMuda.length, mudaEmas: bibitMuda.filter(a => a.emas > 0).length, muda: bibitMuda, seJabar: bibitSeJabar,
       kriteriaKB: bibitKB.reduce((t: Record<string, number>, a) => { a.kriteria.forEach(k => { t[k] = (t[k] ?? 0) + 1 }); return t }, {}) },
-    bahan: { ringkas: bahan.ringkas, hari: bahan.hari, venue: bahan.venue.slice(0, 15), sepiKB, sepiTop: bahan.sepiPerKontingen.slice(0, 8).map(s => ({ ...s, nama: namaK.get(s.kontingenSitusId) })) },
+    bahan: { ringkas: bahan.ringkas, hari: bahan.hari, venue: bahan.venue.slice(0, 15).map(v => ({ ...v, caborNama: v.cabor.map(c => namaCaborSitus.get(c) ?? String(c)) })), sepiKB, sepiTop: bahan.sepiPerKontingen.slice(0, 8).map(s => ({ ...s, nama: namaK.get(s.kontingenSitusId) })) },
     rekon: { jumlah: rekon.jumlah, atletBeda: rekon.atletBeda.length, nomorBeda: rekon.nomorBeda.length },
     atlet: { resmi: p15KB.length, kitaVerified: atletKB.filter(a => ['Verified', 'Posted'].includes(a.status_verifikasi)).length, bermedali: p15KB.filter(p => p.emas + p.perak + p.perunggu > 0).length, peraihEmas: p15KB.filter(p => p.emas > 0).length },
   }
